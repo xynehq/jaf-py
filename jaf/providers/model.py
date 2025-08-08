@@ -1,0 +1,178 @@
+"""
+Model provider implementations for the JAF framework.
+
+This module provides model providers that integrate with various LLM services,
+starting with LiteLLM for multi-provider support.
+"""
+
+import json
+from typing import Any, Dict, List, Optional, TypeVar, Union
+from openai import OpenAI
+from pydantic import BaseModel
+
+from ..core.types import ModelProvider, RunState, Agent, RunConfig, Message
+
+Ctx = TypeVar('Ctx')
+
+def make_litellm_provider(
+    base_url: str,
+    api_key: str = "anything"
+) -> ModelProvider[Ctx]:
+    """
+    Create a LiteLLM-compatible model provider.
+    
+    Args:
+        base_url: Base URL for the LiteLLM server
+        api_key: API key (defaults to "anything" for local servers)
+        
+    Returns:
+        ModelProvider instance
+    """
+    
+    class LiteLLMProvider:
+        def __init__(self):
+            self.client = OpenAI(
+                base_url=base_url,
+                api_key=api_key,
+                # Note: dangerouslyAllowBrowser is JavaScript-specific
+            )
+        
+        async def get_completion(
+            self,
+            state: RunState[Ctx],
+            agent: Agent[Ctx, Any],
+            config: RunConfig[Ctx]
+        ) -> Dict[str, Any]:
+            """Get completion from the model."""
+            
+            # Determine model to use
+            model = (config.model_override or 
+                    (agent.model_config.name if agent.model_config else "gpt-4o"))
+            
+            # Create system message
+            system_message = {
+                "role": "system",
+                "content": agent.instructions(state)
+            }
+            
+            # Convert messages to OpenAI format
+            messages = [system_message] + [
+                _convert_message(msg) for msg in state.messages
+            ]
+            
+            # Convert tools to OpenAI format
+            tools = None
+            if agent.tools:
+                tools = [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": tool.schema.name,
+                            "description": tool.schema.description,
+                            "parameters": _pydantic_to_json_schema(tool.schema.parameters),
+                        }
+                    }
+                    for tool in agent.tools
+                ]
+            
+            # Determine tool choice behavior
+            last_message = state.messages[-1] if state.messages else None
+            is_after_tool_call = last_message and last_message.role == 'tool'
+            
+            # Prepare request parameters
+            request_params = {
+                "model": model,
+                "messages": messages,
+            }
+            
+            # Add optional parameters
+            if agent.model_config:
+                if agent.model_config.temperature is not None:
+                    request_params["temperature"] = agent.model_config.temperature
+                if agent.model_config.max_tokens is not None:
+                    request_params["max_tokens"] = agent.model_config.max_tokens
+            
+            if tools:
+                request_params["tools"] = tools
+                if is_after_tool_call:
+                    request_params["tool_choice"] = "auto"
+            
+            if agent.output_codec:
+                request_params["response_format"] = {"type": "json_object"}
+            
+            # Make the API call
+            response = self.client.chat.completions.create(**request_params)
+            
+            # Return in the expected format
+            return response.choices[0].model_dump()
+    
+    return LiteLLMProvider()
+
+def _convert_message(msg: Message) -> Dict[str, Any]:
+    """Convert JAF Message to OpenAI message format."""
+    if msg.role == 'user':
+        return {
+            "role": "user",
+            "content": msg.content
+        }
+    elif msg.role == 'assistant':
+        result = {
+            "role": "assistant",
+            "content": msg.content,
+        }
+        if msg.tool_calls:
+            result["tool_calls"] = [
+                {
+                    "id": tc.id,
+                    "type": tc.type,
+                    "function": {
+                        "name": tc.function.name,
+                        "arguments": tc.function.arguments
+                    }
+                }
+                for tc in msg.tool_calls
+            ]
+        return result
+    elif msg.role == 'tool':
+        return {
+            "role": "tool",
+            "content": msg.content,
+            "tool_call_id": msg.tool_call_id
+        }
+    else:
+        raise ValueError(f"Unknown message role: {msg.role}")
+
+def _pydantic_to_json_schema(model_class: type[BaseModel]) -> Dict[str, Any]:
+    """
+    Convert a Pydantic model to JSON schema for OpenAI tools.
+    
+    Args:
+        model_class: Pydantic model class
+        
+    Returns:
+        JSON schema dictionary
+    """
+    if hasattr(model_class, 'model_json_schema'):
+        # Pydantic v2
+        schema = model_class.model_json_schema()
+    else:
+        # Pydantic v1 fallback
+        schema = model_class.schema()
+    
+    # Ensure the schema has the required fields for OpenAI
+    if 'type' not in schema:
+        schema['type'] = 'object'
+    
+    # Remove any unsupported fields
+    clean_schema = {
+        'type': schema.get('type', 'object'),
+        'properties': schema.get('properties', {}),
+    }
+    
+    if 'required' in schema:
+        clean_schema['required'] = schema['required']
+    
+    # Set additionalProperties to false for strict validation
+    clean_schema['additionalProperties'] = False
+    
+    return clean_schema
