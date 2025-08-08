@@ -1,3 +1,47 @@
+Metadata-Version: 2.4
+Name: jaf-python
+Version: 2.0.0
+Summary: A purely functional agent framework with immutable state and composable tools - Python implementation
+Author: JAF Contributors
+License: MIT
+Project-URL: Homepage, https://github.com/juspay/jaf-python
+Project-URL: Repository, https://github.com/juspay/jaf-python
+Project-URL: Documentation, https://github.com/juspay/jaf-python#readme
+Project-URL: Issues, https://github.com/juspay/jaf-python/issues
+Keywords: ai,agents,functional,python,llm
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: fastapi>=0.104.0
+Requires-Dist: uvicorn[standard]>=0.24.0
+Requires-Dist: openai>=1.0.0
+Requires-Dist: typing-extensions>=4.5.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.21.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.0.0; extra == "dev"
+Requires-Dist: black>=23.0.0; extra == "dev"
+Requires-Dist: isort>=5.12.0; extra == "dev"
+Requires-Dist: mypy>=1.5.0; extra == "dev"
+Requires-Dist: ruff>=0.1.0; extra == "dev"
+Provides-Extra: server
+Requires-Dist: uvicorn[standard]>=0.24.0; extra == "server"
+Provides-Extra: memory
+Requires-Dist: redis>=5.0.0; extra == "memory"
+Requires-Dist: psycopg2-binary>=2.9.0; extra == "memory"
+Provides-Extra: all
+Requires-Dist: jaf-python[dev,memory,server]; extra == "all"
+
 # JAF (Juspay Agent Framework) - Python Implementation
 
 A purely functional agent framework with immutable state and composable tools, converted from TypeScript to Python. JAF enables building production-ready AI agent systems with built-in security, observability, and error handling.
