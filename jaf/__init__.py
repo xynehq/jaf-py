@@ -11,7 +11,11 @@ from .core.errors import FAFError
 from .core.tool_results import *
 
 from .providers.model import make_litellm_provider
-# from .providers.mcp import *  # Commented out for test compatibility
+from .providers.mcp import (
+    MCPClient, MCPTool, MCPToolArgs,
+    create_mcp_websocket_client, create_mcp_stdio_client,
+    create_mcp_tools_from_client
+)
 
 from .policies.validation import *
 from .policies.handoff import *
@@ -49,6 +53,9 @@ __all__ = [
     
     # Providers
     "make_litellm_provider",
+    "MCPClient", "MCPTool", "MCPToolArgs",
+    "create_mcp_websocket_client", "create_mcp_stdio_client",
+    "create_mcp_tools_from_client",
     
     # Server
     "run_server",

@@ -7,8 +7,10 @@ the framework, maintaining immutability and type safety.
 
 from typing import (
     TypeVar, Generic, Dict, List, Optional, Union, Callable, Any, 
-    Protocol, runtime_checkable, Awaitable, NewType, Literal, ReadOnly
+    Protocol, runtime_checkable, Awaitable, NewType, Literal
 )
+
+# ReadOnly is only available in Python 3.13+, so we'll use a simpler approach
 from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
 import json
@@ -91,7 +93,7 @@ class ToolSchema(Generic[Args]):
 class Agent(Generic[Ctx, Out]):
     """An agent definition with instructions, tools, and configuration."""
     name: str
-    instructions: Callable[[ReadOnly['RunState[Ctx]']], str]
+    instructions: Callable[['RunState[Ctx]'], str]
     tools: Optional[List[Tool[Any, Ctx]]] = None
     output_codec: Optional[type[BaseModel]] = None  # Pydantic model for output validation
     handoffs: Optional[List[str]] = None

@@ -1,2 +1,2 @@
 [console_scripts]
-jaf-server = jaf.cli:main
+jaf = jaf.cli:cli_main

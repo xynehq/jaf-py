@@ -14,51 +14,16 @@ from ..core.types import Agent, RunConfig
 
 Ctx = TypeVar('Ctx')
 
-async def run_server(
-    agents: List[Agent[Ctx, Any]],
-    run_config: RunConfig[Ctx],
-    server_options: Optional[Dict[str, Any]] = None
-) -> JAFServer:
+async def run_server(config: ServerConfig) -> None:
     """
-    Start a JAF server with the given agents and configuration.
+    Start a JAF server with the given configuration.
     
     Args:
-        agents: List of agents to make available via the server
-        run_config: Configuration for running agents
-        server_options: Optional server configuration (host, port, cors)
-        
-    Returns:
-        JAFServer instance
+        config: Complete server configuration including agents and run config
     """
-    # Create agent registry
-    agent_registry = {agent.name: agent for agent in agents}
-    
-    # Default server options
-    default_options = {
-        'host': 'localhost',
-        'port': 3000,
-        'cors': True
-    }
-    
-    if server_options:
-        default_options.update(server_options)
-    
-    # Create server config
-    config = ServerConfig(
-        agent_registry=agent_registry,
-        run_config=run_config,
-        **default_options
-    )
-    
     # Create and start server
     server = JAFServer(config)
-    
-    # Note: In the TypeScript version, this starts the server and returns it
-    # In Python with async, we need to handle this differently
-    # This function prepares the server but doesn't start it
-    # The caller should await server.start()
-    
-    return server
+    await server.start()
 
 def create_simple_server(
     agents: List[Agent[Any, Any]],

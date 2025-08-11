@@ -31,6 +31,10 @@ dependencies = [
     "uvicorn[standard]>=0.24.0",
     "openai>=1.0.0",
     "typing-extensions>=4.5.0",
+    "websockets>=11.0.0",
+    "httpx>=0.25.0",
+    "google-generativeai>=0.3.0",
+    "google-auth>=2.20.0",
 ]
 
 [project.optional-dependencies]
@@ -61,7 +65,7 @@ Documentation = "https://github.com/juspay/jaf-python#readme"
 Issues = "https://github.com/juspay/jaf-python/issues"
 
 [project.scripts]
-jaf-server = "jaf.cli:main"
+jaf = "jaf.cli:cli_main"
 
 [tool.setuptools.packages.find]
 include = ["jaf*"]
