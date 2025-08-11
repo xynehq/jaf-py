@@ -110,7 +110,11 @@ async def _run_internal(
         print(f"[FAF:ENGINE] Available tools: {[t.schema.name for t in current_agent.tools]}")
     
     # Get model name
-    model = config.model_override or (current_agent.model_config.name if current_agent.model_config else "gpt-4o")
+    model = (
+        config.model_override or 
+        (current_agent.model_config.name if current_agent.model_config else None) or 
+        "gpt-4o"
+    )
     
     # Emit LLM call start event
     if config.on_event:

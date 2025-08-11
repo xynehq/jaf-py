@@ -6,13 +6,12 @@ tool calls, and performance metrics.
 """
 
 import json
-import time
+import os
 from typing import Any, Dict, List, Optional, Protocol
-from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
 from datetime import datetime
+import time
 
-from .types import TraceEvent
+from .types import TraceEvent, TraceId, RunId
 
 class TraceCollector(Protocol):
     """Protocol for trace collectors."""
@@ -20,63 +19,128 @@ class TraceCollector(Protocol):
     def collect(self, event: TraceEvent) -> None:
         """Collect a trace event."""
         ...
-
-class ConsoleTraceCollector:
-    """Simple trace collector that outputs to console."""
     
-    def __init__(self, verbose: bool = True):
-        self.verbose = verbose
-        self.events: List[Dict[str, Any]] = []
-        self.start_time = time.time()
+    def get_trace(self, trace_id: TraceId) -> List[TraceEvent]:
+        """Get all events for a specific trace."""
+        ...
+    
+    def get_all_traces(self) -> Dict[TraceId, List[TraceEvent]]:
+        """Get all traces."""
+        ...
+    
+    def clear(self, trace_id: Optional[TraceId] = None) -> None:
+        """Clear traces."""
+        ...
+
+class InMemoryTraceCollector:
+    """In-memory trace collector that organizes events by trace ID."""
+    
+    def __init__(self):
+        self.traces: Dict[TraceId, List[TraceEvent]] = {}
     
     def collect(self, event: TraceEvent) -> None:
-        """Collect and log a trace event to console."""
-        timestamp = datetime.now().isoformat()
-        event_dict = {
-            'timestamp': timestamp,
-            'type': event.type,
-            'data': event.data
-        }
+        """Collect a trace event."""
+        trace_id: Optional[TraceId] = None
         
-        self.events.append(event_dict)
+        # Extract trace ID from event data - handle both snake_case and camelCase
+        if hasattr(event, 'data') and isinstance(event.data, dict):
+            # Try snake_case first (Python convention)
+            if 'trace_id' in event.data:
+                trace_id = event.data['trace_id']
+            elif 'run_id' in event.data:
+                trace_id = TraceId(event.data['run_id'])
+            # Fallback to camelCase (for compatibility)
+            elif 'traceId' in event.data:
+                trace_id = event.data['traceId']
+            elif 'runId' in event.data:
+                trace_id = TraceId(event.data['runId'])
         
-        if self.verbose:
-            self._log_event(event_dict)
+        if not trace_id:
+            return
+        
+        if trace_id not in self.traces:
+            self.traces[trace_id] = []
+        
+        self.traces[trace_id].append(event)
     
-    def _log_event(self, event: Dict[str, Any]) -> None:
-        """Log an event to the console with formatting."""
-        event_type = event['type']
-        data = event['data']
+    def get_trace(self, trace_id: TraceId) -> List[TraceEvent]:
+        """Get all events for a specific trace."""
+        return self.traces.get(trace_id, [])
+    
+    def get_all_traces(self) -> Dict[TraceId, List[TraceEvent]]:
+        """Get all traces."""
+        return dict(self.traces)
+    
+    def clear(self, trace_id: Optional[TraceId] = None) -> None:
+        """Clear traces."""
+        if trace_id:
+            self.traces.pop(trace_id, None)
+        else:
+            self.traces.clear()
+
+class ConsoleTraceCollector:
+    """Console trace collector with detailed logging."""
+    
+    def __init__(self):
+        self.in_memory = InMemoryTraceCollector()
+    
+    def collect(self, event: TraceEvent) -> None:
+        """Collect event and log to console."""
+        self.in_memory.collect(event)
         
-        if event_type == 'run_start':
-            print(f"🚀 [TRACE] Run started - Run ID: {data.get('run_id')}, Trace ID: {data.get('trace_id')}")
+        timestamp = datetime.now().isoformat()
+        prefix = f"[{timestamp}] FAF:{event.type}"
         
-        elif event_type == 'llm_call_start':
-            print(f"🤖 [TRACE] LLM call started - Agent: {data.get('agent_name')}, Model: {data.get('model')}")
+        if event.type == 'run_start':
+            data = event.data
+            run_id = data.get('run_id') or data.get('runId')
+            trace_id = data.get('trace_id') or data.get('traceId')
+            print(f"{prefix} Starting run {run_id} (trace: {trace_id})")
         
-        elif event_type == 'llm_call_end':
-            print(f"✅ [TRACE] LLM call completed")
+        elif event.type == 'llm_call_start':
+            data = event.data
+            model = data.get('model')
+            agent_name = data.get('agent_name') or data.get('agentName')
+            print(f"{prefix} Calling {model} for agent {agent_name}")
         
-        elif event_type == 'tool_call_start':
-            print(f"🔧 [TRACE] Tool call started - Tool: {data.get('tool_name')}")
-            if data.get('args'):
-                print(f"   Args: {json.dumps(data['args'], indent=2)}")
-        
-        elif event_type == 'tool_call_end':
-            tool_name = data.get('tool_name')
-            status = data.get('status', 'unknown')
-            print(f"🛠️  [TRACE] Tool call completed - Tool: {tool_name}, Status: {status}")
+        elif event.type == 'llm_call_end':
+            data = event.data
+            choice = data.get('choice', {})
+            message = choice.get('message', {}) if isinstance(choice, dict) else {}
             
-            # Show result summary (truncated if too long)
-            result = data.get('result', '')
-            if isinstance(result, str) and len(result) > 200:
-                result = result[:200] + "..."
-            print(f"   Result: {result}")
+            # Check for tool_calls with both naming conventions
+            tool_calls = message.get('tool_calls') or message.get('toolCalls')
+            has_tools = bool(tool_calls and len(tool_calls) > 0)
+            has_content = bool(message.get('content'))
+            
+            if has_tools:
+                response_type = 'tool calls'
+            elif has_content:
+                response_type = 'content'
+            else:
+                response_type = 'empty response'
+            
+            print(f"{prefix} LLM responded with {response_type}")
         
-        elif event_type == 'handoff':
-            print(f"🔄 [TRACE] Agent handoff - From: {data.get('from')} → To: {data.get('to')}")
+        elif event.type == 'tool_call_start':
+            data = event.data
+            tool_name = data.get('tool_name') or data.get('toolName')
+            args = data.get('args')
+            print(f"{prefix} Executing tool {tool_name} with args:", args)
         
-        elif event_type == 'run_end':
+        elif event.type == 'tool_call_end':
+            data = event.data
+            tool_name = data.get('tool_name') or data.get('toolName')
+            print(f"{prefix} Tool {tool_name} completed")
+        
+        elif event.type == 'handoff':
+            data = event.data
+            from_agent = data.get('from')
+            to_agent = data.get('to')
+            print(f"{prefix} Agent handoff: {from_agent} → {to_agent}")
+
+        elif event.type == 'run_end':
+            data = event.data
             outcome = data.get('outcome')
             elapsed = time.time() - self.start_time
             
@@ -84,165 +148,99 @@ class ConsoleTraceCollector:
                 status = outcome.status
                 
                 if status == 'completed':
-                    print(f"🎉 [TRACE] Run completed successfully in {elapsed:.2f}s")
+                    print(f"[TRACE] Run completed successfully in {elapsed:.2f}s")
                 else:
                     error = outcome.error if hasattr(outcome, 'error') else None
                     error_type = getattr(error, '_tag', 'unknown') if error and hasattr(error, '_tag') else 'unknown'
-                    print(f"❌ [TRACE] Run failed with {error_type} in {elapsed:.2f}s")
+                    print(f"[TRACE] Run failed with {error_type} in {elapsed:.2f}s")
             else:
-                print(f"🎉 [TRACE] Run completed in {elapsed:.2f}s")
+                print(f"[TRACE] Run completed in {elapsed:.2f}s")
     
-    def get_summary(self) -> Dict[str, Any]:
-        """Get a summary of collected events."""
-        total_events = len(self.events)
-        event_counts = {}
-        
-        for event in self.events:
-            event_type = event['type']
-            event_counts[event_type] = event_counts.get(event_type, 0) + 1
-        
-        # Calculate durations
-        run_start = next((e for e in self.events if e['type'] == 'run_start'), None)
-        run_end = next((e for e in self.events if e['type'] == 'run_end'), None)
-        
-        duration = None
-        if run_start and run_end:
-            start_time = datetime.fromisoformat(run_start['timestamp'])
-            end_time = datetime.fromisoformat(run_end['timestamp'])
-            duration = (end_time - start_time).total_seconds()
-        
-        return {
-            'total_events': total_events,
-            'event_counts': event_counts,
-            'duration_seconds': duration,
-            'events': self.events
-        }
+    def get_trace(self, trace_id: TraceId) -> List[TraceEvent]:
+        """Get all events for a specific trace."""
+        return self.in_memory.get_trace(trace_id)
     
-    def clear(self) -> None:
-        """Clear collected events."""
-        self.events.clear()
-        self.start_time = time.time()
+    def get_all_traces(self) -> Dict[TraceId, List[TraceEvent]]:
+        """Get all traces."""
+        return self.in_memory.get_all_traces()
+    
+    def clear(self, trace_id: Optional[TraceId] = None) -> None:
+        """Clear traces."""
+        self.in_memory.clear(trace_id)
 
 class FileTraceCollector:
-    """Trace collector that writes to a file."""
+    """File trace collector that writes events to a file."""
     
-    def __init__(self, file_path: str, pretty_print: bool = True):
+    def __init__(self, file_path: str):
         self.file_path = file_path
-        self.pretty_print = pretty_print
-        self.events: List[Dict[str, Any]] = []
+        self.in_memory = InMemoryTraceCollector()
     
     def collect(self, event: TraceEvent) -> None:
-        """Collect a trace event and write to file."""
-        timestamp = datetime.now().isoformat()
-        event_dict = {
-            'timestamp': timestamp,
+        """Collect event and write to file."""
+        self.in_memory.collect(event)
+        
+        log_entry = {
+            'timestamp': datetime.now().isoformat(),
             'type': event.type,
             'data': event.data
         }
         
-        self.events.append(event_dict)
-        self._write_to_file(event_dict)
-    
-    def _write_to_file(self, event: Dict[str, Any]) -> None:
-        """Write an event to the trace file."""
         try:
-            with open(self.file_path, 'a') as f:
-                if self.pretty_print:
-                    f.write(json.dumps(event, indent=2, default=str) + '\n')
-                else:
-                    f.write(json.dumps(event, default=str) + '\n')
-        except Exception as e:
-            print(f"Warning: Failed to write trace to file {self.file_path}: {e}")
+            # Ensure directory exists if file path has a directory
+            dir_path = os.path.dirname(self.file_path)
+            if dir_path:
+                os.makedirs(dir_path, exist_ok=True)
+            
+            with open(self.file_path, 'a', encoding='utf-8') as f:
+                f.write(json.dumps(log_entry, default=str) + '\n')
+        except Exception as error:
+            print(f"Failed to write trace to file: {error}")
+    
+    def get_trace(self, trace_id: TraceId) -> List[TraceEvent]:
+        """Get all events for a specific trace."""
+        return self.in_memory.get_trace(trace_id)
+    
+    def get_all_traces(self) -> Dict[TraceId, List[TraceEvent]]:
+        """Get all traces."""
+        return self.in_memory.get_all_traces()
+    
+    def clear(self, trace_id: Optional[TraceId] = None) -> None:
+        """Clear traces."""
+        self.in_memory.clear(trace_id)
 
-class MemoryTraceCollector:
-    """Trace collector that stores events in memory for analysis."""
+def create_composite_trace_collector(*collectors: TraceCollector) -> TraceCollector:
+    """Create a composite trace collector that forwards events to multiple collectors."""
     
-    def __init__(self, max_events: Optional[int] = None):
-        self.max_events = max_events
-        self.events: List[Dict[str, Any]] = []
-    
-    def collect(self, event: TraceEvent) -> None:
-        """Collect a trace event in memory."""
-        timestamp = datetime.now().isoformat()
-        event_dict = {
-            'timestamp': timestamp,
-            'type': event.type,
-            'data': event.data
-        }
+    class CompositeTraceCollector:
+        def __init__(self, collectors_list: List[TraceCollector]):
+            self.collectors = list(collectors_list)
         
-        self.events.append(event_dict)
+        def collect(self, event: TraceEvent) -> None:
+            """Forward event to all collectors."""
+            for collector in self.collectors:
+                try:
+                    collector.collect(event)
+                except Exception as e:
+                    print(f"Warning: Trace collector failed: {e}")
         
-        # Trim events if we exceed max_events
-        if self.max_events and len(self.events) > self.max_events:
-            self.events = self.events[-self.max_events:]
-    
-    def get_events(self, event_type: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Get collected events, optionally filtered by type."""
-        if event_type:
-            return [e for e in self.events if e['type'] == event_type]
-        return self.events.copy()
-    
-    def get_metrics(self) -> Dict[str, Any]:
-        """Get performance metrics from collected events."""
-        tool_calls = [e for e in self.events if e['type'] == 'tool_call_end']
-        llm_calls = [e for e in self.events if e['type'] == 'llm_call_end']
+        def get_trace(self, trace_id: TraceId) -> List[TraceEvent]:
+            """Get trace from first collector."""
+            if self.collectors:
+                return self.collectors[0].get_trace(trace_id)
+            return []
         
-        # Calculate tool execution times
-        tool_metrics = {}
-        for event in tool_calls:
-            tool_name = event['data'].get('tool_name')
-            if tool_name:
-                if tool_name not in tool_metrics:
-                    tool_metrics[tool_name] = []
-                
-                # Look for execution time in metadata
-                tool_result = event['data'].get('tool_result', {})
-                if isinstance(tool_result, dict):
-                    metadata = tool_result.get('metadata', {})
-                    exec_time = metadata.get('execution_time_ms')
-                    if exec_time:
-                        tool_metrics[tool_name].append(exec_time)
+        def get_all_traces(self) -> Dict[TraceId, List[TraceEvent]]:
+            """Get all traces from first collector."""
+            if self.collectors:
+                return self.collectors[0].get_all_traces()
+            return {}
         
-        # Calculate averages
-        tool_averages = {}
-        for tool_name, times in tool_metrics.items():
-            if times:
-                tool_averages[tool_name] = {
-                    'avg_execution_time_ms': sum(times) / len(times),
-                    'min_execution_time_ms': min(times),
-                    'max_execution_time_ms': max(times),
-                    'call_count': len(times)
-                }
-        
-        return {
-            'total_tool_calls': len(tool_calls),
-            'total_llm_calls': len(llm_calls),
-            'tool_metrics': tool_averages
-        }
+        def clear(self, trace_id: Optional[TraceId] = None) -> None:
+            """Clear traces in all collectors."""
+            for collector in self.collectors:
+                try:
+                    collector.clear(trace_id)
+                except Exception as e:
+                    print(f"Warning: Failed to clear trace collector: {e}")
     
-    def clear(self) -> None:
-        """Clear collected events."""
-        self.events.clear()
-
-class CompositeTraceCollector:
-    """Trace collector that forwards events to multiple collectors."""
-    
-    def __init__(self, collectors: List[TraceCollector]):
-        self.collectors = collectors
-    
-    def collect(self, event: TraceEvent) -> None:
-        """Forward event to all collectors."""
-        for collector in self.collectors:
-            try:
-                collector.collect(event)
-            except Exception as e:
-                print(f"Warning: Trace collector failed: {e}")
-    
-    def add_collector(self, collector: TraceCollector) -> None:
-        """Add a new collector."""
-        self.collectors.append(collector)
-    
-    def remove_collector(self, collector: TraceCollector) -> None:
-        """Remove a collector."""
-        if collector in self.collectors:
-            self.collectors.remove(collector)
+    return CompositeTraceCollector(list(collectors))

@@ -9,9 +9,9 @@ import asyncio
 from typing import Any
 from pydantic import BaseModel, ValidationError
 
-from jaf.core.types import ValidationResult
+from jaf.core.types import ValidationResult, ValidValidationResult, InvalidValidationResult
 from jaf.policies.validation import (
-    create_content_filter, create_length_limiter, create_format_validator,
+    create_content_filter_guardrail, create_length_guardrail, create_json_validation_guardrail,
     combine_guardrails
 )
 
@@ -26,7 +26,7 @@ class TestOutput(BaseModel):
 async def test_content_filter_guardrail():
     """Test content filtering guardrail."""
     # Create content filter
-    filter_guardrail = create_content_filter([
+    filter_guardrail = create_content_filter_guardrail([
         "badword", "inappropriate", "spam"
     ])
     
@@ -48,7 +48,7 @@ async def test_content_filter_guardrail():
 async def test_length_limiter_guardrail():
     """Test length limiting guardrail."""
     # Create length limiter
-    length_guardrail = create_length_limiter(max_length=50)
+    length_guardrail = create_length_guardrail(max_length=50)
     
     # Test valid length
     result = await length_guardrail("Short message")
@@ -65,7 +65,7 @@ async def test_length_limiter_guardrail():
 async def test_format_validator_guardrail():
     """Test format validation guardrail."""
     # Create format validator for TestOutput
-    format_guardrail = create_format_validator(TestOutput)
+    format_guardrail = create_json_validation_guardrail(TestOutput)
     
     # Test valid format
     valid_output = TestOutput(message="Hello", priority=1)
@@ -97,8 +97,8 @@ async def test_format_validator_guardrail():
 async def test_combine_guardrails():
     """Test combining multiple guardrails."""
     # Create individual guardrails
-    content_filter = create_content_filter(["bad"])
-    length_limiter = create_length_limiter(max_length=20)
+    content_filter = create_content_filter_guardrail(["bad"])
+    length_limiter = create_length_guardrail(max_length=20)
     
     # Combine them
     combined_guardrail = combine_guardrails([content_filter, length_limiter])
@@ -129,8 +129,8 @@ async def test_synchronous_guardrails():
     """Test that synchronous guardrails work correctly."""
     def sync_guardrail(text: str) -> ValidationResult:
         if "sync_fail" in text:
-            return ValidationResult(is_valid=False, error_message="Sync validation failed")
-        return ValidationResult(is_valid=True)
+            return InvalidValidationResult(error_message="Sync validation failed")
+        return ValidValidationResult()
     
     # Test direct call
     result = sync_guardrail("normal text")
@@ -140,7 +140,7 @@ async def test_synchronous_guardrails():
     assert not result.is_valid
     
     # Test in combined guardrails
-    async_guardrail = create_content_filter(["async_fail"])
+    async_guardrail = create_content_filter_guardrail(["async_fail"])
     combined = combine_guardrails([sync_guardrail, async_guardrail])
     
     # Test sync failure
@@ -172,8 +172,8 @@ async def test_guardrail_with_objects():
     """Test guardrails with complex objects."""
     def object_guardrail(obj: Any) -> ValidationResult:
         if hasattr(obj, 'dangerous_field'):
-            return ValidationResult(is_valid=False, error_message="Object contains dangerous field")
-        return ValidationResult(is_valid=True)
+            return InvalidValidationResult(error_message="Object contains dangerous field")
+        return ValidValidationResult()
     
     # Test safe object
     safe_obj = {"message": "hello", "safe": True}
@@ -192,11 +192,10 @@ async def test_custom_error_messages():
     """Test custom error messages in guardrails."""
     def custom_message_guardrail(text: str) -> ValidationResult:
         if "trigger" in text:
-            return ValidationResult(
-                is_valid=False, 
+            return InvalidValidationResult(
                 error_message="Custom error: The input triggered our custom validation rule"
             )
-        return ValidationResult(is_valid=True)
+        return ValidValidationResult()
     
     result = custom_message_guardrail("normal text")
     assert result.is_valid
@@ -218,7 +217,7 @@ async def test_guardrail_exception_handling():
         failing_guardrail("test")
     
     # When used in combined guardrails, should be handled gracefully
-    safe_guardrail = create_content_filter(["safe"])
+    safe_guardrail = create_content_filter_guardrail(["safe"])
     
     # Note: The combine_guardrails function should handle exceptions
     # and convert them to validation failures

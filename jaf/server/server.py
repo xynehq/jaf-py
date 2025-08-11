@@ -88,6 +88,11 @@ class JAFServer:
                 version="2.0.0",
                 uptime=int((time.time() - self.start_time) * 1000)
             )
+
+        @self.app.get("/metrics")
+        async def metrics():
+            """Basic metrics endpoint."""
+            return JSONResponse(content={"status": "ok"})
         
         @self.app.get("/agents", response_model=AgentListResponse)
         async def list_agents():

@@ -1,103 +1,171 @@
 """
-Error types and handling for the JAF framework.
+Error handling utilities for the JAF framework.
 
-This module defines all error types used throughout the framework,
-maintaining consistency and providing clear error information.
+This module provides error formatting, classification, and creation utilities
+for consistent error handling throughout the framework.
 """
 
-from typing import List, Dict, Any, Union
-from dataclasses import dataclass
-from enum import Enum
+import json
+from typing import Literal, Union, Any, Dict, List
+from .types import (
+    FAFError, MaxTurnsExceeded, ModelBehaviorError, DecodeError,
+    InputGuardrailTripwire, OutputGuardrailTripwire, ToolCallError,
+    HandoffError, AgentNotFound
+)
 
-class ErrorType(str, Enum):
-    """Enumeration of error types in the framework."""
-    MAX_TURNS_EXCEEDED = "MaxTurnsExceeded"
-    MODEL_BEHAVIOR_ERROR = "ModelBehaviorError"
-    DECODE_ERROR = "DecodeError"
-    INPUT_GUARDRAIL_TRIPWIRE = "InputGuardrailTripwire"
-    OUTPUT_GUARDRAIL_TRIPWIRE = "OutputGuardrailTripwire"
-    TOOL_CALL_ERROR = "ToolCallError"
-    HANDOFF_ERROR = "HandoffError"
-    AGENT_NOT_FOUND = "AgentNotFound"
-
-@dataclass(frozen=True)
-class FAFError:
-    """Base error class for all JAF framework errors."""
-    error_type: ErrorType
-    message: str
-    details: Dict[str, Any] = None
+class FAFErrorHandler:
+    """Handler for formatting and classifying FAF errors."""
     
-    def __str__(self) -> str:
-        return f"{self.error_type.value}: {self.message}"
-
-class JAFException(Exception):
-    """Exception wrapper for FAF errors."""
+    @staticmethod
+    def format_error(error: FAFError) -> str:
+        """
+        Format an error into a human-readable string.
+        
+        Args:
+            error: The FAF error to format
+            
+        Returns:
+            Formatted error message
+        """
+        if isinstance(error, MaxTurnsExceeded):
+            return f"Maximum turns exceeded: {error.turns} turns completed"
+        
+        elif isinstance(error, ModelBehaviorError):
+            return f"Model behavior error: {error.detail}"
+        
+        elif isinstance(error, DecodeError):
+            if error.errors:
+                issues = []
+                for e in error.errors:
+                    if isinstance(e, dict):
+                        message = e.get('message', 'Unknown error')
+                        if 'path' in e:
+                            path = '.'.join(str(p) for p in e['path']) if isinstance(e['path'], list) else str(e['path'])
+                            issues.append(f"{path}: {message}")
+                        else:
+                            issues.append(message)
+                    else:
+                        issues.append(str(e))
+                return f"Decode error: {', '.join(issues)}"
+            return "Decode error: Invalid output format"
+        
+        elif isinstance(error, InputGuardrailTripwire):
+            return f"Input guardrail triggered: {error.reason}"
+        
+        elif isinstance(error, OutputGuardrailTripwire):
+            return f"Output guardrail triggered: {error.reason}"
+        
+        elif isinstance(error, ToolCallError):
+            return f"Tool call error in {error.tool}: {error.detail}"
+        
+        elif isinstance(error, HandoffError):
+            return f"Handoff error: {error.detail}"
+        
+        elif isinstance(error, AgentNotFound):
+            return f"Agent not found: {error.agent_name}"
+        
+        else:
+            return f"Unknown error: {json.dumps(error.__dict__, default=str)}"
     
-    def __init__(self, error: FAFError):
-        self.error = error
-        super().__init__(str(error))
+    @staticmethod
+    def is_retryable(error: FAFError) -> bool:
+        """
+        Determine if an error is retryable.
+        
+        Args:
+            error: The FAF error to check
+            
+        Returns:
+            True if the error is retryable, False otherwise
+        """
+        if isinstance(error, (ModelBehaviorError, ToolCallError)):
+            return True
+        
+        elif isinstance(error, (
+            MaxTurnsExceeded, DecodeError, InputGuardrailTripwire,
+            OutputGuardrailTripwire, HandoffError, AgentNotFound
+        )):
+            return False
+        
+        else:
+            return False
+    
+    @staticmethod
+    def get_severity(error: FAFError) -> Literal['low', 'medium', 'high', 'critical']:
+        """
+        Get the severity level of an error.
+        
+        Args:
+            error: The FAF error to classify
+            
+        Returns:
+            Severity level: 'low', 'medium', 'high', or 'critical'
+        """
+        if isinstance(error, (ModelBehaviorError, ToolCallError)):
+            return 'medium'
+        
+        elif isinstance(error, DecodeError):
+            return 'high'
+        
+        elif isinstance(error, MaxTurnsExceeded):
+            return 'low'
+        
+        elif isinstance(error, (InputGuardrailTripwire, OutputGuardrailTripwire)):
+            return 'high'
+        
+        elif isinstance(error, (HandoffError, AgentNotFound)):
+            return 'critical'
+        
+        else:
+            return 'medium'
 
-# Convenience functions for creating specific error types
-def max_turns_exceeded_error(turns: int) -> FAFError:
-    """Create a max turns exceeded error."""
-    return FAFError(
-        error_type=ErrorType.MAX_TURNS_EXCEEDED,
-        message=f"Maximum number of turns exceeded: {turns}",
-        details={"turns": turns}
-    )
-
-def model_behavior_error(detail: str) -> FAFError:
-    """Create a model behavior error."""
-    return FAFError(
-        error_type=ErrorType.MODEL_BEHAVIOR_ERROR,
-        message=f"Model behavior error: {detail}",
-        details={"detail": detail}
-    )
-
-def decode_error(errors: List[Dict[str, Any]]) -> FAFError:
-    """Create a decode error."""
-    return FAFError(
-        error_type=ErrorType.DECODE_ERROR,
-        message="Failed to decode output",
-        details={"errors": errors}
-    )
-
-def input_guardrail_error(reason: str) -> FAFError:
-    """Create an input guardrail error."""
-    return FAFError(
-        error_type=ErrorType.INPUT_GUARDRAIL_TRIPWIRE,
-        message=f"Input guardrail failed: {reason}",
-        details={"reason": reason}
-    )
-
-def output_guardrail_error(reason: str) -> FAFError:
-    """Create an output guardrail error."""
-    return FAFError(
-        error_type=ErrorType.OUTPUT_GUARDRAIL_TRIPWIRE,
-        message=f"Output guardrail failed: {reason}",
-        details={"reason": reason}
-    )
-
-def tool_call_error(tool: str, detail: str) -> FAFError:
-    """Create a tool call error."""
-    return FAFError(
-        error_type=ErrorType.TOOL_CALL_ERROR,
-        message=f"Tool call failed for {tool}: {detail}",
-        details={"tool": tool, "detail": detail}
-    )
-
-def handoff_error(detail: str) -> FAFError:
-    """Create a handoff error."""
-    return FAFError(
-        error_type=ErrorType.HANDOFF_ERROR,
-        message=f"Handoff failed: {detail}",
-        details={"detail": detail}
-    )
-
-def agent_not_found_error(agent_name: str) -> FAFError:
-    """Create an agent not found error."""
-    return FAFError(
-        error_type=ErrorType.AGENT_NOT_FOUND,
-        message=f"Agent not found: {agent_name}",
-        details={"agent_name": agent_name}
-    )
+def create_faf_error(tag: str, details: Any) -> FAFError:
+    """
+    Create a FAF error from a tag and details.
+    
+    Args:
+        tag: The error tag/type
+        details: Error details (can be dict or simple value)
+        
+    Returns:
+        Appropriate FAF error instance
+        
+    Raises:
+        ValueError: If the error tag is unknown
+    """
+    # Normalize details to dict if it's a simple value
+    if not isinstance(details, dict):
+        if isinstance(details, str):
+            details = {'detail': details}
+        else:
+            details = {'value': details}
+    
+    if tag == 'MaxTurnsExceeded':
+        return MaxTurnsExceeded(turns=details.get('turns', 0))
+    
+    elif tag == 'ModelBehaviorError':
+        return ModelBehaviorError(detail=details.get('detail', str(details)))
+    
+    elif tag == 'DecodeError':
+        return DecodeError(errors=details.get('errors', []))
+    
+    elif tag == 'InputGuardrailTripwire':
+        return InputGuardrailTripwire(reason=details.get('reason', str(details)))
+    
+    elif tag == 'OutputGuardrailTripwire':
+        return OutputGuardrailTripwire(reason=details.get('reason', str(details)))
+    
+    elif tag == 'ToolCallError':
+        return ToolCallError(
+            tool=details.get('tool', ''),
+            detail=details.get('detail', str(details))
+        )
+    
+    elif tag == 'HandoffError':
+        return HandoffError(detail=details.get('detail', str(details)))
+    
+    elif tag == 'AgentNotFound':
+        return AgentNotFound(agent_name=details.get('agentName', details.get('agent_name', str(details))))
+    
+    else:
+        raise ValueError(f"Unknown error tag: {tag}")

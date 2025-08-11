@@ -31,9 +31,11 @@ def make_litellm_provider(
     
     class LiteLLMProvider:
         def __init__(self):
+            # Default to "anything" if api_key is not provided, for local servers
+            effective_api_key = api_key if api_key is not None else "anything"
             self.client = OpenAI(
                 base_url=base_url,
-                api_key=api_key,
+                api_key=effective_api_key,
                 # Note: dangerouslyAllowBrowser is JavaScript-specific
             )
         
