@@ -192,7 +192,7 @@ async def start_server():
             },
             model_provider=model_provider,
             max_turns=5,
-            model_override=os.getenv('LITELLM_MODEL', 'gpt-3.5-turbo'),
+            model_override=os.getenv('LITELLM_MODEL', 'gemini-2.5-pro'),
             on_event=trace_collector.collect
         )
         
@@ -202,13 +202,17 @@ async def start_server():
             'cors': False
         }
         
-        server = await run_server(
-            [math_agent, chat_agent, assistant_agent],
-            run_config,
-            server_options
+        # Create server config
+        from jaf.server.types import ServerConfig
+        
+        server_config = ServerConfig(
+            host=server_options['host'],
+            port=server_options['port'],
+            agent_registry=run_config.agent_registry,
+            run_config=run_config,
+            cors=server_options['cors']
         )
         
-        print('\n✅ Server created successfully!')
         print('\n📚 Try these example requests:')
         print('')
         print('1. Health Check:')
@@ -220,7 +224,7 @@ async def start_server():
         print('3. Chat with Math Tutor:')
         print('   curl -X POST http://localhost:3000/chat \\')
         print('     -H "Content-Type: application/json" \\')
-        print('     -d \'{"messages":[{"role":"user","content":"What is 15 * 7?"}],"agentName":"MathTutor","context":{"userId":"demo","permissions":["user"]}}\'')
+        print('     -d \'{"messages":[{"role":"user","content":"What is 15 * 7?"}],"agent_name":"MathTutor","context":{"userId":"demo","permissions":["user"]}}\'')
         print('')
         print('4. Chat with ChatBot:')
         print('   curl -X POST http://localhost:3000/agents/ChatBot/chat \\')
@@ -230,11 +234,12 @@ async def start_server():
         print('5. Chat with Assistant:')
         print('   curl -X POST http://localhost:3000/chat \\')
         print('     -H "Content-Type: application/json" \\')
-        print('     -d \'{"messages":[{"role":"user","content":"Calculate 25 + 17 and then greet me as Bob"}],"agentName":"Assistant","context":{"userId":"demo","permissions":["user"]}}\'')
+        print('     -d \'{"messages":[{"role":"user","content":"Calculate 25 + 17 and then greet me as Bob"}],"agent_name":"Assistant","context":{"userId":"demo","permissions":["user"]}}\'')
         print('')
+        print('🚀 Starting server...')
         
-        # Start the server
-        await server.start()
+        # Start the server (this will block until server stops)
+        await run_server(server_config)
         
     except Exception as error:
         print(f'❌ Failed to start server: {error}')

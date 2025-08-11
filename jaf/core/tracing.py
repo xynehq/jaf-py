@@ -77,16 +77,20 @@ class ConsoleTraceCollector:
             print(f"🔄 [TRACE] Agent handoff - From: {data.get('from')} → To: {data.get('to')}")
         
         elif event_type == 'run_end':
-            outcome = data.get('outcome', {})
-            status = outcome.get('status', 'unknown')
+            outcome = data.get('outcome')
             elapsed = time.time() - self.start_time
             
-            if status == 'completed':
-                print(f"🎉 [TRACE] Run completed successfully in {elapsed:.2f}s")
+            if outcome and hasattr(outcome, 'status'):
+                status = outcome.status
+                
+                if status == 'completed':
+                    print(f"🎉 [TRACE] Run completed successfully in {elapsed:.2f}s")
+                else:
+                    error = outcome.error if hasattr(outcome, 'error') else None
+                    error_type = getattr(error, '_tag', 'unknown') if error and hasattr(error, '_tag') else 'unknown'
+                    print(f"❌ [TRACE] Run failed with {error_type} in {elapsed:.2f}s")
             else:
-                error = outcome.get('error', {})
-                error_type = getattr(error, '_tag', 'unknown') if hasattr(error, '_tag') else 'unknown'
-                print(f"❌ [TRACE] Run failed with {error_type} in {elapsed:.2f}s")
+                print(f"🎉 [TRACE] Run completed in {elapsed:.2f}s")
     
     def get_summary(self) -> Dict[str, Any]:
         """Get a summary of collected events."""
