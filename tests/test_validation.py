@@ -128,7 +128,7 @@ async def test_combine_guardrails():
 async def test_synchronous_guardrails():
     """Test that synchronous guardrails work correctly."""
     def sync_guardrail(text: str) -> ValidationResult:
-        if "sync_fail" in text:
+        if "banana" in text:
             return ValidationResult(is_valid=False, error_message="Sync validation failed")
         return ValidationResult(is_valid=True)
     
@@ -136,20 +136,20 @@ async def test_synchronous_guardrails():
     result = sync_guardrail("normal text")
     assert result.is_valid
     
-    result = sync_guardrail("text with sync_fail")
+    result = sync_guardrail("text with banana")
     assert not result.is_valid
     
     # Test in combined guardrails
-    async_guardrail = create_content_filter(["async_fail"])
+    async_guardrail = create_content_filter(["orange"])
     combined = combine_guardrails([sync_guardrail, async_guardrail])
     
     # Test sync failure
-    result = await combined("text with sync_fail")
+    result = await combined("text with banana")
     assert not result.is_valid
     assert "Sync validation failed" in result.error_message
     
     # Test async failure
-    result = await combined("text with async_fail")
+    result = await combined("text with orange")
     assert not result.is_valid
     assert "inappropriate content" in result.error_message.lower()
 
@@ -171,7 +171,13 @@ async def test_empty_guardrails_list():
 async def test_guardrail_with_objects():
     """Test guardrails with complex objects."""
     def object_guardrail(obj: Any) -> ValidationResult:
-        if hasattr(obj, 'dangerous_field'):
+        # Handle both objects with attributes and dictionaries with keys
+        has_dangerous_field = (
+            hasattr(obj, 'dangerous_field') or
+            (isinstance(obj, dict) and 'dangerous_field' in obj)
+        )
+        
+        if has_dangerous_field:
             return ValidationResult(is_valid=False, error_message="Object contains dangerous field")
         return ValidationResult(is_valid=True)
     

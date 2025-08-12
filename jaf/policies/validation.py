@@ -283,3 +283,38 @@ def create_api_input_guardrail(config: Optional[GuardrailConfig] = None) -> Guar
         create_length_guardrail(max_length=50000),
         create_rate_limit_guardrail(max_calls=100, window_size=60),
     ], config=config)
+
+# Compatibility aliases for tests
+def create_content_filter(blocked_patterns: List[str], **kwargs) -> Guardrail:
+    """Create content filter (test compatibility)."""
+    guardrail = create_content_filter_guardrail(
+        blocked_patterns, 
+        config=GuardrailConfig(custom_message="Contains inappropriate content"), 
+        **kwargs
+    )
+    
+    async def async_wrapper(text: str) -> ValidationResult:
+        return guardrail(text)
+    
+    return async_wrapper
+
+def create_length_limiter(max_length: int, min_length: int = 0, **kwargs) -> Guardrail:
+    """Create length limiter (test compatibility)."""
+    
+    async def async_wrapper(text: str) -> ValidationResult:
+        if len(text) > max_length:
+            return ValidationResult(is_valid=False, error_message=f"Text exceeds maximum length of {max_length}")
+        if len(text) < min_length:
+            return ValidationResult(is_valid=False, error_message=f"Text below minimum length of {min_length}")
+        return ValidationResult(is_valid=True)
+    
+    return async_wrapper
+
+def create_format_validator(schema_class: type[BaseModel], **kwargs) -> Guardrail:
+    """Create format validator (test compatibility)."""
+    guardrail = create_json_validation_guardrail(schema_class, **kwargs)
+    
+    async def async_wrapper(data: Any) -> ValidationResult:
+        return guardrail(data)
+    
+    return async_wrapper
