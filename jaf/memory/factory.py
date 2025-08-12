@@ -28,7 +28,7 @@ async def create_memory_provider_from_env(
     if memory_type == "memory":
         config = InMemoryConfig(
             max_conversations=int(os.getenv("JAF_MEMORY_MAX_CONVERSATIONS", "1000")),
-            max_messages_per_conversation=int(os.getenv("JAF_MEMORY_MAX_MESSAGES_PER_CONVERSATION", "1000"))
+            max_messages_per_conversation=int(os.getenv("JAF_MEMORY_MAX_MESSAGES", "1000"))
         )
         return Success(create_in_memory_provider(config))
     
@@ -39,7 +39,7 @@ async def create_memory_provider_from_env(
             "host": os.getenv("JAF_REDIS_HOST", "localhost"),
             "port": int(os.getenv("JAF_REDIS_PORT", "6379")),
             "db": int(os.getenv("JAF_REDIS_DB", "0")),
-            "key_prefix": os.getenv("JAF_REDIS_KEY_PREFIX", "jaf:memory:"),
+            "key_prefix": os.getenv("JAF_REDIS_PREFIX", "jaf:memory:"),
             "ttl": int(os.getenv("JAF_REDIS_TTL")) if os.getenv("JAF_REDIS_TTL") else None
         }
         if redis_password:
@@ -54,10 +54,10 @@ async def create_memory_provider_from_env(
             "host": os.getenv("JAF_POSTGRES_HOST", "localhost"),
             "port": int(os.getenv("JAF_POSTGRES_PORT", "5432")),
             "database": os.getenv("JAF_POSTGRES_DB", "jaf_test"),
-            "username": os.getenv("JAF_POSTGRES_USERNAME", "postgres"),
+            "username": os.getenv("JAF_POSTGRES_USER", "postgres"),
             "password": os.getenv("JAF_POSTGRES_PASSWORD"),
             "ssl": os.getenv("JAF_POSTGRES_SSL", "false").lower() == "true",
-            "table_name": os.getenv("JAF_POSTGRES_TABLE_NAME", "conversations"),
+            "table_name": os.getenv("JAF_POSTGRES_TABLE", "conversations"),
             "max_connections": int(os.getenv("JAF_POSTGRES_MAX_CONNECTIONS", "10"))
         }
         if connection_string:
