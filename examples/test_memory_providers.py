@@ -208,8 +208,18 @@ async def test_redis_provider():
         
         print("📡 Connecting to Redis...")
         
-        # Create Redis client
-        redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+        # Get Redis configuration from environment
+        redis_host = os.getenv('JAF_REDIS_HOST', 'localhost')
+        redis_port = int(os.getenv('JAF_REDIS_PORT', '6379'))
+        redis_password = os.getenv('JAF_REDIS_PASSWORD')
+        redis_db = int(os.getenv('JAF_REDIS_DB', '0'))
+        
+        # Create Redis client with same config as the provider will use
+        if redis_password:
+            redis_url = f'redis://:{redis_password}@{redis_host}:{redis_port}/{redis_db}'
+        else:
+            redis_url = f'redis://{redis_host}:{redis_port}/{redis_db}'
+        
         redis_client = redis.from_url(redis_url, decode_responses=True)
         
         # Test connection
@@ -218,20 +228,27 @@ async def test_redis_provider():
         
         config = RedisConfig(
             type="redis",
-            host="localhost",
-            port=6379,
-            db=0,
+            host=redis_host,
+            port=redis_port,
+            password=redis_password,
+            db=redis_db,
             key_prefix="jaf:test:",
             ttl=3600
         )
         
-        provider = await create_redis_provider(config, redis_client)
+        provider_result = await create_redis_provider(config)
+        if isinstance(provider_result, Failure):
+            print(f"❌ Redis provider creation failed: {provider_result.error}")
+            await redis_client.close()
+            return False
+        
+        provider = provider_result.data
         tester = MemoryProviderTester()
         
         result = await tester.test_provider("Redis", provider, "test-redis-conversation")
         
         # Cleanup
-        await redis_client.close()
+        await redis_client.aclose()
         
         return result
         

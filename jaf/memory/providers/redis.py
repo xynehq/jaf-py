@@ -37,15 +37,57 @@ class RedisProvider(MemoryProvider):
         return f"{self.config.key_prefix}{conversation_id}"
     
     def _serialize(self, conversation: ConversationMemory) -> str:
+        def serialize_message(msg: Message) -> dict:
+            """Convert Message dataclass to dict."""
+            return {
+                "role": msg.role,
+                "content": msg.content,
+                "tool_call_id": msg.tool_call_id,
+                "tool_calls": [
+                    {
+                        "id": tc.id,
+                        "type": tc.type,
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments
+                        }
+                    } for tc in msg.tool_calls
+                ] if msg.tool_calls else None
+            }
+        
         data = {
             "conversation_id": conversation.conversation_id,
             "user_id": conversation.user_id,
-            "messages": [msg.dict() for msg in conversation.messages],
+            "messages": [serialize_message(msg) for msg in conversation.messages],
             "metadata": {k: v.isoformat() if isinstance(v, datetime) else v for k, v in conversation.metadata.items()}
         }
         return json.dumps(data)
     
     def _deserialize(self, data: str) -> ConversationMemory:
+        from ...core.types import ToolCall, ToolCallFunction
+        
+        def deserialize_message(msg_data: dict) -> Message:
+            """Convert dict back to Message dataclass."""
+            tool_calls = None
+            if msg_data.get("tool_calls"):
+                tool_calls = [
+                    ToolCall(
+                        id=tc["id"],
+                        type=tc["type"],
+                        function=ToolCallFunction(
+                            name=tc["function"]["name"],
+                            arguments=tc["function"]["arguments"]
+                        )
+                    ) for tc in msg_data["tool_calls"]
+                ]
+            
+            return Message(
+                role=msg_data["role"],
+                content=msg_data["content"],
+                tool_call_id=msg_data.get("tool_call_id"),
+                tool_calls=tool_calls
+            )
+        
         parsed = json.loads(data)
         metadata = parsed.get("metadata", {})
         for key in ["created_at", "updated_at", "last_activity"]:
@@ -55,7 +97,7 @@ class RedisProvider(MemoryProvider):
         return ConversationMemory(
             conversation_id=parsed["conversation_id"],
             user_id=parsed.get("user_id"),
-            messages=[Message(**msg) for msg in parsed.get("messages", [])],
+            messages=[deserialize_message(msg) for msg in parsed.get("messages", [])],
             metadata=metadata
         )
     
@@ -117,15 +159,17 @@ class RedisProvider(MemoryProvider):
         if not existing:
             return Failure(MemoryNotFoundError(conversation_id=conversation_id, provider="Redis", message=f"Conversation {conversation_id} not found"))
         
-        existing.messages.extend(messages)
-        existing.metadata.update({
+        # Convert tuple back to list, append new messages, then store
+        all_messages = list(existing.messages) + messages
+        updated_metadata = {
+            **existing.metadata,
             "updated_at": datetime.now(),
             "last_activity": datetime.now(),
-            "total_messages": len(existing.messages),
+            "total_messages": len(all_messages),
             **(metadata or {})
-        })
+        }
         
-        return await self.store_messages(conversation_id, existing.messages, existing.metadata)
+        return await self.store_messages(conversation_id, all_messages, updated_metadata)
     
     async def find_conversations(
         self, 
