@@ -105,8 +105,30 @@ def make_litellm_provider(
             # Make the API call
             response = self.client.chat.completions.create(**request_params)
             
-            # Return in the expected format
-            return response.choices[0].model_dump()
+            # Return in the expected format that the engine expects
+            choice = response.choices[0]
+            
+            # Convert tool_calls to dict format if present
+            tool_calls = None
+            if choice.message.tool_calls:
+                tool_calls = [
+                    {
+                        'id': tc.id,
+                        'type': tc.type,
+                        'function': {
+                            'name': tc.function.name,
+                            'arguments': tc.function.arguments
+                        }
+                    }
+                    for tc in choice.message.tool_calls
+                ]
+            
+            return {
+                'message': {
+                    'content': choice.message.content,
+                    'tool_calls': tool_calls
+                }
+            }
     
     return LiteLLMProvider()
 

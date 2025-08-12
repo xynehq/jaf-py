@@ -384,7 +384,7 @@ async def _execute_tool_calls(
                     'tool_name': tool_call.function.name,
                     'result': result_string,
                     'tool_result': tool_result_obj,
-                    'status': tool_result_obj.status.value if tool_result_obj else 'success'
+                    'status': tool_result_obj.status if tool_result_obj else 'success'
                 }))
             
             # Check for handoff

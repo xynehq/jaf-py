@@ -83,6 +83,7 @@ class ConsoleTraceCollector:
     
     def __init__(self):
         self.in_memory = InMemoryTraceCollector()
+        self.run_start_times = {}  # Track start times per run
     
     def collect(self, event: TraceEvent) -> None:
         """Collect event and log to console."""
@@ -95,6 +96,9 @@ class ConsoleTraceCollector:
             data = event.data
             run_id = data.get('run_id') or data.get('runId')
             trace_id = data.get('trace_id') or data.get('traceId')
+            # Track start time for this run
+            if run_id:
+                self.run_start_times[run_id] = time.time()
             print(f"{prefix} Starting run {run_id} (trace: {trace_id})")
         
         elif event.type == 'llm_call_start':
@@ -142,19 +146,33 @@ class ConsoleTraceCollector:
         elif event.type == 'run_end':
             data = event.data
             outcome = data.get('outcome')
-            elapsed = time.time() - self.start_time
+            
+            # Calculate elapsed time if we have a start time
+            elapsed = None
+            # Try to get run_id from outcome or use a fallback
+            run_id = None
+            if outcome and hasattr(outcome, 'final_state') and hasattr(outcome.final_state, 'run_id'):
+                run_id = outcome.final_state.run_id
+            
+            if run_id and run_id in self.run_start_times:
+                elapsed = time.time() - self.run_start_times[run_id]
+                # Clean up the start time
+                del self.run_start_times[run_id]
             
             if outcome and hasattr(outcome, 'status'):
                 status = outcome.status
                 
                 if status == 'completed':
-                    print(f"[TRACE] Run completed successfully in {elapsed:.2f}s")
+                    elapsed_str = f" in {elapsed:.2f}s" if elapsed else ""
+                    print(f"{prefix} Run completed successfully{elapsed_str}")
                 else:
                     error = outcome.error if hasattr(outcome, 'error') else None
                     error_type = getattr(error, '_tag', 'unknown') if error and hasattr(error, '_tag') else 'unknown'
-                    print(f"[TRACE] Run failed with {error_type} in {elapsed:.2f}s")
+                    elapsed_str = f" in {elapsed:.2f}s" if elapsed else ""
+                    print(f"{prefix} Run failed with {error_type}{elapsed_str}")
             else:
-                print(f"[TRACE] Run completed in {elapsed:.2f}s")
+                elapsed_str = f" in {elapsed:.2f}s" if elapsed else ""
+                print(f"{prefix} Run completed{elapsed_str}")
     
     def get_trace(self, trace_id: TraceId) -> List[TraceEvent]:
         """Get all events for a specific trace."""

@@ -45,8 +45,8 @@ class CalculatorTool:
     
     async def execute(self, args: CalculateArgs, context: MyContext) -> Any:
         """Execute calculator tool with error handling."""
-        # Basic safety check - only allow simple math expressions
-        sanitized = ''.join(c for c in args.expression if c in '0123456789+-*/().')
+        # Basic safety check - only allow simple math expressions (including spaces)
+        sanitized = ''.join(c for c in args.expression if c in '0123456789+-*/(). ')
         if sanitized != args.expression:
             return ToolResponse.validation_error(
                 "Invalid characters in expression. Only numbers, +, -, *, /, and () are allowed.",
@@ -58,7 +58,9 @@ class CalculatorTool:
             )
         
         try:
-            result = eval(sanitized)  # Note: In production, use a safe math evaluator
+            # Remove spaces for evaluation
+            expression_for_eval = sanitized.replace(' ', '')
+            result = eval(expression_for_eval)  # Note: In production, use a safe math evaluator
             return ToolResponse.success(
                 f"{args.expression} = {result}",
                 {
