@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional, Set, Callable, Union, Awaitable
 from dataclasses import dataclass, field
 from pydantic import BaseModel, ValidationError
 
-from ..core.types import ValidationResult, Guardrail
+from ..core.types import ValidationResult, Guardrail, ValidValidationResult, InvalidValidationResult
 
 @dataclass
 class GuardrailConfig:
@@ -41,21 +41,21 @@ def create_length_guardrail(
     
     def length_guardrail(text: str) -> ValidationResult:
         if not config.enabled:
-            return ValidationResult(is_valid=True)
+            return ValidValidationResult()
         
         text_length = len(text)
         
         if text_length > max_length:
             message = (config.custom_message or 
                       f"Text length {text_length} exceeds maximum {max_length}")
-            return ValidationResult(is_valid=False, error_message=message)
+            return InvalidValidationResult(error_message=message)
         
         if text_length < min_length:
             message = (config.custom_message or 
                       f"Text length {text_length} below minimum {min_length}")
-            return ValidationResult(is_valid=False, error_message=message)
+            return InvalidValidationResult(error_message=message)
         
-        return ValidationResult(is_valid=True)
+        return ValidValidationResult()
     
     return length_guardrail
 
@@ -87,7 +87,7 @@ def create_content_filter_guardrail(
     
     def content_filter_guardrail(text: str) -> ValidationResult:
         if not config.enabled:
-            return ValidationResult(is_valid=True)
+            return ValidValidationResult()
         
         # Check blocked patterns
         for pattern in compiled_blocked:
@@ -98,9 +98,9 @@ def create_content_filter_guardrail(
                 if not is_allowed:
                     message = (config.custom_message or 
                               f"Content blocked by pattern: {pattern.pattern}")
-                    return ValidationResult(is_valid=False, error_message=message)
+                    return InvalidValidationResult(error_message=message)
         
-        return ValidationResult(is_valid=True)
+        return ValidValidationResult()
     
     return content_filter_guardrail
 
@@ -122,7 +122,7 @@ def create_json_validation_guardrail(
     
     def json_validation_guardrail(data: Any) -> ValidationResult:
         if not config.enabled:
-            return ValidationResult(is_valid=True)
+            return ValidValidationResult()
         
         try:
             # If data is a string, try to parse as JSON
@@ -132,20 +132,20 @@ def create_json_validation_guardrail(
                 except json.JSONDecodeError as e:
                     message = (config.custom_message or 
                               f"Invalid JSON format: {str(e)}")
-                    return ValidationResult(is_valid=False, error_message=message)
+                    return InvalidValidationResult(error_message=message)
             
             # Validate against schema
             schema_class.model_validate(data)
-            return ValidationResult(is_valid=True)
+            return ValidValidationResult()
             
         except ValidationError as e:
             message = (config.custom_message or 
                       f"Schema validation failed: {str(e)}")
-            return ValidationResult(is_valid=False, error_message=message)
+            return InvalidValidationResult(error_message=message)
         except Exception as e:
             message = (config.custom_message or 
                       f"Validation error: {str(e)}")
-            return ValidationResult(is_valid=False, error_message=message)
+            return InvalidValidationResult(error_message=message)
     
     return json_validation_guardrail
 
@@ -177,7 +177,7 @@ def create_rate_limit_guardrail(
     
     def rate_limit_guardrail(data: Any) -> ValidationResult:
         if not config.enabled:
-            return ValidationResult(is_valid=True)
+            return ValidValidationResult()
         
         current_time = time.time()
         
@@ -189,11 +189,11 @@ def create_rate_limit_guardrail(
         if len(state.calls) >= state.max_calls:
             message = (config.custom_message or 
                       f"Rate limit exceeded: {len(state.calls)}/{state.max_calls} calls in {state.window_size}s")
-            return ValidationResult(is_valid=False, error_message=message)
+            return InvalidValidationResult(error_message=message)
         
         # Record this call
         state.calls.append(current_time)
-        return ValidationResult(is_valid=True)
+        return ValidValidationResult()
     
     return rate_limit_guardrail
 
@@ -217,7 +217,7 @@ def combine_guardrails(
     
     async def combined_guardrail(data: Any) -> ValidationResult:
         if not config.enabled:
-            return ValidationResult(is_valid=True)
+            return ValidValidationResult()
         
         results = []
         
@@ -241,8 +241,7 @@ def combine_guardrails(
                     return result
                     
             except Exception as e:
-                error_result = ValidationResult(
-                    is_valid=False,
+                error_result = InvalidValidationResult(
                     error_message=f"Guardrail execution error: {str(e)}"
                 )
                 
@@ -253,13 +252,12 @@ def combine_guardrails(
         
         if require_all:
             # All passed
-            return ValidationResult(is_valid=True)
+            return ValidValidationResult()
         else:
             # None passed
             failed_messages = [r.error_message for r in results if not r.is_valid]
             combined_message = "; ".join(failed_messages)
-            return ValidationResult(
-                is_valid=False,
+            return InvalidValidationResult(
                 error_message=f"All guardrails failed: {combined_message}"
             )
     
@@ -303,10 +301,10 @@ def create_length_limiter(max_length: int, min_length: int = 0, **kwargs) -> Gua
     
     async def async_wrapper(text: str) -> ValidationResult:
         if len(text) > max_length:
-            return ValidationResult(is_valid=False, error_message=f"Text exceeds maximum length of {max_length}")
+            return InvalidValidationResult(error_message=f"Text exceeds maximum length of {max_length}")
         if len(text) < min_length:
-            return ValidationResult(is_valid=False, error_message=f"Text below minimum length of {min_length}")
-        return ValidationResult(is_valid=True)
+            return InvalidValidationResult(error_message=f"Text below minimum length of {min_length}")
+        return ValidValidationResult()
     
     return async_wrapper
 

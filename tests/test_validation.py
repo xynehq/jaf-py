@@ -12,7 +12,7 @@ from pydantic import BaseModel, ValidationError
 from jaf.core.types import ValidationResult, ValidValidationResult, InvalidValidationResult
 from jaf.policies.validation import (
     create_content_filter_guardrail, create_length_guardrail, create_json_validation_guardrail,
-    combine_guardrails
+    combine_guardrails, create_content_filter, create_length_limiter, create_format_validator
 )
 
 
@@ -26,7 +26,7 @@ class TestOutput(BaseModel):
 async def test_content_filter_guardrail():
     """Test content filtering guardrail."""
     # Create content filter
-    filter_guardrail = create_content_filter_guardrail([
+    filter_guardrail = create_content_filter([
         "badword", "inappropriate", "spam"
     ])
     
@@ -48,7 +48,7 @@ async def test_content_filter_guardrail():
 async def test_length_limiter_guardrail():
     """Test length limiting guardrail."""
     # Create length limiter
-    length_guardrail = create_length_guardrail(max_length=50)
+    length_guardrail = create_length_limiter(max_length=50)
     
     # Test valid length
     result = await length_guardrail("Short message")
@@ -65,7 +65,7 @@ async def test_length_limiter_guardrail():
 async def test_format_validator_guardrail():
     """Test format validation guardrail."""
     # Create format validator for TestOutput
-    format_guardrail = create_json_validation_guardrail(TestOutput)
+    format_guardrail = create_format_validator(TestOutput)
     
     # Test valid format
     valid_output = TestOutput(message="Hello", priority=1)
@@ -97,8 +97,8 @@ async def test_format_validator_guardrail():
 async def test_combine_guardrails():
     """Test combining multiple guardrails."""
     # Create individual guardrails
-    content_filter = create_content_filter_guardrail(["bad"])
-    length_limiter = create_length_guardrail(max_length=20)
+    content_filter = create_content_filter(["bad"])
+    length_limiter = create_length_limiter(max_length=20)
     
     # Combine them
     combined_guardrail = combine_guardrails([content_filter, length_limiter])
@@ -129,8 +129,8 @@ async def test_synchronous_guardrails():
     """Test that synchronous guardrails work correctly."""
     def sync_guardrail(text: str) -> ValidationResult:
         if "banana" in text:
-            return ValidationResult(is_valid=False, error_message="Sync validation failed")
-        return ValidationResult(is_valid=True)
+            return InvalidValidationResult(error_message="Sync validation failed")
+        return ValidValidationResult()
     
     # Test direct call
     result = sync_guardrail("normal text")
@@ -178,8 +178,8 @@ async def test_guardrail_with_objects():
         )
         
         if has_dangerous_field:
-            return ValidationResult(is_valid=False, error_message="Object contains dangerous field")
-        return ValidationResult(is_valid=True)
+            return InvalidValidationResult(error_message="Object contains dangerous field")
+        return ValidValidationResult()
     
     # Test safe object
     safe_obj = {"message": "hello", "safe": True}
@@ -223,7 +223,7 @@ async def test_guardrail_exception_handling():
         failing_guardrail("test")
     
     # When used in combined guardrails, should be handled gracefully
-    safe_guardrail = create_content_filter_guardrail(["safe"])
+    safe_guardrail = create_content_filter(["safe"])
     
     # Note: The combine_guardrails function should handle exceptions
     # and convert them to validation failures
@@ -241,8 +241,8 @@ async def test_regex_pattern_validation():
     def email_format_guardrail(text: str) -> ValidationResult:
         email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
         if not re.match(email_pattern, text):
-            return ValidationResult(is_valid=False, error_message="Invalid email format")
-        return ValidationResult(is_valid=True)
+            return InvalidValidationResult(error_message="Invalid email format")
+        return ValidValidationResult()
     
     # Test valid email
     result = email_format_guardrail("user@example.com")
@@ -264,11 +264,10 @@ async def test_conditional_validation():
     def conditional_guardrail(data: Any) -> ValidationResult:
         if isinstance(data, dict):
             if data.get('type') == 'sensitive' and not data.get('authorized'):
-                return ValidationResult(
-                    is_valid=False, 
+                return InvalidValidationResult(
                     error_message="Sensitive data requires authorization"
                 )
-        return ValidationResult(is_valid=True)
+        return ValidValidationResult()
     
     # Test non-sensitive data
     result = conditional_guardrail({"type": "normal", "content": "hello"})

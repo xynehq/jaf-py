@@ -15,7 +15,7 @@ from jaf.core.types import (
     RunState, RunConfig, Agent, Tool, ToolSchema, Message, ModelConfig,
     create_run_id, create_trace_id, CompletedOutcome, ErrorOutcome,
     MaxTurnsExceeded, ModelBehaviorError, AgentNotFound, ToolCallError,
-    ValidationResult
+    ValidationResult, ValidValidationResult, InvalidValidationResult
 )
 from jaf.core.tool_results import ToolResult, ToolResultStatus
 
@@ -383,8 +383,8 @@ async def test_input_guardrails():
     # Setup
     async def bad_word_guardrail(input_text: str) -> ValidationResult:
         if "badword" in input_text.lower():
-            return ValidationResult(is_valid=False, error_message="Contains inappropriate content")
-        return ValidationResult(is_valid=True)
+            return InvalidValidationResult(error_message="Contains inappropriate content")
+        return ValidValidationResult()
     
     agent = create_test_agent()
     model_provider = MockModelProvider([])
