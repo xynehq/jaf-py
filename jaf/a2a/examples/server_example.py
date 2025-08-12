@@ -78,18 +78,98 @@ class TranslateArgs(BaseModel):
 
 # Tool implementations
 async def calculator_tool(args: CalculateArgs, context) -> Dict[str, Any]:
-    """Safe calculator tool"""
+    """Safe calculator tool using AST parsing"""
+    import ast
+    import operator
+    
+    # Allowed operations for safe calculation
+    allowed_operators = {
+        ast.Add: operator.add,
+        ast.Sub: operator.sub,
+        ast.Mult: operator.mul,
+        ast.Div: operator.truediv,
+        ast.Pow: operator.pow,
+        ast.Mod: operator.mod,
+        ast.USub: operator.neg,
+        ast.UAdd: operator.pos,
+    }
+    
+    allowed_functions = {
+        'abs': abs,
+        'round': round,
+        'min': min,
+        'max': max,
+    }
+    
+    def safe_eval_node(node):
+        """Safely evaluate an AST node"""
+        if isinstance(node, ast.Constant):  # Numbers
+            return node.value
+        elif isinstance(node, ast.Name):
+            # Only allow specific constants
+            if node.id in ['pi', 'e']:
+                import math
+                return getattr(math, node.id)
+            else:
+                raise ValueError(f"Name '{node.id}' is not allowed")
+        elif isinstance(node, ast.BinOp):
+            left = safe_eval_node(node.left)
+            right = safe_eval_node(node.right)
+            operator_func = allowed_operators.get(type(node.op))
+            if operator_func is None:
+                raise ValueError(f"Operator {type(node.op).__name__} is not allowed")
+            return operator_func(left, right)
+        elif isinstance(node, ast.UnaryOp):
+            operand = safe_eval_node(node.operand)
+            operator_func = allowed_operators.get(type(node.op))
+            if operator_func is None:
+                raise ValueError(f"Unary operator {type(node.op).__name__} is not allowed")
+            return operator_func(operand)
+        elif isinstance(node, ast.Call):
+            func_name = node.func.id if isinstance(node.func, ast.Name) else None
+            if func_name not in allowed_functions:
+                raise ValueError(f"Function '{func_name}' is not allowed")
+            args = [safe_eval_node(arg) for arg in node.args]
+            return allowed_functions[func_name](*args)
+        else:
+            raise ValueError(f"Node type {type(node).__name__} is not allowed")
+    
     try:
-        # Basic security check
         expression = args.expression.strip()
-        if any(keyword in expression for keyword in ['import', 'exec', 'eval', '__']):
+        
+        # Additional security checks
+        dangerous_patterns = [
+            'import', 'exec', 'eval', '__', 'open', 'file', 'input', 
+            'raw_input', 'compile', 'globals', 'locals', 'vars', 'dir',
+            'getattr', 'setattr', 'hasattr', 'delattr', 'callable'
+        ]
+        
+        expression_lower = expression.lower()
+        for pattern in dangerous_patterns:
+            if pattern in expression_lower:
+                return {
+                    "error": f"Security violation: '{pattern}' is not allowed in expressions",
+                    "result": None
+                }
+        
+        # Parse expression into AST
+        try:
+            parsed = ast.parse(expression, mode='eval')
+        except SyntaxError as e:
             return {
-                "error": "Invalid expression: Security violation",
+                "error": f"Invalid mathematical expression: {str(e)}",
                 "result": None
             }
         
-        # Simple evaluation (in production, use a safer math parser)
-        result = eval(expression)
+        # Evaluate safely
+        result = safe_eval_node(parsed.body)
+        
+        # Handle division by zero and other math errors
+        if not isinstance(result, (int, float, complex)):
+            return {
+                "error": "Expression must evaluate to a number",
+                "result": None
+            }
         
         return {
             "result": f"The result of {expression} is {result}",
@@ -97,6 +177,17 @@ async def calculator_tool(args: CalculateArgs, context) -> Dict[str, Any]:
                 "expression": expression,
                 "result": result
             }
+        }
+        
+    except ZeroDivisionError:
+        return {
+            "error": "Division by zero is not allowed",
+            "result": None
+        }
+    except ValueError as e:
+        return {
+            "error": f"Invalid expression: {str(e)}",
+            "result": None
         }
     except Exception as e:
         return {
@@ -241,6 +332,10 @@ async def main():
     # Start the server
     try:
         print("\n🌟 Starting A2A-enabled JAF server...")
+        
+        # Add mock model provider to server config
+        server_config["model_provider"] = MockModelProvider()
+        
         server = await start_a2a_server(server_config)
         
         print("\n✅ Server started successfully!")

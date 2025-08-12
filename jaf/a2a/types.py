@@ -323,7 +323,7 @@ class AgentState(BaseModel):
     """Agent state representation"""
     model_config = {"frozen": True}
     
-    session_id: str = Field(alias="sessionId")
+    sessionId: str
     messages: List[Any]
     context: Dict[str, Any]
     artifacts: List[Any]

@@ -82,47 +82,97 @@ def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
     # Main A2A JSON-RPC endpoint
     @app.post("/a2a")
     async def handle_a2a_request(request: Request):
+        request_id = None
+        
         try:
-            body = await request.json()
-            result = await handle_a2a_request_internal(config, body)
-            
-            # Handle streaming responses
-            if hasattr(result, "__aiter__"):
-                async def generate_sse():
-                    async for chunk in result:
-                        yield f"data: {json.dumps(chunk)}\n\n"
-                
-                return StreamingResponse(
-                    generate_sse(),
-                    media_type="text/event-stream",
-                    headers={
-                        "Cache-Control": "no-cache",
-                        "Connection": "keep-alive"
-                    }
-                )
-            
-            return result
-            
-        except Exception as error:
-            error_response = {
-                "jsonrpc": "2.0",
-                "id": None,
-                "error": {
-                    "code": -32603,
-                    "message": str(error)
-                }
-            }
-            return error_response
-    
-    # Agent-specific endpoints
-    for agent_name, agent in config["agents"].items():
-        # Agent-specific JSON-RPC endpoint
-        @app.post(f"/a2a/agents/{agent_name}")
-        async def handle_agent_request(request: Request, agent_name: str = agent_name):
+            # Parse JSON with proper error handling
             try:
                 body = await request.json()
-                result = await handle_a2a_request_for_agent(config, body, agent_name)
+                request_id = body.get("id") if isinstance(body, dict) else None
+            except json.JSONDecodeError as e:
+                return {
+                    "jsonrpc": "2.0",
+                    "id": None,
+                    "error": {
+                        "code": -32700,  # Parse Error
+                        "message": "Parse error",
+                        "data": {"details": str(e)}
+                    }
+                }
+            except Exception as e:
+                return {
+                    "jsonrpc": "2.0",
+                    "id": None,
+                    "error": {
+                        "code": -32700,  # Parse Error
+                        "message": "Parse error",
+                        "data": {"details": str(e)}
+                    }
+                }
+            
+            # Handle batch requests
+            if isinstance(body, list):
+                if len(body) == 0:
+                    return {
+                        "jsonrpc": "2.0",
+                        "id": None,
+                        "error": {
+                            "code": -32600,  # Invalid Request
+                            "message": "Invalid Request",
+                            "data": {"details": "Batch request cannot be empty"}
+                        }
+                    }
                 
+                # Process batch requests functionally
+                async def process_batch_item(single_request):
+                    if not isinstance(single_request, dict):
+                        return {
+                            "jsonrpc": "2.0",
+                            "id": None,
+                            "error": {
+                                "code": -32600,  # Invalid Request
+                                "message": "Invalid Request",
+                                "data": {"details": "Each batch item must be an object"}
+                            }
+                        }
+                    
+                    single_result = await handle_a2a_request_internal(config, single_request)
+                    if not hasattr(single_result, "__aiter__"):
+                        return single_result
+                    else:
+                        # Streaming not supported in batch
+                        return {
+                            "jsonrpc": "2.0",
+                            "id": single_request.get("id"),
+                            "error": {
+                                "code": -32005,  # Content Type Not Supported
+                                "message": "Streaming not supported in batch requests"
+                            }
+                        }
+                
+                # Process all batch items
+                results = [await process_batch_item(item) for item in body]
+                
+                return results
+            
+            # Validate request structure
+            if not isinstance(body, dict):
+                return {
+                    "jsonrpc": "2.0",
+                    "id": None,
+                    "error": {
+                        "code": -32600,  # Invalid Request
+                        "message": "Invalid Request",
+                        "data": {"details": "Request must be an object"}
+                    }
+                }
+            
+            result = await handle_a2a_request_internal(config, body)
+            
+            # Check if this is a streaming request
+            method = body.get("method")
+            if method == "message/stream":
+                # For streaming, result should be an async generator
                 if hasattr(result, "__aiter__"):
                     async def generate_sse():
                         async for chunk in result:
@@ -136,38 +186,155 @@ def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
                             "Connection": "keep-alive"
                         }
                     )
+                else:
+                    # If it's not iterable, wrap single response
+                    async def generate_sse():
+                        yield f"data: {json.dumps(result)}\n\n"
+                    
+                    return StreamingResponse(
+                        generate_sse(),
+                        media_type="text/event-stream",
+                        headers={
+                            "Cache-Control": "no-cache",
+                            "Connection": "keep-alive"
+                        }
+                    )
+            
+            return result
+            
+        except Exception as error:
+            # Log the error for debugging but don't expose internal details
+            import logging
+            logging.error(f"Internal server error: {str(error)}")
+            
+            return {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "error": {
+                    "code": -32603,  # Internal Error
+                    "message": "Internal error",
+                    "data": {"type": "server_error"}
+                }
+            }
+    
+    # Agent-specific endpoints
+    for agent_name, agent in config["agents"].items():
+        # Agent-specific JSON-RPC endpoint
+        @app.post(f"/a2a/agents/{agent_name}")
+        async def handle_agent_request(request: Request, agent_name: str = agent_name):
+            request_id = None
+            
+            try:
+                # Parse JSON with proper error handling
+                try:
+                    body = await request.json()
+                    request_id = body.get("id") if isinstance(body, dict) else None
+                except json.JSONDecodeError as e:
+                    return {
+                        "jsonrpc": "2.0",
+                        "id": None,
+                        "error": {
+                            "code": -32700,  # Parse Error
+                            "message": "Parse error",
+                            "data": {"details": str(e)}
+                        }
+                    }
+                except Exception as e:
+                    return {
+                        "jsonrpc": "2.0",
+                        "id": None,
+                        "error": {
+                            "code": -32700,  # Parse Error
+                            "message": "Parse error",
+                            "data": {"details": str(e)}
+                        }
+                    }
+                
+                # Validate request structure
+                if not isinstance(body, dict):
+                    return {
+                        "jsonrpc": "2.0",
+                        "id": None,
+                        "error": {
+                            "code": -32600,  # Invalid Request
+                            "message": "Invalid Request",
+                            "data": {"details": "Request must be an object"}
+                        }
+                    }
+                
+                result = await handle_a2a_request_for_agent(config, body, agent_name)
+                
+                # Check if this is a streaming request
+                method = body.get("method")
+                if method == "message/stream":
+                    # For streaming, result should be an async generator
+                    if hasattr(result, "__aiter__"):
+                        async def generate_sse():
+                            async for chunk in result:
+                                yield f"data: {json.dumps(chunk)}\n\n"
+                        
+                        return StreamingResponse(
+                            generate_sse(),
+                            media_type="text/event-stream",
+                            headers={
+                                "Cache-Control": "no-cache",
+                                "Connection": "keep-alive"
+                            }
+                        )
+                    else:
+                        # If it's not iterable, wrap single response
+                        async def generate_sse():
+                            yield f"data: {json.dumps(result)}\n\n"
+                        
+                        return StreamingResponse(
+                            generate_sse(),
+                            media_type="text/event-stream",
+                            headers={
+                                "Cache-Control": "no-cache",
+                                "Connection": "keep-alive"
+                            }
+                        )
                 
                 return result
                 
             except Exception as error:
-                error_response = {
+                # Log the error for debugging but don't expose internal details
+                import logging
+                logging.error(f"Internal server error: {str(error)}")
+                
+                return {
                     "jsonrpc": "2.0",
-                    "id": None,
+                    "id": request_id,
                     "error": {
-                        "code": -32603,
-                        "message": str(error)
+                        "code": -32603,  # Internal Error
+                        "message": "Internal error",
+                        "data": {"type": "server_error"}
                     }
                 }
-                return error_response
         
-        # Agent-specific card endpoint
-        @app.get(f"/a2a/agents/{agent_name}/card")
-        async def get_agent_card_specific(agent_name: str = agent_name):
-            agent_card = generate_agent_card(
-                {
-                    "name": agent.name,
-                    "description": agent.description,
-                    "version": "1.0.0",
-                    "provider": config["agentCard"].get("provider", {
-                        "organization": "Unknown",
-                        "url": ""
-                    })
-                },
-                {agent_name: agent},
-                f"http://{config.get('host', 'localhost')}:{config['port']}"
-            )
-            
-            return agent_card
+        # Agent-specific card endpoint - fix closure issue
+        def create_agent_card_endpoint(current_agent_name: str, current_agent):
+            @app.get(f"/a2a/agents/{current_agent_name}/card")
+            async def get_agent_card_specific():
+                agent_card = generate_agent_card(
+                    {
+                        "name": current_agent.name,
+                        "description": current_agent.description,
+                        "version": "1.0.0",
+                        "provider": config["agentCard"].get("provider", {
+                            "organization": "Unknown",
+                            "url": ""
+                        })
+                    },
+                    {current_agent_name: current_agent},
+                    f"http://{config.get('host', 'localhost')}:{config['port']}"
+                )
+                
+                return agent_card
+            return get_agent_card_specific
+        
+        # Create the endpoint with proper closure
+        create_agent_card_endpoint(agent_name, agent)
     
     # Health check for A2A
     @app.get("/a2a/health")
@@ -203,6 +370,36 @@ async def handle_a2a_request_internal(
     request: Dict[str, Any]
 ) -> Any:
     """Pure function to handle A2A requests"""
+    # Validate JSON-RPC request structure first
+    if not validate_jsonrpc_request(request):
+        return {
+            "jsonrpc": "2.0",
+            "id": request.get("id"),
+            "error": {
+                "code": -32600,  # Invalid Request
+                "message": "Invalid Request",
+                "data": {"details": "Missing required JSON-RPC fields"}
+            }
+        }
+    
+    # Check if method is supported
+    method = request.get("method")
+    supported_methods = [
+        "message/send", "message/stream", "tasks/get", 
+        "tasks/cancel", "agent/getAuthenticatedExtendedCard"
+    ]
+    
+    if method not in supported_methods:
+        return {
+            "jsonrpc": "2.0",
+            "id": request.get("id"),
+            "error": {
+                "code": -32601,  # Method Not Found
+                "message": f"Method '{method}' not found",
+                "data": {"supported_methods": supported_methods}
+            }
+        }
+    
     # Use the first available agent by default
     agents = config["agents"]
     if not agents:
@@ -225,6 +422,36 @@ async def handle_a2a_request_for_agent(
     agent_name: str
 ) -> Any:
     """Pure function to handle agent-specific A2A requests"""
+    # Validate JSON-RPC request structure first
+    if not validate_jsonrpc_request(request):
+        return {
+            "jsonrpc": "2.0",
+            "id": request.get("id"),
+            "error": {
+                "code": -32600,  # Invalid Request
+                "message": "Invalid Request",
+                "data": {"details": "Missing required JSON-RPC fields"}
+            }
+        }
+    
+    # Check if method is supported
+    method = request.get("method")
+    supported_methods = [
+        "message/send", "message/stream", "tasks/get", 
+        "tasks/cancel", "agent/getAuthenticatedExtendedCard"
+    ]
+    
+    if method not in supported_methods:
+        return {
+            "jsonrpc": "2.0",
+            "id": request.get("id"),
+            "error": {
+                "code": -32601,  # Method Not Found
+                "message": f"Method '{method}' not found",
+                "data": {"supported_methods": supported_methods}
+            }
+        }
+    
     agent = config["agents"].get(agent_name)
     if not agent:
         return {
@@ -245,20 +472,47 @@ async def route_a2a_request_wrapper(
     agent: A2AAgent
 ) -> Any:
     """Wrapper for route_a2a_request to provide required dependencies"""
-    # Mock model provider - in real implementation this would be injected
-    model_provider = None
-    task_storage = {}
-    agent_card = config["agentCard"]
-    
-    return route_a2a_request(
-        request,
-        agent,
-        model_provider,
-        task_storage,
-        agent_card,
-        execute_a2a_agent,
-        execute_a2a_agent_with_streaming
-    )
+    try:
+        # Get model provider from config
+        model_provider = config.get("model_provider")
+        task_storage = {}
+        agent_card = config["agentCard"]
+        
+        result = route_a2a_request(
+            request,
+            agent,
+            model_provider,
+            task_storage,
+            agent_card,
+            execute_a2a_agent,
+            execute_a2a_agent_with_streaming
+        )
+        
+        # Check if result is a coroutine/awaitable
+        if hasattr(result, "__aiter__"):
+            # It's an async generator for streaming
+            return result
+        elif hasattr(result, "__await__"):
+            # It's a coroutine
+            return await result
+        else:
+            # It's a regular value
+            return result
+            
+    except Exception as e:
+        # Return proper JSON-RPC error
+        import logging
+        logging.error(f"Route wrapper error: {str(e)}")
+        
+        return {
+            "jsonrpc": "2.0",
+            "id": request.get("id"),
+            "error": {
+                "code": -32603,  # Internal Error
+                "message": "Internal error",
+                "data": {"type": "route_error"}
+            }
+        }
 
 
 def create_a2a_server(config: Dict[str, Any]) -> Dict[str, Any]:

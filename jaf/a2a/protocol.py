@@ -87,7 +87,8 @@ def validate_send_message_request(request: Dict[str, Any]) -> Dict[str, Any]:
                 "is_valid": False,
                 "error": {
                     "code": A2AErrorCodes.INVALID_PARAMS.value,
-                    "message": "Invalid params format"
+                    "message": "Invalid params format - must be an object",
+                    "data": {"expected": "object", "received": type(params).__name__}
                 }
             }
         
@@ -97,7 +98,21 @@ def validate_send_message_request(request: Dict[str, Any]) -> Dict[str, Any]:
                 "is_valid": False,
                 "error": {
                     "code": A2AErrorCodes.INVALID_PARAMS.value,
-                    "message": "Invalid message format"
+                    "message": "Invalid message format - message must be an object",
+                    "data": {"expected": "object", "received": type(message).__name__ if message is not None else "null"}
+                }
+            }
+        
+        # Validate required message fields
+        required_fields = ["role", "parts", "messageId", "contextId", "kind"]
+        missing_fields = [field for field in required_fields if field not in message]
+        if missing_fields:
+            return {
+                "is_valid": False,
+                "error": {
+                    "code": A2AErrorCodes.INVALID_PARAMS.value,
+                    "message": f"Missing required message fields: {', '.join(missing_fields)}",
+                    "data": {"missing_fields": missing_fields}
                 }
             }
         
@@ -107,7 +122,18 @@ def validate_send_message_request(request: Dict[str, Any]) -> Dict[str, Any]:
                 "is_valid": False,
                 "error": {
                     "code": A2AErrorCodes.INVALID_PARAMS.value,
-                    "message": "Message kind must be 'message'"
+                    "message": "Message kind must be 'message'",
+                    "data": {"expected": "message", "received": message.get("kind")}
+                }
+            }
+        
+        if message.get("role") not in ["user", "agent"]:
+            return {
+                "is_valid": False,
+                "error": {
+                    "code": A2AErrorCodes.INVALID_PARAMS.value,
+                    "message": "Message role must be 'user' or 'agent'",
+                    "data": {"expected": ["user", "agent"], "received": message.get("role")}
                 }
             }
         
@@ -116,9 +142,80 @@ def validate_send_message_request(request: Dict[str, Any]) -> Dict[str, Any]:
                 "is_valid": False,
                 "error": {
                     "code": A2AErrorCodes.INVALID_PARAMS.value,
-                    "message": "Message parts must be a list"
+                    "message": "Message parts must be a list",
+                    "data": {"expected": "array", "received": type(message.get("parts")).__name__}
                 }
             }
+        
+        if len(message.get("parts", [])) == 0:
+            return {
+                "is_valid": False,
+                "error": {
+                    "code": A2AErrorCodes.INVALID_PARAMS.value,
+                    "message": "Message parts cannot be empty",
+                    "data": {"minimum_parts": 1}
+                }
+            }
+        
+        # Validate parts structure
+        for i, part in enumerate(message.get("parts", [])):
+            if not isinstance(part, dict):
+                return {
+                    "is_valid": False,
+                    "error": {
+                        "code": A2AErrorCodes.INVALID_PARAMS.value,
+                        "message": f"Message part {i} must be an object",
+                        "data": {"part_index": i, "expected": "object", "received": type(part).__name__}
+                    }
+                }
+            
+            if "kind" not in part:
+                return {
+                    "is_valid": False,
+                    "error": {
+                        "code": A2AErrorCodes.INVALID_PARAMS.value,
+                        "message": f"Message part {i} missing 'kind' field",
+                        "data": {"part_index": i, "missing_field": "kind"}
+                    }
+                }
+            
+            kind = part.get("kind")
+            if kind == "text" and "text" not in part:
+                return {
+                    "is_valid": False,
+                    "error": {
+                        "code": A2AErrorCodes.INVALID_PARAMS.value,
+                        "message": f"Text part {i} missing 'text' field",
+                        "data": {"part_index": i, "part_kind": "text", "missing_field": "text"}
+                    }
+                }
+            elif kind == "data" and "data" not in part:
+                return {
+                    "is_valid": False,
+                    "error": {
+                        "code": A2AErrorCodes.INVALID_PARAMS.value,
+                        "message": f"Data part {i} missing 'data' field",
+                        "data": {"part_index": i, "part_kind": "data", "missing_field": "data"}
+                    }
+                }
+            elif kind == "file" and "file" not in part:
+                return {
+                    "is_valid": False,
+                    "error": {
+                        "code": A2AErrorCodes.INVALID_PARAMS.value,
+                        "message": f"File part {i} missing 'file' field",
+                        "data": {"part_index": i, "part_kind": "file", "missing_field": "file"}
+                    }
+                }
+            elif kind not in ["text", "data", "file"]:
+                return {
+                    "is_valid": False,
+                    "error": {
+                        "code": A2AErrorCodes.INVALID_PARAMS.value,
+                        "message": f"Unknown part kind '{kind}' in part {i}",
+                        "data": {"part_index": i, "supported_kinds": ["text", "data", "file"], "received": kind}
+                    }
+                }
         
         return {
             "is_valid": True,
@@ -129,8 +226,9 @@ def validate_send_message_request(request: Dict[str, Any]) -> Dict[str, Any]:
         return {
             "is_valid": False,
             "error": {
-                "code": A2AErrorCodes.INVALID_PARAMS.value,
-                "message": f"Request validation failed: {str(e)}"
+                "code": A2AErrorCodes.INTERNAL_ERROR.value,
+                "message": f"Request validation failed: {str(e)}",
+                "data": {"error_type": type(e).__name__}
             }
         }
 
@@ -357,6 +455,7 @@ def route_a2a_request(
                 async def error_generator():
                     yield create_jsonrpc_error_response_dict(request.get("id"), validation["error"])
                 return error_generator()
+            # Return the async generator directly
             return handle_message_stream(request, agent, model_provider, streaming_executor_func)
         
         elif method == "tasks/get":
@@ -380,14 +479,8 @@ def route_a2a_request(
     # Handle streaming vs non-streaming
     method = request.get("method")
     if method == "message/stream":
-        async def streaming_wrapper():
-            result = await _route_async()
-            if hasattr(result, "__aiter__"):
-                async for item in result:
-                    yield item
-            else:
-                yield result
-        return streaming_wrapper()
+        # For streaming, return the async generator directly
+        return _route_async()
     else:
         return _route_async()
 

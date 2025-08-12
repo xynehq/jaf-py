@@ -58,7 +58,7 @@ def get_processing_message(agent_name: str) -> str:
 def create_initial_agent_state(session_id: str) -> AgentState:
     """Pure function to create initial agent state"""
     return AgentState(
-        session_id=session_id,
+        sessionId=session_id,
         messages=[],
         context={},
         artifacts=[],
@@ -69,7 +69,7 @@ def create_initial_agent_state(session_id: str) -> AgentState:
 def add_message_to_state(state: AgentState, message: Any) -> AgentState:
     """Pure function to add message to state"""
     return AgentState(
-        session_id=state.session_id,
+        sessionId=state.sessionId,
         messages=[*state.messages, message],
         context=state.context,
         artifacts=state.artifacts,
@@ -84,7 +84,7 @@ def update_state_from_run_result(state: AgentState, outcome: Any) -> AgentState:
         new_artifacts = [*state.artifacts, *outcome.artifacts]
     
     return AgentState(
-        session_id=state.session_id,
+        sessionId=state.sessionId,
         messages=state.messages,
         context=state.context,
         artifacts=new_artifacts,
@@ -103,11 +103,8 @@ def transform_a2a_agent_to_jaf(a2a_agent: A2AAgent) -> Agent:
     def instructions_func(state: Any) -> str:
         return a2a_agent.instruction
     
-    # Transform tools
-    jaf_tools = []
-    for a2a_tool in a2a_agent.tools:
-        jaf_tool = transform_a2a_tool_to_jaf(a2a_tool)
-        jaf_tools.append(jaf_tool)
+    # Transform tools using functional approach
+    jaf_tools = [transform_a2a_tool_to_jaf(a2a_tool) for a2a_tool in a2a_agent.tools]
     
     return Agent(
         name=a2a_agent.name,
@@ -173,10 +170,17 @@ def transform_to_run_state(
     """Pure function to transform agent state to JAF run state"""
     from ..core.types import generate_run_id, generate_trace_id
     
+    # Convert A2A messages to JAF Message format
+    jaf_messages = [
+        create_user_message(msg.content if hasattr(msg, 'content') else str(msg))
+        for msg in state.messages
+        if msg is not None
+    ]
+    
     return RunState(
         run_id=generate_run_id(),
         trace_id=generate_trace_id(),
-        messages=state.messages,
+        messages=jaf_messages,
         current_agent_name=agent_name,
         context=context or {},
         turn_count=0
@@ -220,9 +224,25 @@ async def process_agent_query(
                 timestamp=datetime.now().isoformat()
             )
     except Exception as error:
+        # Log the actual error for debugging but don't expose internal details
+        import logging
+        logging.error(f"Agent execution error for {agent.name}: {str(error)}", exc_info=True)
+        
+        # Determine error type and provide safe error message
+        if "timeout" in str(error).lower():
+            safe_error = "Request timeout - please try again"
+        elif "connection" in str(error).lower():
+            safe_error = "Connection error - please check connectivity"
+        elif "validation" in str(error).lower():
+            safe_error = f"Validation error: {str(error)}"
+        elif "permission" in str(error).lower() or "unauthorized" in str(error).lower():
+            safe_error = "Insufficient permissions for this operation"
+        else:
+            safe_error = "An internal error occurred while processing your request"
+        
         yield StreamEvent(
             is_task_complete=True,
-            content=f"Error: {str(error)}",
+            content=f"Error: {safe_error}",
             new_state=new_state.model_dump(),
             timestamp=datetime.now().isoformat()
         )
@@ -233,10 +253,12 @@ def extract_text_from_a2a_message(message: Dict[str, Any]) -> str:
     if not message or not message.get("parts"):
         return ""
     
-    text_parts = []
-    for part in message["parts"]:
-        if part.get("kind") == "text":
-            text_parts.append(part.get("text", ""))
+    # Use functional approach instead of mutation
+    text_parts = [
+        part.get("text", "")
+        for part in message["parts"]
+        if part.get("kind") == "text"
+    ]
     
     return "\n".join(text_parts)
 
@@ -371,7 +393,7 @@ async def execute_a2a_agent(
         
         processing_events = []
         async for event in process_agent_query(agent, query, agent_state, model_provider):
-            processing_events.append(event.model_dump())
+            processing_events = [*processing_events, event.model_dump()]
             
             if event.is_task_complete:
                 # Handle final result
@@ -413,17 +435,32 @@ async def execute_a2a_agent(
         }
         
     except Exception as error:
-        error_message = str(error)
+        # Log the actual error for debugging but don't expose internal details
+        import logging
+        logging.error(f"Agent execution error for {agent.name}: {str(error)}", exc_info=True)
+        
+        # Determine error type and provide safe error message
+        if "timeout" in str(error).lower():
+            safe_error = "Request timeout - please try again"
+        elif "connection" in str(error).lower():
+            safe_error = "Connection error - please check connectivity"  
+        elif "validation" in str(error).lower():
+            safe_error = f"Validation error: {str(error)}"
+        elif "permission" in str(error).lower() or "unauthorized" in str(error).lower():
+            safe_error = "Insufficient permissions for this operation"
+        else:
+            safe_error = "An internal error occurred while processing your request"
+        
         failed_task = update_a2a_task_status(
             current_task,
             "failed",
-            create_a2a_text_message(error_message, session_id, current_task["id"])
+            create_a2a_text_message(safe_error, session_id, current_task["id"])
         )
         
         return {
             "events": events,
             "final_task": failed_task,
-            "error": error_message
+            "error": safe_error
         }
 
 
