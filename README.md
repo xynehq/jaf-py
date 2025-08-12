@@ -1,9 +1,9 @@
 # JAF (Juspay Agent Framework) - Python Implementation
 
+<!-- ![JAF Banner](docs/cover.png) -->
+
 [![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://pypi.org/project/jaf-python/)
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-passing-green.svg)](tests/)
 
 A purely functional agent framework with immutable state and composable tools, professionally converted from TypeScript to Python. JAF enables building production-ready AI agent systems with built-in security, observability, and error handling.
 
@@ -104,34 +104,81 @@ ruff check jaf/
 black jaf/
 ```
 
+## 📖 Documentation
+
+Complete documentation is available in the [`docs/`](docs/) directory:
+
+- **[📚 Documentation Hub](docs/README.md)** - Your starting point for all documentation
+- **[🚀 Getting Started](docs/getting-started.md)** - Installation and first agent tutorial
+- **[🏗️ Core Concepts](docs/core-concepts.md)** - JAF's functional architecture principles
+- **[📋 API Reference](docs/api-reference.md)** - Complete Python API documentation
+- **[🔧 Tools Guide](docs/tools.md)** - Creating and using tools
+- **[💾 Memory System](docs/memory-system.md)** - Persistence and memory providers
+- **[🤖 Model Providers](docs/model-providers.md)** - LiteLLM integration
+- **[🌐 Server API](docs/server-api.md)** - FastAPI endpoints reference
+- **[📦 Deployment](docs/deployment.md)** - Production deployment guide
+- **[🎮 Examples](docs/examples.md)** - Detailed example walkthroughs
+- **[🔧 Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
+
 ## 📁 Project Structure
 
 ```
-jaf/
-├── core/             # Core framework types and engine
-│   ├── engine.py     # Main execution engine
-│   ├── types.py      # Type definitions and schemas
-│   ├── errors.py     # Error handling and types
-│   ├── tool_results.py # Tool result handling
-│   └── tracing.py    # Observability and event tracing
-├── providers/        # External integrations (LLM, MCP)
-│   ├── model.py      # LiteLLM and OpenAI providers  
-│   └── mcp.py        # Model Context Protocol client
-├── policies/         # Validation and security policies
-│   ├── validation.py # Input/output guardrails
-│   └── handoff.py    # Agent handoff policies
-├── server/           # Production-ready FastAPI server
-│   ├── server.py     # Main server implementation
-│   ├── types.py      # Server-specific types
-│   └── main.py       # Server entry point
-├── cli.py            # Command-line interface
-└── __init__.py       # Main exports
-examples/
-├── server_example.py   # Complete server demo with multiple agents
-└── rag_example.py      # RAG implementation with Google AI
-tests/
-├── test_engine.py      # Core engine tests
-└── test_validation.py  # Validation policy tests
+jaf-python/
+├── docs/                    # 📚 Complete documentation suite
+│   ├── README.md           # Documentation hub and navigation
+│   ├── cover.png          # Project banner/logo
+│   ├── getting-started.md  # Installation and first steps
+│   ├── core-concepts.md    # Architecture and philosophy
+│   ├── api-reference.md    # Complete API documentation
+│   ├── tools.md            # Tool creation and usage
+│   ├── memory-system.md    # Memory providers and persistence
+│   ├── model-providers.md  # LLM integration guide
+│   ├── server-api.md       # FastAPI server reference
+│   ├── examples.md         # Example walkthroughs
+│   ├── deployment.md       # Production deployment
+│   └── troubleshooting.md  # FAQ and common issues
+├── jaf/                    # 🏗️ Core framework package
+│   ├── core/              # Core framework types and engine
+│   │   ├── __init__.py    # Core exports
+│   │   ├── engine.py      # Main execution engine (run_agent)
+│   │   ├── types.py       # Type definitions and Pydantic schemas
+│   │   ├── errors.py      # Error handling and custom exceptions
+│   │   ├── tool_results.py # Tool result handling utilities
+│   │   └── tracing.py     # Observability and event tracing
+│   ├── memory/            # 💾 Conversation persistence system
+│   │   ├── __init__.py    # Memory exports
+│   │   ├── factory.py     # Memory provider factory
+│   │   ├── types.py       # Memory provider protocol
+│   │   └── providers/     # Memory provider implementations
+│   │       ├── __init__.py
+│   │       ├── in_memory.py   # In-memory provider
+│   │       ├── redis.py       # Redis provider
+│   │       └── postgres.py    # PostgreSQL provider
+│   ├── providers/         # 🔌 External integrations
+│   │   ├── __init__.py    # Provider exports
+│   │   ├── model.py       # LiteLLM and OpenAI model providers
+│   │   └── mcp.py         # Model Context Protocol client
+│   ├── policies/          # 🛡️ Validation and security policies
+│   │   ├── __init__.py    # Policy exports
+│   │   ├── validation.py  # Input/output guardrails
+│   │   └── handoff.py     # Agent handoff policies
+│   ├── server/            # 🌐 Production-ready FastAPI server
+│   │   ├── __init__.py    # Server exports
+│   │   ├── server.py      # Main server implementation
+│   │   ├── types.py       # Server-specific request/response types
+│   │   └── main.py        # Server entry point and configuration
+│   ├── cli.py             # 💻 Command-line interface
+│   └── __init__.py        # Main package exports
+├── examples/              # 🎮 Example applications and demos
+│   ├── server_demo.py     # Multi-agent server demo
+│   └── rag_demo.py        # RAG implementation with embeddings
+├── tests/                 # 🧪 Test suite
+│   ├── test_engine.py     # Core engine tests
+│   ├── test_validation.py # Validation policy tests
+│   └── ...                # Additional test files
+├── pyproject.toml         # 📦 Package configuration and dependencies
+├── README.md              # 📄 This file - project overview
+└── .gitignore             # Git ignore patterns
 ```
 
 ## 🏗️ Key Components
