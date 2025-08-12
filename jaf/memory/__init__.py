@@ -31,9 +31,7 @@ from .types import (
 )
 
 from .factory import (
-    create_memory_provider_from_env,
-    get_memory_provider_info,
-    test_memory_provider_connection
+    create_memory_provider_from_env
 )
 
 from .providers.in_memory import create_in_memory_provider
@@ -66,8 +64,6 @@ __all__ = [
     
     # Factory functions
     "create_memory_provider_from_env",
-    "get_memory_provider_info",
-    "test_memory_provider_connection",
     
     # Provider factories
     "create_in_memory_provider",
