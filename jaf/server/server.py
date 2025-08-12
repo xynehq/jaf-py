@@ -19,7 +19,9 @@ import uvicorn
 
 from .types import (
     ServerConfig, ChatRequest, ChatResponse, AgentListResponse, 
-    HealthResponse, HttpMessage, CompletedChatData, AgentInfo, AgentListData
+    HealthResponse, HttpMessage, CompletedChatData, AgentInfo, AgentListData,
+    ConversationResponse, ConversationData, MemoryHealthResponse, MemoryHealthData,
+    DeleteConversationResponse, DeleteConversationData
 )
 from ..core.engine import run
 from ..core.types import (
@@ -151,6 +153,128 @@ class JAFServer:
                 raise HTTPException(status_code=400, detail=str(e))
             except Exception as e:
                 raise HTTPException(status_code=500, detail=str(e))
+        
+        # Memory endpoints
+        @self.app.get("/conversations/{conversation_id}", response_model=ConversationResponse)
+        async def get_conversation(conversation_id: str):
+            """Get conversation history."""
+            try:
+                # Check if memory is configured
+                if not self.config.run_config.memory:
+                    return ConversationResponse(
+                        success=False,
+                        error="Memory not configured for this server"
+                    )
+                
+                conversation = await self.config.run_config.memory.provider.get_conversation(conversation_id)
+                if not conversation:
+                    return ConversationResponse(
+                        success=False,
+                        error=f"Conversation {conversation_id} not found"
+                    )
+                
+                # Convert messages to HTTP format
+                http_messages = []
+                for msg in conversation.messages:
+                    if msg.role == 'tool':
+                        http_messages.append({
+                            'role': 'tool',
+                            'content': msg.content,
+                            'tool_call_id': msg.tool_call_id
+                        })
+                    elif msg.role == 'assistant' and msg.tool_calls:
+                        http_messages.append({
+                            'role': msg.role,
+                            'content': msg.content or '',
+                            'tool_calls': [
+                                {
+                                    'id': tc.id,
+                                    'type': tc.type,
+                                    'function': {
+                                        'name': tc.function.name,
+                                        'arguments': tc.function.arguments
+                                    }
+                                }
+                                for tc in msg.tool_calls
+                            ]
+                        })
+                    else:
+                        http_messages.append({
+                            'role': msg.role,
+                            'content': msg.content
+                        })
+                
+                return ConversationResponse(
+                    success=True,
+                    data=ConversationData(
+                        conversation_id=conversation.conversation_id,
+                        user_id=conversation.user_id,
+                        messages=http_messages,
+                        metadata=conversation.metadata
+                    )
+                )
+                
+            except Exception as e:
+                return ConversationResponse(
+                    success=False,
+                    error=str(e)
+                )
+        
+        @self.app.delete("/conversations/{conversation_id}", response_model=DeleteConversationResponse)
+        async def delete_conversation(conversation_id: str):
+            """Delete conversation."""
+            try:
+                # Check if memory is configured
+                if not self.config.run_config.memory:
+                    return DeleteConversationResponse(
+                        success=False,
+                        error="Memory not configured for this server"
+                    )
+                
+                deleted = await self.config.run_config.memory.provider.delete_conversation(conversation_id)
+                
+                return DeleteConversationResponse(
+                    success=True,
+                    data=DeleteConversationData(
+                        conversation_id=conversation_id,
+                        deleted=deleted
+                    )
+                )
+                
+            except Exception as e:
+                return DeleteConversationResponse(
+                    success=False,
+                    error=str(e)
+                )
+        
+        @self.app.get("/memory/health", response_model=MemoryHealthResponse)
+        async def memory_health_check():
+            """Check memory provider health."""
+            try:
+                # Check if memory is configured
+                if not self.config.run_config.memory:
+                    return MemoryHealthResponse(
+                        success=False,
+                        error="Memory not configured for this server"
+                    )
+                
+                health_data = await self.config.run_config.memory.provider.health_check()
+                
+                return MemoryHealthResponse(
+                    success=True,
+                    data=MemoryHealthData(
+                        healthy=health_data.get('healthy', False),
+                        provider=health_data.get('provider', 'Unknown'),
+                        latency_ms=health_data.get('latency_ms', 0),
+                        details=health_data
+                    )
+                )
+                
+            except Exception as e:
+                return MemoryHealthResponse(
+                    success=False,
+                    error=str(e)
+                )
     
     async def _handle_chat(self, request: ChatRequest) -> ChatResponse:
         """Handle chat completion logic."""
@@ -183,6 +307,9 @@ class JAFServer:
                 )
                 jaf_messages.append(jaf_msg)
             
+            # Generate or use provided conversation_id
+            conversation_id = request.conversation_id or str(uuid.uuid4())
+            
             # Create initial state
             run_id = create_run_id(str(uuid.uuid4()))
             trace_id = create_trace_id(str(uuid.uuid4()))
@@ -198,10 +325,17 @@ class JAFServer:
             
             # Create run config with overrides
             run_config = self.config.run_config
-            if request.max_turns is not None:
-                # Create a new config with the override
-                from dataclasses import replace
-                run_config = replace(run_config, max_turns=request.max_turns)
+            from dataclasses import replace
+            
+            # Apply overrides
+            if request.max_turns is not None or conversation_id:
+                config_updates = {}
+                if request.max_turns is not None:
+                    config_updates['max_turns'] = request.max_turns
+                if conversation_id:
+                    config_updates['conversation_id'] = conversation_id
+                
+                run_config = replace(run_config, **config_updates)
             
             # Run the agent
             result = await run(initial_state, run_config)
@@ -263,7 +397,8 @@ class JAFServer:
                     messages=http_messages,
                     outcome=outcome_dict,
                     turn_count=result.final_state.turn_count,
-                    execution_time_ms=execution_time
+                    execution_time_ms=execution_time,
+                    conversation_id=conversation_id
                 )
             )
             
@@ -287,6 +422,16 @@ class JAFServer:
         print(f"🏥 Health check: http://{host}:{port}/health")
         print(f"🤖 Agents list: http://{host}:{port}/agents")
         print(f"💬 Chat endpoint: http://{host}:{port}/chat")
+        
+        # Memory endpoints info
+        if self.config.run_config.memory:
+            print(f"🧠 Memory provider: {type(self.config.run_config.memory.provider).__name__}")
+            print(f"📚 Conversation API: http://{host}:{port}/conversations/{{id}}")
+            print(f"🗑️  Delete conversation: DELETE http://{host}:{port}/conversations/{{id}}")
+            print(f"💾 Memory health: http://{host}:{port}/memory/health")
+        else:
+            print("⚠️  Memory: Not configured (conversations will not persist)")
+            
         print(f"📖 API docs: http://{host}:{port}/docs")
         
         # Configure uvicorn

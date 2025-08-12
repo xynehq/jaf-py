@@ -1,0 +1,76 @@
+"""
+Memory system for the JAF framework.
+
+This module provides persistent conversation storage across different backends
+including in-memory, Redis, and PostgreSQL providers.
+"""
+
+from .types import (
+    # Core types
+    ConversationMemory,
+    MemoryProvider,
+    MemoryQuery,
+    MemoryConfig,
+    
+    # Result types
+    Result,
+    Success,
+    Failure,
+    
+    # Configuration types
+    InMemoryConfig,
+    RedisConfig,
+    PostgresConfig,
+    MemoryProviderConfig,
+    
+    # Error types
+    MemoryError,
+    MemoryConnectionError,
+    MemoryNotFoundError,
+    MemoryStorageError
+)
+
+from .factory import (
+    create_memory_provider_from_env,
+    get_memory_provider_info,
+    test_memory_provider_connection
+)
+
+from .providers.in_memory import create_in_memory_provider
+from .providers.redis import create_redis_provider
+from .providers.postgres import create_postgres_provider
+
+__all__ = [
+    # Core types
+    "ConversationMemory",
+    "MemoryProvider", 
+    "MemoryQuery",
+    "MemoryConfig",
+    
+    # Result types
+    "Result",
+    "Success",
+    "Failure",
+    
+    # Configuration types
+    "InMemoryConfig",
+    "RedisConfig", 
+    "PostgresConfig",
+    "MemoryProviderConfig",
+    
+    # Error types
+    "MemoryError",
+    "MemoryConnectionError",
+    "MemoryNotFoundError", 
+    "MemoryStorageError",
+    
+    # Factory functions
+    "create_memory_provider_from_env",
+    "get_memory_provider_info",
+    "test_memory_provider_connection",
+    
+    # Provider factories
+    "create_in_memory_provider",
+    "create_redis_provider",
+    "create_postgres_provider"
+]

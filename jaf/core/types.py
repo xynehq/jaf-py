@@ -324,3 +324,5 @@ class RunConfig(Generic[Ctx]):
     initial_input_guardrails: Optional[List[Guardrail]] = None
     final_output_guardrails: Optional[List[Guardrail]] = None
     on_event: Optional[Callable[[TraceEvent], None]] = None
+    memory: Optional['MemoryConfig'] = None
+    conversation_id: Optional[str] = None

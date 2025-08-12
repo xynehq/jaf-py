@@ -20,6 +20,8 @@ from .providers.mcp import (
 from .policies.validation import *
 from .policies.handoff import *
 
+from .memory import *
+
 from .server import run_server
 
 import uuid
@@ -56,6 +58,14 @@ __all__ = [
     "MCPClient", "MCPTool", "MCPToolArgs",
     "create_mcp_websocket_client", "create_mcp_stdio_client",
     "create_mcp_tools_from_client",
+    
+    # Memory system
+    "ConversationMemory", "MemoryProvider", "MemoryQuery", "MemoryConfig",
+    "Result", "Success", "Failure",
+    "InMemoryConfig", "RedisConfig", "PostgresConfig", "MemoryProviderConfig",
+    "MemoryError", "MemoryConnectionError", "MemoryNotFoundError", "MemoryStorageError",
+    "create_memory_provider_from_env", "get_memory_provider_info", "test_memory_provider_connection",
+    "create_in_memory_provider", "create_redis_provider", "create_postgres_provider",
     
     # Server
     "run_server",

@@ -177,6 +177,84 @@ async def start_server():
     # Set up tracing
     trace_collector = ConsoleTraceCollector()
     
+    # Set up memory provider based on environment
+    memory_provider = None
+    memory_config = None
+    
+    try:
+        from jaf.memory import create_memory_provider_from_env, MemoryConfig
+        
+        # Create external clients if needed (for database connections)
+        external_clients = {}
+        
+        memory_type = os.getenv("JAF_MEMORY_TYPE", "memory").lower()
+        print(f'🧠 Memory Type: {memory_type}')
+        
+        if memory_type == "redis":
+            try:
+                import redis.asyncio as redis
+                
+                # Create Redis client based on environment
+                redis_url = os.getenv("JAF_REDIS_URL")
+                if redis_url:
+                    redis_client = redis.from_url(redis_url)
+                else:
+                    redis_client = redis.Redis(
+                        host=os.getenv("JAF_REDIS_HOST", "localhost"),
+                        port=int(os.getenv("JAF_REDIS_PORT", "6379")),
+                        password=os.getenv("JAF_REDIS_PASSWORD"),
+                        db=int(os.getenv("JAF_REDIS_DB", "0"))
+                    )
+                
+                external_clients["redis"] = redis_client
+                print(f'🔗 Redis connection configured')
+                
+            except ImportError:
+                print('⚠️  Redis library not installed. Run: pip install redis')
+                print('   Using in-memory storage instead')
+                
+        elif memory_type == "postgres":
+            try:
+                import asyncpg
+                
+                # Create PostgreSQL connection
+                connection_string = os.getenv("JAF_POSTGRES_CONNECTION_STRING")
+                if connection_string:
+                    postgres_client = await asyncpg.connect(connection_string)
+                else:
+                    postgres_client = await asyncpg.connect(
+                        host=os.getenv("JAF_POSTGRES_HOST", "localhost"),
+                        port=int(os.getenv("JAF_POSTGRES_PORT", "5432")),
+                        database=os.getenv("JAF_POSTGRES_DATABASE", "jaf_memory"),
+                        user=os.getenv("JAF_POSTGRES_USERNAME", "postgres"),
+                        password=os.getenv("JAF_POSTGRES_PASSWORD"),
+                        ssl=os.getenv("JAF_POSTGRES_SSL", "false").lower() == "true"
+                    )
+                
+                external_clients["postgres"] = postgres_client
+                print(f'🔗 PostgreSQL connection configured')
+                
+            except ImportError:
+                print('⚠️  asyncpg library not installed. Run: pip install asyncpg')
+                print('   Using in-memory storage instead')
+            except Exception as e:
+                print(f'⚠️  Failed to connect to PostgreSQL: {e}')
+                print('   Using in-memory storage instead')
+        
+        # Create memory provider
+        memory_provider = await create_memory_provider_from_env(external_clients)
+        memory_config = MemoryConfig(
+            provider=memory_provider,
+            auto_store=True,
+            max_messages=int(os.getenv("JAF_MEMORY_MAX_MESSAGES", "1000"))
+        )
+        
+        print(f'✅ Memory provider created: {type(memory_provider).__name__}')
+        
+    except Exception as e:
+        print(f'⚠️  Failed to set up memory provider: {e}')
+        print('   Conversations will not persist between sessions')
+    
     try:
         print('🔧 Creating server...')
         
@@ -197,7 +275,8 @@ async def start_server():
             model_provider=model_provider,
             max_turns=5,
             model_override=os.getenv('LITELLM_MODEL', 'gemini-2.5-pro'),
-            on_event=trace_collector.collect
+            on_event=trace_collector.collect,
+            memory=memory_config
         )
         
         server_options = {
@@ -240,6 +319,27 @@ async def start_server():
         print('     -H "Content-Type: application/json" \\')
         print('     -d \'{"messages":[{"role":"user","content":"Calculate 25 + 17 and then greet me as Bob"}],"agent_name":"Assistant","context":{"userId":"demo","permissions":["user"]}}\'')
         print('')
+        
+        if memory_config:
+            print('6. Start a persistent conversation:')
+            print('   curl -X POST http://localhost:3000/chat \\')
+            print('     -H "Content-Type: application/json" \\')
+            print('     -d \'{"messages":[{"role":"user","content":"Hello, I am starting a new conversation"}],"agent_name":"ChatBot","conversation_id":"my-conversation","context":{"userId":"demo","permissions":["user"]}}\'')
+            print('')
+            print('7. Continue the conversation:')
+            print('   curl -X POST http://localhost:3000/chat \\')
+            print('     -H "Content-Type: application/json" \\')
+            print('     -d \'{"messages":[{"role":"user","content":"Do you remember me?"}],"agent_name":"ChatBot","conversation_id":"my-conversation","context":{"userId":"demo","permissions":["user"]}}\'')
+            print('')
+            print('8. Get conversation history:')
+            print('   curl http://localhost:3000/conversations/my-conversation')
+            print('')
+            print('9. Delete conversation:')
+            print('   curl -X DELETE http://localhost:3000/conversations/my-conversation')
+            print('')
+            print('10. Memory health check:')
+            print('    curl http://localhost:3000/memory/health')
+            print('')
         print('🚀 Starting server...')
         
         # Start the server (this will block until server stops)

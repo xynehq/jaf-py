@@ -27,6 +27,8 @@ class ChatRequest(BaseModel):
     context: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Context data for the agent")
     max_turns: Optional[int] = Field(default=10, description="Maximum number of turns")
     stream: bool = Field(default=False, description="Whether to stream the response")
+    conversation_id: Optional[str] = Field(default=None, description="Conversation ID for memory persistence")
+    memory: Optional[Dict[str, Any]] = Field(default=None, description="Memory configuration override")
 
 # Response types
 class CompletedChatData(BaseModel):
@@ -37,6 +39,7 @@ class CompletedChatData(BaseModel):
     outcome: Dict[str, Any]
     turn_count: int
     execution_time_ms: int
+    conversation_id: Optional[str] = None
 
 class ChatResponse(BaseModel):
     """Response format for chat endpoints."""
@@ -66,6 +69,44 @@ class HealthResponse(BaseModel):
     timestamp: str
     version: str
     uptime: int  # milliseconds
+
+# Memory-specific response types
+class ConversationData(BaseModel):
+    """Data for a conversation."""
+    conversation_id: str
+    user_id: Optional[str] = None
+    messages: List[Dict[str, Any]]
+    metadata: Optional[Dict[str, Any]] = None
+
+class ConversationResponse(BaseModel):
+    """Response format for conversation endpoints."""
+    success: bool
+    data: Optional[ConversationData] = None
+    error: Optional[str] = None
+
+class MemoryHealthData(BaseModel):
+    """Data for memory health check."""
+    healthy: bool
+    provider: str
+    latency_ms: float
+    details: Optional[Dict[str, Any]] = None
+
+class MemoryHealthResponse(BaseModel):
+    """Response format for memory health endpoint."""
+    success: bool
+    data: Optional[MemoryHealthData] = None
+    error: Optional[str] = None
+
+class DeleteConversationData(BaseModel):
+    """Data for delete conversation response."""
+    conversation_id: str
+    deleted: bool
+
+class DeleteConversationResponse(BaseModel):
+    """Response format for delete conversation endpoint."""
+    success: bool
+    data: Optional[DeleteConversationData] = None
+    error: Optional[str] = None
 
 # Server configuration
 @dataclass
