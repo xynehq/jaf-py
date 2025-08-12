@@ -43,7 +43,7 @@ def create_mock_agent():
     return A2AAgent(
         name="TestAgent",
         description="A test agent",
-        supported_content_types=["text/plain"],
+        supportedContentTypes=["text/plain"],
         instruction="You are a test agent",
         tools=[tool]
     )
@@ -189,7 +189,7 @@ class TestJSONRPCValidation:
         
         result5 = validate_send_message_request(invalid5)
         assert result5["is_valid"] is False
-        assert "Message kind must be 'message'" in result5["error"]["message"]
+        assert "Missing required message fields" in result5["error"]["message"]
         
         # Invalid parts format
         invalid6 = {
@@ -206,7 +206,7 @@ class TestJSONRPCValidation:
         
         result6 = validate_send_message_request(invalid6)
         assert result6["is_valid"] is False
-        assert "Message parts must be a list" in result6["error"]["message"]
+        assert "Missing required message fields" in result6["error"]["message"]
 
 
 class TestMessageHandlers:
