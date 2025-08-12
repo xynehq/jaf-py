@@ -5,63 +5,70 @@ This module provides convenience functions for starting JAF servers
 with minimal configuration.
 """
 
-from typing import Any, Dict, List, Optional, TypeVar
-from dataclasses import dataclass
-
-from .server import JAFServer
+from typing import Any, Dict, List, Optional, TypeVar, Union
+import uvicorn
+from .server import create_jaf_server
 from .types import ServerConfig
 from ..core.types import Agent, RunConfig
+from ..memory.types import MemoryProvider
 
 Ctx = TypeVar('Ctx')
 
-async def run_server(config: ServerConfig) -> None:
-    """
-    Start a JAF server with the given configuration.
-    
-    Args:
-        config: Complete server configuration including agents and run config
-    """
-    # Create and start server
-    server = JAFServer(config)
-    await server.start()
-
-def create_simple_server(
-    agents: List[Agent[Any, Any]],
-    model_provider: Any,
-    host: str = 'localhost',
+async def run_server(
+    agents: Union[List[Agent], Dict[str, Agent]],
+    run_config: RunConfig,
+    host: str = '127.0.0.1',
     port: int = 3000,
-    max_turns: int = 10
-) -> JAFServer:
+    cors: bool = True,
+    default_memory_provider: Optional[MemoryProvider] = None
+) -> None:
     """
-    Create a simple JAF server with minimal configuration.
+    Create and start a JAF server with the given configuration.
     
     Args:
-        agents: List of agents to serve
-        model_provider: Model provider instance
-        host: Server host (default: localhost)
-        port: Server port (default: 3000)
-        max_turns: Maximum turns per conversation (default: 10)
-        
-    Returns:
-        JAFServer instance ready to start
+        agents: List or dictionary of agents to serve.
+        run_config: Core run configuration.
+        host: Server host.
+        port: Server port.
+        cors: Enable/disable CORS.
+        default_memory_provider: Optional default memory provider for the server.
     """
-    # Create agent registry
-    agent_registry = {agent.name: agent for agent in agents}
-    
-    # Create run config
-    run_config = RunConfig(
-        agent_registry=agent_registry,
-        model_provider=model_provider,
-        max_turns=max_turns
-    )
-    
+    if isinstance(agents, list):
+        agent_registry = {agent.name: agent for agent in agents}
+    else:
+        agent_registry = agents
+
+    if not agent_registry:
+        raise ValueError("At least one agent must be provided.")
+
     # Create server config
     server_config = ServerConfig(
         agent_registry=agent_registry,
         run_config=run_config,
         host=host,
         port=port,
-        cors=True
+        cors=cors,
+        default_memory_provider=default_memory_provider
     )
     
-    return JAFServer(server_config)
+    app = create_jaf_server(server_config)
+    
+    # Configure and run uvicorn
+    uv_config = uvicorn.Config(
+        app=app,
+        host=host,
+        port=port,
+        log_level="info"
+    )
+    
+    server = uvicorn.Server(uv_config)
+    
+    print(f"🚀 JAF Server running on http://{host}:{port}")
+    print(f"📋 Available agents: {', '.join(agent_registry.keys())}")
+    print(f"📖 API docs: http://{host}:{port}/docs")
+    if default_memory_provider:
+        print(f"🧠 Memory provider: {type(default_memory_provider).__name__}")
+    else:
+        print("⚠️  Memory: Not configured (conversations will not persist)")
+
+    await server.serve()

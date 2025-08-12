@@ -10,6 +10,7 @@ import asyncio
 from typing import Any, Dict, List, Optional, TypeVar, Generic, Union
 from dataclasses import replace
 
+from ..memory.types import Failure
 from .types import (
     RunState, RunConfig, RunResult, JAFError, Message, TraceEvent,
     Agent, Tool, CompletedOutcome, ErrorOutcome,
@@ -30,52 +31,15 @@ async def run(
 ) -> RunResult[Out]:
     """
     Main execution function for running agents.
-    
-    Args:
-        initial_state: Initial state of the run
-        config: Configuration for the run
-        
-    Returns:
-        RunResult containing final state and outcome
     """
     try:
         if config.on_event:
-            config.on_event(RunStartEvent(data={
-                'run_id': initial_state.run_id,
-                'trace_id': initial_state.trace_id
-            }))
+            config.on_event(RunStartEvent(data={'run_id': initial_state.run_id, 'trace_id': initial_state.trace_id}))
 
-        result = await _run_internal(initial_state, config)
+        state_with_memory = await _load_conversation_history(initial_state, config)
+        result = await _run_internal(state_with_memory, config)
         
-        # Store conversation to memory if configured
-        if config.memory and config.conversation_id and config.memory.auto_store:
-            try:
-                # Get metadata for storage
-                metadata = {
-                    "user_id": getattr(result.final_state.context, 'user_id', None),
-                    "run_id": str(result.final_state.run_id),
-                    "trace_id": str(result.final_state.trace_id),
-                    "final_outcome": result.outcome.status
-                }
-                
-                # Apply message limits if configured
-                messages_to_store = result.final_state.messages
-                if config.memory.max_messages:
-                    messages_to_store = messages_to_store[-config.memory.max_messages:]
-                
-                store_result = await config.memory.provider.store_messages(
-                    config.conversation_id,
-                    messages_to_store,
-                    metadata
-                )
-                
-                if hasattr(store_result, 'error'):
-                    print(f"[JAF:ENGINE] Warning: Failed to store conversation to memory: {store_result.error}")
-                else:
-                    print(f"[JAF:ENGINE] Stored {len(messages_to_store)} messages to memory for conversation {config.conversation_id}")
-                    
-            except Exception as e:
-                print(f"[JAF:ENGINE] Warning: Failed to store conversation to memory: {str(e)}")
+        await _store_conversation_history(result.final_state, config)
         
         if config.on_event:
             config.on_event(RunEndEvent(data={'outcome': result.outcome}))
@@ -84,34 +48,63 @@ async def run(
     except Exception as error:
         error_result = RunResult(
             final_state=initial_state,
-            outcome=ErrorOutcome(error=ModelBehaviorError(
-                detail=str(error) if isinstance(error, Exception) else str(error)
-            ))
+            outcome=ErrorOutcome(error=ModelBehaviorError(detail=str(error)))
         )
-
         if config.on_event:
             config.on_event(RunEndEvent(data={'outcome': error_result.outcome}))
-
         return error_result
+
+async def _load_conversation_history(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunState[Ctx]:
+    """Load conversation history from memory provider."""
+    if not (config.memory and config.memory.provider and config.conversation_id):
+        return state
+
+    result = await config.memory.provider.get_conversation(config.conversation_id)
+    if isinstance(result, Failure):
+        print(f"[JAF:ENGINE] Warning: Failed to load conversation: {result.error}")
+        return state
+
+    conversation_data = result.data
+    if conversation_data:
+        max_messages = config.memory.max_messages or len(conversation_data.messages)
+        memory_messages = conversation_data.messages[-max_messages:]
+
+        print(f"[JAF:ENGINE] Loaded {len(memory_messages)} messages from memory for conversation {config.conversation_id}")
+
+        return replace(state, messages=list(memory_messages) + list(state.messages))
+    return state
+
+async def _store_conversation_history(state: RunState[Ctx], config: RunConfig[Ctx]):
+    """Store conversation history to memory provider."""
+    if not (config.memory and config.memory.provider and config.conversation_id and config.memory.auto_store):
+        return
+
+    messages_to_store = list(state.messages)
+    if config.memory.compression_threshold and len(messages_to_store) > config.memory.compression_threshold:
+        keep_first = int(config.memory.compression_threshold * 0.2)
+        keep_recent = config.memory.compression_threshold - keep_first
+        messages_to_store = messages_to_store[:keep_first] + messages_to_store[-keep_recent:]
+        print(f"[JAF:ENGINE] Compressed conversation from {len(state.messages)} to {len(messages_to_store)} messages")
+
+    metadata = {
+        "user_id": getattr(state.context, 'user_id', None),
+        "trace_id": str(state.trace_id),
+        "run_id": str(state.run_id),
+        "agent_name": state.current_agent_name,
+        "turn_count": state.turn_count
+    }
+    
+    result = await config.memory.provider.store_messages(config.conversation_id, messages_to_store, metadata)
+    if isinstance(result, Failure):
+        print(f"[JAF:ENGINE] Warning: Failed to store conversation: {result.error}")
+    else:
+        print(f"[JAF:ENGINE] Stored {len(messages_to_store)} messages for conversation {config.conversation_id}")
 
 async def _run_internal(
     state: RunState[Ctx],
     config: RunConfig[Ctx]
 ) -> RunResult[Out]:
     """Internal run function with recursive execution logic."""
-    
-    # Load conversation history from memory on first turn
-    if state.turn_count == 0 and config.memory and config.conversation_id:
-        try:
-            conversation = await config.memory.provider.get_conversation(config.conversation_id)
-            if conversation:
-                print(f"[JAF:ENGINE] Loaded {len(conversation.messages)} messages from memory for conversation {config.conversation_id}")
-                # Prepend historical messages to current messages
-                combined_messages = list(conversation.messages) + list(state.messages)
-                state = replace(state, messages=combined_messages)
-        except Exception as e:
-            print(f"[JAF:ENGINE] Warning: Failed to load conversation from memory: {str(e)}")
-    
     # Check initial input guardrails on first turn
     if state.turn_count == 0:
         first_user_message = next((m for m in state.messages if m.role == 'user'), None)

@@ -180,80 +180,17 @@ async def start_server():
     # Set up memory provider based on environment
     memory_provider = None
     memory_config = None
-    
     try:
-        from jaf.memory import create_memory_provider_from_env, MemoryConfig
-        
-        # Create external clients if needed (for database connections)
-        external_clients = {}
-        
-        memory_type = os.getenv("JAF_MEMORY_TYPE", "memory").lower()
-        print(f'🧠 Memory Type: {memory_type}')
-        
-        if memory_type == "redis":
-            try:
-                import redis.asyncio as redis
-                
-                # Create Redis client based on environment
-                redis_url = os.getenv("JAF_REDIS_URL")
-                if redis_url:
-                    redis_client = redis.from_url(redis_url)
-                else:
-                    redis_client = redis.Redis(
-                        host=os.getenv("JAF_REDIS_HOST", "localhost"),
-                        port=int(os.getenv("JAF_REDIS_PORT", "6379")),
-                        password=os.getenv("JAF_REDIS_PASSWORD"),
-                        db=int(os.getenv("JAF_REDIS_DB", "0"))
-                    )
-                
-                external_clients["redis"] = redis_client
-                print(f'🔗 Redis connection configured')
-                
-            except ImportError:
-                print('⚠️  Redis library not installed. Run: pip install redis')
-                print('   Using in-memory storage instead')
-                
-        elif memory_type == "postgres":
-            try:
-                import asyncpg
-                
-                # Create PostgreSQL connection
-                connection_string = os.getenv("JAF_POSTGRES_CONNECTION_STRING")
-                if connection_string:
-                    postgres_client = await asyncpg.connect(connection_string)
-                else:
-                    postgres_client = await asyncpg.connect(
-                        host=os.getenv("JAF_POSTGRES_HOST", "localhost"),
-                        port=int(os.getenv("JAF_POSTGRES_PORT", "5432")),
-                        database=os.getenv("JAF_POSTGRES_DATABASE", "jaf_memory"),
-                        user=os.getenv("JAF_POSTGRES_USERNAME", "postgres"),
-                        password=os.getenv("JAF_POSTGRES_PASSWORD"),
-                        ssl=os.getenv("JAF_POSTGRES_SSL", "false").lower() == "true"
-                    )
-                
-                external_clients["postgres"] = postgres_client
-                print(f'🔗 PostgreSQL connection configured')
-                
-            except ImportError:
-                print('⚠️  asyncpg library not installed. Run: pip install asyncpg')
-                print('   Using in-memory storage instead')
-            except Exception as e:
-                print(f'⚠️  Failed to connect to PostgreSQL: {e}')
-                print('   Using in-memory storage instead')
-        
-        # Create memory provider
-        memory_provider = await create_memory_provider_from_env(external_clients)
-        memory_config = MemoryConfig(
-            provider=memory_provider,
-            auto_store=True,
-            max_messages=int(os.getenv("JAF_MEMORY_MAX_MESSAGES", "1000"))
-        )
-        
-        print(f'✅ Memory provider created: {type(memory_provider).__name__}')
-        
-    except Exception as e:
-        print(f'⚠️  Failed to set up memory provider: {e}')
-        print('   Conversations will not persist between sessions')
+        from jaf.memory import create_memory_provider_from_env, Success
+        result = await create_memory_provider_from_env()
+        if isinstance(result, Success):
+            memory_provider = result.data
+            print(f'✅ Memory provider created: {type(memory_provider).__name__}')
+        else:
+            print(f'⚠️  Failed to create memory provider: {result.error}')
+            print('   Conversations will not persist between sessions')
+    except ImportError:
+        print('⚠️  Memory module not fully available. Conversations will not persist.')
     
     try:
         print('🔧 Creating server...')
@@ -343,7 +280,14 @@ async def start_server():
         print('🚀 Starting server...')
         
         # Start the server (this will block until server stops)
-        await run_server(server_config)
+        await run_server(
+            agents=run_config.agent_registry,
+            run_config=run_config,
+            host=server_options['host'],
+            port=server_options['port'],
+            cors=server_options['cors'],
+            default_memory_provider=memory_provider
+        )
         
     except Exception as error:
         print(f'❌ Failed to start server: {error}')

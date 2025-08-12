@@ -5,11 +5,14 @@ This module defines the request/response types and configuration
 for the JAF HTTP server implementation.
 """
 
-from typing import Any, Dict, List, Optional, Union, Literal
+from typing import Any, Dict, List, Optional, Union, Literal, TypeVar, Generic
 from dataclasses import dataclass
 from pydantic import BaseModel, Field
 
 from ..core.types import Agent, RunConfig, TraceEvent
+from ..memory.types import MemoryProvider
+
+Ctx = TypeVar('Ctx')
 
 # HTTP Message types
 class HttpMessage(BaseModel):
@@ -35,7 +38,7 @@ class CompletedChatData(BaseModel):
     """Data for successful chat completion."""
     run_id: str
     trace_id: str
-    messages: List[Dict[str, Any]]
+    messages: List[HttpMessage]
     outcome: Dict[str, Any]
     turn_count: int
     execution_time_ms: int
@@ -110,13 +113,14 @@ class DeleteConversationResponse(BaseModel):
 
 # Server configuration
 @dataclass
-class ServerConfig:
+class ServerConfig(Generic[Ctx]):
     """Configuration for the JAF HTTP server."""
-    agent_registry: Dict[str, Agent]
-    run_config: RunConfig
-    host: str = 'localhost'
+    agent_registry: Dict[str, Agent[Ctx, Any]]
+    run_config: RunConfig[Ctx]
+    host: str = '127.0.0.1'
     port: int = 3000
     cors: Union[bool, Dict[str, Any]] = True
+    default_memory_provider: Optional[MemoryProvider] = None
 
 # Validation schemas
 def validate_chat_request(data: Dict[str, Any]) -> ChatRequest:
