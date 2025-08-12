@@ -10,6 +10,7 @@ import asyncio
 from typing import Any, Dict
 from dataclasses import dataclass
 from pydantic import BaseModel, Field
+from dotenv import load_dotenv
 
 # Import JAF components
 from jaf import (
@@ -159,6 +160,7 @@ def create_assistant_agent() -> Agent[MyContext, str]:
 
 async def start_server():
     """Start the JAF development server."""
+    load_dotenv()
     print('🚀 Starting JAF Development Server...\n')
     
     # Check if LiteLLM configuration is provided

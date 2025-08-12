@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 from jaf import Agent, Tool, ToolSchema, RunState, RunConfig, run, generate_trace_id, generate_run_id
 from jaf.core.types import Message
-from jaf.core.tool_results import ToolResult, ToolResultStatus
+from jaf.core.tool_results import ToolResult, ToolResponse, ToolErrorCodes
 from jaf.providers.model import make_litellm_provider
 
 
@@ -94,19 +94,17 @@ class LiteLLMRAGTool:
             relevant_docs = self._semantic_search(args.query, args.max_results)
             
             if not relevant_docs:
-                return ToolResult(
-                    status=ToolResultStatus.SUCCESS,
-                    data="I couldn't find any relevant information in the knowledge base for your query.",
-                    metadata={"query": args.query, "results_count": 0}
+                return ToolResponse.success(
+                    "I couldn't find any relevant information in the knowledge base for your query.",
+                    {"query": args.query, "results_count": 0}
                 )
             
             # Step 2: Format the retrieved information
             formatted_response = self._format_retrieved_docs(relevant_docs, args.query)
             
-            return ToolResult(
-                status=ToolResultStatus.SUCCESS,
-                data=formatted_response,
-                metadata={
+            return ToolResponse.success(
+                formatted_response,
+                {
                     "query": args.query,
                     "results_count": len(relevant_docs),
                     "sources": [{"title": doc["title"], "category": doc["metadata"]["category"]} for doc in relevant_docs]
@@ -114,10 +112,10 @@ class LiteLLMRAGTool:
             )
             
         except Exception as e:
-            return ToolResult(
-                status=ToolResultStatus.ERROR,
-                error_message=f"RAG query failed: {str(e)}",
-                data={"error": str(e), "query": args.query}
+            return ToolResponse.error(
+                ToolErrorCodes.EXECUTION_FAILED,
+                f"RAG query failed: {str(e)}",
+                {"error": str(e), "query": args.query}
             )
     
     def _semantic_search(self, query: str, max_results: int) -> List[Dict[str, Any]]:
