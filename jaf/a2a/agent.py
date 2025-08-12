@@ -113,7 +113,7 @@ def transform_a2a_agent_to_jaf(a2a_agent: A2AAgent) -> Agent:
     )
 
 
-def transform_a2a_tool_to_jaf(a2a_tool: A2AAgentTool) -> Tool:
+def transform_a2a_tool_to_jaf(a2a_tool: A2AAgentTool) -> 'JAFToolImplementation':
     """Pure function to transform A2A tool to JAF tool"""
     
     async def execute_wrapper(args: Any, context: Any) -> Any:
@@ -134,14 +134,36 @@ def transform_a2a_tool_to_jaf(a2a_tool: A2AAgentTool) -> Tool:
         
         return result
     
-    return Tool(
-        schema={
-            "name": a2a_tool.name,
-            "description": a2a_tool.description,
-            "parameters": a2a_tool.parameters
-        },
+    # Create ToolSchema object
+    from ..core.types import ToolSchema
+    tool_schema = ToolSchema(
+        name=a2a_tool.name,
+        description=a2a_tool.description,
+        parameters=a2a_tool.parameters
+    )
+    
+    return JAFToolImplementation(
+        schema=tool_schema,
         execute=execute_wrapper
     )
+
+
+class JAFToolImplementation:
+    """Concrete implementation of the Tool protocol"""
+    
+    def __init__(self, schema, execute: Callable):
+        self._schema = schema
+        self._execute = execute
+        self.name = schema.name  # Add name attribute for JAF engine
+        self.description = schema.description
+        self.parameters = schema.parameters
+    
+    @property
+    def schema(self):
+        return self._schema
+    
+    async def execute(self, args: Any, context: Any) -> Any:
+        return await self._execute(args, context)
 
 
 def create_run_config_for_a2a_agent(
@@ -152,7 +174,18 @@ def create_run_config_for_a2a_agent(
     jaf_agent = transform_a2a_agent_to_jaf(a2a_agent)
     
     def event_handler(event: Any) -> None:
-        print(f"[A2A:{a2a_agent.name}] {event.get('type', 'unknown')}: {event.get('data', '')}")
+        # Handle different event types properly
+        if hasattr(event, 'data'):
+            event_data = event.data
+            event_type = type(event).__name__
+        elif isinstance(event, dict):
+            event_data = event.get('data', '')
+            event_type = event.get('type', 'unknown')
+        else:
+            event_data = str(event)
+            event_type = type(event).__name__
+        
+        print(f"[A2A:{a2a_agent.name}] {event_type}: {event_data}")
     
     return RunConfig(
         agent_registry={a2a_agent.name: jaf_agent},
@@ -209,7 +242,7 @@ async def process_agent_query(
         if hasattr(result.outcome, 'status') and result.outcome.status == 'completed':
             final_state = update_state_from_run_result(new_state, result.outcome)
             yield StreamEvent(
-                is_task_complete=True,
+                isTaskComplete=True,
                 content=getattr(result.outcome, 'output', 'Task completed'),
                 new_state=final_state.model_dump(),
                 timestamp=datetime.now().isoformat()
@@ -218,7 +251,7 @@ async def process_agent_query(
             final_state = update_state_from_run_result(new_state, result.outcome)
             error_content = getattr(result.outcome, 'error', 'Unknown error')
             yield StreamEvent(
-                is_task_complete=True,
+                isTaskComplete=True,
                 content=f"Error: {json.dumps(error_content) if isinstance(error_content, dict) else str(error_content)}",
                 new_state=final_state.model_dump(),
                 timestamp=datetime.now().isoformat()
@@ -241,7 +274,7 @@ async def process_agent_query(
             safe_error = "An internal error occurred while processing your request"
         
         yield StreamEvent(
-            is_task_complete=True,
+            isTaskComplete=True,
             content=f"Error: {safe_error}",
             new_state=new_state.model_dump(),
             timestamp=datetime.now().isoformat()
@@ -395,7 +428,7 @@ async def execute_a2a_agent(
         async for event in process_agent_query(agent, query, agent_state, model_provider):
             processing_events = [*processing_events, event.model_dump()]
             
-            if event.is_task_complete:
+            if event.isTaskComplete:
                 # Handle final result
                 if isinstance(event.content, str) and event.content.startswith("Error: "):
                     # Error case
@@ -499,7 +532,7 @@ async def execute_a2a_agent_with_streaming(
         agent_state = create_initial_agent_state(session_id)
         
         async for event in process_agent_query(agent, query, agent_state, model_provider):
-            if not event.is_task_complete:
+            if not event.isTaskComplete:
                 yield {
                     "kind": "status-update",
                     "taskId": current_task["id"],

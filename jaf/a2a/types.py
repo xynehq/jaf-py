@@ -35,20 +35,20 @@ class A2AFile(BaseModel):
 
 class A2ATextPart(BaseModel):
     """A2A text part"""
-    model_config = {"frozen": True}
+    model_config = {"frozen": True, "extra": "forbid"}
     
     kind: Literal["text"]
     text: str
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = Field(None, exclude=True)
 
 
 class A2ADataPart(BaseModel):
     """A2A data part"""
-    model_config = {"frozen": True}
+    model_config = {"frozen": True, "extra": "forbid"}
     
     kind: Literal["data"]
     data: Dict[str, Any]
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = Field(None, exclude=True)
 
 
 class A2AFilePart(BaseModel):
@@ -218,6 +218,8 @@ class MessageSendConfiguration(BaseModel):
     """Configuration for message sending"""
     model_config = {"frozen": True}
     
+    model: Optional[str] = None
+    temperature: Optional[float] = None
     accepted_output_modes: Optional[List[str]] = Field(None, alias="acceptedOutputModes")
     history_length: Optional[int] = Field(None, alias="historyLength")
     blocking: Optional[bool] = None
@@ -278,7 +280,7 @@ class StreamEvent(BaseModel):
     """Base stream event"""
     model_config = {"frozen": True}
     
-    is_task_complete: bool = Field(alias="isTaskComplete")
+    isTaskComplete: bool
     content: Optional[Any] = None
     updates: Optional[str] = None
     new_state: Optional[Dict[str, Any]] = Field(None, alias="newState")
@@ -342,7 +344,10 @@ class A2AToolResult(BaseModel):
     """A2A tool execution result"""
     model_config = {"frozen": True}
     
+    status: str
     result: Any
+    data: Optional[Any] = None
+    error: Optional[A2AError] = None
     context: Optional[ToolContext] = None
 
 
@@ -398,11 +403,15 @@ class A2AClientState(BaseModel):
 
 def create_a2a_text_part(text: str, metadata: Optional[Dict[str, Any]] = None) -> A2ATextPart:
     """Create an A2A text part"""
+    if metadata is None:
+        return A2ATextPart(kind="text", text=text)
     return A2ATextPart(kind="text", text=text, metadata=metadata)
 
 
 def create_a2a_data_part(data: Dict[str, Any], metadata: Optional[Dict[str, Any]] = None) -> A2ADataPart:
     """Create an A2A data part"""
+    if metadata is None:
+        return A2ADataPart(kind="data", data=data)
     return A2ADataPart(kind="data", data=data, metadata=metadata)
 
 
@@ -416,9 +425,13 @@ def create_jsonrpc_success_response(id: Union[str, int, None], result: Any) -> J
     return JSONRPCSuccessResponse(jsonrpc="2.0", id=id, result=result)
 
 
-def create_jsonrpc_error_response(id: Union[str, int, None], error: JSONRPCError) -> JSONRPCErrorResponse:
+def create_jsonrpc_error_response(id: Union[str, int, None], error: Union[JSONRPCError, A2AError]) -> JSONRPCErrorResponse:
     """Create a JSON-RPC error response"""
-    return JSONRPCErrorResponse(jsonrpc="2.0", id=id, error=error)
+    if isinstance(error, A2AError):
+        jsonrpc_error = JSONRPCError(code=error.code, message=error.message, data=error.data)
+    else:
+        jsonrpc_error = error
+    return JSONRPCErrorResponse(jsonrpc="2.0", id=id, error=jsonrpc_error)
 
 
 def create_a2a_error(code: A2AErrorCodes, message: str, data: Optional[Any] = None) -> A2AError:

@@ -36,6 +36,18 @@ def create_run_id(id_str: str) -> RunId:
     """Create a RunId from a string."""
     return RunId(id_str)
 
+def generate_run_id() -> RunId:
+    """Generate a new unique run ID."""
+    import uuid
+    import time
+    return RunId(f"run_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}")
+
+def generate_trace_id() -> TraceId:
+    """Generate a new unique trace ID."""
+    import uuid
+    import time
+    return TraceId(f"trace_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}")
+
 # Type variables for generic contexts and outputs
 Ctx = TypeVar('Ctx')
 Out = TypeVar('Out')
