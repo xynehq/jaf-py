@@ -33,29 +33,37 @@ async def create_memory_provider_from_env(
         return Success(create_in_memory_provider(config))
     
     elif memory_type == "redis":
-        config = RedisConfig(
-            url=os.getenv("JAF_REDIS_URL"),
-            host=os.getenv("JAF_REDIS_HOST", "localhost"),
-            port=int(os.getenv("JAF_REDIS_PORT", "6379")),
-            password=os.getenv("JAF_REDIS_PASSWORD"),
-            db=int(os.getenv("JAF_REDIS_DB", "0")),
-            key_prefix=os.getenv("JAF_REDIS_KEY_PREFIX", "jaf:memory:"),
-            ttl=int(os.getenv("JAF_REDIS_TTL")) if os.getenv("JAF_REDIS_TTL") else None
-        )
+        redis_password = os.getenv("JAF_REDIS_PASSWORD")
+        config_data = {
+            "url": os.getenv("JAF_REDIS_URL"),
+            "host": os.getenv("JAF_REDIS_HOST", "localhost"),
+            "port": int(os.getenv("JAF_REDIS_PORT", "6379")),
+            "db": int(os.getenv("JAF_REDIS_DB", "0")),
+            "key_prefix": os.getenv("JAF_REDIS_KEY_PREFIX", "jaf:memory:"),
+            "ttl": int(os.getenv("JAF_REDIS_TTL")) if os.getenv("JAF_REDIS_TTL") else None
+        }
+        if redis_password:
+            config_data["password"] = redis_password
+            
+        config = RedisConfig(**config_data)
         return await create_redis_provider(config)
         
     elif memory_type == "postgres":
-        config = PostgresConfig(
-            connection_string=os.getenv("JAF_POSTGRES_CONNECTION_STRING"),
-            host=os.getenv("JAF_POSTGRES_HOST", "localhost"),
-            port=int(os.getenv("JAF_POSTGRES_PORT", "5432")),
-            database=os.getenv("JAF_POSTGRES_DATABASE", "jaf_memory"),
-            username=os.getenv("JAF_POSTGRES_USERNAME", "postgres"),
-            password=os.getenv("JAF_POSTGRES_PASSWORD"),
-            ssl=os.getenv("JAF_POSTGRES_SSL", "false").lower() == "true",
-            table_name=os.getenv("JAF_POSTGRES_TABLE_NAME", "conversations"),
-            max_connections=int(os.getenv("JAF_POSTGRES_MAX_CONNECTIONS", "10"))
-        )
+        connection_string = os.getenv("JAF_POSTGRES_CONNECTION_STRING")
+        config_data = {
+            "host": os.getenv("JAF_POSTGRES_HOST", "localhost"),
+            "port": int(os.getenv("JAF_POSTGRES_PORT", "5432")),
+            "database": os.getenv("JAF_POSTGRES_DB", "jaf_test"),
+            "username": os.getenv("JAF_POSTGRES_USERNAME", "postgres"),
+            "password": os.getenv("JAF_POSTGRES_PASSWORD"),
+            "ssl": os.getenv("JAF_POSTGRES_SSL", "false").lower() == "true",
+            "table_name": os.getenv("JAF_POSTGRES_TABLE_NAME", "conversations"),
+            "max_connections": int(os.getenv("JAF_POSTGRES_MAX_CONNECTIONS", "10"))
+        }
+        if connection_string:
+            config_data["connection_string"] = connection_string
+            
+        config = PostgresConfig(**config_data)
         return await create_postgres_provider(config)
         
     else:

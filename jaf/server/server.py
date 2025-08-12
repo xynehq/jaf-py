@@ -94,18 +94,18 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
             turn_count=0
         )
 
-        run_config = config.run_config
+        run_config_with_memory = config.run_config
         if config.default_memory_provider:
-            run_config = replace(
-                run_config,
+            run_config_with_memory = replace(
+                run_config_with_memory,
                 memory=MemoryConfig(provider=config.default_memory_provider, auto_store=True),
                 conversation_id=conversation_id
             )
         
         if request.max_turns is not None:
-            run_config = replace(run_config, max_turns=request.max_turns)
+            run_config_with_memory = replace(run_config_with_memory, max_turns=request.max_turns)
 
-        result = await run(initial_state, run_config)
+        result = await run(initial_state, run_config_with_memory)
         
         http_messages = [HttpMessage.model_validate(asdict(msg)) for msg in result.final_state.messages]
         

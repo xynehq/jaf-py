@@ -264,43 +264,20 @@ async def test_postgres_provider():
     """Test the PostgreSQL provider."""
     try:
         # Check if PostgreSQL dependencies are available
-        import psycopg2
-        from psycopg2.extras import RealDictCursor
+        import asyncpg
         from jaf.memory.providers.postgres import create_postgres_provider
         from jaf.memory.types import PostgresConfig
         
         print("📡 Connecting to PostgreSQL...")
         
         # Connection configuration
-        connection_string = os.getenv('POSTGRES_URL', 'postgresql://postgres:testpass@localhost:5432/jaf_memory')
+        connection_string = os.getenv('JAF_POSTGRES_CONNECTION_STRING', 'postgresql://postgres:postgres@localhost:5432/jaf_test')
         
-        # Create connection
-        connection = psycopg2.connect(connection_string, cursor_factory=RealDictCursor)
-        connection.autocommit = True
+        # Test connection
+        conn = await asyncpg.connect(dsn=connection_string)
+        await conn.close()
         
         print("✅ PostgreSQL connection successful")
-        
-        # Create async adapter
-        class AsyncPostgresAdapter:
-            def __init__(self, conn):
-                self.connection = conn
-            
-            async def query(self, sql, params=None):
-                cursor = self.connection.cursor()
-                try:
-                    cursor.execute(sql, params)
-                    if cursor.description:
-                        rows = cursor.fetchall()
-                        return {"rows": [dict(row) for row in rows], "rowCount": cursor.rowcount}
-                    else:
-                        return {"rows": [], "rowCount": cursor.rowcount}
-                finally:
-                    cursor.close()
-            
-            async def close(self):
-                self.connection.close()
-        
-        async_client = AsyncPostgresAdapter(connection)
         
         config = PostgresConfig(
             type="postgres",
@@ -314,13 +291,17 @@ async def test_postgres_provider():
             max_connections=10
         )
         
-        provider = await create_postgres_provider(config, async_client)
+        provider_result = await create_postgres_provider(config)
+        if isinstance(provider_result, Failure):
+            print(f"    ❌ Create provider failed: {provider_result.error}")
+            return False
+        provider = provider_result.data
         tester = MemoryProviderTester()
         
         result = await tester.test_provider("PostgreSQL", provider, "test-postgres-conversation")
         
         # Cleanup
-        await async_client.close()
+        await provider.close()
         
         return result
         

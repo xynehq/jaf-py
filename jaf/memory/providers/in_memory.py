@@ -287,7 +287,9 @@ class InMemoryProvider(MemoryProvider):
                 "healthy": True,
                 "latency_ms": latency_ms,
                 "provider": "InMemory",
-                "conversations_count": len(self._conversations)
+                "details": {
+                    "conversations_count": len(self._conversations)
+                }
             })
         except Exception as e:
             return Failure(MemoryConnectionError(

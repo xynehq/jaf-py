@@ -71,7 +71,17 @@ async def _load_conversation_history(state: RunState[Ctx], config: RunConfig[Ctx
 
         print(f"[JAF:ENGINE] Loaded {len(memory_messages)} messages from memory for conversation {config.conversation_id}")
 
-        return replace(state, messages=list(memory_messages) + list(state.messages))
+        turn_count = 0
+        if conversation_data.metadata and "turn_count" in conversation_data.metadata:
+            turn_count = conversation_data.metadata["turn_count"]
+        
+        print(f"[JAF:ENGINE] Loaded turn_count: {turn_count}")
+
+        return replace(
+            state, 
+            messages=list(memory_messages) + list(state.messages),
+            turn_count=turn_count
+        )
     return state
 
 async def _store_conversation_history(state: RunState[Ctx], config: RunConfig[Ctx]):
@@ -262,7 +272,7 @@ async def _run_internal(
                             )
                 
                 return RunResult(
-                    final_state=replace(state, messages=new_messages),
+                    final_state=replace(state, messages=new_messages, turn_count=state.turn_count + 1),
                     outcome=CompletedOutcome(output=output_data)
                 )
                 
@@ -291,7 +301,7 @@ async def _run_internal(
                         )
             
             return RunResult(
-                final_state=replace(state, messages=new_messages),
+                final_state=replace(state, messages=new_messages, turn_count=state.turn_count + 1),
                 outcome=CompletedOutcome(output=assistant_message.content)
             )
     

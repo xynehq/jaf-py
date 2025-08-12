@@ -231,9 +231,19 @@ class RedisProvider(MemoryProvider):
             return Failure(MemoryStorageError(operation="get_stats", provider="Redis", message=str(e), cause=e))
     
     async def health_check(self) -> Result[Dict[str, Any], MemoryConnectionError]:
+        start_time = datetime.now()
         try:
             await self.redis_client.ping()
-            return Success({"healthy": True})
+            latency_ms = (datetime.now() - start_time).total_seconds() * 1000
+            db_size = await self.redis_client.dbsize()
+            return Success({
+                "healthy": True,
+                "latency_ms": latency_ms,
+                "provider": "Redis",
+                "details": {
+                    "db_size": db_size
+                }
+            })
         except Exception as e:
             return Failure(MemoryConnectionError(provider="Redis", message="Redis health check failed", cause=e))
     
@@ -246,9 +256,22 @@ class RedisProvider(MemoryProvider):
 
 async def create_redis_provider(config: RedisConfig) -> Result[RedisProvider, MemoryConnectionError]:
     try:
-        redis_client = redis.from_url(config.url) if config.url else redis.Redis(
-            host=config.host, port=config.port, db=config.db, password=config.password
-        )
+        # These will be passed to the Redis client constructor
+        # and will override any values parsed from the URL.
+        conn_kwargs = {
+            "host": config.host,
+            "port": config.port,
+            "db": config.db,
+            "password": config.password,
+        }
+        # Filter out None values so we don't override URL parts with None
+        conn_kwargs = {k: v for k, v in conn_kwargs.items() if v is not None}
+
+        if config.url:
+            redis_client = redis.from_url(config.url, **conn_kwargs)
+        else:
+            redis_client = redis.Redis(**conn_kwargs)
+            
         await redis_client.ping()
         return Success(RedisProvider(config, redis_client))
     except Exception as e:

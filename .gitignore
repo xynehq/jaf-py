@@ -92,6 +92,9 @@ jspm_packages/
 # DynamoDB Local files
 .dynamodb/
 
+# Redis
+*.rdb
+
 # TernJS port file
 .tern-port
 # Python cache files
