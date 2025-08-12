@@ -139,7 +139,15 @@ def create_math_agent() -> Agent[MyContext, str]:
 def create_chat_agent() -> Agent[MyContext, str]:
     """Create a friendly chatbot agent."""
     def instructions(state: RunState[MyContext]) -> str:
-        return 'You are a friendly chatbot. Use the greeting tool when meeting new people, and engage in helpful conversation.'
+        return '''You are a friendly chatbot with conversation memory. You can remember previous interactions within the same conversation.
+
+Key capabilities:
+- Use the greeting tool when meeting new people for the first time
+- Remember and reference previous messages in the conversation
+- Be aware of conversation history and acknowledge past interactions
+- Engage in helpful conversation building on previous context
+
+Important: You have access to the full conversation history through the messages. Use this history to provide contextual responses and remember what users have told you.'''
     
     return Agent(
         name='ChatBot',
@@ -185,6 +193,11 @@ async def start_server():
         result = await create_memory_provider_from_env()
         if isinstance(result, Success):
             memory_provider = result.data
+            memory_config = {
+                'provider': memory_provider,
+                'auto_store': True,
+                'max_messages': 100
+            }
             print(f'✅ Memory provider created: {type(memory_provider).__name__}')
         else:
             print(f'⚠️  Failed to create memory provider: {result.error}')
@@ -233,49 +246,50 @@ async def start_server():
             cors=server_options['cors']
         )
         
-        print('\n📚 Try these example requests:')
+        port = server_options['port']
+        print(f'\n📚 Try these example requests:')
         print('')
         print('1. Health Check:')
-        print('   curl http://localhost:3000/health')
+        print(f'   curl http://localhost:{port}/health')
         print('')
         print('2. List Agents:')
-        print('   curl http://localhost:3000/agents')
+        print(f'   curl http://localhost:{port}/agents')
         print('')
         print('3. Chat with Math Tutor:')
-        print('   curl -X POST http://localhost:3000/chat \\')
+        print(f'   curl -X POST http://localhost:{port}/chat \\')
         print('     -H "Content-Type: application/json" \\')
         print('     -d \'{"messages":[{"role":"user","content":"What is 15 * 7?"}],"agent_name":"MathTutor","context":{"userId":"demo","permissions":["user"]}}\'')
         print('')
         print('4. Chat with ChatBot:')
-        print('   curl -X POST http://localhost:3000/agents/ChatBot/chat \\')
+        print(f'   curl -X POST http://localhost:{port}/agents/ChatBot/chat \\')
         print('     -H "Content-Type: application/json" \\')
         print('     -d \'{"messages":[{"role":"user","content":"Hi, my name is Alice"}],"context":{"userId":"demo","permissions":["user"]}}\'')
         print('')
         print('5. Chat with Assistant:')
-        print('   curl -X POST http://localhost:3000/chat \\')
+        print(f'   curl -X POST http://localhost:{port}/chat \\')
         print('     -H "Content-Type: application/json" \\')
         print('     -d \'{"messages":[{"role":"user","content":"Calculate 25 + 17 and then greet me as Bob"}],"agent_name":"Assistant","context":{"userId":"demo","permissions":["user"]}}\'')
         print('')
         
         if memory_config:
             print('6. Start a persistent conversation:')
-            print('   curl -X POST http://localhost:3000/chat \\')
+            print(f'   curl -X POST http://localhost:{port}/chat \\')
             print('     -H "Content-Type: application/json" \\')
             print('     -d \'{"messages":[{"role":"user","content":"Hello, I am starting a new conversation"}],"agent_name":"ChatBot","conversation_id":"my-conversation","context":{"userId":"demo","permissions":["user"]}}\'')
             print('')
             print('7. Continue the conversation:')
-            print('   curl -X POST http://localhost:3000/chat \\')
+            print(f'   curl -X POST http://localhost:{port}/chat \\')
             print('     -H "Content-Type: application/json" \\')
             print('     -d \'{"messages":[{"role":"user","content":"Do you remember me?"}],"agent_name":"ChatBot","conversation_id":"my-conversation","context":{"userId":"demo","permissions":["user"]}}\'')
             print('')
             print('8. Get conversation history:')
-            print('   curl http://localhost:3000/conversations/my-conversation')
+            print(f'   curl http://localhost:{port}/conversations/my-conversation')
             print('')
             print('9. Delete conversation:')
-            print('   curl -X DELETE http://localhost:3000/conversations/my-conversation')
+            print(f'   curl -X DELETE http://localhost:{port}/conversations/my-conversation')
             print('')
             print('10. Memory health check:')
-            print('    curl http://localhost:3000/memory/health')
+            print(f'    curl http://localhost:{port}/memory/health')
             print('')
         print('🚀 Starting server...')
         
@@ -299,7 +313,7 @@ async def main():
     try:
         await start_server()
     except KeyboardInterrupt:
-        print('\n🛑 Received interrupt, shutting down gracefully...')
+        print('\n� Received interrupt, shutting down gracefully...')
     except Exception as error:
         print(f'❌ Unhandled error in main: {error}')
         import traceback

@@ -143,31 +143,45 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
         @app.get("/conversations/{conversation_id}", response_model=ConversationResponse)
         async def get_conversation(conversation_id: str):
             result = await config.default_memory_provider.get_conversation(conversation_id)
-            if isinstance(result, dict) and result.get('success') is False:
-                raise HTTPException(status_code=500, detail=result.get('error'))
+            
+            # Handle Result type properly
+            if hasattr(result, 'error'):  # Failure case
+                raise HTTPException(status_code=500, detail=str(result.error.message))
             
             conversation = result.data
             if not conversation:
                 raise HTTPException(status_code=404, detail="Conversation not found")
 
-            return ConversationResponse(success=True, data=conversation)
+            # Convert ConversationMemory to ConversationData
+            conversation_data = ConversationData(
+                conversation_id=conversation.conversation_id,
+                user_id=conversation.user_id,
+                messages=[asdict(msg) for msg in conversation.messages],
+                metadata=conversation.metadata
+            )
+
+            return ConversationResponse(success=True, data=conversation_data)
 
         @app.delete("/conversations/{conversation_id}", response_model=DeleteConversationResponse)
         async def delete_conversation(conversation_id: str):
             result = await config.default_memory_provider.delete_conversation(conversation_id)
-            if isinstance(result, dict) and result.get('success') is False:
-                raise HTTPException(status_code=500, detail=result.get('error'))
+            
+            # Handle Result type properly
+            if hasattr(result, 'error'):  # Failure case
+                raise HTTPException(status_code=500, detail=str(result.error.message))
             
             return DeleteConversationResponse(
                 success=True, 
-                data=DeleteConversationData(deleted=result.data)
+                data=DeleteConversationData(conversation_id=conversation_id, deleted=result.data)
             )
 
         @app.get("/memory/health", response_model=MemoryHealthResponse)
         async def memory_health():
             result = await config.default_memory_provider.health_check()
-            if isinstance(result, dict) and result.get('success') is False:
-                raise HTTPException(status_code=500, detail=result.get('error'))
+            
+            # Handle Result type properly
+            if hasattr(result, 'error'):  # Failure case
+                raise HTTPException(status_code=500, detail=str(result.error.message))
             
             return MemoryHealthResponse(success=True, data=result.data)
 
