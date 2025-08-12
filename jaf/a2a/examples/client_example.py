@@ -24,10 +24,9 @@ import json
 from typing import Dict, Any
 
 # Import A2A client functionality
-from jaf.a2a import (
-    A2A, create_a2a_client, connect_to_a2a_agent,
-    send_message, stream_message, send_message_to_agent,
-    discover_agents, check_a2a_health, get_a2a_capabilities
+from jaf.a2a.client import (
+    create_a2a_client, send_message, stream_message, send_message_to_agent,
+    discover_agents, check_a2a_health, get_a2a_capabilities, connect_to_a2a_agent
 )
 
 
@@ -195,9 +194,9 @@ async def test_convenience_connection():
     
     try:
         # Use the convenience connection method
-        connection = await A2A.connect("http://localhost:3000")
+        connection = await connect_to_a2a_agent("http://localhost:3000")
         
-        print("✅ Connected using A2A.connect()")
+        print("✅ Connected using connect_to_a2a_agent()")
         
         # Test the convenience methods
         response1 = await connection["ask"]("What is 10 + 15?")

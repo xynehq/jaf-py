@@ -21,10 +21,9 @@ from typing import Dict, Any, Optional
 from pydantic import BaseModel, Field
 
 # Import A2A functionality
-from jaf.a2a import (
-    A2A, create_a2a_agent, create_a2a_tool, 
-    create_server_config, start_a2a_server
-)
+from jaf.a2a.types import A2AAgent, A2AAgentTool
+from jaf.a2a.agent import create_a2a_agent, create_a2a_tool
+from jaf.a2a.server import create_server_config, create_a2a_server
 
 # Mock model provider for demonstration
 class MockModelProvider:
@@ -311,32 +310,29 @@ async def main():
     agents = create_example_agents()
     print(f"📦 Created {len(agents)} agents: {', '.join(agents.keys())}")
     
-    # Create server configuration
-    server_config = create_server_config(
-        agents=agents,
-        name="JAF A2A Example Server",
-        description="Multi-agent server showcasing A2A protocol capabilities",
-        port=3000,
-        host="localhost",
-        version="1.0.0",
-        provider={
-            "organization": "JAF Framework Examples",
-            "url": "https://functional-agent-framework.com"
-        }
-    )
-    
-    print("🔧 Server configuration created")
-    print(f"🏠 Host: {server_config['host']}:{server_config['port']}")
-    print(f"🤖 Agents: {len(server_config['agents'])}")
-    
-    # Start the server
+    # Create A2A server
     try:
         print("\n🌟 Starting A2A-enabled JAF server...")
         
-        # Add mock model provider to server config
+        # Create server configuration
+        server_config = create_server_config(
+            agents=agents,
+            name="JAF A2A Example Server",
+            description="Multi-agent server showcasing A2A protocol capabilities",
+            host="localhost",
+            port=3000
+        )
+        
+        # Add mock model provider
         server_config["model_provider"] = MockModelProvider()
         
-        server = await start_a2a_server(server_config)
+        print("🔧 Server configuration created")
+        print(f"🏠 Host: localhost:3000")
+        print(f"🤖 Agents: {len(agents)}")
+        
+        # Create and start the server
+        server = create_a2a_server(server_config)
+        await server["start"]()
         
         print("\n✅ Server started successfully!")
         print("\n📋 Available endpoints:")

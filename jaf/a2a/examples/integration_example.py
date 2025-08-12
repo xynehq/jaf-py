@@ -18,11 +18,10 @@ from typing import Dict, Any
 from pydantic import BaseModel, Field
 
 # Import A2A functionality
-from jaf.a2a import (
-    A2A, create_a2a_agent, create_a2a_tool,
-    create_server_config, create_a2a_server,
-    create_a2a_client, send_message_to_agent
-)
+from jaf.a2a.types import A2AAgent, A2AAgentTool
+from jaf.a2a.agent import create_a2a_agent, create_a2a_tool
+from jaf.a2a.server import create_server_config, create_a2a_server
+from jaf.a2a.client import create_a2a_client, send_message_to_agent, discover_agents, check_a2a_health, get_a2a_capabilities
 
 
 # Mock model provider
@@ -126,26 +125,27 @@ async def start_test_server():
     
     agents = create_test_agents()
     
+    # Create server configuration
     server_config = create_server_config(
         agents=agents,
         name="Test A2A Server",
         description="Integration test server with sample agents",
-        port=3001,  # Use different port to avoid conflicts
-        host="localhost"
+        host="localhost",
+        port=3001  # Use different port to avoid conflicts
     )
     
-    # Create server (but don't start it yet)
-    server_obj = create_a2a_server(server_config)
+    server_config["model_provider"] = MockModelProvider()
     
-    # Start server in background
-    server_task = asyncio.create_task(server_obj["start"]())
+    server = create_a2a_server(server_config)
+    
+    server_task = asyncio.create_task(server["start"]())
     
     # Give server time to start
     await asyncio.sleep(2)
     
     print("✅ Test server started on http://localhost:3001")
     
-    return server_obj, server_task
+    return server, server_task
 
 
 async def test_client_interactions(base_url: str):
