@@ -89,7 +89,7 @@ class ConsoleTraceCollector:
         self.in_memory.collect(event)
         
         timestamp = datetime.now().isoformat()
-        prefix = f"[{timestamp}] FAF:{event.type}"
+        prefix = f"[{timestamp}] JAF:{event.type}"
         
         if event.type == 'run_start':
             data = event.data

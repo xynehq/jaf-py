@@ -8,21 +8,21 @@ for consistent error handling throughout the framework.
 import json
 from typing import Literal, Union, Any, Dict, List
 from .types import (
-    FAFError, MaxTurnsExceeded, ModelBehaviorError, DecodeError,
+    JAFError, MaxTurnsExceeded, ModelBehaviorError, DecodeError,
     InputGuardrailTripwire, OutputGuardrailTripwire, ToolCallError,
     HandoffError, AgentNotFound
 )
 
-class FAFErrorHandler:
-    """Handler for formatting and classifying FAF errors."""
+class JAFErrorHandler:
+    """Handler for formatting and classifying JAF errors."""
     
     @staticmethod
-    def format_error(error: FAFError) -> str:
+    def format_error(error: JAFError) -> str:
         """
         Format an error into a human-readable string.
         
         Args:
-            error: The FAF error to format
+            error: The JAF error to format
             
         Returns:
             Formatted error message
@@ -68,12 +68,12 @@ class FAFErrorHandler:
             return f"Unknown error: {json.dumps(error.__dict__, default=str)}"
     
     @staticmethod
-    def is_retryable(error: FAFError) -> bool:
+    def is_retryable(error: JAFError) -> bool:
         """
         Determine if an error is retryable.
         
         Args:
-            error: The FAF error to check
+            error: The JAF error to check
             
         Returns:
             True if the error is retryable, False otherwise
@@ -91,12 +91,12 @@ class FAFErrorHandler:
             return False
     
     @staticmethod
-    def get_severity(error: FAFError) -> Literal['low', 'medium', 'high', 'critical']:
+    def get_severity(error: JAFError) -> Literal['low', 'medium', 'high', 'critical']:
         """
         Get the severity level of an error.
         
         Args:
-            error: The FAF error to classify
+            error: The JAF error to classify
             
         Returns:
             Severity level: 'low', 'medium', 'high', or 'critical'
@@ -119,16 +119,16 @@ class FAFErrorHandler:
         else:
             return 'medium'
 
-def create_faf_error(tag: str, details: Any) -> FAFError:
+def create_jaf_error(tag: str, details: Any) -> JAFError:
     """
-    Create a FAF error from a tag and details.
+    Create a JAF error from a tag and details.
     
     Args:
         tag: The error tag/type
         details: Error details (can be dict or simple value)
         
     Returns:
-        Appropriate FAF error instance
+        Appropriate JAF error instance
         
     Raises:
         ValueError: If the error tag is unknown

@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional, TypeVar, Generic, Union
 from dataclasses import replace
 
 from .types import (
-    RunState, RunConfig, RunResult, FAFError, Message, TraceEvent,
+    RunState, RunConfig, RunResult, JAFError, Message, TraceEvent,
     Agent, Tool, CompletedOutcome, ErrorOutcome,
     MaxTurnsExceeded, ModelBehaviorError, DecodeError, InputGuardrailTripwire,
     OutputGuardrailTripwire, ToolCallError, HandoffError, AgentNotFound,
@@ -104,10 +104,10 @@ async def _run_internal(
             outcome=ErrorOutcome(error=AgentNotFound(agent_name=state.current_agent_name))
         )
     
-    print(f"[FAF:ENGINE] Using agent: {current_agent.name}")
-    print(f"[FAF:ENGINE] Agent has {len(current_agent.tools or [])} tools available")
+    print(f"[JAF:ENGINE] Using agent: {current_agent.name}")
+    print(f"[JAF:ENGINE] Agent has {len(current_agent.tools or [])} tools available")
     if current_agent.tools:
-        print(f"[FAF:ENGINE] Available tools: {[t.schema.name for t in current_agent.tools]}")
+        print(f"[JAF:ENGINE] Available tools: {[t.schema.name for t in current_agent.tools]}")
     
     # Get model name
     model = (
@@ -150,8 +150,8 @@ async def _run_internal(
     
     # Handle tool calls
     if assistant_message.tool_calls:
-        print(f"[FAF:ENGINE] Processing {len(assistant_message.tool_calls)} tool calls")
-        print(f"[FAF:ENGINE] Tool calls: {assistant_message.tool_calls}")
+        print(f"[JAF:ENGINE] Processing {len(assistant_message.tool_calls)} tool calls")
+        print(f"[JAF:ENGINE] Tool calls: {assistant_message.tool_calls}")
         
         tool_results = await _execute_tool_calls(
             assistant_message.tool_calls,
@@ -160,7 +160,7 @@ async def _run_internal(
             config
         )
         
-        print(f"[FAF:ENGINE] Tool execution completed. Results count: {len(tool_results)}")
+        print(f"[JAF:ENGINE] Tool execution completed. Results count: {len(tool_results)}")
         
         # Check for handoffs
         handoff_result = next((r for r in tool_results if r.get('is_handoff')), None)
@@ -360,9 +360,9 @@ async def _execute_tool_calls(
                     )
                 }
             
-            print(f"[FAF:ENGINE] About to execute tool: {tool_call.function.name}")
-            print(f"[FAF:ENGINE] Tool args: {validated_args}")
-            print(f"[FAF:ENGINE] Tool context: {state.context}")
+            print(f"[JAF:ENGINE] About to execute tool: {tool_call.function.name}")
+            print(f"[JAF:ENGINE] Tool args: {validated_args}")
+            print(f"[JAF:ENGINE] Tool context: {state.context}")
             
             # Execute the tool
             tool_result = await tool.execute(validated_args, state.context)
@@ -371,13 +371,13 @@ async def _execute_tool_calls(
             if isinstance(tool_result, str):
                 result_string = tool_result
                 tool_result_obj = None
-                print(f"[FAF:ENGINE] Tool {tool_call.function.name} returned string: {result_string}")
+                print(f"[JAF:ENGINE] Tool {tool_call.function.name} returned string: {result_string}")
             else:
                 # It's a ToolResult object
                 tool_result_obj = tool_result
                 result_string = tool_result_to_string(tool_result)
-                print(f"[FAF:ENGINE] Tool {tool_call.function.name} returned ToolResult: {tool_result}")
-                print(f"[FAF:ENGINE] Converted to string: {result_string}")
+                print(f"[JAF:ENGINE] Tool {tool_call.function.name} returned ToolResult: {tool_result}")
+                print(f"[JAF:ENGINE] Converted to string: {result_string}")
             
             if config.on_event:
                 config.on_event(ToolCallEndEvent(data={

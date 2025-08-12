@@ -3,12 +3,12 @@
 from .types import *
 from .engine import run
 from .tracing import TraceCollector, ConsoleTraceCollector
-from .errors import FAFError
+from .errors import JAFError
 from .tool_results import *
 
 __all__ = [
     "TraceId", "RunId", "ValidationResult", "Message", "ModelConfig", 
-    "Tool", "Agent", "Guardrail", "RunState", "FAFError", "RunResult", 
+    "Tool", "Agent", "Guardrail", "RunState", "JAFError", "RunResult", 
     "TraceEvent", "ModelProvider", "RunConfig",
     "create_trace_id", "create_run_id",
     "run",

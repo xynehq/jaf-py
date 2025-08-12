@@ -7,7 +7,7 @@ A purely functional agent framework with immutable state and composable tools.
 from .core.types import *
 from .core.engine import run
 from .core.tracing import TraceCollector, ConsoleTraceCollector
-from .core.errors import FAFError
+from .core.errors import JAFError
 from .core.tool_results import *
 
 from .providers.model import make_litellm_provider
@@ -37,7 +37,7 @@ __version__ = "2.0.0"
 __all__ = [
     # Core types and functions
     "TraceId", "RunId", "ValidationResult", "Message", "ModelConfig", 
-    "Tool", "Agent", "Guardrail", "RunState", "FAFError", "RunResult", 
+    "Tool", "Agent", "Guardrail", "RunState", "JAFError", "RunResult", 
     "TraceEvent", "ModelProvider", "RunConfig",
     "create_trace_id", "create_run_id", "generate_trace_id", "generate_run_id",
     

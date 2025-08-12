@@ -169,7 +169,7 @@ class AgentNotFound:
     agent_name: str = ""
 
 # Union type for all possible errors
-FAFError = Union[
+JAFError = Union[
     MaxTurnsExceeded,
     ModelBehaviorError, 
     DecodeError,
@@ -190,7 +190,7 @@ class CompletedOutcome(Generic[Out]):
 class ErrorOutcome:
     """Error outcome."""
     status: Literal['error'] = 'error'
-    error: FAFError = None
+    error: JAFError = None
 
 # Union type for outcomes
 RunOutcome = Union[CompletedOutcome[Out], ErrorOutcome]

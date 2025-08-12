@@ -474,4 +474,4 @@ MIT
 
 ---
 
-**FAF v2.0** - Building the future of functional AI agent systems 🚀
+**JAF (Juspay Agentic Framework) v2.0** - Building the future of functional AI agent systems 🚀
