@@ -1,17 +1,25 @@
-# Flight Booking Example
+# Flight Booking System: Production Agent Architecture
 
-The Flight Booking example is a comprehensive demonstration of JAF's new object-based API, functional composition patterns, and multi-agent coordination. It showcases how to build a production-ready agent system with type safety, enhanced developer experience, and sophisticated functionality.
+This comprehensive example demonstrates a production-grade flight booking system built on JAF's modern architecture. It showcases enterprise-level patterns including multi-agent coordination, functional composition, type safety, and scalable server integration.
 
-## Overview
+## System Overview
 
-This example demonstrates:
+### Core Architectural Demonstrations
 
-- **Object-based tool creation** using the new `create_function_tool` API
-- **Multi-agent coordination** with specialized agents and handoffs
-- **Functional composition** with higher-order functions
-- **Type safety** using enums and typed configurations
-- **Real-world business logic** for flight booking operations
-- **HTTP server integration** for web applications
+- **Modern Object-Based Tool Creation**: Implementation using the advanced `create_function_tool` API with comprehensive type safety
+- **Multi-Agent Coordination Patterns**: Specialized agent roles with intelligent handoff mechanisms and context preservation
+- **Functional Composition Architecture**: Higher-order functions enabling tool enhancement, caching strategies, and retry logic
+- **Enterprise Type Safety**: Comprehensive enum usage and typed configurations for runtime safety
+- **Production Business Logic**: Real-world flight booking operations with error handling and validation
+- **Scalable HTTP Server Integration**: FastAPI-based server with auto-documentation and monitoring endpoints
+
+### Target Audience
+
+This example is designed for:
+- **Enterprise developers** building production agent systems
+- **System architects** designing multi-agent workflows  
+- **DevOps engineers** deploying agent-based services
+- **Security engineers** implementing secure agent interactions
 
 ## Architecture
 
@@ -168,18 +176,23 @@ cd examples/flight-booking
 python index.py
 ```
 
-**Output:**
+**Expected Output:**
 ```
-🛫 Flight Booking System Demo
+Flight Booking System Demonstration
 ==================================================
-✅ Agent Run Result: completed
-📋 Final Output: I can help you search for flights...
+Agent Execution Status: COMPLETED
+Final Response: I can help you search for flights between any airports. 
+Please provide your origin, destination, departure date, and number of passengers.
 
-🔧 Testing Individual Tools:
-✈️ Flight Search: success
-💺 Seat Availability: success
+Tool Validation Results:
+- Flight Search Tool: OPERATIONAL
+- Seat Availability Tool: OPERATIONAL  
+- Booking Management Tool: OPERATIONAL
+- Status Information Tool: OPERATIONAL
+- Cancellation Tool: OPERATIONAL
 
-🎉 Flight booking demo completed successfully!
+System Status: All components initialized successfully
+Demo Execution: COMPLETED SUCCESSFULLY
 ```
 
 ### Multi-Agent Coordination

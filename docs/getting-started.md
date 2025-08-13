@@ -1,181 +1,512 @@
 # Getting Started with JAF
 
-Welcome to **JAF (Juspay Agent Framework)**! This guide will walk you through everything you need to build your first AI agent with JAF's functional architecture.
+Welcome to **JAF (Juspay Agent Framework)** - a production-ready, functionally pure framework for building AI agents with immutable state and composable architecture. This comprehensive guide provides everything you need to build sophisticated AI agent systems.
 
-!!! tip "What You'll Learn"
-    By the end of this guide, you'll have:
-    
-    - ✅ JAF installed and running
-    - ✅ Your first functional agent
-    - ✅ Understanding of core concepts
-    - ✅ A working example you can extend
+## Learning Objectives
 
-## Prerequisites
+By completing this guide, you will have:
 
-!!! info "System Requirements"
-    - **Python 3.9+** (3.11+ recommended for best performance)
-    - **LiteLLM proxy** (for LLM integration) or direct LLM API access
-    - Basic knowledge of Python async/await and type hints
+- **Installed and configured** JAF with all necessary dependencies
+- **Built your first functional agent** using modern object-based APIs
+- **Mastered core architectural concepts** including immutable state and pure functions
+- **Implemented a complete working example** ready for production extension
+- **Understanding of best practices** for scalable agent development
 
-## Installation
+## Prerequisites and System Requirements
 
-=== "PyPI (Recommended)"
+### Technical Requirements
 
-    ```bash
-    # Basic installation
-    pip install jaf-python
+- **Python 3.9 or higher** (Python 3.11+ recommended for optimal performance and latest features)
+- **LiteLLM proxy server** for LLM integration, or direct access to LLM APIs
+- **Development environment** with package management (pip, conda, or poetry)
+- **Basic understanding** of Python asyncio, type hints, and functional programming concepts
 
-    # With all optional dependencies (recommended for development)
-    pip install "jaf-python[all]"
-    ```
+### Knowledge Prerequisites
 
-=== "Feature-Specific"
+This guide assumes familiarity with:
 
-    ```bash
-    # Install specific feature sets
-    pip install "jaf-python[server]"        # FastAPI server support
-    pip install "jaf-python[memory]"        # Redis/PostgreSQL memory providers
-    pip install "jaf-python[visualization]" # Graphviz visualization
-    pip install "jaf-python[dev]"           # Development tools
-    ```
+- **Python programming** including classes, decorators, and async/await patterns
+- **Type hints and annotations** using typing module and Pydantic
+- **REST API concepts** for server integration scenarios
+- **Basic understanding of AI/LLM concepts** such as prompts, tools, and agent workflows
 
-=== "Development"
+## Installation and Setup
 
-    ```bash
-    git clone https://github.com/juspay/jaf-python
-    cd jaf-python
-    pip install -e ".[dev]"
+### Production Installation
 
-    # Verify installation
-    python -c "import jaf; print('JAF imported successfully!')"
-    ```
-
-=== "Docker"
-
-    ```bash
-    # Pull the official image
-    docker pull juspay/jaf-python:latest
-    
-    # Run with port mapping
-    docker run -p 8000:8000 juspay/jaf-python
-    ```
-
-## Setting Up LiteLLM (Model Provider)
-
-JAF works with 100+ LLM models through LiteLLM. You'll need a running LiteLLM proxy:
-
-### Quick LiteLLM Setup
+For production environments, install JAF with all dependencies:
 
 ```bash
-# Install LiteLLM
+# Complete installation with all features
+pip install "jaf-python[all]"
+
+# Verify installation
+python -c "import jaf; print(f'JAF {jaf.__version__} installed successfully')"
+```
+
+### Feature-Specific Installation
+
+Install only the components you need for optimized deployments:
+
+```bash
+# Core framework only
+pip install jaf-python
+
+# Server capabilities (FastAPI, uvicorn)
+pip install "jaf-python[server]"
+
+# Memory providers (Redis, PostgreSQL)
+pip install "jaf-python[memory]"
+
+# Visualization tools (Graphviz, diagrams)
+pip install "jaf-python[visualization]"
+
+# Development tools (testing, linting, type checking)
+pip install "jaf-python[dev]"
+
+# Combine multiple feature sets
+pip install "jaf-python[server,memory,visualization]"
+```
+
+### Development Environment Setup
+
+For contributors and advanced development:
+
+```bash
+# Clone the repository
+git clone https://github.com/juspay/jaf-python.git
+cd jaf-python
+
+# Install in development mode with all dependencies
+pip install -e ".[dev,server,memory,visualization]"
+
+# Install pre-commit hooks
+pre-commit install
+
+# Verify development setup
+python -m pytest tests/ --tb=short
+```
+
+### Container Deployment
+
+For containerized deployments:
+
+```bash
+# Use official image
+docker pull juspay/jaf-python:latest
+
+# Run with configuration
+docker run -d \
+  --name jaf-agent \
+  -p 8000:8000 \
+  -e LITELLM_BASE_URL=http://your-llm-server:4000 \
+  -e JAF_LOG_LEVEL=INFO \
+  juspay/jaf-python:latest
+
+# Custom build with your agents
+FROM juspay/jaf-python:latest
+COPY your_agents/ /app/agents/
+CMD ["python", "-m", "your_agents.main"]
+```
+
+## Model Provider Configuration
+
+JAF integrates with 100+ LLM models through LiteLLM, providing a unified interface for OpenAI, Anthropic, Google, and other providers. This section covers both development and production configurations.
+
+### LiteLLM Proxy Setup
+
+#### Development Configuration
+
+```bash
+# Install LiteLLM with proxy support
 pip install litellm[proxy]
 
-# Create config file
+# Create development configuration
 cat > litellm_config.yaml << EOF
 model_list:
-  - model_name: gpt-4
+  - model_name: gpt-4o
     litellm_params:
-      model: openai/gpt-4
-      api_key: your-openai-api-key
-  - model_name: claude-3
+      model: openai/gpt-4o
+      api_key: ${OPENAI_API_KEY}
+      max_tokens: 4096
+      temperature: 0.1
+  
+  - model_name: claude-3-sonnet
     litellm_params:
       model: anthropic/claude-3-sonnet-20240229
-      api_key: your-anthropic-api-key
+      api_key: ${ANTHROPIC_API_KEY}
+      max_tokens: 4096
+      temperature: 0.1
+  
+  - model_name: gemini-pro
+    litellm_params:
+      model: google/gemini-pro
+      api_key: ${GOOGLE_API_KEY}
+
+general_settings:
+  master_key: "your-proxy-master-key"
+  database_url: "sqlite:///litellm_proxy.db"
+  
+router_settings:
+  routing_strategy: "least-busy"
+  model_group_alias:
+    "gpt-4": ["gpt-4o", "gpt-4-turbo"]
+    "claude": ["claude-3-sonnet", "claude-3-haiku"]
 EOF
 
-# Start LiteLLM proxy
-litellm --config litellm_config.yaml --port 4000
+# Start LiteLLM proxy with enhanced configuration
+litellm --config litellm_config.yaml --port 4000 --num_workers 4
 ```
 
-### Environment Variables
+#### Production Configuration
 
-Create a `.env` file in your project:
+For production deployments, consider these additional configurations:
+
+```yaml
+# litellm_production.yaml
+model_list:
+  # Load balanced OpenAI endpoints
+  - model_name: gpt-4o-primary
+    litellm_params:
+      model: openai/gpt-4o
+      api_key: ${OPENAI_PRIMARY_KEY}
+      api_base: ${OPENAI_PRIMARY_BASE}
+  
+  - model_name: gpt-4o-fallback
+    litellm_params:
+      model: openai/gpt-4o
+      api_key: ${OPENAI_FALLBACK_KEY}
+      api_base: ${OPENAI_FALLBACK_BASE}
+
+general_settings:
+  master_key: ${LITELLM_MASTER_KEY}
+  database_url: ${DATABASE_URL}
+  redis_url: ${REDIS_URL}
+  
+  # Security settings
+  enforce_user_param: true
+  allowed_ips: ["10.0.0.0/8", "172.16.0.0/12"]
+  
+  # Rate limiting
+  global_max_parallel_requests: 1000
+  rpm_limit: 10000
+  tpm_limit: 1000000
+
+router_settings:
+  routing_strategy: "least-busy"
+  fallback_models:
+    - "gpt-4o-fallback"
+  
+  retry_policy:
+    max_retries: 3
+    retry_delay: 1.0
+    backoff_factor: 2.0
+
+litellm_settings:
+  telemetry: false
+  success_callback: ["prometheus", "langfuse"]
+  failure_callback: ["slack", "prometheus"]
+```
+
+### Environment Configuration
+
+#### Development Environment
+
+Create a `.env` file for local development:
 
 ```bash
-# LiteLLM Configuration
+# Core Configuration
+JAF_ENV=development
+JAF_LOG_LEVEL=DEBUG
+JAF_DEBUG=true
+
+# LiteLLM Integration
 LITELLM_BASE_URL=http://localhost:4000
-LITELLM_API_KEY=your-api-key  # Optional, depending on your setup
+LITELLM_API_KEY=your-proxy-master-key
+LITELLM_TIMEOUT=60
+LITELLM_MAX_RETRIES=3
 
-# Memory Provider (Optional)
-MEMORY_PROVIDER=in_memory  # Options: in_memory, redis, postgres
-REDIS_URL=redis://localhost:6379  # If using Redis
-DATABASE_URL=postgresql://user:pass@localhost/jaf  # If using PostgreSQL
+# Model Provider API Keys
+OPENAI_API_KEY=your-openai-api-key
+ANTHROPIC_API_KEY=your-anthropic-api-key
+GOOGLE_API_KEY=your-google-api-key
 
-# Tracing (Optional)
+# Memory Provider Configuration
+JAF_MEMORY_TYPE=in_memory
+JAF_MEMORY_MAX_CONVERSATIONS=1000
+JAF_MEMORY_MAX_MESSAGES=10000
+
+# Optional: Redis for distributed memory
+REDIS_URL=redis://localhost:6379/0
+REDIS_PASSWORD=your-redis-password
+REDIS_MAX_CONNECTIONS=20
+
+# Optional: PostgreSQL for persistent memory
+DATABASE_URL=postgresql://user:password@localhost:5432/jaf_dev
+DATABASE_POOL_SIZE=20
+DATABASE_MAX_OVERFLOW=30
+
+# Observability and Monitoring
 JAF_TRACE_ENABLED=true
 JAF_TRACE_LEVEL=INFO
+JAF_METRICS_ENABLED=true
+PROMETHEUS_PORT=9090
+
+# Security Configuration
+JAF_CORS_ENABLED=true
+JAF_CORS_ORIGINS=["http://localhost:3000", "http://localhost:8080"]
+JAF_API_KEY_REQUIRED=false  # Set to true in production
 ```
 
-## Your First Agent
+#### Production Environment
 
-Let's build a simple calculator agent to understand JAF's core concepts:
+For production deployments:
 
-### Step 1: Define Your Context Type
+```bash
+# Core Configuration
+JAF_ENV=production
+JAF_LOG_LEVEL=INFO
+JAF_DEBUG=false
+
+# LiteLLM Configuration
+LITELLM_BASE_URL=https://api.your-company.com/llm
+LITELLM_API_KEY=${LITELLM_MASTER_KEY}
+LITELLM_TIMEOUT=120
+LITELLM_MAX_RETRIES=5
+
+# Memory Provider (Production Redis)
+JAF_MEMORY_TYPE=redis
+REDIS_URL=redis://redis-cluster.internal:6379/0
+REDIS_PASSWORD=${REDIS_PASSWORD}
+REDIS_MAX_CONNECTIONS=100
+REDIS_SSL=true
+
+# Database Configuration
+DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}
+DATABASE_POOL_SIZE=50
+DATABASE_MAX_OVERFLOW=100
+DATABASE_SSL_MODE=require
+
+# Security Configuration
+JAF_API_KEY_REQUIRED=true
+JAF_API_KEYS=${ALLOWED_API_KEYS}  # Comma-separated list
+JAF_CORS_ENABLED=true
+JAF_CORS_ORIGINS=${ALLOWED_ORIGINS}  # JSON array string
+JAF_RATE_LIMIT_ENABLED=true
+JAF_RATE_LIMIT_REQUESTS=1000
+JAF_RATE_LIMIT_WINDOW=3600
+
+# Monitoring and Observability
+JAF_TRACE_ENABLED=true
+JAF_TRACE_LEVEL=WARN
+JAF_METRICS_ENABLED=true
+PROMETHEUS_PORT=9090
+JAEGER_ENDPOINT=${JAEGER_COLLECTOR_ENDPOINT}
+SENTRY_DSN=${SENTRY_DSN}
+
+# Performance Tuning
+JAF_WORKER_PROCESSES=4
+JAF_MAX_CONCURRENT_REQUESTS=1000
+JAF_REQUEST_TIMEOUT=300
+JAF_MEMORY_LIMIT=2048  # MB
+```
+
+## Building Your First Production Agent
+
+This section demonstrates JAF's core concepts through a comprehensive calculator agent example. You'll learn about context definition, tool creation using the modern object-based API, agent configuration, and execution patterns.
+
+### Step 1: Context Definition and Type Safety
+
+Context objects in JAF are immutable data structures that carry state throughout the agent execution lifecycle. They provide type safety and ensure predictable behavior.
 
 ```python
 # calculator_agent.py
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional, Dict, Any
+from datetime import datetime
 
-@dataclass
+@dataclass(frozen=True)  # Immutable context
 class CalculatorContext:
-    """Context for our calculator agent."""
+    """
+    Immutable context for calculator agent operations.
+    
+    This context carries user-specific configuration and permissions
+    throughout the agent execution lifecycle.
+    """
     user_id: str
+    session_id: str
     allowed_operations: List[str]
     max_result: float = 1000000.0
+    precision: int = 10
+    user_permissions: List[str] = None
+    session_metadata: Optional[Dict[str, Any]] = None
+    created_at: datetime = None
+    
+    def __post_init__(self):
+        if self.user_permissions is None:
+            object.__setattr__(self, 'user_permissions', ['basic_math'])
+        if self.created_at is None:
+            object.__setattr__(self, 'created_at', datetime.utcnow())
+    
+    def has_permission(self, operation: str) -> bool:
+        """Check if user has permission for specific operation."""
+        return operation in self.user_permissions
+    
+    def can_perform_operation(self, operation: str) -> bool:
+        """Check if operation is allowed in current context."""
+        return operation in self.allowed_operations
 ```
 
-### Step 2: Create a Tool
+### Step 2: Tool Implementation with Modern Object-Based API
 
-JAF provides two approaches for creating tools: the new object-based API (recommended) and the traditional class-based approach.
+JAF's modern tool creation API prioritizes type safety, functional composition, and developer experience. This section demonstrates both the recommended object-based approach and the traditional class-based approach for comparison.
 
-=== "Object-Based API (Recommended)"
+#### Object-Based API (Production Recommended)
 
-    The new object-based API provides better type safety, extensibility, and developer experience:
+The object-based API leverages TypedDict configurations and functional programming principles for superior maintainability and extensibility:
 
-    ```python
-    from pydantic import BaseModel, Field
-    from jaf import create_function_tool, ToolSource
-    from jaf.core.tool_results import ToolResponse
+```python
+from pydantic import BaseModel, Field, validator
+from jaf import create_function_tool, ToolSource
+from jaf.core.tool_results import ToolResponse, ToolResult
+from typing import Union
+import re
+import ast
+import operator
 
-    class CalculateArgs(BaseModel):
-        """Arguments for the calculate tool."""
-        expression: str = Field(description="Mathematical expression to evaluate (e.g., '2 + 2', '10 * 5')")
+class CalculateArgs(BaseModel):
+    """
+    Arguments for mathematical calculation tool.
+    
+    Supports basic arithmetic operations with safety validations.
+    """
+    expression: str = Field(
+        description="Mathematical expression to evaluate (e.g., '2 + 2', '(10 * 5) / 2')",
+        min_length=1,
+        max_length=200,
+        regex=r'^[0-9+\-*/.() ]+$'
+    )
+    
+    @validator('expression')
+    def validate_expression_safety(cls, v):
+        """Ensure expression contains only safe mathematical operations."""
+        # Remove whitespace for validation
+        cleaned = v.replace(' ', '')
+        
+        # Check for potentially dangerous patterns
+        dangerous_patterns = [
+            '__', 'import', 'exec', 'eval', 'open', 'file',
+            'input', 'raw_input', 'compile', 'globals', 'locals'
+        ]
+        
+        for pattern in dangerous_patterns:
+            if pattern in cleaned.lower():
+                raise ValueError(f"Expression contains prohibited pattern: {pattern}")
+        
+        return v
 
-    async def calculate_execute(args: CalculateArgs, context: CalculatorContext) -> str:
-        """Execute the calculation with safety checks."""
+async def calculate_execute(args: CalculateArgs, context: CalculatorContext) -> ToolResult[str]:
+    """
+    Execute mathematical calculation with comprehensive safety checks.
+    
+    This function implements secure expression evaluation using AST parsing
+    instead of direct eval() to prevent code injection attacks.
+    """
+    try:
+        # Permission check
+        if not context.has_permission('basic_math'):
+            return ToolResponse.permission_denied(
+                "Mathematical operations require basic_math permission",
+                required_permissions=['basic_math']
+            )
+        
+        # Parse expression safely using AST
         try:
-            # Simple whitelist validation
-            allowed_chars = set('0123456789+-*/.() ')
-            if not all(char in allowed_chars for char in args.expression):
-                return ToolResponse.validation_error("Expression contains invalid characters")
-            
-            # Evaluate safely (in production, use a proper math parser)
-            result = eval(args.expression)
-            
-            # Check context limits
-            if abs(result) > context.max_result:
-                return ToolResponse.validation_error(f"Result {result} exceeds maximum allowed value")
-            
-            return ToolResponse.success(f"Result: {args.expression} = {result}")
-            
-        except Exception as e:
-            return ToolResponse.error(f"Calculation error: {str(e)}")
+            tree = ast.parse(args.expression, mode='eval')
+            result = _safe_eval(tree.body, context)
+        except (SyntaxError, ValueError) as e:
+            return ToolResponse.validation_error(f"Invalid mathematical expression: {str(e)}")
+        
+        # Apply context limits
+        if abs(result) > context.max_result:
+            return ToolResponse.validation_error(
+                f"Result {result} exceeds maximum allowed value ({context.max_result})"
+            )
+        
+        # Format result with context precision
+        if isinstance(result, float):
+            result = round(result, context.precision)
+        
+        return ToolResponse.success(
+            data=f"Result: {args.expression} = {result}",
+            metadata={
+                'operation_count': _count_operations(args.expression),
+                'result_type': type(result).__name__,
+                'precision_used': context.precision
+            }
+        )
+        
+    except Exception as e:
+        return ToolResponse.error(
+            code='calculation_error',
+            message=f"Failed to evaluate expression: {str(e)}",
+            details={'expression': args.expression, 'error_type': type(e).__name__}
+        )
 
-    # Create tool with object-based configuration
-    calculator_tool = create_function_tool({
-        'name': 'calculate',
-        'description': 'Safely evaluate mathematical expressions',
-        'execute': calculate_execute,
-        'parameters': CalculateArgs,
-        'metadata': {'category': 'math', 'safety_level': 'high'},
-        'source': ToolSource.NATIVE
-    })
-    ```
+def _safe_eval(node, context: CalculatorContext):
+    """Safely evaluate AST node with limited operations."""
+    safe_operators = {
+        ast.Add: operator.add,
+        ast.Sub: operator.sub,
+        ast.Mult: operator.mul,
+        ast.Div: operator.truediv,
+        ast.USub: operator.neg,
+        ast.UAdd: operator.pos,
+    }
+    
+    if isinstance(node, ast.Constant):  # Python 3.8+
+        return node.value
+    elif isinstance(node, ast.Num):  # Python < 3.8
+        return node.n
+    elif isinstance(node, ast.BinOp):
+        if type(node.op) not in safe_operators:
+            raise ValueError(f"Unsupported operation: {type(node.op).__name__}")
+        left = _safe_eval(node.left, context)
+        right = _safe_eval(node.right, context)
+        return safe_operators[type(node.op)](left, right)
+    elif isinstance(node, ast.UnaryOp):
+        if type(node.op) not in safe_operators:
+            raise ValueError(f"Unsupported unary operation: {type(node.op).__name__}")
+        operand = _safe_eval(node.operand, context)
+        return safe_operators[type(node.op)](operand)
+    else:
+        raise ValueError(f"Unsupported AST node type: {type(node).__name__}")
 
-=== "Class-Based API (Traditional)"
+def _count_operations(expression: str) -> int:
+    """Count the number of mathematical operations in expression."""
+    operators = ['+', '-', '*', '/']
+    return sum(expression.count(op) for op in operators)
 
-    The traditional class-based approach is still supported:
+# Create tool with comprehensive object-based configuration
+calculator_tool = create_function_tool({
+    'name': 'calculate',
+    'description': 'Safely evaluate mathematical expressions using AST parsing',
+    'execute': calculate_execute,
+    'parameters': CalculateArgs,
+    'metadata': {
+        'category': 'mathematical_operations',
+        'safety_level': 'high',
+        'supported_operations': ['addition', 'subtraction', 'multiplication', 'division'],
+        'security_features': ['ast_parsing', 'operation_whitelisting', 'result_validation'],
+        'version': '1.0.0'
+    },
+    'source': ToolSource.NATIVE
+})
+```
+
+#### Class-Based API (Legacy Support)
+
+While the object-based API is recommended for new development, JAF maintains full backward compatibility with the traditional class-based approach:
 
     ```python
     from pydantic import BaseModel, Field
@@ -220,11 +551,13 @@ JAF provides two approaches for creating tools: the new object-based API (recomm
     calculator_tool = CalculatorTool()
     ```
 
-!!! tip "Why Use the Object-Based API?"
-    - **Type Safety**: Full TypedDict support with IDE autocomplete
-    - **Extensibility**: Easy to add metadata, source tracking, and other options
-    - **Composition**: Works seamlessly with functional composition patterns
-    - **Future-Proof**: New features will be added to this API first
+**Key Advantages of Object-Based API:**
+
+- **Enhanced Type Safety**: Complete TypedDict support with full IDE autocomplete and static analysis
+- **Superior Extensibility**: Seamless addition of metadata, source tracking, versioning, and custom configurations
+- **Functional Composition**: Native integration with higher-order functions and composition patterns
+- **Future-Proof Architecture**: Primary target for new features, optimizations, and enhancements
+- **Production Readiness**: Designed for enterprise-scale deployments with comprehensive error handling
 
 ### Step 3: Define Your Agent
 

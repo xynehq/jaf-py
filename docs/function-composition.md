@@ -1,16 +1,26 @@
-# Function Composition
+# Function Composition Patterns
 
-JAF embraces functional programming principles and provides powerful composition patterns that allow you to build complex behaviors from simple, reusable functions. The new object-based API makes composition even more elegant and type-safe.
+JAF's architecture is built on functional programming principles, enabling sophisticated composition patterns that promote code reusability, testability, and maintainability. This comprehensive guide demonstrates how to leverage these patterns for building production-grade agent systems.
 
-## Overview
+## Architectural Overview
 
-Function composition in JAF allows you to:
+Function composition in JAF enables several key architectural patterns:
 
-- **Enhance tools** with cross-cutting concerns (logging, caching, retry)
-- **Compose validators** from simple validation functions
-- **Layer agent behaviors** using middleware patterns
-- **Build processing pipelines** from individual steps
-- **Create memory strategies** by combining providers
+### Core Composition Benefits
+
+- **Cross-Cutting Concern Integration**: Seamlessly add logging, caching, retry logic, and monitoring to any component
+- **Validation Pipeline Construction**: Build complex validation rules from simple, testable predicates  
+- **Middleware-Style Agent Enhancement**: Layer agent behaviors using composable instruction modifiers
+- **Stream Processing Pipelines**: Construct data processing workflows from individual transformation steps
+- **Memory Strategy Composition**: Combine multiple memory providers for sophisticated storage patterns
+
+### Design Principles
+
+1. **Pure Function Priority**: Maintain functional purity wherever possible for predictable behavior
+2. **Immutable Data Flow**: Ensure data transformations don't mutate original inputs
+3. **Type Safety Throughout**: Leverage Python's type system for compile-time composition validation
+4. **Error Boundary Management**: Handle failures gracefully without breaking composition chains
+5. **Performance Optimization**: Enable optimizations like memoization and lazy evaluation
 
 ## Tool Composition
 
@@ -41,14 +51,14 @@ def with_cache(tool_func, cache_ttl=300):
         if cache_key in cache:
             cached_result, timestamp = cache[cache_key]
             if current_time - timestamp < cache_ttl:
-                print(f"💾 Cache hit for {tool_func.__name__}")
+                logger.debug(f"Cache hit for {tool_func.__name__}", extra={'cache_key': cache_key})
                 return cached_result
         
         # Execute and cache
         result = await tool_func(args, context)
         if result.status == "success":
             cache[cache_key] = (result, current_time)
-            print(f"💾 Cached result for {tool_func.__name__}")
+            logger.debug(f"Cached result for {tool_func.__name__}", extra={'cache_key': cache_key})
         
         return result
     
@@ -94,7 +104,8 @@ def with_retry(tool_func, max_retries=3, backoff_factor=2, exceptions=(Exception
                 
                 # Exponential backoff
                 wait_time = backoff_factor ** attempt
-                print(f"⚠️ Attempt {attempt + 1} failed, retrying in {wait_time}s...")
+                logger.warning(f"Attempt {attempt + 1} failed, retrying in {wait_time}s...", 
+                             extra={'attempt': attempt + 1, 'wait_time': wait_time})
                 await asyncio.sleep(wait_time)
         
         return ToolResponse.error(f"Max retries exceeded: {str(last_exception)}")
@@ -131,7 +142,7 @@ def with_logging(tool_func, logger=None):
         start_time = time.time()
         tool_name = getattr(tool_func, '__name__', 'unknown')
         
-        logger.info(f"🔧 Starting {tool_name}", extra={
+        logger.info(f"Starting tool execution: {tool_name}", extra={
             'tool_name': tool_name,
             'args': str(args),
             'context_keys': list(context.keys()) if isinstance(context, dict) else None
@@ -141,7 +152,7 @@ def with_logging(tool_func, logger=None):
             result = await tool_func(args, context)
             duration = time.time() - start_time
             
-            logger.info(f"✅ {tool_name} completed in {duration:.3f}s", extra={
+            logger.info(f"Tool execution completed: {tool_name} ({duration:.3f}s)", extra={
                 'tool_name': tool_name,
                 'duration_ms': duration * 1000,
                 'status': result.status,
@@ -152,7 +163,7 @@ def with_logging(tool_func, logger=None):
             
         except Exception as e:
             duration = time.time() - start_time
-            logger.error(f"❌ {tool_name} failed after {duration:.3f}s: {str(e)}", extra={
+            logger.error(f"Tool execution failed: {tool_name} after {duration:.3f}s - {str(e)}", extra={
                 'tool_name': tool_name,
                 'duration_ms': duration * 1000,
                 'error': str(e),
