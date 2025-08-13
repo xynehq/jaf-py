@@ -244,7 +244,14 @@ async def generate_runner_graph(
         graph.attr('graph', compound='true')
         
         # Set graph attributes
-        _set_graph_attributes(graph, opts)
+        graph.attr('graph', 
+                  rankdir=opts.rankdir,
+                  label=opts.title or '',
+                  labelloc='t',
+                  fontsize='16',
+                  fontname='Arial Bold',
+                  bgcolor='white',
+                  pad='0.5')
         
         # Get color scheme
         styles = COLOR_SCHEMES[opts.color_scheme]
@@ -257,12 +264,24 @@ async def generate_runner_graph(
             
             # Add agents to cluster
             for agent_name, agent in agent_registry.items():
-                _add_agent_node(
-                    agent_cluster, 
-                    agent, 
-                    styles, 
-                    opts.show_tool_details, 
-                    opts.show_sub_agents
+                # Create agent label
+                model_name = getattr(agent.model_config, 'name', 'default') if agent.model_config else 'default'
+                label = f"{agent.name}\\n({model_name})"
+                
+                if opts.show_tool_details and agent.tools:
+                    label += f"\\n{len(agent.tools)} tools"
+                
+                if agent.handoffs:
+                    label += f"\\n{len(agent.handoffs)} handoffs"
+                
+                # Add agent node
+                agent_cluster.node(
+                    agent.name,
+                    label=label,
+                    shape=styles['agent']['shape'],
+                    fillcolor=styles['agent']['fillcolor'],
+                    fontcolor=styles['agent']['fontcolor'],
+                    style=styles['agent']['style']
                 )
         
         with graph.subgraph(name='cluster_session') as session_cluster:
