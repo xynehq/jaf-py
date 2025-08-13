@@ -46,6 +46,7 @@ A purely functional agent framework with immutable state and composable tools, p
 - ✅ **Hot Reload**: Development server with auto-reload
 - ✅ **Type Hints**: Full mypy compatibility
 - ✅ **Rich Examples**: RAG, multi-agent, and server demos
+- ✅ **Visual Architecture**: Graphviz-powered agent and tool diagrams
 
 ## 🎯 Core Philosophy
 
@@ -67,9 +68,10 @@ pip install jaf-python
 pip install "jaf-python[all]"
 
 # Install specific feature sets
-pip install "jaf-python[server]"     # FastAPI server support
-pip install "jaf-python[memory]"     # Redis/PostgreSQL memory providers
-pip install "jaf-python[dev]"        # Development tools
+pip install "jaf-python[server]"        # FastAPI server support
+pip install "jaf-python[memory]"        # Redis/PostgreSQL memory providers
+pip install "jaf-python[visualization]" # Graphviz visualization tools
+pip install "jaf-python[dev]"           # Development tools
 ```
 
 ### CLI Usage
@@ -179,6 +181,99 @@ jaf-python/
 ├── pyproject.toml         # 📦 Package configuration and dependencies
 ├── README.md              # 📄 This file - project overview
 └── .gitignore             # Git ignore patterns
+```
+
+## 🎨 Architectural Visualization
+
+JAF includes powerful visualization capabilities to help you understand and document your agent systems.
+
+### Prerequisites
+
+First, install the system Graphviz dependency:
+
+```bash
+# macOS
+brew install graphviz
+
+# Ubuntu/Debian  
+sudo apt-get install graphviz
+
+# Windows (via Chocolatey)
+choco install graphviz
+```
+
+Then install JAF with visualization support:
+
+```bash
+pip install "jaf-python[visualization]"
+```
+
+### Quick Start
+
+```python
+import asyncio
+from jaf import Agent, Tool, generate_agent_graph, GraphOptions
+
+# Create your agents
+agent = Agent(
+    name='MyAgent',
+    instructions=lambda state: "I am a helpful assistant.",
+    tools=[my_tool],
+    handoffs=['OtherAgent']
+)
+
+# Generate visualization
+async def main():
+    result = await generate_agent_graph(
+        [agent],
+        GraphOptions(
+            title="My Agent System",
+            output_path="./my-agents.png",
+            color_scheme="modern",
+            show_tool_details=True
+        )
+    )
+    
+    if result.success:
+        print(f"✅ Visualization saved to: {result.output_path}")
+    else:
+        print(f"❌ Error: {result.error}")
+
+asyncio.run(main())
+```
+
+### Features
+
+- **🎨 Multiple Color Schemes**: Choose from `default`, `modern`, or `minimal` themes
+- **📊 Agent Architecture**: Visualize agents, tools, and handoff relationships  
+- **🔧 Tool Ecosystems**: Generate dedicated tool interaction diagrams
+- **🏃 Runner Architecture**: Show complete system architecture with session layers
+- **📄 Multiple Formats**: Export as PNG, SVG, or PDF
+- **⚙️ Customizable Layouts**: Support for various Graphviz layouts (`dot`, `circo`, `neato`, etc.)
+
+### Example Output
+
+The visualization system generates clear, professional diagrams showing:
+
+- **Agent Nodes**: Rounded rectangles with agent names and model information
+- **Tool Nodes**: Ellipses showing tool names and descriptions  
+- **Handoff Edges**: Dashed lines indicating agent handoff relationships
+- **Tool Connections**: Colored edges connecting agents to their tools
+- **Cluster Organization**: Grouped components in runner architecture views
+
+### Advanced Usage
+
+```python
+from jaf.visualization import run_visualization_examples
+
+# Run comprehensive examples
+await run_visualization_examples()
+
+# This generates multiple example files:
+# - ./examples/agent-graph.png (agent system overview)
+# - ./examples/tool-graph.png (tool ecosystem)  
+# - ./examples/runner-architecture.png (complete system)
+# - ./examples/agent-modern.png (modern color scheme)
 ```
 
 ## 🏗️ Key Components

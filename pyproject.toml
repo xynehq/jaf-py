@@ -55,8 +55,11 @@ memory = [
     "redis>=5.0.0",
     "psycopg2-binary>=2.9.0",
 ]
+visualization = [
+    "graphviz>=0.20.0",
+]
 all = [
-    "jaf-python[dev,server,memory]",
+    "jaf-python[dev,server,memory,visualization]",
 ]
 
 [project.urls]
@@ -133,6 +136,7 @@ module = [
     "uvicorn.*",
     "redis.*",
     "psycopg2.*",
+    "graphviz.*",
 ]
 ignore_missing_imports = true
 

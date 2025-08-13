@@ -24,6 +24,16 @@ from .memory import *
 
 from .server import run_server
 
+# Visualization (optional import)
+try:
+    from .visualization import (
+        generate_agent_graph, generate_tool_graph, generate_runner_graph,
+        GraphOptions, GraphResult, get_graph_dot, validate_graph_options
+    )
+    _VISUALIZATION_AVAILABLE = True
+except ImportError:
+    _VISUALIZATION_AVAILABLE = False
+
 import uuid
 from .core.types import TraceId, RunId, create_trace_id, create_run_id
 
@@ -69,4 +79,10 @@ __all__ = [
     
     # Server
     "run_server",
-]
+] + (
+    # Visualization (conditional)
+    [
+        "generate_agent_graph", "generate_tool_graph", "generate_runner_graph",
+        "GraphOptions", "GraphResult", "get_graph_dot", "validate_graph_options"
+    ] if _VISUALIZATION_AVAILABLE else []
+)
