@@ -1,0 +1,136 @@
+/* Custom CSS for JAF Python Documentation */
+
+/* Brand colors and styling */
+:root {
+  --jaf-primary: #1976d2;
+  --jaf-accent: #03a9f4;
+  --jaf-success: #4caf50;
+  --jaf-warning: #ff9800;
+  --jaf-error: #f44336;
+}
+
+/* Custom styling for code blocks */
+.highlight .hll {
+  background-color: #ffffcc;
+}
+
+/* Custom admonition styling */
+.md-typeset .admonition.tip {
+  border-color: var(--jaf-success);
+}
+
+.md-typeset .admonition.warning {
+  border-color: var(--jaf-warning);
+}
+
+.md-typeset .admonition.danger {
+  border-color: var(--jaf-error);
+}
+
+/* Hero section styling */
+.hero {
+  text-align: center;
+  padding: 2rem 0;
+  background: linear-gradient(135deg, var(--jaf-primary), var(--jaf-accent));
+  color: white;
+  margin-bottom: 2rem;
+  border-radius: 8px;
+}
+
+.hero h1 {
+  font-size: 2.5em;
+  margin-bottom: 0.5rem;
+}
+
+.hero p {
+  font-size: 1.2em;
+  opacity: 0.9;
+}
+
+/* Feature grid */
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.feature-card {
+  padding: 1.5rem;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 8px;
+  transition: box-shadow 0.2s;
+}
+
+.feature-card:hover {
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.feature-card h3 {
+  color: var(--jaf-primary);
+  margin-bottom: 1rem;
+}
+
+/* Navigation enhancements */
+.md-nav__title {
+  font-weight: 600;
+}
+
+/* Search results styling */
+.md-search-result__teaser {
+  max-height: 4rem;
+}
+
+/* Custom table styling */
+.md-typeset table:not([class]) th {
+  background-color: var(--md-default-fg-color--lightest);
+}
+
+/* Status badges */
+.status-badge {
+  display: inline-block;
+  padding: 0.2em 0.6em;
+  font-size: 0.75em;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: baseline;
+  border-radius: 0.25rem;
+}
+
+.status-badge.success {
+  color: #fff;
+  background-color: var(--jaf-success);
+}
+
+.status-badge.warning {
+  color: #000;
+  background-color: var(--jaf-warning);
+}
+
+.status-badge.error {
+  color: #fff;
+  background-color: var(--jaf-error);
+}
+
+/* API documentation styling */
+.api-signature {
+  background-color: var(--md-code-bg-color);
+  padding: 1rem;
+  border-radius: 4px;
+  border-left: 4px solid var(--jaf-primary);
+  margin: 1rem 0;
+  font-family: var(--md-code-font);
+}
+
+/* Mobile responsiveness */
+@media screen and (max-width: 76.1875em) {
+  .feature-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .hero h1 {
+    font-size: 2em;
+  }
+}
