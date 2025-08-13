@@ -4,10 +4,16 @@
 
 [![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://pypi.org/project/jaf-python/)
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
+[![Documentation](https://img.shields.io/badge/docs-mkdocs-blue.svg)](https://xynehq.github.io/jaf-py/)
+[![GitHub Pages](https://github.com/xynehq/jaf-py/workflows/Deploy%20Documentation/badge.svg)](https://github.com/xynehq/jaf-py/actions)
 
 A purely functional agent framework with immutable state and composable tools, professionally converted from TypeScript to Python. JAF enables building production-ready AI agent systems with built-in security, observability, and error handling.
 
 **🎯 Production Ready**: Complete feature parity with TypeScript version, comprehensive test suite, and production deployment support.
+
+## 📚 **[Read the Full Documentation](https://xynehq.github.io/jaf-py/)**
+
+**[🚀 Get Started →](https://xynehq.github.io/jaf-py/getting-started/)** | **[📖 API Reference →](https://xynehq.github.io/jaf-py/api-reference/)** | **[🎮 Examples →](https://xynehq.github.io/jaf-py/examples/)**
 
 ## ✨ Key Features
 
@@ -93,8 +99,8 @@ jaf --help
 ### Development Setup
 
 ```bash
-git clone https://github.com/juspay/jaf-python
-cd jaf-python
+git clone https://github.com/xynehq/jaf-py
+cd jaf-py
 pip install -e ".[dev]"
 
 # Run tests
@@ -104,11 +110,29 @@ pytest
 mypy jaf/
 ruff check jaf/
 black jaf/
+
+# Documentation
+pip install -r requirements-docs.txt
+./docs.sh serve  # Start documentation server
+./docs.sh deploy # Deploy to GitHub Pages
 ```
 
 ## 📖 Documentation
 
-Complete documentation is available in the [`docs/`](docs/) directory:
+### 🌐 **[Official Documentation Website](https://xynehq.github.io/jaf-py/)**
+
+The complete, searchable documentation is available at **[xynehq.github.io/jaf-py](https://xynehq.github.io/jaf-py/)** with:
+
+- ✅ **Interactive navigation** with search and filtering
+- ✅ **Dark/light mode** with automatic system preference detection  
+- ✅ **Mobile-responsive design** for documentation on any device
+- ✅ **Live code examples** with syntax highlighting
+- ✅ **API reference** with auto-generated documentation
+- ✅ **Always up-to-date** with automatic deployments
+
+### 📁 **Local Documentation**
+
+For offline access, documentation is also available in the [`docs/`](docs/) directory:
 
 - **[📚 Documentation Hub](docs/README.md)** - Your starting point for all documentation
 - **[🚀 Getting Started](docs/getting-started.md)** - Installation and first agent tutorial

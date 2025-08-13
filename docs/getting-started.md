@@ -1,40 +1,64 @@
 # Getting Started with JAF
 
-Welcome to JAF (Juspay Agent Framework)! This guide will walk you through everything you need to build your first AI agent with JAF's functional architecture.
+Welcome to **JAF (Juspay Agent Framework)**! This guide will walk you through everything you need to build your first AI agent with JAF's functional architecture.
+
+!!! tip "What You'll Learn"
+    By the end of this guide, you'll have:
+    
+    - ✅ JAF installed and running
+    - ✅ Your first functional agent
+    - ✅ Understanding of core concepts
+    - ✅ A working example you can extend
 
 ## Prerequisites
 
-- **Python 3.9+** (3.11+ recommended for best performance)
-- **LiteLLM proxy** (for LLM integration) or direct LLM API access
-- Basic knowledge of Python async/await and type hints
+!!! info "System Requirements"
+    - **Python 3.9+** (3.11+ recommended for best performance)
+    - **LiteLLM proxy** (for LLM integration) or direct LLM API access
+    - Basic knowledge of Python async/await and type hints
 
 ## Installation
 
-### Option 1: PyPI Installation (Recommended)
+=== "PyPI (Recommended)"
 
-```bash
-# Basic installation
-pip install jaf-python
+    ```bash
+    # Basic installation
+    pip install jaf-python
 
-# With all optional dependencies (recommended for development)
-pip install "jaf-python[all]"
+    # With all optional dependencies (recommended for development)
+    pip install "jaf-python[all]"
+    ```
 
-# Install specific feature sets
-pip install "jaf-python[server]"     # FastAPI server support
-pip install "jaf-python[memory]"     # Redis/PostgreSQL memory providers
-pip install "jaf-python[dev]"        # Development tools (pytest, mypy, etc.)
-```
+=== "Feature-Specific"
 
-### Option 2: Development Installation
+    ```bash
+    # Install specific feature sets
+    pip install "jaf-python[server]"        # FastAPI server support
+    pip install "jaf-python[memory]"        # Redis/PostgreSQL memory providers
+    pip install "jaf-python[visualization]" # Graphviz visualization
+    pip install "jaf-python[dev]"           # Development tools
+    ```
 
-```bash
-git clone https://github.com/juspay/jaf-python
-cd jaf-python
-pip install -e ".[dev]"
+=== "Development"
 
-# Verify installation
-python -c "import jaf; print('JAF imported successfully!')"
-```
+    ```bash
+    git clone https://github.com/juspay/jaf-python
+    cd jaf-python
+    pip install -e ".[dev]"
+
+    # Verify installation
+    python -c "import jaf; print('JAF imported successfully!')"
+    ```
+
+=== "Docker"
+
+    ```bash
+    # Pull the official image
+    docker pull juspay/jaf-python:latest
+    
+    # Run with port mapping
+    docker run -p 8000:8000 juspay/jaf-python
+    ```
 
 ## Setting Up LiteLLM (Model Provider)
 

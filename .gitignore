@@ -15,6 +15,9 @@ dist/
 build/
 *.tsbuildinfo
 
+# Documentation build
+site/
+
 # Environment variables
 .env
 .env.local

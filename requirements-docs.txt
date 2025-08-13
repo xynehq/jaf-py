@@ -1,0 +1,23 @@
+# Documentation dependencies for JAF Python
+# These are the packages needed to build and serve the documentation site
+
+# Core MkDocs
+mkdocs>=1.5.3
+
+# Material theme for MkDocs
+mkdocs-material>=9.5.0
+
+# Essential extensions (some included with material)
+pymdown-extensions>=10.7.0
+
+# Additional useful plugins
+mkdocs-minify-plugin>=0.7.0
+mkdocs-redirects>=1.2.0
+mkdocs-git-revision-date-localized-plugin>=1.2.0
+mkdocs-git-authors-plugin>=0.7.0
+
+# For API documentation generation (optional)
+mkdocstrings[python]>=0.24.0
+
+# For better search functionality
+mkdocs-material[imaging]>=9.5.0
