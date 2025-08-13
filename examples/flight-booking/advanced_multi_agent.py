@@ -31,6 +31,7 @@ from jaf import (
     run,
     Tool
 )
+from jaf.providers.model import make_litellm_provider
 from jaf.core.tool_results import ToolResponse, ToolResult
 
 # Import new ADK capabilities (using relative imports for the example)
@@ -125,7 +126,7 @@ class LoyaltyPointsArgs(BaseModel):
     """Arguments for loyalty points management."""
     customer_id: str = Field(description="Customer ID", pattern=r'^[A-Z0-9]{6,12}$')
     action: str = Field(description="Action: check, redeem, or earn")
-    points: Optional[int] = Field(description="Points amount", ge=0, le=100000)
+    points: Optional[int] = Field(default=None, description="Points amount", ge=0, le=100000)
 
 
 async def manage_loyalty_points_execute(args: LoyaltyPointsArgs, context: Any) -> ToolResult:
@@ -186,7 +187,7 @@ loyalty_points_tool = create_function_tool({
     'execute': manage_loyalty_points_execute,
     'parameters': LoyaltyPointsArgs,
     'metadata': {'category': 'loyalty', 'security_level': 'authenticated'},
-    'source': ToolSource.INTERNAL
+    'source': ToolSource.NATIVE
 })
 
 
@@ -260,7 +261,7 @@ travel_insurance_tool = create_function_tool({
     'execute': get_travel_insurance_execute,
     'parameters': TravelInsuranceArgs,
     'metadata': {'category': 'insurance', 'partner': 'travel_protect'},
-    'source': ToolSource.PARTNER
+    'source': ToolSource.EXTERNAL
 })
 
 
@@ -541,14 +542,16 @@ class AdvancedFlightBookingSystem:
             "content": Message(role="assistant", content="Found 5 great flight options to your destination"),
             "session_state": {"search_results": ["flight1", "flight2"]},
             "artifacts": {"flights": ["AA123", "UA456"]},
-            "execution_time_ms": 150.0
+            "execution_time_ms": 150.0,
+            "metadata": {}
         }
         
         support_response = {
             "content": Message(role="assistant", content="Travel insurance quote: $89 for comprehensive coverage"),
             "session_state": {"insurance_quote": "$89"},
             "artifacts": {"quote_id": "INS-789", "coverage": "comprehensive"},
-            "execution_time_ms": 200.0
+            "execution_time_ms": 200.0,
+            "metadata": {}
         }
         
         responses = [
@@ -650,29 +653,61 @@ async def main():
     
     # Create a sample configuration for live demo
     config = system.create_conditional_config()
-    mock_provider = MockAdvancedModelProvider()
-    
-    # Test scenario: Complex travel planning request
-    context = RunContext(
-        user_id="demo_user_123",
-        session_id="advanced_demo",
-        metadata={"demo": True},
-        permissions=["user"]
+    model_provider = make_litellm_provider(
+        base_url=os.getenv("LITELLM_URL"),
+        api_key=os.getenv("LITELLM_API_KEY")
     )
     
-    message = Message(
-        role=ContentRole.USER,
-        content="I need comprehensive help planning a business trip - flights, insurance, and loyalty point redemption"
-    )
-    
-    print(f"📝 User Request: {message.content}")
-    
-    # This would execute the full multi-agent coordination
-    # For demo purposes, we'll show the selection process
-    selected_agent = select_best_agent(list(system.agents.values()), message, context)
-    print(f"🎯 Intelligent Selection Result: {selected_agent.name}")
-    print(f"📋 Selection Reasoning: Based on keywords {extract_keywords(message.content.lower())}")
-    print(f"🔧 Agent Tools: {[tool.name for tool in selected_agent.tools]}")
+    # Test scenarios
+    test_scenarios = [
+        {
+            "name": "Complex travel planning request",
+            "message": "I need comprehensive help planning a business trip - flights, insurance, and loyalty point redemption",
+            "expected_agent": "SupportAgent"
+        },
+        {
+            "name": "Simple flight search",
+            "message": "Find me a flight to London",
+            "expected_agent": "SearchAgent"
+        },
+        {
+            "name": "Booking request",
+            "message": "I want to book flight BA249",
+            "expected_agent": "BookingAgent"
+        },
+        {
+            "name": "Pricing question",
+            "message": "What is the price of a flight to New York?",
+            "expected_agent": "PricingAgent"
+        }
+    ]
+
+    for scenario in test_scenarios:
+        print(f"\n--- Testing Scenario: {scenario['name']} ---")
+        context = RunContext(
+            user_id="demo_user_123",
+            session_id="advanced_demo",
+            metadata={"demo": True},
+            permissions=["user"]
+        )
+        
+        message = Message(
+            role=ContentRole.USER,
+            content=scenario["message"]
+        )
+        
+        print(f"📝 User Request: {message.content}")
+        
+        result = await execute_multi_agent(
+            config=config,
+            message=message,
+            context=context,
+            session_state={},
+            model_provider=model_provider
+        )
+        
+        print(f"🎯 Intelligent Selection Result: {result.content.content}")
+        assert result.content.content is not None
     
     print("\n🎉 Advanced Multi-Agent System Demo Complete!")
     print("\nKey Features Demonstrated:")

@@ -18,6 +18,9 @@ This showcases how the callback system transforms the ADK runner from a simple
 executor into a sophisticated reasoning engine capable of complex agent patterns.
 """
 
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import asyncio
 import json
 import re
@@ -26,6 +29,7 @@ from dataclasses import dataclass
 
 # Import JAF core components
 from jaf.core.types import Agent, Message, Tool, ToolSchema
+from jaf.core.tool_results import ToolResponse, ToolResult
 from jaf.providers.model import make_litellm_provider
 
 # Import ADK with callback system
@@ -63,7 +67,7 @@ class WebSearchTool:
             parameters=SearchArgs
         )
     
-    async def execute(self, args: SearchArgs, context: Any) -> Dict[str, Any]:
+    async def execute(self, args: SearchArgs, context: Any) -> ToolResult:
         """
         Simulate web search by returning mock results based on the query.
         
@@ -149,25 +153,26 @@ class WebSearchTool:
         results = results[:args.max_results]
         
         # Return in the format expected by the callback system
-        return {
-            "success": True,
-            "results": results,
-            "query": args.query,
-            "total_found": len(results),
-            # Include contexts for accumulation
-            "contexts": [
-                {
-                    "id": f"search_{hash(args.query)}_{i}",
-                    "source": "web_search",
-                    "query": args.query,
-                    "content": result["content"],
-                    "title": result["title"],
-                    "url": result["url"],
-                    "relevance": 0.9 - (i * 0.1)  # Decreasing relevance
-                }
-                for i, result in enumerate(results)
-            ]
-        }
+        return ToolResponse.success(
+            {
+                "results": results,
+                "query": args.query,
+                "total_found": len(results),
+                # Include contexts for accumulation
+                "contexts": [
+                    {
+                        "id": f"search_{hash(args.query)}_{i}",
+                        "source": "web_search",
+                        "query": args.query,
+                        "content": result["content"],
+                        "title": result["title"],
+                        "url": result["url"],
+                        "relevance": 0.9 - (i * 0.1)  # Decreasing relevance
+                    }
+                    for i, result in enumerate(results)
+                ]
+            }
+        )
 
 
 # ========== Iterative Search Callbacks Implementation ==========
@@ -549,8 +554,24 @@ async def demonstrate_iterative_search():
         "What are the latest trends in AI and machine learning?"
     ]
     
-    # Mock model provider (in real usage, use actual LLM)
-    model_provider = None  # Would be actual provider in real implementation
+    class MockModelProvider:
+        async def get_completion(self, state, agent, config):
+            return {
+                'message': {
+                    'content': '',
+                    'tool_calls': [
+                        {
+                            'id': 'search_1',
+                            'type': 'function',
+                            'function': {
+                                'name': 'web_search',
+                                'arguments': json.dumps({'query': state.messages[-1].content})
+                            }
+                        }
+                    ]
+                }
+            }
+    model_provider = MockModelProvider()
     
     for i, query in enumerate(test_queries, 1):
         print(f"\n{'='*20} TEST QUERY {i} {'='*20}")
@@ -576,6 +597,8 @@ async def demonstrate_iterative_search():
             print(f"   Response: {result.content.content[:200]}...")
             print(f"   Execution time: {result.execution_time_ms:.0f}ms")
             print(f"   Metadata: {result.metadata}")
+            assert result.content.content is not None
+            assert result.execution_time_ms > 0
             
         except Exception as e:
             print(f"❌ Error processing query: {e}")
