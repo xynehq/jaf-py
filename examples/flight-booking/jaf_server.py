@@ -8,6 +8,7 @@ exposing them via HTTP endpoints for web applications.
 
 import asyncio
 import logging
+import os
 from typing import Dict, Any
 
 from jaf.server.main import run_server
@@ -32,8 +33,8 @@ def create_server_config():
     
     # Set up model provider (requires LiteLLM proxy running on localhost:4000)
     model_provider = make_litellm_provider(
-        base_url="http://localhost:4000",
-        api_key="your-api-key-here"  # Replace with actual API key
+        base_url=os.getenv("LITELLM_URL", "http://localhost:4000"),
+        api_key=os.getenv("LITELLM_API_KEY", "your-api-key-here")  # Replace with actual API key
     )
     
     # Set up tracing

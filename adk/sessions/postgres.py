@@ -21,8 +21,15 @@ try:
     POSTGRES_AVAILABLE = True
 except ImportError:
     POSTGRES_AVAILABLE = False
-    asyncpg = None
-    AsyncPGPool = None
+    # Create dummy types for type annotations when asyncpg is not available
+    class _DummyAsyncPG:
+        class Connection:
+            pass
+        class Pool:
+            pass
+    
+    asyncpg = _DummyAsyncPG()
+    AsyncPGPool = _DummyAsyncPG.Pool
 
 @dataclass
 class AdkPostgresSessionConfig(AdkSessionConfig):

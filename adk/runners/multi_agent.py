@@ -287,8 +287,13 @@ def extract_delegation_decision(response: AgentResponse) -> Optional[Dict[str, s
     for pattern in delegation_patterns:
         match = re.search(pattern, response_text)
         if match:
-            target_agent = match.group(1) or match.group(2) or match.group(3)
-            return {'target_agent': target_agent.title()}  # Capitalize properly
+            target_agent = match.group(1)
+            if target_agent.endswith('agent'):
+                base_name = target_agent[:-5]
+                target_agent = base_name.capitalize() + 'Agent'
+            else:
+                target_agent = target_agent.capitalize()
+            return {'target_agent': target_agent}
     
     # Check artifacts for delegation metadata
     if 'delegation' in response.artifacts:

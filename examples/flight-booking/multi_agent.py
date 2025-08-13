@@ -8,13 +8,14 @@ for complex flight booking scenarios using the new JAF API.
 
 import asyncio
 import json
+import os
 from typing import Any, Dict
 
 from pydantic import BaseModel, Field
 
+from jaf.core.types import ContentRole
 from jaf import (
     Agent,
-    ContentRole,
     Message,
     ModelConfig,
     RunConfig,
@@ -87,7 +88,7 @@ search_specialist_agent = Agent(
     instructions=search_specialist_instructions,
     tools=[search_flights_tool, check_seat_availability_tool, check_flight_status_tool, handoff_tool],
     handoffs=["BookingSpecialist", "PricingSpecialist"],
-    model_config=ModelConfig(name="gemini-2.0-flash", temperature=0.2)
+    model_config=ModelConfig(name=os.getenv("LITELLM_MODEL", "gemini-2.0-flash"), temperature=0.2)
 )
 
 
@@ -111,7 +112,7 @@ booking_specialist_agent = Agent(
     instructions=booking_specialist_instructions,
     tools=[book_flight_tool, cancel_booking_tool, check_flight_status_tool, handoff_tool],
     handoffs=["SearchSpecialist", "PricingSpecialist"],
-    model_config=ModelConfig(name="gemini-2.0-flash", temperature=0.1)
+    model_config=ModelConfig(name=os.getenv("LITELLM_MODEL", "gemini-2.0-flash"), temperature=0.1)
 )
 
 
@@ -135,7 +136,7 @@ pricing_specialist_agent = Agent(
     instructions=pricing_specialist_instructions,
     tools=[search_flights_tool, check_seat_availability_tool, handoff_tool],
     handoffs=["SearchSpecialist", "BookingSpecialist"],
-    model_config=ModelConfig(name="gemini-2.0-flash", temperature=0.3)
+    model_config=ModelConfig(name=os.getenv("LITELLM_MODEL", "gemini-2.0-flash"), temperature=0.3)
 )
 
 
@@ -159,7 +160,7 @@ coordinator_agent = Agent(
     instructions=coordinator_instructions, 
     tools=[handoff_tool],
     handoffs=["SearchSpecialist", "BookingSpecialist", "PricingSpecialist"],
-    model_config=ModelConfig(name="gemini-2.0-flash", temperature=0.2)
+    model_config=ModelConfig(name=os.getenv("LITELLM_MODEL", "gemini-2.0-flash"), temperature=0.2)
 )
 
 

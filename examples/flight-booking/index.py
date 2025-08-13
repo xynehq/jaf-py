@@ -15,12 +15,10 @@ from pydantic import BaseModel, Field
 
 from jaf import (
     Agent,
-    ContentRole,
     Message,
     ModelConfig,
     RunConfig,
     RunState,
-    ToolSource,
     create_function_tool,
     generate_run_id,
     generate_trace_id,
@@ -302,8 +300,7 @@ search_flights_tool = create_function_tool({
     'description': 'Search for available flights between origin and destination',
     'execute': search_flights_execute,
     'parameters': FlightSearchArgs,
-    'metadata': {'category': 'flight_search', 'priority': 'high'},
-    'source': ToolSource.NATIVE
+    'metadata': {'category': 'flight_search', 'priority': 'high'}
 })
 
 check_seat_availability_tool = create_function_tool({
@@ -311,8 +308,7 @@ check_seat_availability_tool = create_function_tool({
     'description': 'Check seat availability for a specific flight',
     'execute': check_seat_availability_execute,
     'parameters': SeatAvailabilityArgs,
-    'metadata': {'category': 'availability', 'priority': 'medium'},
-    'source': ToolSource.NATIVE
+    'metadata': {'category': 'availability', 'priority': 'medium'}
 })
 
 book_flight_tool = create_function_tool({
@@ -320,8 +316,7 @@ book_flight_tool = create_function_tool({
     'description': 'Book a flight for a passenger',
     'execute': book_flight_execute,
     'parameters': BookFlightArgs,
-    'metadata': {'category': 'booking', 'priority': 'high'},
-    'source': ToolSource.NATIVE
+    'metadata': {'category': 'booking', 'priority': 'high'}
 })
 
 check_flight_status_tool = create_function_tool({
@@ -329,8 +324,7 @@ check_flight_status_tool = create_function_tool({
     'description': 'Check the status of a flight',
     'execute': check_flight_status_execute,
     'parameters': FlightStatusArgs,
-    'metadata': {'category': 'status', 'priority': 'low'},
-    'source': ToolSource.NATIVE
+    'metadata': {'category': 'status', 'priority': 'low'}
 })
 
 cancel_booking_tool = create_function_tool({
@@ -338,8 +332,7 @@ cancel_booking_tool = create_function_tool({
     'description': 'Cancel a flight booking',
     'execute': cancel_booking_execute,
     'parameters': CancelBookingArgs,
-    'metadata': {'category': 'booking', 'priority': 'medium'},
-    'source': ToolSource.NATIVE
+    'metadata': {'category': 'booking', 'priority': 'medium'}
 })
 
 
@@ -401,7 +394,7 @@ async def main():
     initial_state = RunState(
         run_id=generate_run_id(),
         trace_id=generate_trace_id(),
-        messages=[Message(role=ContentRole.USER, content="I want to book a flight from LAX to JFK")],
+        messages=[Message(role='user', content="I want to book a flight from LAX to JFK")],
         current_agent_name="FlightBookingAgent",
         context={},
         turn_count=0

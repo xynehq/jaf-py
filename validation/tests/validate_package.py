@@ -53,7 +53,7 @@ def validate_package_structure() -> bool:
     """Validate the package structure."""
     print("🔍 Validating package structure...")
 
-    root = Path(__file__).parent
+    root = Path(__file__).parent.parent.parent  # Go up to project root
     all_good = True
 
     # Core files
@@ -88,7 +88,7 @@ def validate_package_structure() -> bool:
 
         # Examples
         (root / "examples" / "server_example.py", "Server example"),
-        (root / "examples" / "rag_example.py", "RAG example"),
+        (root / "examples" / "iterative_search_agent.py", "Iterative search agent example"),
 
         # Tests
         (root / "tests" / "test_engine.py", "Engine tests"),
@@ -219,12 +219,12 @@ def validate_examples() -> bool:
     """Validate that examples can be imported."""
     print("\n🔍 Validating examples...")
 
-    root = Path(__file__).parent
+    root = Path(__file__).parent.parent.parent  # Go up to project root
     all_good = True
 
     examples = [
         "server_example.py",
-        "rag_example.py"
+        "iterative_search_agent.py"
     ]
 
     for example in examples:
@@ -233,6 +233,11 @@ def validate_examples() -> bool:
         # Test syntax by compiling (don't execute server examples that might block)
         if "server" in example:
             # Just compile, don't execute server examples
+            exit_code, stdout, stderr = run_command([
+                sys.executable, "-c", f"compile(open('{example_path}').read(), '{example_path}', 'exec')"
+            ])
+        elif "iterative_search_agent" in example:
+            # ADK example - just check syntax compilation, don't execute
             exit_code, stdout, stderr = run_command([
                 sys.executable, "-c", f"compile(open('{example_path}').read(), '{example_path}', 'exec')"
             ])

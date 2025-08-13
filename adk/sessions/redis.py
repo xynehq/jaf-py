@@ -71,8 +71,8 @@ class AdkRedisSessionProvider(AdkSessionProvider):
         """Get Redis key for user sessions set."""
         return f"{self.config.user_sessions_key_prefix}{user_id}"
     
-    def _serialize_session(self, session: AdkSession) -> str:
-        """Serialize session to JSON string."""
+    def _serialize_session(self, session: AdkSession) -> bytes:
+        """Serialize session to bytes."""
         data = {
             "session_id": session.session_id,
             "user_id": session.user_id,
@@ -97,18 +97,18 @@ class AdkRedisSessionProvider(AdkSessionProvider):
         
         if self.config.enable_compression:
             import gzip
-            return gzip.compress(json_str.encode()).decode('latin1')
+            return gzip.compress(json_str.encode())
         
-        return json_str
+        return json_str.encode()
     
-    def _deserialize_session(self, data: str) -> AdkSession:
-        """Deserialize session from JSON string."""
+    def _deserialize_session(self, data: bytes) -> AdkSession:
+        """Deserialize session from bytes."""
         try:
             if self.config.enable_compression:
                 import gzip
-                data = gzip.decompress(data.encode('latin1')).decode()
+                data = gzip.decompress(data)
             
-            session_data = json.loads(data)
+            session_data = json.loads(data.decode())
             
             messages = []
             for msg_data in session_data.get("messages", []):
@@ -460,7 +460,7 @@ class AdkRedisSessionProvider(AdkSessionProvider):
         """Close Redis connection."""
         try:
             if self.redis_client:
-                await self.redis_client.close()
+                await self.redis_client.aclose()
             return AdkSuccess(None)
             
         except Exception as e:

@@ -23,7 +23,7 @@ from datetime import datetime
 from typing import Any, Dict
 
 # Add the project root to Python path
-sys.path.insert(0, '/Users/harshpreet.singh/Desktop/Juspay/jaf-python')
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 from adk import (
     # Configuration
@@ -104,11 +104,6 @@ async def validate_configuration_system():
     # Test 1: Environment-based configuration
     print("📋 Test 1: Environment-based Configuration")
     try:
-        # Set environment variables for testing
-        os.environ['LLM_PROVIDER'] = 'litellm'
-        os.environ['LITELLM_URL'] = 'http://localhost:4000'
-        os.environ['LITELLM_API_KEY'] = 'test-key'
-        
         config = create_adk_llm_config_from_environment()
         print(f"✅ Provider: {config.provider}")
         print(f"✅ Base URL: {config.base_url}")
@@ -182,9 +177,10 @@ async def validate_session_providers():
     print("\n📋 Test 2: Redis Session Provider (if available)")
     try:
         redis_config = AdkRedisSessionConfig(
-            host="localhost",
-            port=6379,
-            db=1,  # Use test database
+            host=os.getenv("JAF_REDIS_HOST", "localhost"),
+            port=int(os.getenv("JAF_REDIS_PORT", 6379)),
+            password=os.getenv("JAF_REDIS_PASSWORD"),
+            db=int(os.getenv("JAF_REDIS_DB", 1)),  # Use test database
             key_prefix="adk_test:",
             ttl_seconds=300  # 5 minutes for testing
         )
@@ -217,11 +213,12 @@ async def validate_llm_service():
     # Test 1: LLM Service Creation
     print("📋 Test 1: LLM Service Creation")
     try:
+        llm_config = create_adk_llm_config_from_environment()
         service_config = AdkLLMServiceConfig(
-            provider=AdkProviderType.LITELLM,
-            base_url="http://localhost:4000",
-            api_key="test-key",
-            default_model=AdkModelType.GPT_4O,
+            provider=llm_config.provider,
+            base_url=llm_config.base_url,
+            api_key=llm_config.api_key,
+            default_model=llm_config.default_model,
             timeout=10.0,
             enable_streaming=True,
             enable_circuit_breaker=True
@@ -247,7 +244,7 @@ Always be accurate and explain your reasoning."""
         agent = AdkAgent(
             name="MathAssistant",
             instructions=math_instructions,
-            model=AdkModelType.GPT_4O,
+            model=os.getenv("LITELLM_MODEL", AdkModelType.GPT_4O),
             tools=[calculator_tool],
             temperature=0.1,  # Low temperature for math accuracy
             metadata={"category": "mathematics", "version": "1.0"}
@@ -307,7 +304,10 @@ async def validate_real_llm_integration():
             
             print(f"✅ LLM Response received in {duration:.2f}s")
             print(f"📤 User: {user_message.content}")
-            print(f"📥 Assistant: {response.content[:100]}...")
+            if response.content:
+                print(f"📥 Assistant: {response.content[:100]}...")
+            else:
+                print("📥 Assistant: No content in response")
             print(f"🔧 Tool calls: {len(response.tool_calls) if response.tool_calls else 0}")
             print(f"🏷️ Metadata: {response.metadata}")
             
@@ -499,10 +499,6 @@ async def main():
         sys.exit(1)
 
 if __name__ == "__main__":
-    # Set up environment for testing
-    os.environ.setdefault('LLM_PROVIDER', 'litellm')
-    os.environ.setdefault('LITELLM_URL', 'http://localhost:4000')
-    
     print("💡 TIP: Set OPENAI_API_KEY or run LiteLLM server for real API testing")
     print("💡 TIP: Run Redis server for Redis session provider testing")
     print()

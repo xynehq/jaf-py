@@ -492,12 +492,20 @@ class TestMultiAgentExecution:
         mock_provider = Mock()
         
         with patch('adk.runners.multi_agent.jaf_run') as mock_run:
-            # Mock parallel responses
-            responses = [
-                Mock(final_state=Mock(messages=[Message(role="assistant", content="Weather is sunny")])),
-                Mock(final_state=Mock(messages=[Message(role="assistant", content="Top news: Elections")]))
-            ]
-            mock_run.side_effect = responses
+            # Mock parallel responses with proper structure
+            response1 = Mock()
+            response1.final_state = Mock()
+            response1.final_state.messages = [Message(role="assistant", content="Weather is sunny")]
+            response1.session_state = {}
+            response1.artifacts = {}
+            
+            response2 = Mock()
+            response2.final_state = Mock()
+            response2.final_state.messages = [Message(role="assistant", content="Top news: Elections")]
+            response2.session_state = {}
+            response2.artifacts = {}
+            
+            mock_run.side_effect = [response1, response2]
             
             message = Message(role="user", content="Get weather and news")
             

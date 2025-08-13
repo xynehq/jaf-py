@@ -13,7 +13,6 @@ from typing import Any, Dict, List
 
 from jaf import (
     Agent,
-    ContentRole,
     Message,
     ModelConfig,
     RunConfig,
@@ -263,7 +262,7 @@ async def test_single_agent_flight_search():
     state = RunState(
         run_id=create_run_id("flight-search"),
         trace_id=create_trace_id("test-trace"),
-        messages=[Message(role=ContentRole.USER, content="Search for flights from LAX to JFK on Feb 15")],
+        messages=[Message(role='user', content="Search for flights from LAX to JFK on Feb 15")],
         current_agent_name="FlightBookingAgent",
         context={"customer_id": "test_123"},
         turn_count=0
@@ -300,7 +299,7 @@ async def test_single_agent_flight_booking():
     state = RunState(
         run_id=create_run_id("flight-booking"),
         trace_id=create_trace_id("test-trace"),
-        messages=[Message(role=ContentRole.USER, content="Book flight AA101 for John Doe")],
+        messages=[Message(role='user', content="Book flight AA101 for John Doe")],
         current_agent_name="FlightBookingAgent",
         context={"customer_id": "test_123"},
         turn_count=0
@@ -336,7 +335,7 @@ async def test_single_agent_seat_availability():
     state = RunState(
         run_id=create_run_id("seat-check"),
         trace_id=create_trace_id("test-trace"),
-        messages=[Message(role=ContentRole.USER, content="Check seat availability for flight AA101")],
+        messages=[Message(role='user', content="Check seat availability for flight AA101")],
         current_agent_name="FlightBookingAgent",
         context={"customer_id": "test_123"},
         turn_count=0
@@ -372,7 +371,7 @@ async def test_single_agent_flight_status():
     state = RunState(
         run_id=create_run_id("status-check"),
         trace_id=create_trace_id("test-trace"),
-        messages=[Message(role=ContentRole.USER, content="Check status of flight AA101")],
+        messages=[Message(role='user', content="Check status of flight AA101")],
         current_agent_name="FlightBookingAgent",
         context={"customer_id": "test_123"},
         turn_count=0
@@ -408,7 +407,7 @@ async def test_single_agent_booking_cancellation():
     state = RunState(
         run_id=create_run_id("cancel-booking"),
         trace_id=create_trace_id("test-trace"),
-        messages=[Message(role=ContentRole.USER, content="Cancel booking ABC123")],
+        messages=[Message(role='user', content="Cancel booking ABC123")],
         current_agent_name="FlightBookingAgent",
         context={"customer_id": "test_123"},
         turn_count=0
@@ -451,7 +450,7 @@ async def test_multi_agent_coordination():
     state = RunState(
         run_id=create_run_id("multi-agent"),
         trace_id=create_trace_id("test-trace"),
-        messages=[Message(role=ContentRole.USER, content="I want to book a flight from LAX to JFK")],
+        messages=[Message(role='user', content="I want to book a flight from LAX to JFK")],
         current_agent_name="Coordinator",
         context={"customer_id": "test_123", "session": "multi_test"},
         turn_count=0
@@ -495,7 +494,7 @@ async def test_agent_specialization():
     search_state = RunState(
         run_id=create_run_id("search-specialist"),
         trace_id=create_trace_id("test-trace"),
-        messages=[Message(role=ContentRole.USER, content="Find flights LAX to JFK")],
+        messages=[Message(role='user', content="Find flights LAX to JFK")],
         current_agent_name="SearchSpecialist",
         context={},
         turn_count=0
@@ -515,7 +514,7 @@ async def test_agent_specialization():
     booking_state = RunState(
         run_id=create_run_id("booking-specialist"),
         trace_id=create_trace_id("test-trace"),
-        messages=[Message(role=ContentRole.USER, content="Book flight AA101")],
+        messages=[Message(role='user', content="Book flight AA101")],
         current_agent_name="BookingSpecialist",
         context={},
         turn_count=0
@@ -571,7 +570,7 @@ async def test_error_scenarios():
     state = RunState(
         run_id=create_run_id("error-test"),
         trace_id=create_trace_id("test-trace"),
-        messages=[Message(role=ContentRole.USER, content="Search for invalid flights")],
+        messages=[Message(role='user', content="Search for invalid flights")],
         current_agent_name="FlightBookingAgent",
         context={},
         turn_count=0
@@ -618,7 +617,7 @@ async def test_context_preservation():
     state = RunState(
         run_id=create_run_id("context-test"),
         trace_id=create_trace_id("test-trace"),
-        messages=[Message(role=ContentRole.USER, content="Help me with flight booking")],
+        messages=[Message(role='user', content="Help me with flight booking")],
         current_agent_name="FlightBookingAgent",
         context=initial_context,
         turn_count=0
