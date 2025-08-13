@@ -48,15 +48,24 @@ def create_server_config() -> ServerConfig:
         "PricingSpecialist": pricing_specialist_agent
     }
     
-    # Create server configuration
-    server_config = ServerConfig(
-        host="127.0.0.1",
-        port=3000,
+    # Import RunConfig from jaf.core.types
+    from jaf.core.types import RunConfig
+    
+    # Create run config
+    run_config = RunConfig(
         agent_registry=agent_registry,
         model_provider=model_provider,
-        on_event=trace_collector.collect,
-        cors=True,  # Enable CORS for web applications
-        max_turns=10
+        max_turns=10,
+        on_event=trace_collector.collect
+    )
+    
+    # Create server configuration
+    server_config = ServerConfig(
+        agent_registry=agent_registry,
+        run_config=run_config,
+        host="127.0.0.1",
+        port=3000,
+        cors=True  # Enable CORS for web applications
     )
     
     return server_config
@@ -168,14 +177,23 @@ def create_development_config() -> ServerConfig:
         "PricingSpecialist": pricing_specialist_agent
     }
     
-    return ServerConfig(
-        host="127.0.0.1",
-        port=3000,
+    # Import RunConfig from jaf.core.types
+    from jaf.core.types import RunConfig
+    
+    # Create run config with mock provider
+    run_config = RunConfig(
         agent_registry=agent_registry,
         model_provider=MockModelProvider(),
-        on_event=DevTraceCollector().collect,
-        cors=True,
-        max_turns=5
+        max_turns=5,
+        on_event=DevTraceCollector().collect
+    )
+    
+    return ServerConfig(
+        agent_registry=agent_registry,
+        run_config=run_config,
+        host="127.0.0.1",
+        port=3000,
+        cors=True
     )
 
 
