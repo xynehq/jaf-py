@@ -7,6 +7,13 @@ A purely functional agent framework with immutable state and composable tools.
 from .core.engine import run
 from .core.errors import JAFError as _LegacyJAFError
 from .core.tool_results import *
+from .core.tools import (
+    create_function_tool,
+    create_function_tool_legacy,
+    create_async_function_tool,
+    create_async_function_tool_legacy,
+    FunctionTool,
+)
 from .core.tracing import ConsoleTraceCollector, TraceCollector
 from .core.types import *
 from .exceptions import (
@@ -89,6 +96,14 @@ __all__ = [
     "Tool", "Agent", "Guardrail", "RunState", "JAFError", "RunResult",
     "TraceEvent", "ModelProvider", "RunConfig",
     "create_trace_id", "create_run_id", "generate_trace_id", "generate_run_id",
+    
+    # Enums for type safety
+    "Model", "ToolParameterType", "ToolSource", "ContentRole", "PartType",
+    
+    # Tool factory functions
+    "create_function_tool", "create_function_tool_legacy",
+    "create_async_function_tool", "create_async_function_tool_legacy",
+    "FunctionTool", "FunctionToolConfig", "ToolExecuteFunction",
 
     # Exception classes
     "JAFException", "AgentException", "AgentNotFoundError", "HandoffError",

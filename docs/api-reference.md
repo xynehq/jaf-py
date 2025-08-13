@@ -7,6 +7,183 @@ import jaf
 from jaf import RunState, Agent, Message, RunConfig
 ```
 
+## Enums
+
+JAF provides comprehensive enums for type safety and to eliminate magic strings throughout your code.
+
+### ContentRole
+
+Defines the roles for messages in conversations.
+
+```python
+from jaf import ContentRole
+
+class ContentRole(str, Enum):
+    USER = 'user'
+    ASSISTANT = 'assistant'
+    TOOL = 'tool'
+    SYSTEM = 'system'
+```
+
+**Usage:**
+```python
+message = Message(role=ContentRole.USER, content="Hello!")
+```
+
+### ToolSource
+
+Specifies the source of tool definitions.
+
+```python
+from jaf import ToolSource
+
+class ToolSource(str, Enum):
+    NATIVE = 'native'
+    MCP = 'mcp'
+    PLUGIN = 'plugin'
+    EXTERNAL = 'external'
+```
+
+### Model
+
+Supported model identifiers.
+
+```python
+from jaf import Model
+
+class Model(str, Enum):
+    GEMINI_2_0_FLASH = 'gemini-2.0-flash'
+    GEMINI_2_5_PRO = 'gemini-2.5-pro'
+    GEMINI_PRO = 'gemini-pro'
+    GPT_4 = 'gpt-4'
+    GPT_4_TURBO = 'gpt-4-turbo'
+    GPT_3_5_TURBO = 'gpt-3.5-turbo'
+    CLAUDE_3_SONNET = 'claude-3-sonnet'
+    CLAUDE_3_HAIKU = 'claude-3-haiku'
+    CLAUDE_3_OPUS = 'claude-3-opus'
+```
+
+### ToolParameterType
+
+Types for tool parameter definitions.
+
+```python
+from jaf import ToolParameterType
+
+class ToolParameterType(str, Enum):
+    STRING = 'string'
+    NUMBER = 'number'
+    INTEGER = 'integer'
+    BOOLEAN = 'boolean'
+    ARRAY = 'array'
+    OBJECT = 'object'
+    NULL = 'null'
+```
+
+### PartType
+
+Message part types for multimodal content.
+
+```python
+from jaf import PartType
+
+class PartType(str, Enum):
+    TEXT = 'text'
+    IMAGE = 'image'
+    AUDIO = 'audio'
+    VIDEO = 'video'
+    FILE = 'file'
+```
+
+## Tool Creation Functions
+
+JAF provides both modern object-based and legacy positional APIs for creating tools.
+
+### create_function_tool (Recommended)
+
+Create a function-based tool using object configuration for better type safety and extensibility.
+
+```python
+from jaf import create_function_tool, ToolSource
+from pydantic import BaseModel, Field
+
+class GreetArgs(BaseModel):
+    name: str = Field(description="Name to greet")
+
+async def greet_execute(args: GreetArgs, context) -> str:
+    return f"Hello, {args.name}!"
+
+tool = create_function_tool({
+    'name': 'greet',
+    'description': 'Greets a user by name',
+    'execute': greet_execute,
+    'parameters': GreetArgs,
+    'metadata': {'category': 'social'},
+    'source': ToolSource.NATIVE
+})
+```
+
+**Parameters:**
+- `config: FunctionToolConfig` - Object containing:
+  - `name: str` - Tool name
+  - `description: str` - Tool description
+  - `execute: ToolExecuteFunction` - Function to execute
+  - `parameters: Any` - Pydantic model for parameter validation
+  - `metadata: Optional[Dict[str, Any]]` - Optional metadata
+  - `source: Optional[ToolSource]` - Tool source (defaults to NATIVE)
+
+**Returns:**
+- `Tool` - Tool implementation ready for use with agents
+
+### create_function_tool_legacy (Deprecated)
+
+Legacy positional argument API for backward compatibility.
+
+```python
+# Deprecated - use object-based API instead
+tool = create_function_tool_legacy(
+    'greet',
+    'Greets a user by name', 
+    greet_execute,
+    GreetArgs,
+    {'category': 'social'},
+    ToolSource.NATIVE
+)
+```
+
+!!! warning "Deprecated"
+    This function is deprecated. Use `create_function_tool` with object configuration for better type safety and extensibility.
+
+### create_async_function_tool
+
+Convenience function identical to `create_function_tool` but with a name that emphasizes async execution.
+
+```python
+tool = create_async_function_tool({
+    'name': 'async_operation',
+    'description': 'Performs an async operation',
+    'execute': async_execute_func,
+    'parameters': AsyncArgs,
+    'source': ToolSource.NATIVE
+})
+```
+
+### FunctionToolConfig
+
+TypedDict defining the configuration structure for object-based tool creation.
+
+```python
+from jaf.core.types import FunctionToolConfig
+
+class FunctionToolConfig(TypedDict):
+    name: str
+    description: str
+    execute: ToolExecuteFunction
+    parameters: Any
+    metadata: Optional[Dict[str, Any]]
+    source: Optional[ToolSource]
+```
+
 ## Core Functions
 
 ### Main Execution

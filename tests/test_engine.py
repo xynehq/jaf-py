@@ -14,6 +14,7 @@ from jaf.core.types import (
     Agent,
     AgentNotFound,
     CompletedOutcome,
+    ContentRole,
     ErrorOutcome,
     InvalidValidationResult,
     MaxTurnsExceeded,
@@ -132,7 +133,7 @@ def create_test_run_state(
     return RunState(
         run_id=create_run_id("test-run"),
         trace_id=create_trace_id("test-trace"),
-        messages=messages or [Message(role='user', content='Hello')],
+        messages=messages or [Message(role=ContentRole.USER, content='Hello')],
         current_agent_name=agent_name,
         context=context or {},
         turn_count=0
@@ -401,7 +402,7 @@ async def test_input_guardrails():
     model_provider = MockModelProvider([])
 
     state = create_test_run_state(messages=[
-        Message(role='user', content='This contains badword in it')
+        Message(role=ContentRole.USER, content='This contains badword in it')
     ])
     config = RunConfig(
         agent_registry={"test_agent": agent},

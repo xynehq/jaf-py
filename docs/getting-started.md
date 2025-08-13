@@ -127,46 +127,104 @@ class CalculatorContext:
 
 ### Step 2: Create a Tool
 
-```python
-from pydantic import BaseModel, Field
-from jaf.core.tool_results import ToolSuccess, ToolError
+JAF provides two approaches for creating tools: the new object-based API (recommended) and the traditional class-based approach.
 
-class CalculateArgs(BaseModel):
-    """Arguments for the calculate tool."""
-    expression: str = Field(description="Mathematical expression to evaluate (e.g., '2 + 2', '10 * 5')")
+=== "Object-Based API (Recommended)"
 
-class CalculatorTool:
-    """A safe calculator tool with validation."""
-    
-    @property
-    def schema(self):
-        """Tool schema for LLM integration."""
-        return type('ToolSchema', (), {
-            'name': 'calculate',
-            'description': 'Safely evaluate mathematical expressions',
-            'parameters': CalculateArgs
-        })()
-    
-    async def execute(self, args: CalculateArgs, context: CalculatorContext) -> str:
+    The new object-based API provides better type safety, extensibility, and developer experience:
+
+    ```python
+    from pydantic import BaseModel, Field
+    from jaf import create_function_tool, ToolSource
+    from jaf.core.tool_results import ToolResponse
+
+    class CalculateArgs(BaseModel):
+        """Arguments for the calculate tool."""
+        expression: str = Field(description="Mathematical expression to evaluate (e.g., '2 + 2', '10 * 5')")
+
+    async def calculate_execute(args: CalculateArgs, context: CalculatorContext) -> str:
         """Execute the calculation with safety checks."""
         try:
             # Simple whitelist validation
             allowed_chars = set('0123456789+-*/.() ')
             if not all(char in allowed_chars for char in args.expression):
-                return ToolError("Expression contains invalid characters").format()
+                return ToolResponse.validation_error("Expression contains invalid characters")
             
             # Evaluate safely (in production, use a proper math parser)
             result = eval(args.expression)
             
             # Check context limits
             if abs(result) > context.max_result:
-                return ToolError(f"Result {result} exceeds maximum allowed value").format()
+                return ToolResponse.validation_error(f"Result {result} exceeds maximum allowed value")
             
-            return ToolSuccess(f"Result: {args.expression} = {result}").format()
+            return ToolResponse.success(f"Result: {args.expression} = {result}")
             
         except Exception as e:
-            return ToolError(f"Calculation error: {str(e)}").format()
-```
+            return ToolResponse.error(f"Calculation error: {str(e)}")
+
+    # Create tool with object-based configuration
+    calculator_tool = create_function_tool({
+        'name': 'calculate',
+        'description': 'Safely evaluate mathematical expressions',
+        'execute': calculate_execute,
+        'parameters': CalculateArgs,
+        'metadata': {'category': 'math', 'safety_level': 'high'},
+        'source': ToolSource.NATIVE
+    })
+    ```
+
+=== "Class-Based API (Traditional)"
+
+    The traditional class-based approach is still supported:
+
+    ```python
+    from pydantic import BaseModel, Field
+    from jaf.core.tool_results import ToolResponse
+
+    class CalculateArgs(BaseModel):
+        """Arguments for the calculate tool."""
+        expression: str = Field(description="Mathematical expression to evaluate (e.g., '2 + 2', '10 * 5')")
+
+    class CalculatorTool:
+        """A safe calculator tool with validation."""
+        
+        @property
+        def schema(self):
+            """Tool schema for LLM integration."""
+            return type('ToolSchema', (), {
+                'name': 'calculate',
+                'description': 'Safely evaluate mathematical expressions',
+                'parameters': CalculateArgs
+            })()
+        
+        async def execute(self, args: CalculateArgs, context: CalculatorContext) -> str:
+            """Execute the calculation with safety checks."""
+            try:
+                # Simple whitelist validation
+                allowed_chars = set('0123456789+-*/.() ')
+                if not all(char in allowed_chars for char in args.expression):
+                    return ToolResponse.validation_error("Expression contains invalid characters")
+                
+                # Evaluate safely (in production, use a proper math parser)
+                result = eval(args.expression)
+                
+                # Check context limits
+                if abs(result) > context.max_result:
+                    return ToolResponse.validation_error(f"Result {result} exceeds maximum allowed value")
+                
+                return ToolResponse.success(f"Result: {args.expression} = {result}")
+                
+            except Exception as e:
+                return ToolResponse.error(f"Calculation error: {str(e)}")
+    
+    calculator_tool = CalculatorTool()
+    ```
+
+!!! tip "Why Use the Object-Based API?"
+    - **Type Safety**: Full TypedDict support with IDE autocomplete
+    - **Extensibility**: Easy to add metadata, source tracking, and other options
+    - **Composition**: Works seamlessly with functional composition patterns
+    - **Future-Proof**: New features will be added to this API first
 
 ### Step 3: Define Your Agent
 

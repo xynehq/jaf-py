@@ -73,8 +73,11 @@ nav:
     - Examples: examples.md
   - Agent Development:
     - Tools: tools.md
+    - Function Composition: function-composition.md
     - Memory System: memory-system.md
     - Model Providers: model-providers.md
+  - Examples:
+    - Flight Booking System: flight-booking-example.md
   - A2A Protocol:
     - Overview: server-api.md
   - API Reference:

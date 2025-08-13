@@ -18,6 +18,7 @@ from .types import (
     Agent,
     AgentNotFound,
     CompletedOutcome,
+    ContentRole,
     DecodeError,
     ErrorOutcome,
     HandoffError,
@@ -135,7 +136,7 @@ async def _run_internal(
     """Internal run function with recursive execution logic."""
     # Check initial input guardrails on first turn
     if state.turn_count == 0:
-        first_user_message = next((m for m in state.messages if m.role == 'user'), None)
+        first_user_message = next((m for m in state.messages if m.role == ContentRole.USER), None)
         if first_user_message and config.initial_input_guardrails:
             for guardrail in config.initial_input_guardrails:
                 if asyncio.iscoroutinefunction(guardrail):
@@ -204,7 +205,7 @@ async def _run_internal(
 
     # Create assistant message
     assistant_message = Message(
-        role='assistant',
+        role=ContentRole.ASSISTANT,
         content=llm_response['message'].get('content') or '',
         tool_calls=_convert_tool_calls(llm_response['message'].get('tool_calls'))
     )
@@ -387,7 +388,7 @@ async def _execute_tool_calls(
 
                 return {
                     'message': Message(
-                        role='tool',
+                        role=ContentRole.TOOL,
                         content=error_result,
                         tool_call_id=tool_call.id
                     )
@@ -417,7 +418,7 @@ async def _execute_tool_calls(
 
                 return {
                     'message': Message(
-                        role='tool',
+                        role=ContentRole.TOOL,
                         content=error_result,
                         tool_call_id=tool_call.id
                     )
@@ -456,7 +457,7 @@ async def _execute_tool_calls(
                 'handoff_to' in handoff_check):
                 return {
                     'message': Message(
-                        role='tool',
+                        role=ContentRole.TOOL,
                         content=result_string,
                         tool_call_id=tool_call.id
                     ),
@@ -466,7 +467,7 @@ async def _execute_tool_calls(
 
             return {
                 'message': Message(
-                    role='tool',
+                    role=ContentRole.TOOL,
                     content=result_string,
                     tool_call_id=tool_call.id
                 )
@@ -487,7 +488,7 @@ async def _execute_tool_calls(
 
             return {
                 'message': Message(
-                    role='tool',
+                    role=ContentRole.TOOL,
                     content=error_result,
                     tool_call_id=tool_call.id
                 )

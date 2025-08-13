@@ -19,9 +19,61 @@ from typing import (
     Optional,
     Protocol,
     TypeVar,
+    TypedDict,
     Union,
     runtime_checkable,
 )
+from enum import Enum
+
+
+# Comprehensive enums for type safety and improved developer experience
+class Model(str, Enum):
+    """Supported model identifiers."""
+    GEMINI_2_0_FLASH = 'gemini-2.0-flash'
+    GEMINI_2_5_PRO = 'gemini-2.5-pro'
+    GEMINI_PRO = 'gemini-pro'
+    GPT_4 = 'gpt-4'
+    GPT_4_TURBO = 'gpt-4-turbo'
+    GPT_3_5_TURBO = 'gpt-3.5-turbo'
+    CLAUDE_3_SONNET = 'claude-3-sonnet'
+    CLAUDE_3_HAIKU = 'claude-3-haiku'
+    CLAUDE_3_OPUS = 'claude-3-opus'
+
+
+class ToolParameterType(str, Enum):
+    """Tool parameter types."""
+    STRING = 'string'
+    NUMBER = 'number'
+    INTEGER = 'integer'
+    BOOLEAN = 'boolean'
+    ARRAY = 'array'
+    OBJECT = 'object'
+    NULL = 'null'
+
+
+class ToolSource(str, Enum):
+    """Source of tool definitions."""
+    NATIVE = 'native'
+    MCP = 'mcp'
+    PLUGIN = 'plugin'
+    EXTERNAL = 'external'
+
+
+class ContentRole(str, Enum):
+    """Message content roles."""
+    USER = 'user'
+    ASSISTANT = 'assistant'
+    TOOL = 'tool'
+    SYSTEM = 'system'
+
+
+class PartType(str, Enum):
+    """Message part types."""
+    TEXT = 'text'
+    IMAGE = 'image'
+    AUDIO = 'audio'
+    VIDEO = 'video'
+    FILE = 'file'
 
 
 # Branded types for type safety - using class-based approach for better type safety
@@ -90,7 +142,7 @@ class ToolCallFunction:
 @dataclass(frozen=True)
 class Message:
     """A message in the conversation."""
-    role: Literal['user', 'assistant', 'tool']
+    role: ContentRole
     content: str
     tool_call_id: Optional[str] = None
     tool_calls: Optional[List[ToolCall]] = None
@@ -121,6 +173,22 @@ class Tool(Protocol[Args, Ctx]):
     async def execute(self, args: Args, context: Ctx) -> Union[str, 'ToolResult']:
         """Execute the tool with given arguments and context."""
         ...
+
+
+# Function tool configuration for improved DX
+class FunctionToolConfig(TypedDict):
+    """Configuration for creating function-based tools with object-based API."""
+    name: str
+    description: str
+    execute: Callable[[Any, Any], Union[str, 'ToolResult', Awaitable[Union[str, 'ToolResult']]]]
+    parameters: Any  # Pydantic model or similar for parameter validation
+    metadata: Optional[Dict[str, Any]]  # Optional metadata
+    source: Optional[ToolSource]  # Optional source tracking
+
+
+# Type alias for tool execution functions
+ToolExecuteFunction = Callable[[Any, Any], Union[str, 'ToolResult', Awaitable[Union[str, 'ToolResult']]]]
+
 
 @dataclass(frozen=True)
 class Agent(Generic[Ctx, Out]):
