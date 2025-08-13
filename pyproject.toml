@@ -11,11 +11,15 @@ license = {text = "MIT"}
 authors = [
     {name = "JAF Contributors"},
 ]
-keywords = ["ai", "agents", "functional", "python", "llm"]
+maintainers = [
+    {name = "JAF Contributors"},
+]
+keywords = ["ai", "agents", "functional", "python", "llm", "mcp", "model-context-protocol", "agent-framework", "functional-programming"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
@@ -23,6 +27,8 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Typing :: Typed",
 ]
 requires-python = ">=3.9"
 dependencies = [
@@ -63,10 +69,11 @@ all = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/juspay/jaf-python"
-Repository = "https://github.com/juspay/jaf-python"
-Documentation = "https://github.com/juspay/jaf-python#readme"
-Issues = "https://github.com/juspay/jaf-python/issues"
+Homepage = "https://github.com/xynehq/jaf-py"
+Repository = "https://github.com/xynehq/jaf-py"
+Documentation = "https://xynehq.github.io/jaf-py/"
+Issues = "https://github.com/xynehq/jaf-py/issues"
+Changelog = "https://github.com/xynehq/jaf-py/releases"
 
 [project.scripts]
 jaf = "jaf.cli:cli_main"
