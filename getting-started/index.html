@@ -308,6 +308,28 @@
     
     
       <li class="md-tabs__item">
+        <a href="../flight-booking-example/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Examples
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
         <a href="../server-api/" class="md-tabs__link">
           
   
@@ -800,6 +822,8 @@
       
         
       
+        
+      
     
     
     
@@ -849,6 +873,29 @@
   
   <span class="md-ellipsis">
     Tools
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../function-composition/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Function Composition
     
   </span>
   
@@ -944,7 +991,7 @@
   
   
   <span class="md-ellipsis">
-    A2A Protocol
+    Examples
     
   </span>
   
@@ -954,6 +1001,83 @@
         
         <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Examples
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../flight-booking-example/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Flight Booking System
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    A2A Protocol
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             A2A Protocol
           </label>
@@ -1015,10 +1139,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
         
           
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
             
   
   
@@ -1031,8 +1155,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             API Reference
           </label>
@@ -1117,10 +1241,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
         
           
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
             
   
   
@@ -1133,8 +1257,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
             <span class="md-nav__icon md-icon"></span>
             Advanced Topics
           </label>
@@ -1336,198 +1460,258 @@
 </span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>    <span class="n">max_result</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1000000.0</span>
 </span></code></pre></div>
 <h3 id="step-2-create-a-tool">Step 2: Create a Tool<a class="headerlink" href="#step-2-create-a-tool" title="Anchor link to this section for reference">&para;</a></h3>
+<p>JAF provides two approaches for creating tools: the new object-based API (recommended) and the traditional class-based approach.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="step-2-create-a-tool-object-based-api-recommended" name="__tabbed_2" type="radio" /><input id="step-2-create-a-tool-class-based-api-traditional" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="step-2-create-a-tool-object-based-api-recommended">Object-Based API (Recommended)</label><label for="step-2-create-a-tool-class-based-api-traditional">Class-Based API (Traditional)</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p>The new object-based API provides better type safety, extensibility, and developer experience:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span><span class="p">,</span> <span class="n">Field</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">jaf.core.tool_results</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolSuccess</span><span class="p">,</span> <span class="n">ToolError</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">CalculateArgs</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Arguments for the calculate tool.&quot;&quot;&quot;</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="n">expression</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s2">&quot;Mathematical expression to evaluate (e.g., &#39;2 + 2&#39;, &#39;10 * 5&#39;)&quot;</span><span class="p">)</span>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="k">class</span><span class="w"> </span><span class="nc">CalculatorTool</span><span class="p">:</span>
-</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;A safe calculator tool with validation.&quot;&quot;&quot;</span>
-</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>
-</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>    <span class="nd">@property</span>
-</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">schema</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Tool schema for LLM integration.&quot;&quot;&quot;</span>
-</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="s1">&#39;ToolSchema&#39;</span><span class="p">,</span> <span class="p">(),</span> <span class="p">{</span>
-</span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>            <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;calculate&#39;</span><span class="p">,</span>
-</span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>            <span class="s1">&#39;description&#39;</span><span class="p">:</span> <span class="s1">&#39;Safely evaluate mathematical expressions&#39;</span><span class="p">,</span>
-</span><span id="__span-7-17"><a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>            <span class="s1">&#39;parameters&#39;</span><span class="p">:</span> <span class="n">CalculateArgs</span>
-</span><span id="__span-7-18"><a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a>        <span class="p">})()</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">jaf</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_function_tool</span><span class="p">,</span> <span class="n">ToolSource</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">jaf.core.tool_results</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolResponse</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="k">class</span><span class="w"> </span><span class="nc">CalculateArgs</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Arguments for the calculate tool.&quot;&quot;&quot;</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="n">expression</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s2">&quot;Mathematical expression to evaluate (e.g., &#39;2 + 2&#39;, &#39;10 * 5&#39;)&quot;</span><span class="p">)</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">calculate_execute</span><span class="p">(</span><span class="n">args</span><span class="p">:</span> <span class="n">CalculateArgs</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">CalculatorContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Execute the calculation with safety checks.&quot;&quot;&quot;</span>
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>    <span class="k">try</span><span class="p">:</span>
+</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>        <span class="c1"># Simple whitelist validation</span>
+</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>        <span class="n">allowed_chars</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="s1">&#39;0123456789+-*/.() &#39;</span><span class="p">)</span>
+</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">char</span> <span class="ow">in</span> <span class="n">allowed_chars</span> <span class="k">for</span> <span class="n">char</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">expression</span><span class="p">):</span>
+</span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>            <span class="k">return</span> <span class="n">ToolResponse</span><span class="o">.</span><span class="n">validation_error</span><span class="p">(</span><span class="s2">&quot;Expression contains invalid characters&quot;</span><span class="p">)</span>
+</span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>
+</span><span id="__span-7-17"><a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>        <span class="c1"># Evaluate safely (in production, use a proper math parser)</span>
+</span><span id="__span-7-18"><a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a>        <span class="n">result</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">expression</span><span class="p">)</span>
 </span><span id="__span-7-19"><a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a>
-</span><span id="__span-7-20"><a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">CalculateArgs</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">CalculatorContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="__span-7-21"><a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Execute the calculation with safety checks.&quot;&quot;&quot;</span>
-</span><span id="__span-7-22"><a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a>        <span class="k">try</span><span class="p">:</span>
-</span><span id="__span-7-23"><a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a>            <span class="c1"># Simple whitelist validation</span>
-</span><span id="__span-7-24"><a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a>            <span class="n">allowed_chars</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="s1">&#39;0123456789+-*/.() &#39;</span><span class="p">)</span>
-</span><span id="__span-7-25"><a id="__codelineno-7-25" name="__codelineno-7-25" href="#__codelineno-7-25"></a>            <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">char</span> <span class="ow">in</span> <span class="n">allowed_chars</span> <span class="k">for</span> <span class="n">char</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">expression</span><span class="p">):</span>
-</span><span id="__span-7-26"><a id="__codelineno-7-26" name="__codelineno-7-26" href="#__codelineno-7-26"></a>                <span class="k">return</span> <span class="n">ToolError</span><span class="p">(</span><span class="s2">&quot;Expression contains invalid characters&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">format</span><span class="p">()</span>
-</span><span id="__span-7-27"><a id="__codelineno-7-27" name="__codelineno-7-27" href="#__codelineno-7-27"></a>
-</span><span id="__span-7-28"><a id="__codelineno-7-28" name="__codelineno-7-28" href="#__codelineno-7-28"></a>            <span class="c1"># Evaluate safely (in production, use a proper math parser)</span>
-</span><span id="__span-7-29"><a id="__codelineno-7-29" name="__codelineno-7-29" href="#__codelineno-7-29"></a>            <span class="n">result</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">expression</span><span class="p">)</span>
-</span><span id="__span-7-30"><a id="__codelineno-7-30" name="__codelineno-7-30" href="#__codelineno-7-30"></a>
-</span><span id="__span-7-31"><a id="__codelineno-7-31" name="__codelineno-7-31" href="#__codelineno-7-31"></a>            <span class="c1"># Check context limits</span>
-</span><span id="__span-7-32"><a id="__codelineno-7-32" name="__codelineno-7-32" href="#__codelineno-7-32"></a>            <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">context</span><span class="o">.</span><span class="n">max_result</span><span class="p">:</span>
-</span><span id="__span-7-33"><a id="__codelineno-7-33" name="__codelineno-7-33" href="#__codelineno-7-33"></a>                <span class="k">return</span> <span class="n">ToolError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Result </span><span class="si">{</span><span class="n">result</span><span class="si">}</span><span class="s2"> exceeds maximum allowed value&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">format</span><span class="p">()</span>
-</span><span id="__span-7-34"><a id="__codelineno-7-34" name="__codelineno-7-34" href="#__codelineno-7-34"></a>
-</span><span id="__span-7-35"><a id="__codelineno-7-35" name="__codelineno-7-35" href="#__codelineno-7-35"></a>            <span class="k">return</span> <span class="n">ToolSuccess</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Result: </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">expression</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="n">result</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">format</span><span class="p">()</span>
-</span><span id="__span-7-36"><a id="__codelineno-7-36" name="__codelineno-7-36" href="#__codelineno-7-36"></a>
-</span><span id="__span-7-37"><a id="__codelineno-7-37" name="__codelineno-7-37" href="#__codelineno-7-37"></a>        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-</span><span id="__span-7-38"><a id="__codelineno-7-38" name="__codelineno-7-38" href="#__codelineno-7-38"></a>            <span class="k">return</span> <span class="n">ToolError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Calculation error: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">format</span><span class="p">()</span>
+</span><span id="__span-7-20"><a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a>        <span class="c1"># Check context limits</span>
+</span><span id="__span-7-21"><a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a>        <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">context</span><span class="o">.</span><span class="n">max_result</span><span class="p">:</span>
+</span><span id="__span-7-22"><a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a>            <span class="k">return</span> <span class="n">ToolResponse</span><span class="o">.</span><span class="n">validation_error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Result </span><span class="si">{</span><span class="n">result</span><span class="si">}</span><span class="s2"> exceeds maximum allowed value&quot;</span><span class="p">)</span>
+</span><span id="__span-7-23"><a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a>
+</span><span id="__span-7-24"><a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a>        <span class="k">return</span> <span class="n">ToolResponse</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Result: </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">expression</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="n">result</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-7-25"><a id="__codelineno-7-25" name="__codelineno-7-25" href="#__codelineno-7-25"></a>
+</span><span id="__span-7-26"><a id="__codelineno-7-26" name="__codelineno-7-26" href="#__codelineno-7-26"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+</span><span id="__span-7-27"><a id="__codelineno-7-27" name="__codelineno-7-27" href="#__codelineno-7-27"></a>        <span class="k">return</span> <span class="n">ToolResponse</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Calculation error: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-7-28"><a id="__codelineno-7-28" name="__codelineno-7-28" href="#__codelineno-7-28"></a>
+</span><span id="__span-7-29"><a id="__codelineno-7-29" name="__codelineno-7-29" href="#__codelineno-7-29"></a><span class="c1"># Create tool with object-based configuration</span>
+</span><span id="__span-7-30"><a id="__codelineno-7-30" name="__codelineno-7-30" href="#__codelineno-7-30"></a><span class="n">calculator_tool</span> <span class="o">=</span> <span class="n">create_function_tool</span><span class="p">({</span>
+</span><span id="__span-7-31"><a id="__codelineno-7-31" name="__codelineno-7-31" href="#__codelineno-7-31"></a>    <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;calculate&#39;</span><span class="p">,</span>
+</span><span id="__span-7-32"><a id="__codelineno-7-32" name="__codelineno-7-32" href="#__codelineno-7-32"></a>    <span class="s1">&#39;description&#39;</span><span class="p">:</span> <span class="s1">&#39;Safely evaluate mathematical expressions&#39;</span><span class="p">,</span>
+</span><span id="__span-7-33"><a id="__codelineno-7-33" name="__codelineno-7-33" href="#__codelineno-7-33"></a>    <span class="s1">&#39;execute&#39;</span><span class="p">:</span> <span class="n">calculate_execute</span><span class="p">,</span>
+</span><span id="__span-7-34"><a id="__codelineno-7-34" name="__codelineno-7-34" href="#__codelineno-7-34"></a>    <span class="s1">&#39;parameters&#39;</span><span class="p">:</span> <span class="n">CalculateArgs</span><span class="p">,</span>
+</span><span id="__span-7-35"><a id="__codelineno-7-35" name="__codelineno-7-35" href="#__codelineno-7-35"></a>    <span class="s1">&#39;metadata&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;category&#39;</span><span class="p">:</span> <span class="s1">&#39;math&#39;</span><span class="p">,</span> <span class="s1">&#39;safety_level&#39;</span><span class="p">:</span> <span class="s1">&#39;high&#39;</span><span class="p">},</span>
+</span><span id="__span-7-36"><a id="__codelineno-7-36" name="__codelineno-7-36" href="#__codelineno-7-36"></a>    <span class="s1">&#39;source&#39;</span><span class="p">:</span> <span class="n">ToolSource</span><span class="o">.</span><span class="n">NATIVE</span>
+</span><span id="__span-7-37"><a id="__codelineno-7-37" name="__codelineno-7-37" href="#__codelineno-7-37"></a><span class="p">})</span>
 </span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<p>The traditional class-based approach is still supported:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span><span class="p">,</span> <span class="n">Field</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">jaf.core.tool_results</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolResponse</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">CalculateArgs</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Arguments for the calculate tool.&quot;&quot;&quot;</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    <span class="n">expression</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s2">&quot;Mathematical expression to evaluate (e.g., &#39;2 + 2&#39;, &#39;10 * 5&#39;)&quot;</span><span class="p">)</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="k">class</span><span class="w"> </span><span class="nc">CalculatorTool</span><span class="p">:</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;A safe calculator tool with validation.&quot;&quot;&quot;</span>
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>    <span class="nd">@property</span>
+</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">schema</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Tool schema for LLM integration.&quot;&quot;&quot;</span>
+</span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="s1">&#39;ToolSchema&#39;</span><span class="p">,</span> <span class="p">(),</span> <span class="p">{</span>
+</span><span id="__span-8-15"><a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a>            <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;calculate&#39;</span><span class="p">,</span>
+</span><span id="__span-8-16"><a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a>            <span class="s1">&#39;description&#39;</span><span class="p">:</span> <span class="s1">&#39;Safely evaluate mathematical expressions&#39;</span><span class="p">,</span>
+</span><span id="__span-8-17"><a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a>            <span class="s1">&#39;parameters&#39;</span><span class="p">:</span> <span class="n">CalculateArgs</span>
+</span><span id="__span-8-18"><a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a>        <span class="p">})()</span>
+</span><span id="__span-8-19"><a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a>
+</span><span id="__span-8-20"><a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">CalculateArgs</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">CalculatorContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="__span-8-21"><a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Execute the calculation with safety checks.&quot;&quot;&quot;</span>
+</span><span id="__span-8-22"><a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a>        <span class="k">try</span><span class="p">:</span>
+</span><span id="__span-8-23"><a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a>            <span class="c1"># Simple whitelist validation</span>
+</span><span id="__span-8-24"><a id="__codelineno-8-24" name="__codelineno-8-24" href="#__codelineno-8-24"></a>            <span class="n">allowed_chars</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="s1">&#39;0123456789+-*/.() &#39;</span><span class="p">)</span>
+</span><span id="__span-8-25"><a id="__codelineno-8-25" name="__codelineno-8-25" href="#__codelineno-8-25"></a>            <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">char</span> <span class="ow">in</span> <span class="n">allowed_chars</span> <span class="k">for</span> <span class="n">char</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">expression</span><span class="p">):</span>
+</span><span id="__span-8-26"><a id="__codelineno-8-26" name="__codelineno-8-26" href="#__codelineno-8-26"></a>                <span class="k">return</span> <span class="n">ToolResponse</span><span class="o">.</span><span class="n">validation_error</span><span class="p">(</span><span class="s2">&quot;Expression contains invalid characters&quot;</span><span class="p">)</span>
+</span><span id="__span-8-27"><a id="__codelineno-8-27" name="__codelineno-8-27" href="#__codelineno-8-27"></a>
+</span><span id="__span-8-28"><a id="__codelineno-8-28" name="__codelineno-8-28" href="#__codelineno-8-28"></a>            <span class="c1"># Evaluate safely (in production, use a proper math parser)</span>
+</span><span id="__span-8-29"><a id="__codelineno-8-29" name="__codelineno-8-29" href="#__codelineno-8-29"></a>            <span class="n">result</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">expression</span><span class="p">)</span>
+</span><span id="__span-8-30"><a id="__codelineno-8-30" name="__codelineno-8-30" href="#__codelineno-8-30"></a>
+</span><span id="__span-8-31"><a id="__codelineno-8-31" name="__codelineno-8-31" href="#__codelineno-8-31"></a>            <span class="c1"># Check context limits</span>
+</span><span id="__span-8-32"><a id="__codelineno-8-32" name="__codelineno-8-32" href="#__codelineno-8-32"></a>            <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">context</span><span class="o">.</span><span class="n">max_result</span><span class="p">:</span>
+</span><span id="__span-8-33"><a id="__codelineno-8-33" name="__codelineno-8-33" href="#__codelineno-8-33"></a>                <span class="k">return</span> <span class="n">ToolResponse</span><span class="o">.</span><span class="n">validation_error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Result </span><span class="si">{</span><span class="n">result</span><span class="si">}</span><span class="s2"> exceeds maximum allowed value&quot;</span><span class="p">)</span>
+</span><span id="__span-8-34"><a id="__codelineno-8-34" name="__codelineno-8-34" href="#__codelineno-8-34"></a>
+</span><span id="__span-8-35"><a id="__codelineno-8-35" name="__codelineno-8-35" href="#__codelineno-8-35"></a>            <span class="k">return</span> <span class="n">ToolResponse</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Result: </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">expression</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="n">result</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-8-36"><a id="__codelineno-8-36" name="__codelineno-8-36" href="#__codelineno-8-36"></a>
+</span><span id="__span-8-37"><a id="__codelineno-8-37" name="__codelineno-8-37" href="#__codelineno-8-37"></a>        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+</span><span id="__span-8-38"><a id="__codelineno-8-38" name="__codelineno-8-38" href="#__codelineno-8-38"></a>            <span class="k">return</span> <span class="n">ToolResponse</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Calculation error: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-8-39"><a id="__codelineno-8-39" name="__codelineno-8-39" href="#__codelineno-8-39"></a>
+</span><span id="__span-8-40"><a id="__codelineno-8-40" name="__codelineno-8-40" href="#__codelineno-8-40"></a><span class="n">calculator_tool</span> <span class="o">=</span> <span class="n">CalculatorTool</span><span class="p">()</span>
+</span></code></pre></div>
+</div>
+</div>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Why Use the Object-Based API?</p>
+<ul>
+<li><strong>Type Safety</strong>: Full TypedDict support with IDE autocomplete</li>
+<li><strong>Extensibility</strong>: Easy to add metadata, source tracking, and other options</li>
+<li><strong>Composition</strong>: Works seamlessly with functional composition patterns</li>
+<li><strong>Future-Proof</strong>: New features will be added to this API first</li>
+</ul>
+</div>
 <h3 id="step-3-define-your-agent">Step 3: Define Your Agent<a class="headerlink" href="#step-3-define-your-agent" title="Anchor link to this section for reference">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">jaf</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">create_calculator_agent</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Agent</span><span class="p">[</span><span class="n">CalculatorContext</span><span class="p">]:</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a calculator agent with mathematical capabilities.&quot;&quot;&quot;</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">instructions</span><span class="p">(</span><span class="n">state</span><span class="p">):</span>
-</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Dynamic instructions based on current state.&quot;&quot;&quot;</span>
-</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>        <span class="n">calc_count</span> <span class="o">=</span> <span class="nb">len</span><span class="p">([</span><span class="n">m</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">state</span><span class="o">.</span><span class="n">messages</span> <span class="k">if</span> <span class="s1">&#39;calculate&#39;</span> <span class="ow">in</span> <span class="n">m</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">lower</span><span class="p">()])</span>
-</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>
-</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>        <span class="n">base_instruction</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;You are a helpful calculator assistant. You can perform mathematical calculations safely.</span>
-</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>
-</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="s2">Available operations: addition (+), subtraction (-), multiplication (*), division (/), parentheses ()</span>
-</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>
-</span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="s2">Rules:</span>
-</span><span id="__span-8-15"><a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="s2">- Always use the calculate tool for mathematical expressions</span>
-</span><span id="__span-8-16"><a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a><span class="s2">- Explain your calculations clearly</span>
-</span><span id="__span-8-17"><a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a><span class="s2">- Results are limited to values under 1,000,000&quot;&quot;&quot;</span>
-</span><span id="__span-8-18"><a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a>
-</span><span id="__span-8-19"><a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a>        <span class="k">if</span> <span class="n">calc_count</span> <span class="o">&gt;</span> <span class="mi">3</span><span class="p">:</span>
-</span><span id="__span-8-20"><a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a>            <span class="n">base_instruction</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n\n</span><span class="s2">Note: You&#39;ve performed several calculations. Consider summarizing results if helpful.&quot;</span>
-</span><span id="__span-8-21"><a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a>
-</span><span id="__span-8-22"><a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a>        <span class="k">return</span> <span class="n">base_instruction</span>
-</span><span id="__span-8-23"><a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a>
-</span><span id="__span-8-24"><a id="__codelineno-8-24" name="__codelineno-8-24" href="#__codelineno-8-24"></a>    <span class="k">return</span> <span class="n">Agent</span><span class="p">(</span>
-</span><span id="__span-8-25"><a id="__codelineno-8-25" name="__codelineno-8-25" href="#__codelineno-8-25"></a>        <span class="n">name</span><span class="o">=</span><span class="s1">&#39;Calculator&#39;</span><span class="p">,</span>
-</span><span id="__span-8-26"><a id="__codelineno-8-26" name="__codelineno-8-26" href="#__codelineno-8-26"></a>        <span class="n">instructions</span><span class="o">=</span><span class="n">instructions</span><span class="p">,</span>
-</span><span id="__span-8-27"><a id="__codelineno-8-27" name="__codelineno-8-27" href="#__codelineno-8-27"></a>        <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">CalculatorTool</span><span class="p">()]</span>
-</span><span id="__span-8-28"><a id="__codelineno-8-28" name="__codelineno-8-28" href="#__codelineno-8-28"></a>    <span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">jaf</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">create_calculator_agent</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Agent</span><span class="p">[</span><span class="n">CalculatorContext</span><span class="p">]:</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a calculator agent with mathematical capabilities.&quot;&quot;&quot;</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">instructions</span><span class="p">(</span><span class="n">state</span><span class="p">):</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Dynamic instructions based on current state.&quot;&quot;&quot;</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>        <span class="n">calc_count</span> <span class="o">=</span> <span class="nb">len</span><span class="p">([</span><span class="n">m</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">state</span><span class="o">.</span><span class="n">messages</span> <span class="k">if</span> <span class="s1">&#39;calculate&#39;</span> <span class="ow">in</span> <span class="n">m</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">lower</span><span class="p">()])</span>
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>        <span class="n">base_instruction</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;You are a helpful calculator assistant. You can perform mathematical calculations safely.</span>
+</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>
+</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="s2">Available operations: addition (+), subtraction (-), multiplication (*), division (/), parentheses ()</span>
+</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>
+</span><span id="__span-9-14"><a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="s2">Rules:</span>
+</span><span id="__span-9-15"><a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a><span class="s2">- Always use the calculate tool for mathematical expressions</span>
+</span><span id="__span-9-16"><a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a><span class="s2">- Explain your calculations clearly</span>
+</span><span id="__span-9-17"><a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a><span class="s2">- Results are limited to values under 1,000,000&quot;&quot;&quot;</span>
+</span><span id="__span-9-18"><a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a>
+</span><span id="__span-9-19"><a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a>        <span class="k">if</span> <span class="n">calc_count</span> <span class="o">&gt;</span> <span class="mi">3</span><span class="p">:</span>
+</span><span id="__span-9-20"><a id="__codelineno-9-20" name="__codelineno-9-20" href="#__codelineno-9-20"></a>            <span class="n">base_instruction</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n\n</span><span class="s2">Note: You&#39;ve performed several calculations. Consider summarizing results if helpful.&quot;</span>
+</span><span id="__span-9-21"><a id="__codelineno-9-21" name="__codelineno-9-21" href="#__codelineno-9-21"></a>
+</span><span id="__span-9-22"><a id="__codelineno-9-22" name="__codelineno-9-22" href="#__codelineno-9-22"></a>        <span class="k">return</span> <span class="n">base_instruction</span>
+</span><span id="__span-9-23"><a id="__codelineno-9-23" name="__codelineno-9-23" href="#__codelineno-9-23"></a>
+</span><span id="__span-9-24"><a id="__codelineno-9-24" name="__codelineno-9-24" href="#__codelineno-9-24"></a>    <span class="k">return</span> <span class="n">Agent</span><span class="p">(</span>
+</span><span id="__span-9-25"><a id="__codelineno-9-25" name="__codelineno-9-25" href="#__codelineno-9-25"></a>        <span class="n">name</span><span class="o">=</span><span class="s1">&#39;Calculator&#39;</span><span class="p">,</span>
+</span><span id="__span-9-26"><a id="__codelineno-9-26" name="__codelineno-9-26" href="#__codelineno-9-26"></a>        <span class="n">instructions</span><span class="o">=</span><span class="n">instructions</span><span class="p">,</span>
+</span><span id="__span-9-27"><a id="__codelineno-9-27" name="__codelineno-9-27" href="#__codelineno-9-27"></a>        <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">CalculatorTool</span><span class="p">()]</span>
+</span><span id="__span-9-28"><a id="__codelineno-9-28" name="__codelineno-9-28" href="#__codelineno-9-28"></a>    <span class="p">)</span>
 </span></code></pre></div>
 <h3 id="step-4-run-your-agent">Step 4: Run Your Agent<a class="headerlink" href="#step-4-run-your-agent" title="Anchor link to this section for reference">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">jaf</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_agent</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">jaf.providers.model</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_litellm_provider</span>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">jaf.core.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">RunState</span><span class="p">,</span> <span class="n">RunConfig</span><span class="p">,</span> <span class="n">Message</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">jaf.core.engine</span><span class="w"> </span><span class="kn">import</span> <span class="n">generate_run_id</span><span class="p">,</span> <span class="n">generate_trace_id</span>
-</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>
-</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
-</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Main function to run the calculator agent.&quot;&quot;&quot;</span>
-</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>
-</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>    <span class="c1"># Set up model provider</span>
-</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>    <span class="n">model_provider</span> <span class="o">=</span> <span class="n">make_litellm_provider</span><span class="p">(</span><span class="s1">&#39;http://localhost:4000&#39;</span><span class="p">)</span>
-</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>
-</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>    <span class="c1"># Create the agent</span>
-</span><span id="__span-9-14"><a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a>    <span class="n">calculator_agent</span> <span class="o">=</span> <span class="n">create_calculator_agent</span><span class="p">()</span>
-</span><span id="__span-9-15"><a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>
-</span><span id="__span-9-16"><a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a>    <span class="c1"># Configure the run</span>
-</span><span id="__span-9-17"><a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">RunConfig</span><span class="p">(</span>
-</span><span id="__span-9-18"><a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a>        <span class="n">agent_registry</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;Calculator&#39;</span><span class="p">:</span> <span class="n">calculator_agent</span><span class="p">},</span>
-</span><span id="__span-9-19"><a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a>        <span class="n">model_provider</span><span class="o">=</span><span class="n">model_provider</span><span class="p">,</span>
-</span><span id="__span-9-20"><a id="__codelineno-9-20" name="__codelineno-9-20" href="#__codelineno-9-20"></a>        <span class="n">max_turns</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
-</span><span id="__span-9-21"><a id="__codelineno-9-21" name="__codelineno-9-21" href="#__codelineno-9-21"></a>        <span class="n">on_event</span><span class="o">=</span><span class="k">lambda</span> <span class="n">event</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">type</span><span class="si">}</span><span class="s2">] </span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">data</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">),</span>  <span class="c1"># Simple tracing</span>
-</span><span id="__span-9-22"><a id="__codelineno-9-22" name="__codelineno-9-22" href="#__codelineno-9-22"></a>    <span class="p">)</span>
-</span><span id="__span-9-23"><a id="__codelineno-9-23" name="__codelineno-9-23" href="#__codelineno-9-23"></a>
-</span><span id="__span-9-24"><a id="__codelineno-9-24" name="__codelineno-9-24" href="#__codelineno-9-24"></a>    <span class="c1"># Set up initial state</span>
-</span><span id="__span-9-25"><a id="__codelineno-9-25" name="__codelineno-9-25" href="#__codelineno-9-25"></a>    <span class="n">initial_state</span> <span class="o">=</span> <span class="n">RunState</span><span class="p">(</span>
-</span><span id="__span-9-26"><a id="__codelineno-9-26" name="__codelineno-9-26" href="#__codelineno-9-26"></a>        <span class="n">run_id</span><span class="o">=</span><span class="n">generate_run_id</span><span class="p">(),</span>
-</span><span id="__span-9-27"><a id="__codelineno-9-27" name="__codelineno-9-27" href="#__codelineno-9-27"></a>        <span class="n">trace_id</span><span class="o">=</span><span class="n">generate_trace_id</span><span class="p">(),</span>
-</span><span id="__span-9-28"><a id="__codelineno-9-28" name="__codelineno-9-28" href="#__codelineno-9-28"></a>        <span class="n">messages</span><span class="o">=</span><span class="p">[</span><span class="n">Message</span><span class="p">(</span><span class="n">role</span><span class="o">=</span><span class="s1">&#39;user&#39;</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="s1">&#39;What is 15 * 8 + 32?&#39;</span><span class="p">)],</span>
-</span><span id="__span-9-29"><a id="__codelineno-9-29" name="__codelineno-9-29" href="#__codelineno-9-29"></a>        <span class="n">current_agent_name</span><span class="o">=</span><span class="s1">&#39;Calculator&#39;</span><span class="p">,</span>
-</span><span id="__span-9-30"><a id="__codelineno-9-30" name="__codelineno-9-30" href="#__codelineno-9-30"></a>        <span class="n">context</span><span class="o">=</span><span class="n">CalculatorContext</span><span class="p">(</span>
-</span><span id="__span-9-31"><a id="__codelineno-9-31" name="__codelineno-9-31" href="#__codelineno-9-31"></a>            <span class="n">user_id</span><span class="o">=</span><span class="s1">&#39;demo_user&#39;</span><span class="p">,</span>
-</span><span id="__span-9-32"><a id="__codelineno-9-32" name="__codelineno-9-32" href="#__codelineno-9-32"></a>            <span class="n">allowed_operations</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;add&#39;</span><span class="p">,</span> <span class="s1">&#39;subtract&#39;</span><span class="p">,</span> <span class="s1">&#39;multiply&#39;</span><span class="p">,</span> <span class="s1">&#39;divide&#39;</span><span class="p">]</span>
-</span><span id="__span-9-33"><a id="__codelineno-9-33" name="__codelineno-9-33" href="#__codelineno-9-33"></a>        <span class="p">),</span>
-</span><span id="__span-9-34"><a id="__codelineno-9-34" name="__codelineno-9-34" href="#__codelineno-9-34"></a>        <span class="n">turn_count</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
-</span><span id="__span-9-35"><a id="__codelineno-9-35" name="__codelineno-9-35" href="#__codelineno-9-35"></a>    <span class="p">)</span>
-</span><span id="__span-9-36"><a id="__codelineno-9-36" name="__codelineno-9-36" href="#__codelineno-9-36"></a>
-</span><span id="__span-9-37"><a id="__codelineno-9-37" name="__codelineno-9-37" href="#__codelineno-9-37"></a>    <span class="c1"># Run the agent</span>
-</span><span id="__span-9-38"><a id="__codelineno-9-38" name="__codelineno-9-38" href="#__codelineno-9-38"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;🤖 Running Calculator Agent...&quot;</span><span class="p">)</span>
-</span><span id="__span-9-39"><a id="__codelineno-9-39" name="__codelineno-9-39" href="#__codelineno-9-39"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">run_agent</span><span class="p">(</span><span class="n">initial_state</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
-</span><span id="__span-9-40"><a id="__codelineno-9-40" name="__codelineno-9-40" href="#__codelineno-9-40"></a>
-</span><span id="__span-9-41"><a id="__codelineno-9-41" name="__codelineno-9-41" href="#__codelineno-9-41"></a>    <span class="c1"># Handle the result</span>
-</span><span id="__span-9-42"><a id="__codelineno-9-42" name="__codelineno-9-42" href="#__codelineno-9-42"></a>    <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">outcome</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="s1">&#39;completed&#39;</span><span class="p">:</span>
-</span><span id="__span-9-43"><a id="__codelineno-9-43" name="__codelineno-9-43" href="#__codelineno-9-43"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">✅ Success! Final output:</span><span class="se">\n</span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">outcome</span><span class="o">.</span><span class="n">output</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-9-44"><a id="__codelineno-9-44" name="__codelineno-9-44" href="#__codelineno-9-44"></a>    <span class="k">else</span><span class="p">:</span>
-</span><span id="__span-9-45"><a id="__codelineno-9-45" name="__codelineno-9-45" href="#__codelineno-9-45"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">❌ Error: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">outcome</span><span class="o">.</span><span class="n">error</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-9-46"><a id="__codelineno-9-46" name="__codelineno-9-46" href="#__codelineno-9-46"></a>
-</span><span id="__span-9-47"><a id="__codelineno-9-47" name="__codelineno-9-47" href="#__codelineno-9-47"></a>    <span class="k">return</span> <span class="n">result</span>
-</span><span id="__span-9-48"><a id="__codelineno-9-48" name="__codelineno-9-48" href="#__codelineno-9-48"></a>
-</span><span id="__span-9-49"><a id="__codelineno-9-49" name="__codelineno-9-49" href="#__codelineno-9-49"></a><span class="c1"># Run the example</span>
-</span><span id="__span-9-50"><a id="__codelineno-9-50" name="__codelineno-9-50" href="#__codelineno-9-50"></a><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
-</span><span id="__span-9-51"><a id="__codelineno-9-51" name="__codelineno-9-51" href="#__codelineno-9-51"></a>    <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">jaf</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_agent</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">jaf.providers.model</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_litellm_provider</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">jaf.core.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">RunState</span><span class="p">,</span> <span class="n">RunConfig</span><span class="p">,</span> <span class="n">Message</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">jaf.core.engine</span><span class="w"> </span><span class="kn">import</span> <span class="n">generate_run_id</span><span class="p">,</span> <span class="n">generate_trace_id</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Main function to run the calculator agent.&quot;&quot;&quot;</span>
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>
+</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>    <span class="c1"># Set up model provider</span>
+</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>    <span class="n">model_provider</span> <span class="o">=</span> <span class="n">make_litellm_provider</span><span class="p">(</span><span class="s1">&#39;http://localhost:4000&#39;</span><span class="p">)</span>
+</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>
+</span><span id="__span-10-13"><a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>    <span class="c1"># Create the agent</span>
+</span><span id="__span-10-14"><a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a>    <span class="n">calculator_agent</span> <span class="o">=</span> <span class="n">create_calculator_agent</span><span class="p">()</span>
+</span><span id="__span-10-15"><a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>
+</span><span id="__span-10-16"><a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a>    <span class="c1"># Configure the run</span>
+</span><span id="__span-10-17"><a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">RunConfig</span><span class="p">(</span>
+</span><span id="__span-10-18"><a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a>        <span class="n">agent_registry</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;Calculator&#39;</span><span class="p">:</span> <span class="n">calculator_agent</span><span class="p">},</span>
+</span><span id="__span-10-19"><a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a>        <span class="n">model_provider</span><span class="o">=</span><span class="n">model_provider</span><span class="p">,</span>
+</span><span id="__span-10-20"><a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a>        <span class="n">max_turns</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+</span><span id="__span-10-21"><a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a>        <span class="n">on_event</span><span class="o">=</span><span class="k">lambda</span> <span class="n">event</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">type</span><span class="si">}</span><span class="s2">] </span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">data</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">),</span>  <span class="c1"># Simple tracing</span>
+</span><span id="__span-10-22"><a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a>    <span class="p">)</span>
+</span><span id="__span-10-23"><a id="__codelineno-10-23" name="__codelineno-10-23" href="#__codelineno-10-23"></a>
+</span><span id="__span-10-24"><a id="__codelineno-10-24" name="__codelineno-10-24" href="#__codelineno-10-24"></a>    <span class="c1"># Set up initial state</span>
+</span><span id="__span-10-25"><a id="__codelineno-10-25" name="__codelineno-10-25" href="#__codelineno-10-25"></a>    <span class="n">initial_state</span> <span class="o">=</span> <span class="n">RunState</span><span class="p">(</span>
+</span><span id="__span-10-26"><a id="__codelineno-10-26" name="__codelineno-10-26" href="#__codelineno-10-26"></a>        <span class="n">run_id</span><span class="o">=</span><span class="n">generate_run_id</span><span class="p">(),</span>
+</span><span id="__span-10-27"><a id="__codelineno-10-27" name="__codelineno-10-27" href="#__codelineno-10-27"></a>        <span class="n">trace_id</span><span class="o">=</span><span class="n">generate_trace_id</span><span class="p">(),</span>
+</span><span id="__span-10-28"><a id="__codelineno-10-28" name="__codelineno-10-28" href="#__codelineno-10-28"></a>        <span class="n">messages</span><span class="o">=</span><span class="p">[</span><span class="n">Message</span><span class="p">(</span><span class="n">role</span><span class="o">=</span><span class="s1">&#39;user&#39;</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="s1">&#39;What is 15 * 8 + 32?&#39;</span><span class="p">)],</span>
+</span><span id="__span-10-29"><a id="__codelineno-10-29" name="__codelineno-10-29" href="#__codelineno-10-29"></a>        <span class="n">current_agent_name</span><span class="o">=</span><span class="s1">&#39;Calculator&#39;</span><span class="p">,</span>
+</span><span id="__span-10-30"><a id="__codelineno-10-30" name="__codelineno-10-30" href="#__codelineno-10-30"></a>        <span class="n">context</span><span class="o">=</span><span class="n">CalculatorContext</span><span class="p">(</span>
+</span><span id="__span-10-31"><a id="__codelineno-10-31" name="__codelineno-10-31" href="#__codelineno-10-31"></a>            <span class="n">user_id</span><span class="o">=</span><span class="s1">&#39;demo_user&#39;</span><span class="p">,</span>
+</span><span id="__span-10-32"><a id="__codelineno-10-32" name="__codelineno-10-32" href="#__codelineno-10-32"></a>            <span class="n">allowed_operations</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;add&#39;</span><span class="p">,</span> <span class="s1">&#39;subtract&#39;</span><span class="p">,</span> <span class="s1">&#39;multiply&#39;</span><span class="p">,</span> <span class="s1">&#39;divide&#39;</span><span class="p">]</span>
+</span><span id="__span-10-33"><a id="__codelineno-10-33" name="__codelineno-10-33" href="#__codelineno-10-33"></a>        <span class="p">),</span>
+</span><span id="__span-10-34"><a id="__codelineno-10-34" name="__codelineno-10-34" href="#__codelineno-10-34"></a>        <span class="n">turn_count</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+</span><span id="__span-10-35"><a id="__codelineno-10-35" name="__codelineno-10-35" href="#__codelineno-10-35"></a>    <span class="p">)</span>
+</span><span id="__span-10-36"><a id="__codelineno-10-36" name="__codelineno-10-36" href="#__codelineno-10-36"></a>
+</span><span id="__span-10-37"><a id="__codelineno-10-37" name="__codelineno-10-37" href="#__codelineno-10-37"></a>    <span class="c1"># Run the agent</span>
+</span><span id="__span-10-38"><a id="__codelineno-10-38" name="__codelineno-10-38" href="#__codelineno-10-38"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;🤖 Running Calculator Agent...&quot;</span><span class="p">)</span>
+</span><span id="__span-10-39"><a id="__codelineno-10-39" name="__codelineno-10-39" href="#__codelineno-10-39"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">run_agent</span><span class="p">(</span><span class="n">initial_state</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+</span><span id="__span-10-40"><a id="__codelineno-10-40" name="__codelineno-10-40" href="#__codelineno-10-40"></a>
+</span><span id="__span-10-41"><a id="__codelineno-10-41" name="__codelineno-10-41" href="#__codelineno-10-41"></a>    <span class="c1"># Handle the result</span>
+</span><span id="__span-10-42"><a id="__codelineno-10-42" name="__codelineno-10-42" href="#__codelineno-10-42"></a>    <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">outcome</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="s1">&#39;completed&#39;</span><span class="p">:</span>
+</span><span id="__span-10-43"><a id="__codelineno-10-43" name="__codelineno-10-43" href="#__codelineno-10-43"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">✅ Success! Final output:</span><span class="se">\n</span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">outcome</span><span class="o">.</span><span class="n">output</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-10-44"><a id="__codelineno-10-44" name="__codelineno-10-44" href="#__codelineno-10-44"></a>    <span class="k">else</span><span class="p">:</span>
+</span><span id="__span-10-45"><a id="__codelineno-10-45" name="__codelineno-10-45" href="#__codelineno-10-45"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">❌ Error: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">outcome</span><span class="o">.</span><span class="n">error</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-10-46"><a id="__codelineno-10-46" name="__codelineno-10-46" href="#__codelineno-10-46"></a>
+</span><span id="__span-10-47"><a id="__codelineno-10-47" name="__codelineno-10-47" href="#__codelineno-10-47"></a>    <span class="k">return</span> <span class="n">result</span>
+</span><span id="__span-10-48"><a id="__codelineno-10-48" name="__codelineno-10-48" href="#__codelineno-10-48"></a>
+</span><span id="__span-10-49"><a id="__codelineno-10-49" name="__codelineno-10-49" href="#__codelineno-10-49"></a><span class="c1"># Run the example</span>
+</span><span id="__span-10-50"><a id="__codelineno-10-50" name="__codelineno-10-50" href="#__codelineno-10-50"></a><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+</span><span id="__span-10-51"><a id="__codelineno-10-51" name="__codelineno-10-51" href="#__codelineno-10-51"></a>    <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
 </span></code></pre></div>
 <h3 id="step-5-test-your-agent">Step 5: Test Your Agent<a class="headerlink" href="#step-5-test-your-agent" title="Anchor link to this section for reference">&para;</a></h3>
 <p>Save the code above as <code>calculator_agent.py</code> and run it:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>python<span class="w"> </span>calculator_agent.py
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>python<span class="w"> </span>calculator_agent.py
 </span></code></pre></div>
 <p>Expected output:
-<div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>🤖 Running Calculator Agent...
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>[agent_start] {&#39;agent_name&#39;: &#39;Calculator&#39;, &#39;run_id&#39;: &#39;run_...&#39;}
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>[tool_call] {&#39;tool_name&#39;: &#39;calculate&#39;, &#39;args&#39;: {&#39;expression&#39;: &#39;15 * 8 + 32&#39;}}
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>[tool_result] {&#39;success&#39;: True, &#39;result&#39;: &#39;Result: 15 * 8 + 32 = 152&#39;}
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>
-</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>✅ Success! Final output:
-</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>The calculation is: 15 × 8 + 32 = 152
-</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>
-</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>First, I multiply 15 by 8 to get 120, then add 32 to get a final result of 152.
+<div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>🤖 Running Calculator Agent...
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>[agent_start] {&#39;agent_name&#39;: &#39;Calculator&#39;, &#39;run_id&#39;: &#39;run_...&#39;}
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>[tool_call] {&#39;tool_name&#39;: &#39;calculate&#39;, &#39;args&#39;: {&#39;expression&#39;: &#39;15 * 8 + 32&#39;}}
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>[tool_result] {&#39;success&#39;: True, &#39;result&#39;: &#39;Result: 15 * 8 + 32 = 152&#39;}
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>✅ Success! Final output:
+</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>The calculation is: 15 × 8 + 32 = 152
+</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>
+</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>First, I multiply 15 by 8 to get 120, then add 32 to get a final result of 152.
 </span></code></pre></div></p>
 <h2 id="interactive-chat-mode">Interactive Chat Mode<a class="headerlink" href="#interactive-chat-mode" title="Anchor link to this section for reference">&para;</a></h2>
 <p>For a more interactive experience, let's create a chat loop:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">interactive_calculator</span><span class="p">():</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Interactive calculator chat session.&quot;&quot;&quot;</span>
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>    <span class="n">model_provider</span> <span class="o">=</span> <span class="n">make_litellm_provider</span><span class="p">(</span><span class="s1">&#39;http://localhost:4000&#39;</span><span class="p">)</span>
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>    <span class="n">calculator_agent</span> <span class="o">=</span> <span class="n">create_calculator_agent</span><span class="p">()</span>
-</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>
-</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">RunConfig</span><span class="p">(</span>
-</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>        <span class="n">agent_registry</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;Calculator&#39;</span><span class="p">:</span> <span class="n">calculator_agent</span><span class="p">},</span>
-</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>        <span class="n">model_provider</span><span class="o">=</span><span class="n">model_provider</span><span class="p">,</span>
-</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>        <span class="n">max_turns</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
-</span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>    <span class="p">)</span>
-</span><span id="__span-12-11"><a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>
-</span><span id="__span-12-12"><a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;🧮 Calculator Agent - Type &#39;quit&#39; to exit</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-12-13"><a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a>
-</span><span id="__span-12-14"><a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a>    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-</span><span id="__span-12-15"><a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a>        <span class="n">user_input</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s2">&quot;You: &quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
-</span><span id="__span-12-16"><a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a>        <span class="k">if</span> <span class="n">user_input</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;quit&#39;</span><span class="p">,</span> <span class="s1">&#39;exit&#39;</span><span class="p">,</span> <span class="s1">&#39;q&#39;</span><span class="p">]:</span>
-</span><span id="__span-12-17"><a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a>            <span class="k">break</span>
-</span><span id="__span-12-18"><a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a>
-</span><span id="__span-12-19"><a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">user_input</span><span class="p">:</span>
-</span><span id="__span-12-20"><a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a>            <span class="k">continue</span>
-</span><span id="__span-12-21"><a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a>
-</span><span id="__span-12-22"><a id="__codelineno-12-22" name="__codelineno-12-22" href="#__codelineno-12-22"></a>        <span class="c1"># Create new state for each interaction</span>
-</span><span id="__span-12-23"><a id="__codelineno-12-23" name="__codelineno-12-23" href="#__codelineno-12-23"></a>        <span class="n">state</span> <span class="o">=</span> <span class="n">RunState</span><span class="p">(</span>
-</span><span id="__span-12-24"><a id="__codelineno-12-24" name="__codelineno-12-24" href="#__codelineno-12-24"></a>            <span class="n">run_id</span><span class="o">=</span><span class="n">generate_run_id</span><span class="p">(),</span>
-</span><span id="__span-12-25"><a id="__codelineno-12-25" name="__codelineno-12-25" href="#__codelineno-12-25"></a>            <span class="n">trace_id</span><span class="o">=</span><span class="n">generate_trace_id</span><span class="p">(),</span>
-</span><span id="__span-12-26"><a id="__codelineno-12-26" name="__codelineno-12-26" href="#__codelineno-12-26"></a>            <span class="n">messages</span><span class="o">=</span><span class="p">[</span><span class="n">Message</span><span class="p">(</span><span class="n">role</span><span class="o">=</span><span class="s1">&#39;user&#39;</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="n">user_input</span><span class="p">)],</span>
-</span><span id="__span-12-27"><a id="__codelineno-12-27" name="__codelineno-12-27" href="#__codelineno-12-27"></a>            <span class="n">current_agent_name</span><span class="o">=</span><span class="s1">&#39;Calculator&#39;</span><span class="p">,</span>
-</span><span id="__span-12-28"><a id="__codelineno-12-28" name="__codelineno-12-28" href="#__codelineno-12-28"></a>            <span class="n">context</span><span class="o">=</span><span class="n">CalculatorContext</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="s1">&#39;interactive_user&#39;</span><span class="p">,</span> <span class="n">allowed_operations</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;*&#39;</span><span class="p">]),</span>
-</span><span id="__span-12-29"><a id="__codelineno-12-29" name="__codelineno-12-29" href="#__codelineno-12-29"></a>            <span class="n">turn_count</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
-</span><span id="__span-12-30"><a id="__codelineno-12-30" name="__codelineno-12-30" href="#__codelineno-12-30"></a>        <span class="p">)</span>
-</span><span id="__span-12-31"><a id="__codelineno-12-31" name="__codelineno-12-31" href="#__codelineno-12-31"></a>
-</span><span id="__span-12-32"><a id="__codelineno-12-32" name="__codelineno-12-32" href="#__codelineno-12-32"></a>        <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">run_agent</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
-</span><span id="__span-12-33"><a id="__codelineno-12-33" name="__codelineno-12-33" href="#__codelineno-12-33"></a>
-</span><span id="__span-12-34"><a id="__codelineno-12-34" name="__codelineno-12-34" href="#__codelineno-12-34"></a>        <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">outcome</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="s1">&#39;completed&#39;</span><span class="p">:</span>
-</span><span id="__span-12-35"><a id="__codelineno-12-35" name="__codelineno-12-35" href="#__codelineno-12-35"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Agent: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">outcome</span><span class="o">.</span><span class="n">output</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-12-36"><a id="__codelineno-12-36" name="__codelineno-12-36" href="#__codelineno-12-36"></a>        <span class="k">else</span><span class="p">:</span>
-</span><span id="__span-12-37"><a id="__codelineno-12-37" name="__codelineno-12-37" href="#__codelineno-12-37"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">outcome</span><span class="o">.</span><span class="n">error</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-12-38"><a id="__codelineno-12-38" name="__codelineno-12-38" href="#__codelineno-12-38"></a>
-</span><span id="__span-12-39"><a id="__codelineno-12-39" name="__codelineno-12-39" href="#__codelineno-12-39"></a><span class="c1"># Run interactive mode</span>
-</span><span id="__span-12-40"><a id="__codelineno-12-40" name="__codelineno-12-40" href="#__codelineno-12-40"></a><span class="c1"># asyncio.run(interactive_calculator())</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">interactive_calculator</span><span class="p">():</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Interactive calculator chat session.&quot;&quot;&quot;</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>    <span class="n">model_provider</span> <span class="o">=</span> <span class="n">make_litellm_provider</span><span class="p">(</span><span class="s1">&#39;http://localhost:4000&#39;</span><span class="p">)</span>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>    <span class="n">calculator_agent</span> <span class="o">=</span> <span class="n">create_calculator_agent</span><span class="p">()</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">RunConfig</span><span class="p">(</span>
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>        <span class="n">agent_registry</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;Calculator&#39;</span><span class="p">:</span> <span class="n">calculator_agent</span><span class="p">},</span>
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>        <span class="n">model_provider</span><span class="o">=</span><span class="n">model_provider</span><span class="p">,</span>
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>        <span class="n">max_turns</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>    <span class="p">)</span>
+</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>
+</span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;🧮 Calculator Agent - Type &#39;quit&#39; to exit</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a>
+</span><span id="__span-13-14"><a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a>    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+</span><span id="__span-13-15"><a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a>        <span class="n">user_input</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s2">&quot;You: &quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+</span><span id="__span-13-16"><a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a>        <span class="k">if</span> <span class="n">user_input</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;quit&#39;</span><span class="p">,</span> <span class="s1">&#39;exit&#39;</span><span class="p">,</span> <span class="s1">&#39;q&#39;</span><span class="p">]:</span>
+</span><span id="__span-13-17"><a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a>            <span class="k">break</span>
+</span><span id="__span-13-18"><a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a>
+</span><span id="__span-13-19"><a id="__codelineno-13-19" name="__codelineno-13-19" href="#__codelineno-13-19"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">user_input</span><span class="p">:</span>
+</span><span id="__span-13-20"><a id="__codelineno-13-20" name="__codelineno-13-20" href="#__codelineno-13-20"></a>            <span class="k">continue</span>
+</span><span id="__span-13-21"><a id="__codelineno-13-21" name="__codelineno-13-21" href="#__codelineno-13-21"></a>
+</span><span id="__span-13-22"><a id="__codelineno-13-22" name="__codelineno-13-22" href="#__codelineno-13-22"></a>        <span class="c1"># Create new state for each interaction</span>
+</span><span id="__span-13-23"><a id="__codelineno-13-23" name="__codelineno-13-23" href="#__codelineno-13-23"></a>        <span class="n">state</span> <span class="o">=</span> <span class="n">RunState</span><span class="p">(</span>
+</span><span id="__span-13-24"><a id="__codelineno-13-24" name="__codelineno-13-24" href="#__codelineno-13-24"></a>            <span class="n">run_id</span><span class="o">=</span><span class="n">generate_run_id</span><span class="p">(),</span>
+</span><span id="__span-13-25"><a id="__codelineno-13-25" name="__codelineno-13-25" href="#__codelineno-13-25"></a>            <span class="n">trace_id</span><span class="o">=</span><span class="n">generate_trace_id</span><span class="p">(),</span>
+</span><span id="__span-13-26"><a id="__codelineno-13-26" name="__codelineno-13-26" href="#__codelineno-13-26"></a>            <span class="n">messages</span><span class="o">=</span><span class="p">[</span><span class="n">Message</span><span class="p">(</span><span class="n">role</span><span class="o">=</span><span class="s1">&#39;user&#39;</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="n">user_input</span><span class="p">)],</span>
+</span><span id="__span-13-27"><a id="__codelineno-13-27" name="__codelineno-13-27" href="#__codelineno-13-27"></a>            <span class="n">current_agent_name</span><span class="o">=</span><span class="s1">&#39;Calculator&#39;</span><span class="p">,</span>
+</span><span id="__span-13-28"><a id="__codelineno-13-28" name="__codelineno-13-28" href="#__codelineno-13-28"></a>            <span class="n">context</span><span class="o">=</span><span class="n">CalculatorContext</span><span class="p">(</span><span class="n">user_id</span><span class="o">=</span><span class="s1">&#39;interactive_user&#39;</span><span class="p">,</span> <span class="n">allowed_operations</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;*&#39;</span><span class="p">]),</span>
+</span><span id="__span-13-29"><a id="__codelineno-13-29" name="__codelineno-13-29" href="#__codelineno-13-29"></a>            <span class="n">turn_count</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+</span><span id="__span-13-30"><a id="__codelineno-13-30" name="__codelineno-13-30" href="#__codelineno-13-30"></a>        <span class="p">)</span>
+</span><span id="__span-13-31"><a id="__codelineno-13-31" name="__codelineno-13-31" href="#__codelineno-13-31"></a>
+</span><span id="__span-13-32"><a id="__codelineno-13-32" name="__codelineno-13-32" href="#__codelineno-13-32"></a>        <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">run_agent</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+</span><span id="__span-13-33"><a id="__codelineno-13-33" name="__codelineno-13-33" href="#__codelineno-13-33"></a>
+</span><span id="__span-13-34"><a id="__codelineno-13-34" name="__codelineno-13-34" href="#__codelineno-13-34"></a>        <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">outcome</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="s1">&#39;completed&#39;</span><span class="p">:</span>
+</span><span id="__span-13-35"><a id="__codelineno-13-35" name="__codelineno-13-35" href="#__codelineno-13-35"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Agent: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">outcome</span><span class="o">.</span><span class="n">output</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-13-36"><a id="__codelineno-13-36" name="__codelineno-13-36" href="#__codelineno-13-36"></a>        <span class="k">else</span><span class="p">:</span>
+</span><span id="__span-13-37"><a id="__codelineno-13-37" name="__codelineno-13-37" href="#__codelineno-13-37"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">outcome</span><span class="o">.</span><span class="n">error</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-13-38"><a id="__codelineno-13-38" name="__codelineno-13-38" href="#__codelineno-13-38"></a>
+</span><span id="__span-13-39"><a id="__codelineno-13-39" name="__codelineno-13-39" href="#__codelineno-13-39"></a><span class="c1"># Run interactive mode</span>
+</span><span id="__span-13-40"><a id="__codelineno-13-40" name="__codelineno-13-40" href="#__codelineno-13-40"></a><span class="c1"># asyncio.run(interactive_calculator())</span>
 </span></code></pre></div>
 <h2 id="cli-usage">CLI Usage<a class="headerlink" href="#cli-usage" title="Anchor link to this section for reference">&para;</a></h2>
 <p>JAF provides a CLI for common tasks:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># Initialize a new JAF project</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>jaf<span class="w"> </span>init<span class="w"> </span>my-calculator-project
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="nb">cd</span><span class="w"> </span>my-calculator-project
-</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>
-</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="c1"># Run development server (if you have server components)</span>
-</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>jaf<span class="w"> </span>server<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">8000</span>
-</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>
-</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="c1"># Show version and help</span>
-</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>jaf<span class="w"> </span>--version
-</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>jaf<span class="w"> </span>--help
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># Initialize a new JAF project</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>jaf<span class="w"> </span>init<span class="w"> </span>my-calculator-project
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="nb">cd</span><span class="w"> </span>my-calculator-project
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="c1"># Run development server (if you have server components)</span>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>jaf<span class="w"> </span>server<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">8000</span>
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>
+</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="c1"># Show version and help</span>
+</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>jaf<span class="w"> </span>--version
+</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a>jaf<span class="w"> </span>--help
 </span></code></pre></div>
 <h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Anchor link to this section for reference">&para;</a></h2>
 <p>Now that you have a working agent, explore these topics:</p>
@@ -1541,17 +1725,17 @@
 <h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Anchor link to this section for reference">&para;</a></h2>
 <h3 id="common-issues">Common Issues<a class="headerlink" href="#common-issues" title="Anchor link to this section for reference">&para;</a></h3>
 <p><strong>Import Error</strong>: If you get <code>ModuleNotFoundError: No module named 'jaf'</code>:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>pip<span class="w"> </span>install<span class="w"> </span>jaf-python
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="c1"># Or for development:</span>
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>pip<span class="w"> </span>install<span class="w"> </span>jaf-python
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="c1"># Or for development:</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
 </span></code></pre></div></p>
 <p><strong>LiteLLM Connection Error</strong>: Ensure your LiteLLM proxy is running:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="c1"># Check if proxy is accessible</span>
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>curl<span class="w"> </span>http://localhost:4000/health
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1"># Check if proxy is accessible</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>curl<span class="w"> </span>http://localhost:4000/health
 </span></code></pre></div></p>
 <p><strong>Type Checking Issues</strong>: JAF is fully typed. If you see mypy errors:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>pip<span class="w"> </span>install<span class="w"> </span>mypy
-</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>mypy<span class="w"> </span>your_agent.py<span class="w"> </span>--ignore-missing-imports
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>pip<span class="w"> </span>install<span class="w"> </span>mypy
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>mypy<span class="w"> </span>your_agent.py<span class="w"> </span>--ignore-missing-imports
 </span></code></pre></div></p>
 <p><strong>Performance Issues</strong>: For high-throughput scenarios:
 - Use connection pooling with your model provider
