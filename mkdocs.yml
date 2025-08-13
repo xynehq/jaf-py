@@ -76,15 +76,23 @@ nav:
     - Function Composition: function-composition.md
     - Memory System: memory-system.md
     - Model Providers: model-providers.md
+  - ADK Production Framework:
+    - ADK Overview: adk-overview.md
+    - Security Framework: security-framework.md
+    - Session Management: session-management.md
+    - Error Handling: error-handling.md
   - Examples:
     - Flight Booking System: flight-booking-example.md
   - A2A Protocol:
     - Overview: server-api.md
+  - Production Deployment:
+    - Infrastructure: infrastructure.md
+    - Deployment: deployment.md
+    - Validation Suite: validation-suite.md
   - API Reference:
     - API Overview: api-reference.md
     - Server API: server-api.md
   - Advanced Topics:
-    - Deployment: deployment.md
     - Troubleshooting: troubleshooting.md
 
 # Markdown extensions
