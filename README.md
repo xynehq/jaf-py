@@ -2,7 +2,6 @@
 
 <!-- ![JAF Banner](docs/cover.png) -->
 
-[![CI](https://github.com/juspay/jaf-python/workflows/CI/badge.svg)](https://github.com/juspay/jaf-python/actions)
 [![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://pypi.org/project/jaf-python/)
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
 
