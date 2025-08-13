@@ -16,10 +16,8 @@ echo "⚠️  Press Ctrl+C to stop the server"
 echo ""
 
 # Check if mkdocs is installed
-MKDOCS_CMD="mkdocs"
-if command -v /Users/harshpreet.singh/Library/Python/3.12/bin/mkdocs &> /dev/null; then
-    MKDOCS_CMD="/Users/harshpreet.singh/Library/Python/3.12/bin/mkdocs"
-elif ! command -v mkdocs &> /dev/null; then
+MKDOCS_CMD="python3 -m mkdocs"
+if ! python3 -c "import mkdocs" &> /dev/null; then
     echo "❌ MkDocs is not installed!"
     echo "📦 Install it with: pip install -r requirements-docs.txt"
     exit 1
