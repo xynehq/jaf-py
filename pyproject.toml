@@ -75,17 +75,27 @@ jaf = "jaf.cli:cli_main"
 include = ["jaf*"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = [
+    "tests",
+    "jaf/a2a/tests", 
+    "jaf/a2a/memory/tests",
+    "tests/visualization"
+]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
 asyncio_mode = "auto"
 addopts = [
-    "--cov=jaf",
-    "--cov-report=term-missing",
-    "--cov-report=html",
     "--strict-markers",
+    "--tb=short"
 ]
 markers = [
     "integration: marks tests as integration tests",
     "slow: marks tests as slow",
+    "unit: marks tests as unit tests",
+    "a2a: marks tests related to A2A protocol",
+    "memory: marks tests related to memory providers", 
+    "visualization: marks tests related to visualization"
 ]
 
 [tool.black]

@@ -26,23 +26,23 @@ from jaf.visualization.types import GraphOptions, GraphResult
 # ========== Test Tool Implementation ==========
 
 @dataclass
-class TestArgs:
+class VisualizationTestArgs:
     """Test tool arguments."""
     value: str
 
 
-class TestTool:
+class VisualizationTestTool:
     """Simple test tool implementation."""
     
     @property
-    def schema(self) -> ToolSchema[TestArgs]:
+    def schema(self) -> ToolSchema[VisualizationTestArgs]:
         return ToolSchema(
             name='test_tool',
             description='A test tool for visualization testing',
-            parameters=TestArgs
+            parameters=VisualizationTestArgs
         )
     
-    async def execute(self, args: TestArgs, context: Any) -> str:
+    async def execute(self, args: VisualizationTestArgs, context: Any) -> str:
         return f"Test result: {args.value}"
 
 
@@ -51,7 +51,7 @@ class TestTool:
 @pytest.fixture
 def test_tool():
     """Create a test tool instance."""
-    return TestTool()
+    return VisualizationTestTool()
 
 
 @pytest.fixture
