@@ -90,7 +90,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#flight-booking-example" class="md-skip">
+        <a href="#flight-booking-system-production-agent-architecture" class="md-skip">
           Skip to content
         </a>
       
@@ -850,11 +850,35 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
+  <a href="#system-overview" class="md-nav__link">
     <span class="md-ellipsis">
-      Overview
+      System Overview
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="System Overview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#core-architectural-demonstrations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Core Architectural Demonstrations
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#target-audience" class="md-nav__link">
+    <span class="md-ellipsis">
+      Target Audience
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1607,18 +1631,24 @@
   
 
 
-<h1 id="flight-booking-example">Flight Booking Example<a class="headerlink" href="#flight-booking-example" title="Anchor link to this section for reference">&para;</a></h1>
-<p>The Flight Booking example is a comprehensive demonstration of JAF's new object-based API, functional composition patterns, and multi-agent coordination. It showcases how to build a production-ready agent system with type safety, enhanced developer experience, and sophisticated functionality.</p>
-<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Anchor link to this section for reference">&para;</a></h2>
-<p>This example demonstrates:</p>
+<h1 id="flight-booking-system-production-agent-architecture">Flight Booking System: Production Agent Architecture<a class="headerlink" href="#flight-booking-system-production-agent-architecture" title="Anchor link to this section for reference">&para;</a></h1>
+<p>This comprehensive example demonstrates a production-grade flight booking system built on JAF's modern architecture. It showcases enterprise-level patterns including multi-agent coordination, functional composition, type safety, and scalable server integration.</p>
+<h2 id="system-overview">System Overview<a class="headerlink" href="#system-overview" title="Anchor link to this section for reference">&para;</a></h2>
+<h3 id="core-architectural-demonstrations">Core Architectural Demonstrations<a class="headerlink" href="#core-architectural-demonstrations" title="Anchor link to this section for reference">&para;</a></h3>
 <ul>
-<li><strong>Object-based tool creation</strong> using the new <code>create_function_tool</code> API</li>
-<li><strong>Multi-agent coordination</strong> with specialized agents and handoffs</li>
-<li><strong>Functional composition</strong> with higher-order functions</li>
-<li><strong>Type safety</strong> using enums and typed configurations</li>
-<li><strong>Real-world business logic</strong> for flight booking operations</li>
-<li><strong>HTTP server integration</strong> for web applications</li>
+<li><strong>Modern Object-Based Tool Creation</strong>: Implementation using the advanced <code>create_function_tool</code> API with comprehensive type safety</li>
+<li><strong>Multi-Agent Coordination Patterns</strong>: Specialized agent roles with intelligent handoff mechanisms and context preservation</li>
+<li><strong>Functional Composition Architecture</strong>: Higher-order functions enabling tool enhancement, caching strategies, and retry logic</li>
+<li><strong>Enterprise Type Safety</strong>: Comprehensive enum usage and typed configurations for runtime safety</li>
+<li><strong>Production Business Logic</strong>: Real-world flight booking operations with error handling and validation</li>
+<li><strong>Scalable HTTP Server Integration</strong>: FastAPI-based server with auto-documentation and monitoring endpoints</li>
 </ul>
+<h3 id="target-audience">Target Audience<a class="headerlink" href="#target-audience" title="Anchor link to this section for reference">&para;</a></h3>
+<p>This example is designed for:
+- <strong>Enterprise developers</strong> building production agent systems
+- <strong>System architects</strong> designing multi-agent workflows<br />
+- <strong>DevOps engineers</strong> deploying agent-based services
+- <strong>Security engineers</strong> implementing secure agent interactions</p>
 <h2 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Anchor link to this section for reference">&para;</a></h2>
 <p>The flight booking system consists of four main components:</p>
 <h3 id="1-core-tools-indexpy">1. Core Tools (<code>index.py</code>)<a class="headerlink" href="#1-core-tools-indexpy" title="Anchor link to this section for reference">&para;</a></h3>
@@ -1749,17 +1779,22 @@
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">cd</span><span class="w"> </span>examples/flight-booking
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>python<span class="w"> </span>index.py
 </span></code></pre></div>
-<p><strong>Output:</strong>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>🛫 Flight Booking System Demo
+<p><strong>Expected Output:</strong>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>Flight Booking System Demonstration
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>==================================================
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>✅ Agent Run Result: completed
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>📋 Final Output: I can help you search for flights...
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>🔧 Testing Individual Tools:
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>✈️ Flight Search: success
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>💺 Seat Availability: success
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>🎉 Flight booking demo completed successfully!
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>Agent Execution Status: COMPLETED
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>Final Response: I can help you search for flights between any airports. 
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>Please provide your origin, destination, departure date, and number of passengers.
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>Tool Validation Results:
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>- Flight Search Tool: OPERATIONAL
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>- Seat Availability Tool: OPERATIONAL  
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>- Booking Management Tool: OPERATIONAL
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>- Status Information Tool: OPERATIONAL
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>- Cancellation Tool: OPERATIONAL
+</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>
+</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>System Status: All components initialized successfully
+</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>Demo Execution: COMPLETED SUCCESSFULLY
 </span></code></pre></div></p>
 <h3 id="multi-agent-coordination_1">Multi-Agent Coordination<a class="headerlink" href="#multi-agent-coordination_1" title="Anchor link to this section for reference">&para;</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>python<span class="w"> </span>multi_agent.py

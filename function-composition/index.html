@@ -90,7 +90,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#function-composition" class="md-skip">
+        <a href="#function-composition-patterns" class="md-skip">
           Skip to content
         </a>
       
@@ -727,11 +727,35 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
+  <a href="#architectural-overview" class="md-nav__link">
     <span class="md-ellipsis">
-      Overview
+      Architectural Overview
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Architectural Overview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#core-composition-benefits" class="md-nav__link">
+    <span class="md-ellipsis">
+      Core Composition Benefits
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#design-principles" class="md-nav__link">
+    <span class="md-ellipsis">
+      Design Principles
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1343,17 +1367,26 @@
   
 
 
-<h1 id="function-composition">Function Composition<a class="headerlink" href="#function-composition" title="Anchor link to this section for reference">&para;</a></h1>
-<p>JAF embraces functional programming principles and provides powerful composition patterns that allow you to build complex behaviors from simple, reusable functions. The new object-based API makes composition even more elegant and type-safe.</p>
-<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Anchor link to this section for reference">&para;</a></h2>
-<p>Function composition in JAF allows you to:</p>
+<h1 id="function-composition-patterns">Function Composition Patterns<a class="headerlink" href="#function-composition-patterns" title="Anchor link to this section for reference">&para;</a></h1>
+<p>JAF's architecture is built on functional programming principles, enabling sophisticated composition patterns that promote code reusability, testability, and maintainability. This comprehensive guide demonstrates how to leverage these patterns for building production-grade agent systems.</p>
+<h2 id="architectural-overview">Architectural Overview<a class="headerlink" href="#architectural-overview" title="Anchor link to this section for reference">&para;</a></h2>
+<p>Function composition in JAF enables several key architectural patterns:</p>
+<h3 id="core-composition-benefits">Core Composition Benefits<a class="headerlink" href="#core-composition-benefits" title="Anchor link to this section for reference">&para;</a></h3>
 <ul>
-<li><strong>Enhance tools</strong> with cross-cutting concerns (logging, caching, retry)</li>
-<li><strong>Compose validators</strong> from simple validation functions</li>
-<li><strong>Layer agent behaviors</strong> using middleware patterns</li>
-<li><strong>Build processing pipelines</strong> from individual steps</li>
-<li><strong>Create memory strategies</strong> by combining providers</li>
+<li><strong>Cross-Cutting Concern Integration</strong>: Seamlessly add logging, caching, retry logic, and monitoring to any component</li>
+<li><strong>Validation Pipeline Construction</strong>: Build complex validation rules from simple, testable predicates  </li>
+<li><strong>Middleware-Style Agent Enhancement</strong>: Layer agent behaviors using composable instruction modifiers</li>
+<li><strong>Stream Processing Pipelines</strong>: Construct data processing workflows from individual transformation steps</li>
+<li><strong>Memory Strategy Composition</strong>: Combine multiple memory providers for sophisticated storage patterns</li>
 </ul>
+<h3 id="design-principles">Design Principles<a class="headerlink" href="#design-principles" title="Anchor link to this section for reference">&para;</a></h3>
+<ol>
+<li><strong>Pure Function Priority</strong>: Maintain functional purity wherever possible for predictable behavior</li>
+<li><strong>Immutable Data Flow</strong>: Ensure data transformations don't mutate original inputs</li>
+<li><strong>Type Safety Throughout</strong>: Leverage Python's type system for compile-time composition validation</li>
+<li><strong>Error Boundary Management</strong>: Handle failures gracefully without breaking composition chains</li>
+<li><strong>Performance Optimization</strong>: Enable optimizations like memoization and lazy evaluation</li>
+</ol>
 <h2 id="tool-composition">Tool Composition<a class="headerlink" href="#tool-composition" title="Anchor link to this section for reference">&para;</a></h2>
 <h3 id="higher-order-functions-for-tools">Higher-Order Functions for Tools<a class="headerlink" href="#higher-order-functions-for-tools" title="Anchor link to this section for reference">&para;</a></h3>
 <p>Higher-order functions are the foundation of tool composition. They take a function as input and return an enhanced version:</p>
@@ -1379,14 +1412,14 @@
 </span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>        <span class="k">if</span> <span class="n">cache_key</span> <span class="ow">in</span> <span class="n">cache</span><span class="p">:</span>
 </span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>            <span class="n">cached_result</span><span class="p">,</span> <span class="n">timestamp</span> <span class="o">=</span> <span class="n">cache</span><span class="p">[</span><span class="n">cache_key</span><span class="p">]</span>
 </span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>            <span class="k">if</span> <span class="n">current_time</span> <span class="o">-</span> <span class="n">timestamp</span> <span class="o">&lt;</span> <span class="n">cache_ttl</span><span class="p">:</span>
-</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;💾 Cache hit for </span><span class="si">{</span><span class="n">tool_func</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cache hit for </span><span class="si">{</span><span class="n">tool_func</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;cache_key&#39;</span><span class="p">:</span> <span class="n">cache_key</span><span class="p">})</span>
 </span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>                <span class="k">return</span> <span class="n">cached_result</span>
 </span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>
 </span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>        <span class="c1"># Execute and cache</span>
 </span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>        <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">tool_func</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
 </span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>        <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="s2">&quot;success&quot;</span><span class="p">:</span>
 </span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>            <span class="n">cache</span><span class="p">[</span><span class="n">cache_key</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">current_time</span><span class="p">)</span>
-</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;💾 Cached result for </span><span class="si">{</span><span class="n">tool_func</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cached result for </span><span class="si">{</span><span class="n">tool_func</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;cache_key&#39;</span><span class="p">:</span> <span class="n">cache_key</span><span class="p">})</span>
 </span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>
 </span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>        <span class="k">return</span> <span class="n">result</span>
 </span><span id="__span-0-33"><a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>
@@ -1428,21 +1461,22 @@
 </span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>
 </span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>                <span class="c1"># Exponential backoff</span>
 </span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>                <span class="n">wait_time</span> <span class="o">=</span> <span class="n">backoff_factor</span> <span class="o">**</span> <span class="n">attempt</span>
-</span><span id="__span-1-25"><a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;⚠️ Attempt </span><span class="si">{</span><span class="n">attempt</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2"> failed, retrying in </span><span class="si">{</span><span class="n">wait_time</span><span class="si">}</span><span class="s2">s...&quot;</span><span class="p">)</span>
-</span><span id="__span-1-26"><a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>                <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">wait_time</span><span class="p">)</span>
-</span><span id="__span-1-27"><a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>
-</span><span id="__span-1-28"><a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>        <span class="k">return</span> <span class="n">ToolResponse</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Max retries exceeded: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">last_exception</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-1-29"><a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>
-</span><span id="__span-1-30"><a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a>    <span class="k">return</span> <span class="n">retry_execute</span>
-</span><span id="__span-1-31"><a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a>
-</span><span id="__span-1-32"><a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a><span class="c1"># Usage</span>
-</span><span id="__span-1-33"><a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a><span class="n">reliable_search</span> <span class="o">=</span> <span class="n">create_function_tool</span><span class="p">({</span>
-</span><span id="__span-1-34"><a id="__codelineno-1-34" name="__codelineno-1-34" href="#__codelineno-1-34"></a>    <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;reliable_search&#39;</span><span class="p">,</span>
-</span><span id="__span-1-35"><a id="__codelineno-1-35" name="__codelineno-1-35" href="#__codelineno-1-35"></a>    <span class="s1">&#39;description&#39;</span><span class="p">:</span> <span class="s1">&#39;Search with retry logic&#39;</span><span class="p">,</span>
-</span><span id="__span-1-36"><a id="__codelineno-1-36" name="__codelineno-1-36" href="#__codelineno-1-36"></a>    <span class="s1">&#39;execute&#39;</span><span class="p">:</span> <span class="n">with_retry</span><span class="p">(</span><span class="n">search_execute</span><span class="p">,</span> <span class="n">max_retries</span><span class="o">=</span><span class="mi">3</span><span class="p">),</span>
-</span><span id="__span-1-37"><a id="__codelineno-1-37" name="__codelineno-1-37" href="#__codelineno-1-37"></a>    <span class="s1">&#39;parameters&#39;</span><span class="p">:</span> <span class="n">SearchArgs</span><span class="p">,</span>
-</span><span id="__span-1-38"><a id="__codelineno-1-38" name="__codelineno-1-38" href="#__codelineno-1-38"></a>    <span class="s1">&#39;source&#39;</span><span class="p">:</span> <span class="n">ToolSource</span><span class="o">.</span><span class="n">NATIVE</span>
-</span><span id="__span-1-39"><a id="__codelineno-1-39" name="__codelineno-1-39" href="#__codelineno-1-39"></a><span class="p">})</span>
+</span><span id="__span-1-25"><a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Attempt </span><span class="si">{</span><span class="n">attempt</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2"> failed, retrying in </span><span class="si">{</span><span class="n">wait_time</span><span class="si">}</span><span class="s2">s...&quot;</span><span class="p">,</span> 
+</span><span id="__span-1-26"><a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>                             <span class="n">extra</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;attempt&#39;</span><span class="p">:</span> <span class="n">attempt</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;wait_time&#39;</span><span class="p">:</span> <span class="n">wait_time</span><span class="p">})</span>
+</span><span id="__span-1-27"><a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>                <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">wait_time</span><span class="p">)</span>
+</span><span id="__span-1-28"><a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>
+</span><span id="__span-1-29"><a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>        <span class="k">return</span> <span class="n">ToolResponse</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Max retries exceeded: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">last_exception</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-1-30"><a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a>
+</span><span id="__span-1-31"><a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a>    <span class="k">return</span> <span class="n">retry_execute</span>
+</span><span id="__span-1-32"><a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a>
+</span><span id="__span-1-33"><a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a><span class="c1"># Usage</span>
+</span><span id="__span-1-34"><a id="__codelineno-1-34" name="__codelineno-1-34" href="#__codelineno-1-34"></a><span class="n">reliable_search</span> <span class="o">=</span> <span class="n">create_function_tool</span><span class="p">({</span>
+</span><span id="__span-1-35"><a id="__codelineno-1-35" name="__codelineno-1-35" href="#__codelineno-1-35"></a>    <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;reliable_search&#39;</span><span class="p">,</span>
+</span><span id="__span-1-36"><a id="__codelineno-1-36" name="__codelineno-1-36" href="#__codelineno-1-36"></a>    <span class="s1">&#39;description&#39;</span><span class="p">:</span> <span class="s1">&#39;Search with retry logic&#39;</span><span class="p">,</span>
+</span><span id="__span-1-37"><a id="__codelineno-1-37" name="__codelineno-1-37" href="#__codelineno-1-37"></a>    <span class="s1">&#39;execute&#39;</span><span class="p">:</span> <span class="n">with_retry</span><span class="p">(</span><span class="n">search_execute</span><span class="p">,</span> <span class="n">max_retries</span><span class="o">=</span><span class="mi">3</span><span class="p">),</span>
+</span><span id="__span-1-38"><a id="__codelineno-1-38" name="__codelineno-1-38" href="#__codelineno-1-38"></a>    <span class="s1">&#39;parameters&#39;</span><span class="p">:</span> <span class="n">SearchArgs</span><span class="p">,</span>
+</span><span id="__span-1-39"><a id="__codelineno-1-39" name="__codelineno-1-39" href="#__codelineno-1-39"></a>    <span class="s1">&#39;source&#39;</span><span class="p">:</span> <span class="n">ToolSource</span><span class="o">.</span><span class="n">NATIVE</span>
+</span><span id="__span-1-40"><a id="__codelineno-1-40" name="__codelineno-1-40" href="#__codelineno-1-40"></a><span class="p">})</span>
 </span></code></pre></div>
 <h3 id="logging-and-observability">Logging and Observability<a class="headerlink" href="#logging-and-observability" title="Anchor link to this section for reference">&para;</a></h3>
 <p>Add comprehensive logging to any tool:</p>
@@ -1461,7 +1495,7 @@
 </span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>        <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
 </span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>        <span class="n">tool_name</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">tool_func</span><span class="p">,</span> <span class="s1">&#39;__name__&#39;</span><span class="p">,</span> <span class="s1">&#39;unknown&#39;</span><span class="p">)</span>
 </span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>
-</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;🔧 Starting </span><span class="si">{</span><span class="n">tool_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="p">{</span>
+</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Starting tool execution: </span><span class="si">{</span><span class="n">tool_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="p">{</span>
 </span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>            <span class="s1">&#39;tool_name&#39;</span><span class="p">:</span> <span class="n">tool_name</span><span class="p">,</span>
 </span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>            <span class="s1">&#39;args&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">args</span><span class="p">),</span>
 </span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>            <span class="s1">&#39;context_keys&#39;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
@@ -1471,7 +1505,7 @@
 </span><span id="__span-2-23"><a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>            <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">tool_func</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
 </span><span id="__span-2-24"><a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a>            <span class="n">duration</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span>
 </span><span id="__span-2-25"><a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a>
-</span><span id="__span-2-26"><a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a>            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✅ </span><span class="si">{</span><span class="n">tool_name</span><span class="si">}</span><span class="s2"> completed in </span><span class="si">{</span><span class="n">duration</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">s&quot;</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="p">{</span>
+</span><span id="__span-2-26"><a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a>            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Tool execution completed: </span><span class="si">{</span><span class="n">tool_name</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">duration</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">s)&quot;</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="p">{</span>
 </span><span id="__span-2-27"><a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a>                <span class="s1">&#39;tool_name&#39;</span><span class="p">:</span> <span class="n">tool_name</span><span class="p">,</span>
 </span><span id="__span-2-28"><a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a>                <span class="s1">&#39;duration_ms&#39;</span><span class="p">:</span> <span class="n">duration</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">,</span>
 </span><span id="__span-2-29"><a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a>                <span class="s1">&#39;status&#39;</span><span class="p">:</span> <span class="n">result</span><span class="o">.</span><span class="n">status</span><span class="p">,</span>
@@ -1482,7 +1516,7 @@
 </span><span id="__span-2-34"><a id="__codelineno-2-34" name="__codelineno-2-34" href="#__codelineno-2-34"></a>
 </span><span id="__span-2-35"><a id="__codelineno-2-35" name="__codelineno-2-35" href="#__codelineno-2-35"></a>        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
 </span><span id="__span-2-36"><a id="__codelineno-2-36" name="__codelineno-2-36" href="#__codelineno-2-36"></a>            <span class="n">duration</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span>
-</span><span id="__span-2-37"><a id="__codelineno-2-37" name="__codelineno-2-37" href="#__codelineno-2-37"></a>            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;❌ </span><span class="si">{</span><span class="n">tool_name</span><span class="si">}</span><span class="s2"> failed after </span><span class="si">{</span><span class="n">duration</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">s: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="p">{</span>
+</span><span id="__span-2-37"><a id="__codelineno-2-37" name="__codelineno-2-37" href="#__codelineno-2-37"></a>            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Tool execution failed: </span><span class="si">{</span><span class="n">tool_name</span><span class="si">}</span><span class="s2"> after </span><span class="si">{</span><span class="n">duration</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">s - </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="p">{</span>
 </span><span id="__span-2-38"><a id="__codelineno-2-38" name="__codelineno-2-38" href="#__codelineno-2-38"></a>                <span class="s1">&#39;tool_name&#39;</span><span class="p">:</span> <span class="n">tool_name</span><span class="p">,</span>
 </span><span id="__span-2-39"><a id="__codelineno-2-39" name="__codelineno-2-39" href="#__codelineno-2-39"></a>                <span class="s1">&#39;duration_ms&#39;</span><span class="p">:</span> <span class="n">duration</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">,</span>
 </span><span id="__span-2-40"><a id="__codelineno-2-40" name="__codelineno-2-40" href="#__codelineno-2-40"></a>                <span class="s1">&#39;error&#39;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span>
