@@ -139,13 +139,13 @@ class MemoryProvider(Protocol):
 
 class InMemoryConfig(BaseModel):
     """Configuration for in-memory provider."""
-    type: str = Field(default="memory", literal=True)
+    type: str = Field(default="memory", json_schema_extra={"literal": True})
     max_conversations: int = Field(default=1000, ge=1)
     max_messages_per_conversation: int = Field(default=1000, ge=1)
 
 class RedisConfig(BaseModel):
     """Configuration for Redis provider."""
-    type: str = Field(default="redis", literal=True)
+    type: str = Field(default="redis", json_schema_extra={"literal": True})
     url: Optional[str] = None
     host: str = Field(default="localhost")
     port: int = Field(default=6379, ge=1, le=65535)
@@ -156,7 +156,7 @@ class RedisConfig(BaseModel):
 
 class PostgresConfig(BaseModel):
     """Configuration for PostgreSQL provider."""
-    type: str = Field(default="postgres", literal=True)
+    type: str = Field(default="postgres", json_schema_extra={"literal": True})
     connection_string: Optional[str] = None
     host: str = Field(default="localhost")
     port: int = Field(default=5432, ge=1, le=65535)

@@ -10,10 +10,9 @@ import asyncio
 import logging
 from typing import Dict, Any
 
-from jaf import run_server
+from jaf.server.main import run_server
 from jaf.core.tracing import ConsoleTraceCollector
 from jaf.providers.model import make_litellm_provider
-from jaf.server.types import ServerConfig
 
 # Import agents from multi-agent example
 from multi_agent import (
@@ -28,7 +27,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def create_server_config() -> ServerConfig:
+def create_server_config():
     """Create server configuration for flight booking system."""
     
     # Set up model provider (requires LiteLLM proxy running on localhost:4000)
@@ -48,18 +47,18 @@ def create_server_config() -> ServerConfig:
         "PricingSpecialist": pricing_specialist_agent
     }
     
-    # Create server configuration
-    server_config = ServerConfig(
-        host="127.0.0.1",
-        port=3000,
+    # Import RunConfig from jaf.core.types
+    from jaf.core.types import RunConfig
+    
+    # Create run config
+    run_config = RunConfig(
         agent_registry=agent_registry,
         model_provider=model_provider,
-        on_event=trace_collector.collect,
-        cors=True,  # Enable CORS for web applications
-        max_turns=10
+        max_turns=10,
+        on_event=trace_collector.collect
     )
     
-    return server_config
+    return agent_registry, run_config
 
 
 async def main():
@@ -68,9 +67,9 @@ async def main():
     print("=" * 50)
     
     try:
-        config = create_server_config()
+        agent_registry, run_config = create_server_config()
         
-        print(f"🌐 Server starting on http://{config.host}:{config.port}")
+        print("🌐 Server starting on http://127.0.0.1:3000")
         print("📋 Available endpoints:")
         print("  • GET  /health - Health check")
         print("  • GET  /agents - List available agents")
@@ -78,7 +77,7 @@ async def main():
         print("  • POST /agents/{agent_name}/chat - Chat with specific agent")
         print("  • GET  /docs - API documentation")
         print("\n🤖 Available agents:")
-        for agent_name in config.agent_registry.keys():
+        for agent_name in agent_registry.keys():
             print(f"  • {agent_name}")
         
         print("\n💡 Example curl commands:")
@@ -101,8 +100,14 @@ curl -X POST http://localhost:3000/agents/BookingSpecialist/chat \\
         
         print("\n🚀 Starting server... (Press Ctrl+C to stop)")
         
-        # Start the server
-        await run_server(config)
+        # Start the server with correct parameters
+        await run_server(
+            agents=agent_registry,
+            run_config=run_config,
+            host="127.0.0.1",
+            port=3000,
+            cors=True
+        )
         
     except KeyboardInterrupt:
         print("\n👋 Server stopped by user")
@@ -143,7 +148,7 @@ def validate_server_dependencies():
     return True
 
 
-def create_development_config() -> ServerConfig:
+def create_development_config():
     """Create a development-friendly server configuration."""
     
     # Mock model provider for development
@@ -168,15 +173,18 @@ def create_development_config() -> ServerConfig:
         "PricingSpecialist": pricing_specialist_agent
     }
     
-    return ServerConfig(
-        host="127.0.0.1",
-        port=3000,
+    # Import RunConfig from jaf.core.types
+    from jaf.core.types import RunConfig
+    
+    # Create run config with mock provider
+    run_config = RunConfig(
         agent_registry=agent_registry,
         model_provider=MockModelProvider(),
-        on_event=DevTraceCollector().collect,
-        cors=True,
-        max_turns=5
+        max_turns=5,
+        on_event=DevTraceCollector().collect
     )
+    
+    return agent_registry, run_config
 
 
 async def run_development_server():
@@ -185,14 +193,20 @@ async def run_development_server():
     print("=" * 60)
     print("ℹ️  Using mock model provider - no external LLM required")
     
-    config = create_development_config()
+    agent_registry, run_config = create_development_config()
     
-    print(f"🌐 Development server starting on http://{config.host}:{config.port}")
+    print("🌐 Development server starting on http://127.0.0.1:3000")
     print("📋 This is a development version with mocked responses")
     print("🚀 Starting server... (Press Ctrl+C to stop)")
     
     try:
-        await run_server(config)
+        await run_server(
+            agents=agent_registry,
+            run_config=run_config,
+            host="127.0.0.1",
+            port=3000,
+            cors=True
+        )
     except KeyboardInterrupt:
         print("\n👋 Development server stopped")
 
