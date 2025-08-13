@@ -15,22 +15,22 @@ Core functionality:
 
 from .graphviz import (
     generate_agent_graph,
-    generate_tool_graph,
     generate_runner_graph,
+    generate_tool_graph,
     get_graph_dot,
     validate_graph_options,
 )
 from .types import (
+    EdgeStyle,
     GraphOptions,
     GraphResult,
     NodeStyle,
-    EdgeStyle,
 )
 
 try:
     from .example import (
-        run_visualization_examples,
         quick_start_visualization,
+        run_visualization_examples,
     )
 except ImportError:
     # Example module may not be available in all environments
@@ -39,14 +39,14 @@ except ImportError:
 __all__ = [
     # Core functions
     "generate_agent_graph",
-    "generate_tool_graph", 
+    "generate_tool_graph",
     "generate_runner_graph",
     "get_graph_dot",
     "validate_graph_options",
     # Types
     "GraphOptions",
     "GraphResult",
-    "NodeStyle", 
+    "NodeStyle",
     "EdgeStyle",
     # Examples (if available)
     "run_visualization_examples",

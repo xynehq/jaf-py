@@ -7,24 +7,24 @@ capabilities with optimized operations for task lifecycle management.
 """
 
 import os
-from typing import Optional, Dict, Any, Union
-
-from .types import (
-    A2ATaskProvider,
-    A2ATaskProviderConfig,
-    A2AInMemoryTaskConfig,
-    A2ARedisTaskConfig,
-    A2APostgresTaskConfig,
-    A2AResult,
-    create_a2a_success,
-    create_a2a_failure,
-    create_a2a_task_storage_error,
-)
+from typing import Any, Dict, Optional
 
 # Import A2A task provider implementations
 from .providers.in_memory import create_a2a_in_memory_task_provider
-from .providers.redis import create_a2a_redis_task_provider
 from .providers.postgres import create_a2a_postgres_task_provider
+from .providers.redis import create_a2a_redis_task_provider
+from .types import (
+    A2AInMemoryTaskConfig,
+    A2APostgresTaskConfig,
+    A2ARedisTaskConfig,
+    A2AResult,
+    A2ATaskProvider,
+    A2ATaskProviderConfig,
+    create_a2a_failure,
+    create_a2a_success,
+    create_a2a_task_storage_error,
+)
+
 
 async def create_a2a_task_provider(
     config: A2ATaskProviderConfig,
@@ -42,12 +42,12 @@ async def create_a2a_task_provider(
     """
     try:
         external_clients = external_clients or {}
-        
+
         if config.type == "memory":
             return create_a2a_success(
                 create_a2a_in_memory_task_provider(config)
             )
-        
+
         elif config.type == "redis":
             redis_client = external_clients.get('redis')
             if not redis_client:
@@ -60,7 +60,7 @@ async def create_a2a_task_provider(
                     )
                 )
             return await create_a2a_redis_task_provider(config, redis_client)
-        
+
         elif config.type == "postgres":
             postgres_client = external_clients.get('postgres')
             if not postgres_client:
@@ -73,7 +73,7 @@ async def create_a2a_task_provider(
                     )
                 )
             return await create_a2a_postgres_task_provider(config, postgres_client)
-        
+
         else:
             return create_a2a_failure(
                 create_a2a_task_storage_error(
@@ -83,7 +83,7 @@ async def create_a2a_task_provider(
                     Exception(f'Unknown A2A task provider type: {config.type}')
                 )
             )
-            
+
     except Exception as error:
         return create_a2a_failure(
             create_a2a_task_storage_error('create-provider', 'factory', None, error)
@@ -105,7 +105,7 @@ async def create_a2a_task_provider_from_env(
         # Fall back to regular JAF memory type if A2A-specific one isn't set
         task_memory_type = os.getenv('JAF_A2A_MEMORY_TYPE', os.getenv('JAF_MEMORY_TYPE', 'memory')).lower()
         external_clients = external_clients or {}
-        
+
         if task_memory_type == 'memory':
             config = A2AInMemoryTaskConfig(
                 type='memory',
@@ -118,7 +118,7 @@ async def create_a2a_task_provider_from_env(
                 enable_artifacts=os.getenv('JAF_A2A_ENABLE_ARTIFACTS', 'true').lower() != 'false'
             )
             return create_a2a_success(create_a2a_in_memory_task_provider(config))
-        
+
         elif task_memory_type == 'redis':
             if not external_clients.get('redis'):
                 return create_a2a_failure(
@@ -129,7 +129,7 @@ async def create_a2a_task_provider_from_env(
                         Exception('Redis client required for Redis A2A task provider')
                     )
                 )
-            
+
             config = A2ARedisTaskConfig(
                 type='redis',
                 key_prefix=os.getenv('JAF_A2A_KEY_PREFIX', 'jaf:a2a:tasks:'),
@@ -144,7 +144,7 @@ async def create_a2a_task_provider_from_env(
                 db=int(os.getenv('JAF_A2A_REDIS_DB', os.getenv('JAF_REDIS_DB', '0')))
             )
             return await create_a2a_redis_task_provider(config, external_clients['redis'])
-        
+
         elif task_memory_type == 'postgres':
             if not external_clients.get('postgres'):
                 return create_a2a_failure(
@@ -155,7 +155,7 @@ async def create_a2a_task_provider_from_env(
                         Exception('PostgreSQL client required for PostgreSQL A2A task provider')
                     )
                 )
-            
+
             config = A2APostgresTaskConfig(
                 type='postgres',
                 key_prefix=os.getenv('JAF_A2A_KEY_PREFIX', 'jaf:a2a:tasks:'),
@@ -174,7 +174,7 @@ async def create_a2a_task_provider_from_env(
                 max_connections=int(os.getenv('JAF_A2A_POSTGRES_MAX_CONNECTIONS', os.getenv('JAF_POSTGRES_MAX_CONNECTIONS', '10')))
             )
             return await create_a2a_postgres_task_provider(config, external_clients['postgres'])
-        
+
         else:
             return create_a2a_failure(
                 create_a2a_task_storage_error(
@@ -184,7 +184,7 @@ async def create_a2a_task_provider_from_env(
                     Exception(f'Unknown A2A task provider type: {task_memory_type}')
                 )
             )
-            
+
     except Exception as error:
         return create_a2a_failure(
             create_a2a_task_storage_error('create-provider-from-env', 'factory', None, error)
@@ -208,7 +208,7 @@ async def create_simple_a2a_task_provider(
     """
     try:
         config = config or {}
-        
+
         if provider_type == 'memory':
             provider_config = A2AInMemoryTaskConfig(
                 type='memory',
@@ -222,7 +222,7 @@ async def create_simple_a2a_task_provider(
                 **config
             )
             return create_a2a_success(create_a2a_in_memory_task_provider(provider_config))
-        
+
         elif provider_type == 'redis':
             if not client:
                 return create_a2a_failure(
@@ -233,7 +233,7 @@ async def create_simple_a2a_task_provider(
                         Exception('Redis client required for Redis A2A task provider')
                     )
                 )
-            
+
             provider_config = A2ARedisTaskConfig(
                 type='redis',
                 key_prefix='jaf:a2a:tasks:',
@@ -249,7 +249,7 @@ async def create_simple_a2a_task_provider(
                 **config
             )
             return await create_a2a_redis_task_provider(provider_config, client)
-        
+
         elif provider_type == 'postgres':
             if not client:
                 return create_a2a_failure(
@@ -260,7 +260,7 @@ async def create_simple_a2a_task_provider(
                         Exception('PostgreSQL client required for PostgreSQL A2A task provider')
                     )
                 )
-            
+
             provider_config = A2APostgresTaskConfig(
                 type='postgres',
                 key_prefix='jaf:a2a:tasks:',
@@ -280,7 +280,7 @@ async def create_simple_a2a_task_provider(
                 **config
             )
             return await create_a2a_postgres_task_provider(provider_config, client)
-        
+
         else:
             return create_a2a_failure(
                 create_a2a_task_storage_error(
@@ -290,7 +290,7 @@ async def create_simple_a2a_task_provider(
                     Exception(f'Unknown A2A task provider type: {provider_type}')
                 )
             )
-            
+
     except Exception as error:
         return create_a2a_failure(
             create_a2a_task_storage_error('create-simple-provider', 'factory', None, error)
@@ -325,38 +325,38 @@ def validate_a2a_task_provider_config(config: A2ATaskProviderConfig) -> Dict[str
         Dictionary with 'valid' boolean and 'errors' list
     """
     errors = []
-    
+
     if not config.type:
         errors.append('Provider type is required')
     elif config.type not in ['memory', 'redis', 'postgres']:
         errors.append(f'Invalid provider type: {config.type}')
-    
+
     if config.max_tasks and config.max_tasks <= 0:
         errors.append('max_tasks must be greater than 0')
-    
+
     if config.cleanup_interval and config.cleanup_interval <= 0:
         errors.append('cleanup_interval must be greater than 0')
-    
+
     if config.default_ttl and config.default_ttl <= 0:
         errors.append('default_ttl must be greater than 0')
-    
+
     # Type-specific validation
     if config.type == 'memory':
         if hasattr(config, 'max_tasks_per_context') and config.max_tasks_per_context <= 0:
             errors.append('max_tasks_per_context must be greater than 0')
-    
+
     elif config.type == 'redis':
         if config.port and (config.port < 1 or config.port > 65535):
             errors.append('Redis port must be between 1 and 65535')
         if config.db and config.db < 0:
             errors.append('Redis database index must be non-negative')
-    
+
     elif config.type == 'postgres':
         if config.port and (config.port < 1 or config.port > 65535):
             errors.append('PostgreSQL port must be between 1 and 65535')
         if hasattr(config, 'max_connections') and config.max_connections <= 0:
             errors.append('max_connections must be greater than 0')
-    
+
     return {
         'valid': len(errors) == 0,
         'errors': errors

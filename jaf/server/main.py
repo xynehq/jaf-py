@@ -5,12 +5,14 @@ This module provides convenience functions for starting JAF servers
 with minimal configuration.
 """
 
-from typing import Any, Dict, List, Optional, TypeVar, Union
+from typing import Dict, List, Optional, TypeVar, Union
+
 import uvicorn
-from .server import create_jaf_server
-from .types import ServerConfig
+
 from ..core.types import Agent, RunConfig
 from ..memory.types import MemoryProvider
+from .server import create_jaf_server
+from .types import ServerConfig
 
 Ctx = TypeVar('Ctx')
 
@@ -50,9 +52,9 @@ async def run_server(
         cors=cors,
         default_memory_provider=default_memory_provider
     )
-    
+
     app = create_jaf_server(server_config)
-    
+
     # Configure and run uvicorn
     uv_config = uvicorn.Config(
         app=app,
@@ -60,9 +62,9 @@ async def run_server(
         port=port,
         log_level="info"
     )
-    
+
     server = uvicorn.Server(uv_config)
-    
+
     print(f"🚀 JAF Server running on http://{host}:{port}")
     print(f"📋 Available agents: {', '.join(agent_registry.keys())}")
     print(f"📖 API docs: http://{host}:{port}/docs")

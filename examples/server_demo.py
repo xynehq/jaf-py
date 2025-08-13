@@ -5,19 +5,25 @@ This demonstrates a complete JAF server with multiple agents and tools,
 directly converted from the TypeScript server demo.
 """
 
-import os
 import asyncio
-from typing import Any, Dict
+import os
 from dataclasses import dataclass
-from pydantic import BaseModel, Field
+from typing import Any
+
 from dotenv import load_dotenv
+from pydantic import BaseModel, Field
 
 # Import JAF components
 from jaf import (
-    Tool, Agent, make_litellm_provider, ConsoleTraceCollector,
-    ToolResponse, ToolErrorCodes, with_error_handling, run_server,
-    create_run_id, create_trace_id, RunState, Message
+    Agent,
+    ConsoleTraceCollector,
+    RunState,
+    ToolErrorCodes,
+    ToolResponse,
+    make_litellm_provider,
+    run_server,
 )
+
 
 # Define context type
 @dataclass
@@ -35,7 +41,7 @@ class GreetArgs(BaseModel):
 # Create tools with standardized error handling
 class CalculatorTool:
     """Calculator tool that performs mathematical calculations."""
-    
+
     @property
     def schema(self):
         return type('ToolSchema', (), {
@@ -43,7 +49,7 @@ class CalculatorTool:
             'description': 'Perform mathematical calculations',
             'parameters': CalculateArgs
         })()
-    
+
     async def execute(self, args: CalculateArgs, context: MyContext) -> Any:
         """Execute calculator tool with error handling."""
         # Basic safety check - only allow simple math expressions (including spaces)
@@ -57,7 +63,7 @@ class CalculatorTool:
                     'invalid_characters': ''.join(c for c in args.expression if c not in '0123456789+-*/(). ')
                 }
             )
-        
+
         try:
             # Remove spaces for evaluation
             expression_for_eval = sanitized.replace(' ', '')
@@ -73,7 +79,7 @@ class CalculatorTool:
         except Exception as e:
             return ToolResponse.error(
                 ToolErrorCodes.EXECUTION_FAILED,
-                f"Failed to evaluate expression: {str(e)}",
+                f"Failed to evaluate expression: {e!s}",
                 {
                     'expression': args.expression,
                     'error': str(e)
@@ -82,7 +88,7 @@ class CalculatorTool:
 
 class GreetingTool:
     """Greeting tool that generates personalized greetings."""
-    
+
     @property
     def schema(self):
         return type('ToolSchema', (), {
@@ -90,7 +96,7 @@ class GreetingTool:
             'description': 'Generate a personalized greeting',
             'parameters': GreetArgs
         })()
-    
+
     async def execute(self, args: GreetArgs, context: MyContext) -> Any:
         """Execute greeting tool with error handling."""
         # Validate name input
@@ -99,7 +105,7 @@ class GreetingTool:
                 "Name cannot be empty",
                 {'provided_name': args.name}
             )
-        
+
         # Check for extremely long names (potential abuse)
         if len(args.name) > 100:
             return ToolResponse.validation_error(
@@ -109,9 +115,9 @@ class GreetingTool:
                     'max_length': 100
                 }
             )
-        
+
         greeting = f"Hello, {args.name.strip()}! Nice to meet you. I'm a helpful AI assistant running on the JAF framework."
-        
+
         return ToolResponse.success(
             greeting,
             {
@@ -129,7 +135,7 @@ def create_math_agent() -> Agent[MyContext, str]:
     """Create a math tutor agent."""
     def instructions(state: RunState[MyContext]) -> str:
         return 'You are a helpful math tutor. Use the calculator tool to perform calculations and explain math concepts clearly.'
-    
+
     return Agent(
         name='MathTutor',
         instructions=instructions,
@@ -148,7 +154,7 @@ Key capabilities:
 - Engage in helpful conversation building on previous context
 
 Important: You have access to the full conversation history through the messages. Use this history to provide contextual responses and remember what users have told you.'''
-    
+
     return Agent(
         name='ChatBot',
         instructions=instructions,
@@ -159,7 +165,7 @@ def create_assistant_agent() -> Agent[MyContext, str]:
     """Create a general-purpose assistant agent."""
     def instructions(state: RunState[MyContext]) -> str:
         return 'You are a general-purpose assistant. You can help with math calculations and provide greetings.'
-    
+
     return Agent(
         name='Assistant',
         instructions=instructions,
@@ -170,26 +176,26 @@ async def start_server():
     """Start the JAF development server."""
     load_dotenv()
     print('🚀 Starting JAF Development Server...\n')
-    
+
     # Check if LiteLLM configuration is provided
     litellm_url = os.getenv('LITELLM_URL', 'http://localhost:4000')
     litellm_api_key = os.getenv('LITELLM_API_KEY')
-    
+
     print(f'📡 LiteLLM URL: {litellm_url}')
     print(f'🔑 API Key: {"Set" if litellm_api_key else "Not set"}')
     print('⚠️  Note: Chat endpoints will fail without a running LiteLLM server\n')
-    
+
     # Set up model provider
     model_provider = make_litellm_provider(litellm_url, litellm_api_key)
-    
+
     # Set up tracing
     trace_collector = ConsoleTraceCollector()
-    
+
     # Set up memory provider based on environment
     memory_provider = None
     memory_config = None
     try:
-        from jaf.memory import create_memory_provider_from_env, Success
+        from jaf.memory import Success, create_memory_provider_from_env
         result = await create_memory_provider_from_env()
         if isinstance(result, Success):
             memory_provider = result.data
@@ -204,18 +210,18 @@ async def start_server():
             print('   Conversations will not persist between sessions')
     except ImportError:
         print('⚠️  Memory module not fully available. Conversations will not persist.')
-    
+
     try:
         print('🔧 Creating server...')
-        
+
         # Create agents
         math_agent = create_math_agent()
         chat_agent = create_chat_agent()
         assistant_agent = create_assistant_agent()
-        
+
         # Start the server
         from jaf.core.types import RunConfig
-        
+
         run_config = RunConfig(
             agent_registry={
                 'MathTutor': math_agent,
@@ -228,16 +234,16 @@ async def start_server():
             on_event=trace_collector.collect,
             memory=memory_config
         )
-        
+
         server_options = {
             'port': int(os.getenv('PORT', '3000')),
             'host': '127.0.0.1',
             'cors': False
         }
-        
+
         # Create server config
         from jaf.server.types import ServerConfig
-        
+
         server_config = ServerConfig(
             host=server_options['host'],
             port=server_options['port'],
@@ -245,9 +251,9 @@ async def start_server():
             run_config=run_config,
             cors=server_options['cors']
         )
-        
+
         port = server_options['port']
-        print(f'\n📚 Try these example requests:')
+        print('\n📚 Try these example requests:')
         print('')
         print('1. Health Check:')
         print(f'   curl http://localhost:{port}/health')
@@ -270,7 +276,7 @@ async def start_server():
         print('     -H "Content-Type: application/json" \\')
         print('     -d \'{"messages":[{"role":"user","content":"Calculate 25 + 17 and then greet me as Bob"}],"agent_name":"Assistant","context":{"userId":"demo","permissions":["user"]}}\'')
         print('')
-        
+
         if memory_config:
             print('6. Start a persistent conversation:')
             print(f'   curl -X POST http://localhost:{port}/chat \\')
@@ -292,7 +298,7 @@ async def start_server():
             print(f'    curl http://localhost:{port}/memory/health')
             print('')
         print('🚀 Starting server...')
-        
+
         # Start the server (this will block until server stops)
         await run_server(
             agents=run_config.agent_registry,
@@ -302,7 +308,7 @@ async def start_server():
             cors=server_options['cors'],
             default_memory_provider=memory_provider
         )
-        
+
     except Exception as error:
         print(f'❌ Failed to start server: {error}')
         import traceback

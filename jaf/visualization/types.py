@@ -4,9 +4,10 @@ JAF Visualization - Type Definitions
 Core types and data structures for the visualization system.
 """
 
-from typing import Optional, Dict, Any, Literal
 from dataclasses import dataclass
-from pydantic import BaseModel, Field
+from typing import Any, Dict, Literal, Optional
+
+from pydantic import BaseModel
 
 
 @dataclass(frozen=True)

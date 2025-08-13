@@ -8,13 +8,21 @@ agent using LiteLLM proxy with Gemini models.
 
 import asyncio
 import os
-import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
+
 from pydantic import BaseModel
 
-from jaf import Agent, Tool, ToolSchema, RunState, RunConfig, run, generate_trace_id, generate_run_id
+from jaf import (
+    Agent,
+    RunConfig,
+    RunState,
+    ToolSchema,
+    generate_run_id,
+    generate_trace_id,
+    run,
+)
+from jaf.core.tool_results import ToolErrorCodes, ToolResponse, ToolResult
 from jaf.core.types import Message
-from jaf.core.tool_results import ToolResult, ToolResponse, ToolErrorCodes
 from jaf.providers.model import make_litellm_provider
 
 
@@ -28,10 +36,10 @@ class LiteLLMRAGTool:
     """
     A tool that performs Retrieval-Augmented Generation using LiteLLM.
     """
-    
+
     def __init__(self):
         self.knowledge_base = self._create_mock_knowledge_base()
-    
+
     def _create_mock_knowledge_base(self) -> List[Dict[str, Any]]:
         """Create a mock knowledge base for demonstration."""
         return [
@@ -42,7 +50,7 @@ class LiteLLMRAGTool:
                 "metadata": {"category": "programming", "level": "beginner"}
             },
             {
-                "id": "doc2", 
+                "id": "doc2",
                 "title": "Machine Learning with Python",
                 "content": "Python is the leading language for machine learning due to its rich ecosystem of libraries. Scikit-learn provides simple and efficient tools for data mining and analysis. TensorFlow and PyTorch enable deep learning and neural network development. NumPy and Pandas handle numerical computations and data manipulation.",
                 "metadata": {"category": "ml", "level": "intermediate"}
@@ -78,7 +86,7 @@ class LiteLLMRAGTool:
                 "metadata": {"category": "ai", "level": "intermediate"}
             }
         ]
-    
+
     @property
     def schema(self) -> ToolSchema:
         return ToolSchema(
@@ -86,22 +94,22 @@ class LiteLLMRAGTool:
             description="Search knowledge base and retrieve relevant information",
             parameters=RAGQueryArgs
         )
-    
+
     async def execute(self, args: RAGQueryArgs, context: Any) -> ToolResult:
         """Execute RAG query."""
         try:
             # Step 1: Retrieve relevant documents
             relevant_docs = self._semantic_search(args.query, args.max_results)
-            
+
             if not relevant_docs:
                 return ToolResponse.success(
                     "I couldn't find any relevant information in the knowledge base for your query.",
                     {"query": args.query, "results_count": 0}
                 )
-            
+
             # Step 2: Format the retrieved information
             formatted_response = self._format_retrieved_docs(relevant_docs, args.query)
-            
+
             return ToolResponse.success(
                 formatted_response,
                 {
@@ -110,25 +118,25 @@ class LiteLLMRAGTool:
                     "sources": [{"title": doc["title"], "category": doc["metadata"]["category"]} for doc in relevant_docs]
                 }
             )
-            
+
         except Exception as e:
             return ToolResponse.error(
                 ToolErrorCodes.EXECUTION_FAILED,
-                f"RAG query failed: {str(e)}",
+                f"RAG query failed: {e!s}",
                 {"error": str(e), "query": args.query}
             )
-    
+
     def _semantic_search(self, query: str, max_results: int) -> List[Dict[str, Any]]:
         """Perform semantic search on the knowledge base."""
         query_lower = query.lower()
         scored_docs = []
-        
+
         for doc in self.knowledge_base:
             score = 0
             # Enhanced scoring based on keyword matches
             title_matches = sum(1 for word in query_lower.split() if word in doc["title"].lower())
             content_matches = sum(1 for word in query_lower.split() if word in doc["content"].lower())
-            
+
             # Category relevance
             category_keywords = {
                 "programming": ["python", "code", "programming", "language", "syntax"],
@@ -137,40 +145,40 @@ class LiteLLMRAGTool:
                 "data-science": ["data", "analysis", "visualization", "pandas"],
                 "ai": ["ai", "agent", "framework", "intelligent", "autonomous", "litellm", "gemini"]
             }
-            
+
             category = doc["metadata"]["category"]
             if category in category_keywords:
                 category_matches = sum(1 for keyword in category_keywords[category] if keyword in query_lower)
                 score += category_matches * 1.5
-            
+
             score += title_matches * 3 + content_matches
-            
+
             if score > 0:
                 scored_docs.append((score, doc))
-        
+
         # Sort by score and return top results
         scored_docs.sort(key=lambda x: x[0], reverse=True)
         return [doc for score, doc in scored_docs[:max_results]]
-    
+
     def _format_retrieved_docs(self, docs: List[Dict[str, Any]], query: str) -> str:
         """Format retrieved documents for the model."""
         if not docs:
             return "No relevant information found."
-        
+
         formatted_parts = [f"Retrieved information for query: '{query}'\n"]
-        
+
         for i, doc in enumerate(docs, 1):
             formatted_parts.append(f"[Source {i}] {doc['title']}")
             formatted_parts.append(f"Category: {doc['metadata']['category']} | Level: {doc['metadata']['level']}")
             formatted_parts.append(f"Content: {doc['content']}")
             formatted_parts.append("")  # Add spacing
-        
+
         return "\n".join(formatted_parts)
 
 
 def create_litellm_rag_agent() -> Agent:
     """Create a RAG-enabled agent using LiteLLM."""
-    
+
     def rag_instructions(state: RunState) -> str:
         return """You are a knowledgeable AI assistant with access to a specialized knowledge base through the LiteLLM proxy.
 
@@ -184,10 +192,10 @@ When users ask questions, you should:
 You have access to information about programming, machine learning, web development, data science, AI frameworks, and LiteLLM proxy configuration.
 
 Always use the search tool when users ask questions that could be answered with information from the knowledge base."""
-    
+
     # Create the RAG tool
     rag_tool = LiteLLMRAGTool()
-    
+
     return Agent(
         name="litellm_rag_assistant",
         instructions=rag_instructions,
@@ -201,22 +209,22 @@ Always use the search tool when users ask questions that could be answered with 
 async def demo_litellm_rag():
     """Demonstrate a conversation with the LiteLLM RAG agent."""
     print("🤖 JAF LiteLLM RAG Demo Starting...")
-    
+
     # Get configuration from environment
     litellm_url = os.getenv("LITELLM_URL", "http://localhost:4000")
     litellm_api_key = os.getenv("LITELLM_API_KEY", "your_api_key_here")
     litellm_model = os.getenv("LITELLM_MODEL", "gemini-2.5-pro")
-    
+
     print(f"📡 LiteLLM URL: {litellm_url}")
     print(f"🔑 API Key: {'Set' if litellm_api_key != 'your_api_key_here' else 'Using default'}")
     print(f"🧠 Model: {litellm_model}")
-    
+
     # Create the RAG agent
     rag_agent = create_litellm_rag_agent()
-    
+
     # Create LiteLLM model provider
     model_provider = make_litellm_provider(litellm_url, litellm_api_key)
-    
+
     # Create run configuration
     run_config = RunConfig(
         agent_registry={"litellm_rag_assistant": rag_agent},
@@ -224,7 +232,7 @@ async def demo_litellm_rag():
         model_override=litellm_model,
         max_turns=10
     )
-    
+
     # Demo questions
     demo_questions = [
         "What is Python and why is it popular for programming?",
@@ -235,14 +243,14 @@ async def demo_litellm_rag():
         "What is LiteLLM and how does it work?",
         "How do Gemini models compare to other AI models?"
     ]
-    
+
     print(f"📚 Knowledge base contains {len(rag_agent.tools[0].knowledge_base)} documents")
     print("💬 Running demo conversations...\n")
-    
+
     for i, question in enumerate(demo_questions, 1):
         print(f"🔍 Demo Question {i}: {question}")
         print("-" * 60)
-        
+
         # Create initial state
         initial_state = RunState(
             run_id=generate_run_id(),
@@ -252,20 +260,20 @@ async def demo_litellm_rag():
             context={},
             turn_count=0
         )
-        
+
         # Run the conversation
         try:
             result = await run(initial_state, run_config)
-            
+
             # Display result
             if hasattr(result.outcome, 'output') and result.outcome.output:
                 print(f"🤖 Assistant: {result.outcome.output}")
             else:
                 print(f"❌ Error: {result.outcome}")
-                
+
         except Exception as e:
             print(f"❌ Error running conversation: {e}")
-        
+
         print("\n" + "=" * 80 + "\n")
 
 
@@ -274,22 +282,22 @@ async def interactive_litellm_rag():
     print("🤖 Interactive JAF LiteLLM RAG Demo")
     print("Type your questions and get answers from the knowledge base!")
     print("Type 'quit' or 'exit' to stop.\n")
-    
+
     # Get configuration from environment
     litellm_url = os.getenv("LITELLM_URL", "http://localhost:4000")
     litellm_api_key = os.getenv("LITELLM_API_KEY", "your_api_key_here")
     litellm_model = os.getenv("LITELLM_MODEL", "gemini-2.5-pro")
-    
+
     print(f"📡 LiteLLM URL: {litellm_url}")
     print(f"🔑 API Key: {'Set' if litellm_api_key != 'your_api_key_here' else 'Using default'}")
     print(f"🧠 Model: {litellm_model}")
-    
+
     # Create the RAG agent
     rag_agent = create_litellm_rag_agent()
-    
+
     # Create LiteLLM model provider
     model_provider = make_litellm_provider(litellm_url, litellm_api_key)
-    
+
     # Create run configuration
     run_config = RunConfig(
         agent_registry={"litellm_rag_assistant": rag_agent},
@@ -297,23 +305,23 @@ async def interactive_litellm_rag():
         model_override=litellm_model,
         max_turns=10
     )
-    
+
     print(f"📚 Knowledge base loaded with {len(rag_agent.tools[0].knowledge_base)} documents")
     print("🔧 Configuration ready\n")
-    
+
     while True:
         try:
             user_input = input("👤 You: ").strip()
-            
+
             if user_input.lower() in ['quit', 'exit', 'q']:
                 print("👋 Goodbye!")
                 break
-            
+
             if not user_input:
                 continue
-            
+
             print("🔍 Searching knowledge base and generating response...")
-            
+
             # Create initial state
             initial_state = RunState(
                 run_id=generate_run_id(),
@@ -323,16 +331,16 @@ async def interactive_litellm_rag():
                 context={},
                 turn_count=0
             )
-            
+
             # Run the conversation
             result = await run(initial_state, run_config)
-            
+
             # Display result
             if hasattr(result.outcome, 'output') and result.outcome.output:
                 print(f"🤖 Assistant: {result.outcome.output}\n")
             else:
                 print(f"❌ Error: {result.outcome}\n")
-                
+
         except KeyboardInterrupt:
             print("\n👋 Demo stopped by user")
             break
@@ -344,7 +352,7 @@ async def main():
     """Main entry point."""
     print("🚀 JAF LiteLLM RAG Example")
     print("=========================\n")
-    
+
     # Load environment variables
     try:
         from dotenv import load_dotenv
@@ -352,14 +360,14 @@ async def main():
         print("📄 Loaded environment variables from .env file")
     except ImportError:
         print("💡 Install python-dotenv to use .env files: pip install python-dotenv")
-    
+
     # Check configuration
     litellm_url = os.getenv("LITELLM_URL", "http://localhost:4000")
     litellm_api_key = os.getenv("LITELLM_API_KEY", "your_api_key_here")
     litellm_model = os.getenv("LITELLM_MODEL", "gemini-2.5-pro")
     port = os.getenv("PORT", "3003")
     host = os.getenv("HOST", "127.0.0.1")
-    
+
     print("⚙️  Configuration:")
     print(f"   - LiteLLM URL: {litellm_url}")
     print(f"   - LiteLLM API Key: {'✅ Set' if litellm_api_key != 'your_api_key_here' else '❌ Default (update needed)'}")
@@ -367,18 +375,18 @@ async def main():
     print(f"   - Server Port: {port}")
     print(f"   - Server Host: {host}")
     print()
-    
+
     if litellm_api_key == "your_api_key_here":
         print("⚠️  Warning: Using default API key. Update LITELLM_API_KEY in your .env file")
         print("   This may work for local testing but won't work with actual model providers")
         print()
-    
+
     # Choose demo mode
     try:
         mode = input("Choose demo mode:\n1. Automated demo with sample questions\n2. Interactive chat\nEnter 1 or 2: ").strip()
     except (EOFError, KeyboardInterrupt):
         mode = "1"
-    
+
     if mode == "1":
         await demo_litellm_rag()
     elif mode == "2":

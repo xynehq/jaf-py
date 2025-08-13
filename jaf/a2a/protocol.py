@@ -3,17 +3,10 @@ Pure functional JSON-RPC protocol handlers for A2A
 All handlers are pure functions with no side effects
 """
 
-from typing import Dict, Any, Union, Optional, AsyncGenerator, Callable
-import asyncio
-import json
-from .types import (
-    JSONRPCRequest, JSONRPCResponse, JSONRPCError, 
-    SendMessageRequest, SendStreamingMessageRequest, GetTaskRequest,
-    A2AAgent, A2ATask, A2AMessage, A2AError, A2AErrorCodes,
-    A2AStreamEvent, create_jsonrpc_success_response, 
-    create_jsonrpc_error_response, create_a2a_error,
-    MessageSendConfiguration
-)
+from collections.abc import AsyncGenerator
+from typing import Any, Callable, Dict, Optional, Union
+
+from .types import A2AAgent, A2AErrorCodes
 
 
 def validate_jsonrpc_request(request: Dict[str, Any]) -> bool:
@@ -52,7 +45,7 @@ def map_error_to_a2a_error(error: Exception) -> Dict[str, Any]:
             "message": str(error),
             "data": {"type": type(error).__name__}
         }
-    
+
     return {
         "code": A2AErrorCodes.INTERNAL_ERROR.value,
         "message": "Unknown error occurred"
@@ -71,7 +64,7 @@ def validate_send_message_request(request: Dict[str, Any]) -> Dict[str, Any]:
                     "message": "Invalid JSON-RPC request"
                 }
             }
-        
+
         if request.get("method") not in ["message/send", "message/stream"]:
             return {
                 "is_valid": False,
@@ -80,7 +73,7 @@ def validate_send_message_request(request: Dict[str, Any]) -> Dict[str, Any]:
                     "message": f"Method {request.get('method')} not supported"
                 }
             }
-        
+
         params = request.get("params", {})
         if not isinstance(params, dict):
             return {
@@ -91,7 +84,7 @@ def validate_send_message_request(request: Dict[str, Any]) -> Dict[str, Any]:
                     "data": {"expected": "object", "received": type(params).__name__}
                 }
             }
-        
+
         message = params.get("message")
         if not isinstance(message, dict):
             return {
@@ -102,7 +95,7 @@ def validate_send_message_request(request: Dict[str, Any]) -> Dict[str, Any]:
                     "data": {"expected": "object", "received": type(message).__name__ if message is not None else "null"}
                 }
             }
-        
+
         # Validate required message fields
         required_fields = ["role", "parts", "messageId", "contextId", "kind"]
         missing_fields = [field for field in required_fields if field not in message]
@@ -115,7 +108,7 @@ def validate_send_message_request(request: Dict[str, Any]) -> Dict[str, Any]:
                     "data": {"missing_fields": missing_fields}
                 }
             }
-        
+
         # Validate message structure
         if message.get("kind") != "message":
             return {
@@ -126,7 +119,7 @@ def validate_send_message_request(request: Dict[str, Any]) -> Dict[str, Any]:
                     "data": {"expected": "message", "received": message.get("kind")}
                 }
             }
-        
+
         if message.get("role") not in ["user", "agent"]:
             return {
                 "is_valid": False,
@@ -136,7 +129,7 @@ def validate_send_message_request(request: Dict[str, Any]) -> Dict[str, Any]:
                     "data": {"expected": ["user", "agent"], "received": message.get("role")}
                 }
             }
-        
+
         if not isinstance(message.get("parts"), list):
             return {
                 "is_valid": False,
@@ -146,7 +139,7 @@ def validate_send_message_request(request: Dict[str, Any]) -> Dict[str, Any]:
                     "data": {"expected": "array", "received": type(message.get("parts")).__name__}
                 }
             }
-        
+
         if len(message.get("parts", [])) == 0:
             return {
                 "is_valid": False,
@@ -156,7 +149,7 @@ def validate_send_message_request(request: Dict[str, Any]) -> Dict[str, Any]:
                     "data": {"minimum_parts": 1}
                 }
             }
-        
+
         # Validate parts structure
         for i, part in enumerate(message.get("parts", [])):
             if not isinstance(part, dict):
@@ -168,7 +161,7 @@ def validate_send_message_request(request: Dict[str, Any]) -> Dict[str, Any]:
                         "data": {"part_index": i, "expected": "object", "received": type(part).__name__}
                     }
                 }
-            
+
             if "kind" not in part:
                 return {
                     "is_valid": False,
@@ -178,7 +171,7 @@ def validate_send_message_request(request: Dict[str, Any]) -> Dict[str, Any]:
                         "data": {"part_index": i, "missing_field": "kind"}
                     }
                 }
-            
+
             kind = part.get("kind")
             if kind == "text" and "text" not in part:
                 return {
@@ -216,18 +209,18 @@ def validate_send_message_request(request: Dict[str, Any]) -> Dict[str, Any]:
                         "data": {"part_index": i, "supported_kinds": ["text", "data", "file"], "received": kind}
                     }
                 }
-        
+
         return {
             "is_valid": True,
             "data": request
         }
-        
+
     except Exception as e:
         return {
             "is_valid": False,
             "error": {
                 "code": A2AErrorCodes.INTERNAL_ERROR.value,
-                "message": f"Request validation failed: {str(e)}",
+                "message": f"Request validation failed: {e!s}",
                 "data": {"error_type": type(e).__name__}
             }
         }
@@ -243,15 +236,15 @@ async def handle_message_send(
     try:
         params = request.get("params", {})
         message = params.get("message", {})
-        
+
         context = {
             "message": message,
             "session_id": message.get("contextId", f"session_{id(request)}"),
             "metadata": params.get("metadata")
         }
-        
+
         result = await executor_func(context, agent, model_provider)
-        
+
         if result.get("error"):
             return create_jsonrpc_error_response_dict(
                 request.get("id"),
@@ -260,12 +253,12 @@ async def handle_message_send(
                     "message": result["error"]
                 }
             )
-        
+
         return create_jsonrpc_success_response_dict(
             request.get("id"),
             result.get("final_task", {"message": "No result available"})
         )
-        
+
     except Exception as error:
         return create_jsonrpc_error_response_dict(
             request.get("id"),
@@ -283,16 +276,16 @@ async def handle_message_stream(
     try:
         params = request.get("params", {})
         message = params.get("message", {})
-        
+
         context = {
             "message": message,
             "session_id": message.get("contextId", f"session_{id(request)}"),
             "metadata": params.get("metadata")
         }
-        
+
         async for event in executor_func(context, agent, model_provider):
             yield create_jsonrpc_success_response_dict(request.get("id"), event)
-            
+
     except Exception as error:
         yield create_jsonrpc_error_response_dict(
             request.get("id"),
@@ -308,7 +301,7 @@ async def handle_tasks_get(
     try:
         params = request.get("params", {})
         task_id = params.get("id")
-        
+
         if not task_id:
             return create_jsonrpc_error_response_dict(
                 request.get("id"),
@@ -317,9 +310,9 @@ async def handle_tasks_get(
                     "message": "Task ID is required"
                 }
             )
-        
+
         task = task_storage.get(task_id)
-        
+
         if not task:
             return create_jsonrpc_error_response_dict(
                 request.get("id"),
@@ -328,15 +321,15 @@ async def handle_tasks_get(
                     "message": f"Task with id {task_id} not found"
                 }
             )
-        
+
         # Apply history length limit if specified
         result_task = task.copy()
         history_length = params.get("historyLength")
         if history_length and "history" in task and task["history"]:
             result_task["history"] = task["history"][-history_length:]
-        
+
         return create_jsonrpc_success_response_dict(request.get("id"), result_task)
-        
+
     except Exception as error:
         return create_jsonrpc_error_response_dict(
             request.get("id"),
@@ -352,7 +345,7 @@ async def handle_tasks_cancel(
     try:
         params = request.get("params", {})
         task_id = params.get("id")
-        
+
         if not task_id:
             return create_jsonrpc_error_response_dict(
                 request.get("id"),
@@ -361,9 +354,9 @@ async def handle_tasks_cancel(
                     "message": "Task ID is required"
                 }
             )
-        
+
         task = task_storage.get(task_id)
-        
+
         if not task:
             return create_jsonrpc_error_response_dict(
                 request.get("id"),
@@ -372,7 +365,7 @@ async def handle_tasks_cancel(
                     "message": f"Task with id {task_id} not found"
                 }
             )
-        
+
         # Check if task can be canceled
         current_state = task.get("status", {}).get("state")
         if current_state in ["completed", "failed", "canceled"]:
@@ -383,16 +376,16 @@ async def handle_tasks_cancel(
                     "message": f"Task {task_id} cannot be canceled in state {current_state}"
                 }
             )
-        
+
         # Create canceled task
         canceled_task = task.copy()
         canceled_task["status"] = {
             "state": "canceled",
             "timestamp": None  # Would be set by the system
         }
-        
+
         return create_jsonrpc_success_response_dict(request.get("id"), canceled_task)
-        
+
     except Exception as error:
         return create_jsonrpc_error_response_dict(
             request.get("id"),
@@ -409,7 +402,7 @@ async def handle_get_authenticated_extended_card(
         # In a real implementation, this would check authentication
         # For now, return the standard agent card
         return create_jsonrpc_success_response_dict(request.get("id"), agent_card)
-        
+
     except Exception as error:
         return create_jsonrpc_error_response_dict(
             request.get("id"),
@@ -427,7 +420,7 @@ def route_a2a_request(
     streaming_executor_func: Callable
 ) -> Union[Dict[str, Any], AsyncGenerator[Dict[str, Any], None]]:
     """Pure function to route A2A requests"""
-    
+
     async def _route_async():
         if not validate_jsonrpc_request(request):
             return create_jsonrpc_error_response_dict(
@@ -437,9 +430,9 @@ def route_a2a_request(
                     "message": "Invalid JSON-RPC request"
                 }
             )
-        
+
         method = request.get("method")
-        
+
         if method == "message/send":
             validation = validate_send_message_request(request)
             if not validation["is_valid"]:
@@ -448,7 +441,7 @@ def route_a2a_request(
                     validation["error"]
                 )
             return await handle_message_send(request, agent, model_provider, executor_func)
-        
+
         elif method == "message/stream":
             validation = validate_send_message_request(request)
             if not validation["is_valid"]:
@@ -457,16 +450,16 @@ def route_a2a_request(
                 return error_generator()
             # Return the async generator directly
             return handle_message_stream(request, agent, model_provider, streaming_executor_func)
-        
+
         elif method == "tasks/get":
             return await handle_tasks_get(request, task_storage)
-        
+
         elif method == "tasks/cancel":
             return await handle_tasks_cancel(request, task_storage)
-        
+
         elif method == "agent/getAuthenticatedExtendedCard":
             return await handle_get_authenticated_extended_card(request, agent_card)
-        
+
         else:
             return create_jsonrpc_error_response_dict(
                 request.get("id"),
@@ -475,7 +468,7 @@ def route_a2a_request(
                     "message": f"Method {method} not found"
                 }
             )
-    
+
     # Handle streaming vs non-streaming
     method = request.get("method")
     if method == "message/stream":
@@ -493,9 +486,9 @@ def create_protocol_handler_config(
     streaming_executor_func: Callable
 ) -> Dict[str, Any]:
     """Pure function to create protocol handler configuration"""
-    
+
     task_storage: Dict[str, Dict[str, Any]] = {}  # In real implementation, this would be persistent
-    
+
     async def handle_request(request: Dict[str, Any], agent_name: Optional[str] = None):
         """Pure function to handle any A2A request"""
         if agent_name:
@@ -503,7 +496,7 @@ def create_protocol_handler_config(
         else:
             # Use first available agent
             agent = next(iter(agents.values()), None)
-        
+
         if not agent:
             return create_jsonrpc_error_response_dict(
                 request.get("id"),
@@ -512,7 +505,7 @@ def create_protocol_handler_config(
                     "message": f"Agent {agent_name or 'default'} not found"
                 }
             )
-        
+
         return route_a2a_request(
             request,
             agent,
@@ -522,7 +515,7 @@ def create_protocol_handler_config(
             executor_func,
             streaming_executor_func
         )
-    
+
     return {
         "agents": agents,
         "model_provider": model_provider,

@@ -6,14 +6,14 @@ It provides types, interfaces, and error handling specifically for A2A task stor
 while leveraging the existing JAF memory infrastructure.
 """
 
-from typing import Protocol, Union, Optional, List, Dict, Any, TypeVar, Generic
-from datetime import datetime
 from dataclasses import dataclass
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Protocol, TypeVar, Union
+
 from pydantic import BaseModel, Field
 
+from ...memory.types import Failure, Success
 from ..types import A2ATask, TaskState
-from ...memory.types import Result, Success, Failure
-from ...core.types import Message
 
 # Generic types for A2A results
 T = TypeVar('T')
@@ -60,7 +60,7 @@ class A2ATaskProvider(Protocol):
     This extends the memory provider pattern for A2A-specific task persistence,
     providing optimized operations for task lifecycle management.
     """
-    
+
     async def store_task(
         self,
         task: A2ATask,
@@ -68,11 +68,11 @@ class A2ATaskProvider(Protocol):
     ) -> 'A2AResult[None]':
         """Store a new A2A task"""
         ...
-    
+
     async def get_task(self, task_id: str) -> 'A2AResult[Optional[A2ATask]]':
         """Retrieve a task by ID"""
         ...
-    
+
     async def update_task(
         self,
         task: A2ATask,
@@ -80,7 +80,7 @@ class A2ATaskProvider(Protocol):
     ) -> 'A2AResult[None]':
         """Update an existing task"""
         ...
-    
+
     async def update_task_status(
         self,
         task_id: str,
@@ -90,39 +90,39 @@ class A2ATaskProvider(Protocol):
     ) -> 'A2AResult[None]':
         """Update task status only (optimized for frequent status changes)"""
         ...
-    
+
     async def find_tasks(self, query: A2ATaskQuery) -> 'A2AResult[List[A2ATask]]':
         """Search tasks by query parameters"""
         ...
-    
+
     async def get_tasks_by_context(
-        self, 
-        context_id: str, 
+        self,
+        context_id: str,
         limit: Optional[int] = None
     ) -> 'A2AResult[List[A2ATask]]':
         """Get tasks by context ID"""
         ...
-    
+
     async def delete_task(self, task_id: str) -> 'A2AResult[bool]':
         """Delete a task and return True if it existed"""
         ...
-    
+
     async def delete_tasks_by_context(self, context_id: str) -> 'A2AResult[int]':
         """Delete tasks by context ID and return count deleted"""
         ...
-    
+
     async def cleanup_expired_tasks(self) -> 'A2AResult[int]':
         """Clean up expired tasks and return count deleted"""
         ...
-    
+
     async def get_task_stats(self, context_id: Optional[str] = None) -> 'A2AResult[Dict[str, Any]]':
         """Get task statistics"""
         ...
-    
+
     async def health_check(self) -> 'A2AResult[Dict[str, Any]]':
         """Check provider health and return status information"""
         ...
-    
+
     async def close(self) -> 'A2AResult[None]':
         """Close/cleanup the provider"""
         ...
@@ -132,7 +132,7 @@ class A2ATaskProvider(Protocol):
 class A2ATaskMemoryConfig(BaseModel):
     """Base configuration for A2A task memory"""
     model_config = {"frozen": True}
-    
+
     type: str
     key_prefix: str = Field(default="jaf:a2a:tasks:")
     default_ttl: Optional[int] = None  # Default TTL in seconds for tasks
@@ -144,14 +144,14 @@ class A2ATaskMemoryConfig(BaseModel):
 class A2AInMemoryTaskConfig(A2ATaskMemoryConfig):
     """Configuration for A2A in-memory task provider"""
     model_config = {"frozen": True}
-    
+
     type: str = Field(default="memory", frozen=True)
     max_tasks_per_context: int = Field(default=1000)
 
 class A2ARedisTaskConfig(A2ATaskMemoryConfig):
     """Configuration for A2A Redis task provider"""
     model_config = {"frozen": True}
-    
+
     type: str = Field(default="redis", frozen=True)
     host: str = Field(default="localhost")
     port: int = Field(default=6379, ge=1, le=65535)
@@ -161,7 +161,7 @@ class A2ARedisTaskConfig(A2ATaskMemoryConfig):
 class A2APostgresTaskConfig(A2ATaskMemoryConfig):
     """Configuration for A2A PostgreSQL task provider"""
     model_config = {"frozen": True}
-    
+
     type: str = Field(default="postgres", frozen=True)
     host: str = Field(default="localhost")
     port: int = Field(default=5432, ge=1, le=65535)
@@ -243,7 +243,7 @@ def create_a2a_task_storage_error(
     if task_id:
         message += f" {task_id}"
     message += f" in {provider}"
-    
+
     return A2ATaskStorageError(
         message=message,
         code="STORAGE_ERROR",

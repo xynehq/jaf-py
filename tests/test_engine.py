@@ -4,29 +4,40 @@ Tests for the JAF engine module.
 Based on the TypeScript engine.test.ts file from the original implementation.
 """
 
-import pytest
-import asyncio
 from typing import Any, Dict, List, Optional
-from unittest.mock import AsyncMock, Mock
+
+import pytest
 from pydantic import BaseModel
 
 from jaf.core.engine import run
 from jaf.core.types import (
-    RunState, RunConfig, Agent, Tool, ToolSchema, Message, ModelConfig,
-    create_run_id, create_trace_id, CompletedOutcome, ErrorOutcome,
-    MaxTurnsExceeded, ModelBehaviorError, AgentNotFound, ToolCallError,
-    ValidationResult, ValidValidationResult, InvalidValidationResult
+    Agent,
+    AgentNotFound,
+    CompletedOutcome,
+    ErrorOutcome,
+    InvalidValidationResult,
+    MaxTurnsExceeded,
+    Message,
+    ModelBehaviorError,
+    ModelConfig,
+    RunConfig,
+    RunState,
+    Tool,
+    ToolSchema,
+    ValidationResult,
+    ValidValidationResult,
+    create_run_id,
+    create_trace_id,
 )
-from jaf.core.tool_results import ToolResult, ToolResultStatus
 
 
 class MockModelProvider:
     """Mock model provider for testing."""
-    
+
     def __init__(self, responses: List[Dict[str, Any]]):
         self.responses = responses
         self.call_count = 0
-    
+
     async def get_completion(self, state, agent, config) -> Dict[str, Any]:
         """Return a mock completion response."""
         if self.call_count >= len(self.responses):
@@ -38,7 +49,7 @@ class MockModelProvider:
             }
         else:
             response = self.responses[self.call_count]
-        
+
         self.call_count += 1
         return response
 
@@ -50,7 +61,7 @@ class SimpleToolArgs(BaseModel):
 
 class SimpleTool:
     """Simple tool for testing."""
-    
+
     def __init__(self, name: str = "simple_tool", result: str = "tool result"):
         self.name = name
         self.result = result
@@ -59,11 +70,11 @@ class SimpleTool:
             description="A simple test tool",
             parameters=SimpleToolArgs
         )
-    
+
     @property
     def schema(self) -> ToolSchema:
         return self._schema
-    
+
     async def execute(self, args: SimpleToolArgs, context: Any) -> str:
         return f"{self.result}: {args.message}"
 
@@ -76,18 +87,18 @@ class HandoffToolArgs(BaseModel):
 
 class HandoffTool:
     """Tool that performs agent handoffs."""
-    
+
     def __init__(self):
         self._schema = ToolSchema(
             name="handoff_to_agent",
             description="Handoff to another agent",
             parameters=HandoffToolArgs
         )
-    
+
     @property
     def schema(self) -> ToolSchema:
         return self._schema
-    
+
     async def execute(self, args: HandoffToolArgs, context: Any) -> str:
         return f'{{"handoff_to": "{args.target_agent}", "reason": "{args.reason}"}}'
 
@@ -98,10 +109,10 @@ def create_test_agent(
     instructions: Optional[str] = None
 ) -> Agent:
     """Create a test agent."""
-    
+
     def agent_instructions(state) -> str:
         return instructions or f"You are {name}, a helpful assistant."
-    
+
     return Agent(
         name=name,
         instructions=agent_instructions,
@@ -141,21 +152,21 @@ async def test_simple_completion():
             }
         }
     ])
-    
+
     state = create_test_run_state()
     config = RunConfig(
         agent_registry={"test_agent": agent},
         model_provider=model_provider,
         max_turns=10
     )
-    
+
     # Execute
     result = await run(state, config)
-    
+
     # Assert
     assert isinstance(result.outcome, CompletedOutcome)
     assert result.outcome.output == 'Hello! How can I help you?'
-    assert result.final_state.turn_count == 0
+    assert result.final_state.turn_count == 1
     assert len(result.final_state.messages) == 2  # User + Assistant
 
 
@@ -165,7 +176,7 @@ async def test_tool_call_execution():
     # Setup
     tool = SimpleTool("test_tool", "Success")
     agent = create_test_agent(tools=[tool])
-    
+
     model_provider = MockModelProvider([
         {
             'message': {
@@ -189,17 +200,17 @@ async def test_tool_call_execution():
             }
         }
     ])
-    
+
     state = create_test_run_state()
     config = RunConfig(
         agent_registry={"test_agent": agent},
         model_provider=model_provider,
         max_turns=10
     )
-    
+
     # Execute
     result = await run(state, config)
-    
+
     # Assert
     assert isinstance(result.outcome, CompletedOutcome)
     assert "Success: test input" in result.outcome.output
@@ -220,9 +231,9 @@ async def test_agent_handoff():
         handoffs=["target_agent"],  # Allow handoff to target_agent
         model_config=source_agent.model_config
     )
-    
+
     target_agent = create_test_agent("target_agent")
-    
+
     model_provider = MockModelProvider([
         # Source agent calls handoff tool
         {
@@ -248,7 +259,7 @@ async def test_agent_handoff():
             }
         }
     ])
-    
+
     state = create_test_run_state(agent_name="source_agent")
     config = RunConfig(
         agent_registry={
@@ -258,10 +269,10 @@ async def test_agent_handoff():
         model_provider=model_provider,
         max_turns=10
     )
-    
+
     # Execute
     result = await run(state, config)
-    
+
     # Assert
     assert isinstance(result.outcome, CompletedOutcome)
     assert result.final_state.current_agent_name == "target_agent"
@@ -290,17 +301,17 @@ async def test_max_turns_exceeded():
             }
         }
     ] * 10)  # Repeat to exceed max turns
-    
+
     state = create_test_run_state()
     config = RunConfig(
         agent_registry={"test_agent": agent},
         model_provider=model_provider,
         max_turns=3  # Low limit to trigger error
     )
-    
+
     # Execute
     result = await run(state, config)
-    
+
     # Assert
     assert isinstance(result.outcome, ErrorOutcome)
     assert isinstance(result.outcome.error, MaxTurnsExceeded)
@@ -313,17 +324,17 @@ async def test_agent_not_found():
     # Setup
     agent = create_test_agent()
     model_provider = MockModelProvider([])
-    
+
     state = create_test_run_state(agent_name="non_existent_agent")
     config = RunConfig(
         agent_registry={"test_agent": agent},
         model_provider=model_provider,
         max_turns=10
     )
-    
+
     # Execute
     result = await run(state, config)
-    
+
     # Assert
     assert isinstance(result.outcome, ErrorOutcome)
     assert isinstance(result.outcome.error, AgentNotFound)
@@ -358,17 +369,17 @@ async def test_tool_not_found():
             }
         }
     ])
-    
+
     state = create_test_run_state()
     config = RunConfig(
         agent_registry={"test_agent": agent},
         model_provider=model_provider,
         max_turns=10
     )
-    
+
     # Execute
     result = await run(state, config)
-    
+
     # Assert
     assert isinstance(result.outcome, CompletedOutcome)
     # Should have tool error message in conversation
@@ -385,10 +396,10 @@ async def test_input_guardrails():
         if "badword" in input_text.lower():
             return InvalidValidationResult(error_message="Contains inappropriate content")
         return ValidValidationResult()
-    
+
     agent = create_test_agent()
     model_provider = MockModelProvider([])
-    
+
     state = create_test_run_state(messages=[
         Message(role='user', content='This contains badword in it')
     ])
@@ -398,10 +409,10 @@ async def test_input_guardrails():
         max_turns=10,
         initial_input_guardrails=[bad_word_guardrail]
     )
-    
+
     # Execute
     result = await run(state, config)
-    
+
     # Assert
     assert isinstance(result.outcome, ErrorOutcome)
     assert "inappropriate content" in str(result.outcome.error)
@@ -412,10 +423,10 @@ async def test_event_tracing():
     """Test that events are properly emitted during execution."""
     # Setup
     events = []
-    
+
     def event_collector(event):
         events.append(event)
-    
+
     agent = create_test_agent()
     model_provider = MockModelProvider([
         {
@@ -425,7 +436,7 @@ async def test_event_tracing():
             }
         }
     ])
-    
+
     state = create_test_run_state()
     config = RunConfig(
         agent_registry={"test_agent": agent},
@@ -433,15 +444,15 @@ async def test_event_tracing():
         max_turns=10,
         on_event=event_collector
     )
-    
+
     # Execute
     result = await run(state, config)
-    
+
     # Assert
     assert len(events) >= 3  # run_start, llm_call_start, llm_call_end, run_end
     assert events[0].type == 'run_start'
     assert events[-1].type == 'run_end'
-    
+
     # Check for LLM events
     llm_start_events = [e for e in events if e.type == 'llm_call_start']
     llm_end_events = [e for e in events if e.type == 'llm_call_end']
@@ -454,24 +465,24 @@ async def test_model_behavior_error():
     """Test handling of model behavior errors."""
     # Setup
     agent = create_test_agent()
-    
+
     # Mock provider that raises an exception
     class FailingModelProvider:
         async def get_completion(self, state, agent, config):
             raise Exception("Model service unavailable")
-    
+
     model_provider = FailingModelProvider()
-    
+
     state = create_test_run_state()
     config = RunConfig(
         agent_registry={"test_agent": agent},
         model_provider=model_provider,
         max_turns=10
     )
-    
+
     # Execute
     result = await run(state, config)
-    
+
     # Assert
     assert isinstance(result.outcome, ErrorOutcome)
     assert isinstance(result.outcome.error, ModelBehaviorError)

@@ -8,11 +8,18 @@ for maintaining optimal storage performance.
 
 import asyncio
 import os
-from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
 
-from .types import A2ATaskProvider, A2AResult, create_a2a_success, create_a2a_failure, create_a2a_task_storage_error
+from .types import (
+    A2AResult,
+    A2ATaskProvider,
+    create_a2a_failure,
+    create_a2a_success,
+    create_a2a_task_storage_error,
+)
+
 
 @dataclass(frozen=True)
 class A2ATaskCleanupConfig:
@@ -74,9 +81,9 @@ async def perform_task_cleanup(
                 elif hasattr(expired_result, 'error'):
                     errors.append(f"Failed to cleanup expired tasks: {expired_result.error.message}")
                 else:
-                    errors.append(f"Failed to cleanup expired tasks: unexpected result type")
+                    errors.append("Failed to cleanup expired tasks: unexpected result type")
             except Exception as error:
-                errors.append(f"Error during expired task cleanup: {str(error)}")
+                errors.append(f"Error during expired task cleanup: {error!s}")
 
         # Step 2: Clean up excess completed tasks
         if config.enabled and config.max_completed_tasks > 0:
@@ -88,10 +95,10 @@ async def perform_task_cleanup(
                         limit=config.max_completed_tasks + config.batch_size
                     )
                 )
-                
+
                 if hasattr(completed_tasks_result, 'data') and isinstance(completed_tasks_result.data, list):
                     completed_tasks = completed_tasks_result.data
-                    
+
                     if len(completed_tasks) > config.max_completed_tasks:
                         # Sort by completion time (oldest first) and remove excess
                         sorted_tasks = sorted(
@@ -99,7 +106,7 @@ async def perform_task_cleanup(
                             key=lambda t: t.status.timestamp or "1970-01-01T00:00:00Z"
                         )
                         tasks_to_delete = sorted_tasks[:-config.max_completed_tasks]
-                        
+
                         if config.dry_run:
                             print(f"[DRY RUN] Would clean up {len(tasks_to_delete)} excess completed tasks")
                         else:
@@ -112,7 +119,7 @@ async def perform_task_cleanup(
                 else:
                     errors.append(f"Failed to find completed tasks: {completed_tasks_result.error.message}")
             except Exception as error:
-                errors.append(f"Error during completed task cleanup: {str(error)}")
+                errors.append(f"Error during completed task cleanup: {error!s}")
 
         # Step 3: Clean up excess failed tasks
         if config.enabled and config.max_failed_tasks > 0:
@@ -124,10 +131,10 @@ async def perform_task_cleanup(
                         limit=config.max_failed_tasks + config.batch_size
                     )
                 )
-                
+
                 if hasattr(failed_tasks_result, 'data') and isinstance(failed_tasks_result.data, list):
                     failed_tasks = failed_tasks_result.data
-                    
+
                     if len(failed_tasks) > config.max_failed_tasks:
                         # Sort by failure time (oldest first) and remove excess
                         sorted_tasks = sorted(
@@ -135,7 +142,7 @@ async def perform_task_cleanup(
                             key=lambda t: t.status.timestamp or "1970-01-01T00:00:00Z"
                         )
                         tasks_to_delete = sorted_tasks[:-config.max_failed_tasks]
-                        
+
                         if config.dry_run:
                             print(f"[DRY RUN] Would clean up {len(tasks_to_delete)} excess failed tasks")
                         else:
@@ -148,18 +155,18 @@ async def perform_task_cleanup(
                 else:
                     errors.append(f"Failed to find failed tasks: {failed_tasks_result.error.message}")
             except Exception as error:
-                errors.append(f"Error during failed task cleanup: {str(error)}")
+                errors.append(f"Error during failed task cleanup: {error!s}")
 
         # Step 4: Clean up old tasks beyond max age
         if config.enabled and config.max_age > 0:
             try:
                 cutoff_date = datetime.now() - timedelta(seconds=config.max_age)
-                
+
                 # Clean up old completed and failed tasks
                 for state in ['completed', 'failed', 'canceled']:
                     if state in config.retain_states:
                         continue
-                    
+
                     from .types import A2ATaskQuery
                     old_tasks_result = await task_provider.find_tasks(
                         A2ATaskQuery(
@@ -168,10 +175,10 @@ async def perform_task_cleanup(
                             limit=config.batch_size
                         )
                     )
-                    
+
                     if hasattr(old_tasks_result, 'data') and isinstance(old_tasks_result.data, list):
                         old_tasks = old_tasks_result.data
-                        
+
                         if config.dry_run:
                             print(f"[DRY RUN] Would clean up {len(old_tasks)} old {state} tasks")
                         else:
@@ -187,10 +194,10 @@ async def perform_task_cleanup(
                     else:
                         errors.append(f"Failed to find old {state} tasks: {old_tasks_result.error.message}")
             except Exception as error:
-                errors.append(f"Error during old task cleanup: {str(error)}")
+                errors.append(f"Error during old task cleanup: {error!s}")
 
         total_cleaned = expired_cleaned + excess_completed_cleaned + excess_failed_cleaned
-        
+
         return create_a2a_success(CleanupResult(
             expired_cleaned=expired_cleaned,
             excess_completed_cleaned=excess_completed_cleaned,
@@ -208,7 +215,7 @@ class TaskCleanupScheduler:
     """
     Task cleanup scheduler for running periodic cleanup operations
     """
-    
+
     def __init__(
         self,
         task_provider: A2ATaskProvider,
@@ -223,7 +230,7 @@ class TaskCleanupScheduler:
         """Start the cleanup scheduler"""
         if self._running or not self.config.enabled:
             return
-        
+
         self._running = True
         self._task = asyncio.create_task(self._run_scheduler())
 
@@ -231,7 +238,7 @@ class TaskCleanupScheduler:
         """Stop the cleanup scheduler"""
         if not self._running:
             return
-        
+
         self._running = False
         if self._task:
             self._task.cancel()
@@ -255,37 +262,37 @@ class TaskCleanupScheduler:
         try:
             # Run initial cleanup
             await self._run_cleanup()
-            
+
             # Schedule periodic cleanup
             while self._running:
                 await asyncio.sleep(self.config.interval)
                 if self._running:  # Check again after sleep
                     await self._run_cleanup()
-                    
+
         except asyncio.CancelledError:
             # Normal cancellation, exit gracefully
             pass
         except Exception as error:
-            print(f"A2A task cleanup scheduler error: {str(error)}")
+            print(f"A2A task cleanup scheduler error: {error!s}")
 
     async def _run_cleanup(self) -> None:
         """Run a single cleanup operation"""
         try:
             result = await perform_task_cleanup(self.task_provider, self.config)
-            
+
             if isinstance(result.data, CleanupResult):
                 cleanup_result = result.data
-                
+
                 if cleanup_result.total_cleaned > 0 or cleanup_result.errors:
                     print(f"A2A task cleanup completed: {cleanup_result.total_cleaned} tasks cleaned")
-                    
+
                     if cleanup_result.errors:
                         print(f"A2A task cleanup errors: {', '.join(cleanup_result.errors)}")
             else:
                 print(f"A2A task cleanup failed: {result.error.message}")
-                
+
         except Exception as error:
-            print(f"A2A task cleanup error: {str(error)}")
+            print(f"A2A task cleanup error: {error!s}")
 
 def create_task_cleanup_scheduler(
     task_provider: A2ATaskProvider,
@@ -314,22 +321,22 @@ def validate_cleanup_config(config: Dict[str, Any]) -> Dict[str, Any]:
         Dictionary with 'valid' boolean and 'errors' list
     """
     errors: List[str] = []
-    
+
     if 'interval' in config and config['interval'] <= 0:
         errors.append('Cleanup interval must be greater than 0')
-    
+
     if 'max_age' in config and config['max_age'] <= 0:
         errors.append('Max age must be greater than 0')
-    
+
     if 'max_completed_tasks' in config and config['max_completed_tasks'] < 0:
         errors.append('Max completed tasks must be non-negative')
-    
+
     if 'max_failed_tasks' in config and config['max_failed_tasks'] < 0:
         errors.append('Max failed tasks must be non-negative')
-    
+
     if 'batch_size' in config and config['batch_size'] <= 0:
         errors.append('Batch size must be greater than 0')
-    
+
     return {
         'valid': len(errors) == 0,
         'errors': errors
@@ -344,7 +351,7 @@ def create_cleanup_config_from_env() -> A2ATaskCleanupConfig:
     """
     retain_states_str = os.getenv('JAF_A2A_CLEANUP_RETAIN_STATES', 'working,input-required,submitted')
     retain_states = retain_states_str.split(',') if retain_states_str else []
-    
+
     return A2ATaskCleanupConfig(
         enabled=os.getenv('JAF_A2A_CLEANUP_ENABLED', 'true').lower() != 'false',
         interval=int(os.getenv('JAF_A2A_CLEANUP_INTERVAL', '3600')),

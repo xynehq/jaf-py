@@ -3,12 +3,10 @@ Pure functional Agent Card generation
 Transforms JAF agents into A2A Agent Cards
 """
 
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
-from .types import (
-    AgentCard, AgentSkill, A2AAgent, AgentCapabilities, AgentProvider
-)
+from .types import A2AAgent
 
 
 def generate_agent_card(
@@ -40,7 +38,7 @@ def generate_agent_card(
 
 def generate_skills_from_agents(agents: Dict[str, A2AAgent]) -> List[Dict[str, Any]]:
     """Pure function to generate skills from A2A agents"""
-    
+
     def create_agent_skills(agent_name: str, agent: A2AAgent) -> List[Dict[str, Any]]:
         """Create skills for a single agent"""
         # Create a main skill for the agent
@@ -53,7 +51,7 @@ def generate_skills_from_agents(agents: Dict[str, A2AAgent]) -> List[Dict[str, A
             "inputModes": agent.supported_content_types,
             "outputModes": agent.supported_content_types
         }
-        
+
         # Create individual skills for each tool
         tool_skills = [
             {
@@ -67,16 +65,16 @@ def generate_skills_from_agents(agents: Dict[str, A2AAgent]) -> List[Dict[str, A
             }
             for tool in agent.tools
         ]
-        
+
         return [main_skill, *tool_skills]
-    
+
     # Use functional approach to build skills
     all_skills = [
         skill
         for agent_name, agent in agents.items()
         for skill in create_agent_skills(agent_name, agent)
     ]
-    
+
     return all_skills
 
 
@@ -86,13 +84,13 @@ def generate_examples_for_agent(agent: A2AAgent) -> List[str]:
         f"Ask {agent.name} for help",
         f"What can {agent.name} do?"
     ]
-    
+
     # Add tool-specific examples using functional approach
     tool_examples = [
         f"Use {tool.name} to {tool.description.lower()}"
         for tool in agent.tools[:2]  # Limit to first 2 tools
     ]
-    
+
     return base_examples + tool_examples
 
 
@@ -142,7 +140,7 @@ def generate_agent_card_for_agent(
 ) -> Dict[str, Any]:
     """Pure function to generate Agent Card for a specific agent"""
     agent_map = {agent_name: agent}
-    
+
     card_config = {
         "name": (config or {}).get("name", agent.name),
         "description": (config or {}).get("description", agent.description),
@@ -152,13 +150,13 @@ def generate_agent_card_for_agent(
             "url": "https://functional-agent-framework.com"
         })
     }
-    
+
     return generate_agent_card(card_config, agent_map, base_url)
 
 
 def validate_agent_card(card: Dict[str, Any]) -> Dict[str, Any]:
     """Pure function to validate Agent Card"""
-    
+
     # Validate required fields functionally
     required_field_errors = [
         error for field, error_msg in [
@@ -170,7 +168,7 @@ def validate_agent_card(card: Dict[str, Any]) -> Dict[str, Any]:
         ] if not field
         for error in [error_msg]
     ]
-    
+
     # Skills validation functionally
     skills = card.get("skills", [])
     skills_errors = (
@@ -186,7 +184,7 @@ def validate_agent_card(card: Dict[str, Any]) -> Dict[str, Any]:
             ] if error is not None
         ]
     )
-    
+
     # Input/Output modes validation functionally
     mode_errors = [
         error for condition, error in [
@@ -195,17 +193,17 @@ def validate_agent_card(card: Dict[str, Any]) -> Dict[str, Any]:
         ] if condition
         for error in [error]
     ]
-    
+
     # URL validation functionally
     url_errors = [
-        "Invalid URL format" 
-        for url in [card.get("url")] 
+        "Invalid URL format"
+        for url in [card.get("url")]
         if url and not is_valid_url(url)
     ]
-    
+
     # Combine all errors functionally
     errors = required_field_errors + skills_errors + mode_errors + url_errors
-    
+
     return {
         "is_valid": len(errors) == 0,
         "errors": errors
@@ -255,17 +253,17 @@ def merge_agent_cards(*cards: Dict[str, Any]) -> Dict[str, Any]:
     """Pure function to merge multiple Agent Cards"""
     if not cards:
         return create_minimal_agent_card("Empty", "No agents")
-    
+
     base_card = cards[0]
     additional_cards = cards[1:]
-    
+
     # Merge skills functionally
     all_skills = [
         skill
         for card in cards
         for skill in card.get("skills", [])
     ]
-    
+
     # Remove duplicate skills by ID functionally
     seen_ids = set()
     unique_skills = [
@@ -273,18 +271,18 @@ def merge_agent_cards(*cards: Dict[str, Any]) -> Dict[str, Any]:
         for skill in all_skills
         if skill.get("id") not in seen_ids and not seen_ids.add(skill.get("id"))
     ]
-    
+
     # Merge input/output modes
     merged_input_modes = list(set([
         *base_card.get("defaultInputModes", []),
         *[mode for card in additional_cards for mode in card.get("defaultInputModes", [])]
     ]))
-    
+
     merged_output_modes = list(set([
         *base_card.get("defaultOutputModes", []),
         *[mode for card in additional_cards for mode in card.get("defaultOutputModes", [])]
     ]))
-    
+
     # Merge capabilities
     capabilities = base_card.get("capabilities", {})
     for card in additional_cards:
@@ -294,7 +292,7 @@ def merge_agent_cards(*cards: Dict[str, Any]) -> Dict[str, Any]:
             "pushNotifications": capabilities.get("pushNotifications", False) or card_capabilities.get("pushNotifications", False),
             "stateTransitionHistory": capabilities.get("stateTransitionHistory", False) or card_capabilities.get("stateTransitionHistory", False)
         }
-    
+
     return {
         **base_card,
         "skills": unique_skills,
@@ -307,7 +305,7 @@ def merge_agent_cards(*cards: Dict[str, Any]) -> Dict[str, Any]:
 def create_agent_card_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
     """Pure function to create Agent Card from configuration"""
     base_url = config.get("baseUrl", "http://localhost:3000")
-    
+
     return {
         "protocolVersion": "0.3.0",
         "name": config["name"],

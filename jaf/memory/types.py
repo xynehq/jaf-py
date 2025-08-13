@@ -5,10 +5,12 @@ This module provides the core data structures and interfaces for persistent conv
 including provider abstractions, configuration models, and error handling.
 """
 
-from typing import Protocol, Union, Optional, List, Dict, Any, TypeVar, Generic
-from datetime import datetime
 from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any, Dict, Generic, List, Optional, Protocol, TypeVar, Union
+
 from pydantic import BaseModel, Field
+
 from ..core.types import Message, TraceId
 
 # Generic Result type for functional error handling
@@ -39,7 +41,7 @@ class ConversationMemory:
     user_id: Optional[str] = None
     messages: List[Message] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
-    
+
     def __post_init__(self):
         """Ensure messages list is frozen (immutable)."""
         if self.messages is not None:
@@ -63,7 +65,7 @@ class MemoryProvider(Protocol):
     This protocol ensures consistent behavior across different storage backends
     (in-memory, Redis, PostgreSQL) while maintaining type safety.
     """
-    
+
     async def store_messages(
         self,
         conversation_id: str,
@@ -72,14 +74,14 @@ class MemoryProvider(Protocol):
     ) -> Result[None, 'MemoryStorageError']:
         """Store messages for a conversation."""
         ...
-    
+
     async def get_conversation(
-        self, 
+        self,
         conversation_id: str
     ) -> Result[Optional[ConversationMemory], 'MemoryStorageError']:
         """Retrieve conversation history."""
         ...
-    
+
     async def append_messages(
         self,
         conversation_id: str,
@@ -88,47 +90,47 @@ class MemoryProvider(Protocol):
     ) -> Result[None, Union['MemoryNotFoundError', 'MemoryStorageError']]:
         """Append new messages to existing conversation."""
         ...
-    
+
     async def find_conversations(
-        self, 
+        self,
         query: MemoryQuery
     ) -> Result[List[ConversationMemory], 'MemoryStorageError']:
         """Search conversations by query parameters."""
         ...
-    
+
     async def get_recent_messages(
-        self, 
-        conversation_id: str, 
+        self,
+        conversation_id: str,
         limit: int = 50
     ) -> Result[List[Message], Union['MemoryNotFoundError', 'MemoryStorageError']]:
         """Get recent messages from a conversation."""
         ...
-    
+
     async def delete_conversation(
-        self, 
+        self,
         conversation_id: str
     ) -> Result[bool, 'MemoryStorageError']:
         """Delete conversation and return True if it existed."""
         ...
-    
+
     async def clear_user_conversations(
-        self, 
+        self,
         user_id: str
     ) -> Result[int, 'MemoryStorageError']:
         """Clear all conversations for a user and return count deleted."""
         ...
-    
+
     async def get_stats(
-        self, 
+        self,
         user_id: Optional[str] = None
     ) -> Result[Dict[str, Any], 'MemoryStorageError']:
         """Get conversation statistics."""
         ...
-    
+
     async def health_check(self) -> Result[Dict[str, Any], 'MemoryConnectionError']:
         """Check provider health and return status information."""
         ...
-    
+
     async def close(self) -> Result[None, 'MemoryConnectionError']:
         """Close/cleanup the provider."""
         ...

@@ -5,11 +5,12 @@ This module defines the request/response types and configuration
 for the JAF HTTP server implementation.
 """
 
-from typing import Any, Dict, List, Optional, Union, Literal, TypeVar, Generic
 from dataclasses import dataclass
+from typing import Any, Dict, Generic, List, Literal, Optional, TypeVar, Union
+
 from pydantic import BaseModel, Field
 
-from ..core.types import Agent, RunConfig, TraceEvent
+from ..core.types import Agent, RunConfig
 from ..memory.types import MemoryProvider
 
 Ctx = TypeVar('Ctx')

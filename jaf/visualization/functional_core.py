@@ -6,11 +6,11 @@ from the imperative Graphviz operations. This follows the functional core,
 imperative shell pattern.
 """
 
-from typing import List, Dict, Any, Tuple, NamedTuple, Optional
 from dataclasses import dataclass
+from typing import Any, Dict, List, Tuple
+
 from ..core.types import Agent, Tool
 from .types import GraphOptions
-
 
 # ========== Pure Data Structures ==========
 
@@ -58,13 +58,13 @@ def create_agent_label(agent: Agent, show_tool_details: bool) -> str:
     """Pure function to create agent label."""
     model_name = getattr(agent.model_config, 'name', 'default') if agent.model_config else 'default'
     label = f"{agent.name}\\n({model_name})"
-    
+
     if show_tool_details and agent.tools:
         label += f"\\n{len(agent.tools)} tools"
-    
+
     if agent.handoffs:
         label += f"\\n{len(agent.handoffs)} handoffs"
-    
+
     return label
 
 
@@ -73,19 +73,19 @@ def create_tool_label(tool: Tool) -> str:
     description = tool.schema.description
     if len(description) > 30:
         description = description[:30] + "..."
-    
+
     return f"{tool.schema.name}\\n{description}"
 
 
 def create_agent_node_spec(
-    agent: Agent, 
-    styles: Dict[str, Any], 
+    agent: Agent,
+    styles: Dict[str, Any],
     show_tool_details: bool
 ) -> NodeSpec:
     """Pure function to create agent node specification."""
     agent_style = styles['agent']
     label = create_agent_label(agent, show_tool_details)
-    
+
     attributes = {
         'label': label,
         'shape': agent_style['shape'],
@@ -93,10 +93,10 @@ def create_agent_node_spec(
         'fontcolor': agent_style['fontcolor'],
         'style': agent_style['style']
     }
-    
+
     if 'fontname' in agent_style:
         attributes['fontname'] = agent_style['fontname']
-    
+
     return NodeSpec(
         id=agent.name,
         label=label,
@@ -108,7 +108,7 @@ def create_tool_node_spec(tool: Tool, styles: Dict[str, Any]) -> NodeSpec:
     """Pure function to create tool node specification."""
     tool_style = styles['tool']
     label = create_tool_label(tool)
-    
+
     attributes = {
         'label': label,
         'shape': tool_style['shape'],
@@ -116,10 +116,10 @@ def create_tool_node_spec(tool: Tool, styles: Dict[str, Any]) -> NodeSpec:
         'fontcolor': tool_style['fontcolor'],
         'style': tool_style['style']
     }
-    
+
     if 'fontname' in tool_style:
         attributes['fontname'] = tool_style['fontname']
-    
+
     return NodeSpec(
         id=tool.schema.name,
         label=label,
@@ -128,8 +128,8 @@ def create_tool_node_spec(tool: Tool, styles: Dict[str, Any]) -> NodeSpec:
 
 
 def create_tool_edge_spec(
-    agent_name: str, 
-    tool_name: str, 
+    agent_name: str,
+    tool_name: str,
     styles: Dict[str, Any]
 ) -> EdgeSpec:
     """Pure function to create tool edge specification."""
@@ -138,10 +138,10 @@ def create_tool_edge_spec(
         'style': styles['tool_edge']['style'],
         'penwidth': styles['tool_edge']['penwidth']
     }
-    
+
     if 'arrowhead' in styles['tool_edge']:
         edge_attrs['arrowhead'] = styles['tool_edge']['arrowhead']
-    
+
     return EdgeSpec(
         from_node=agent_name,
         to_node=tool_name,
@@ -174,28 +174,28 @@ def create_agent_graph_spec(
     """Pure function to create complete agent graph specification."""
     nodes = []
     edges = []
-    
+
     # Create agent nodes and their tool nodes/edges
     for agent in agents:
         # Add agent node
         agent_node = create_agent_node_spec(agent, styles, options.show_tool_details)
         nodes.append(agent_node)
-        
+
         # Add tool nodes and edges if requested
         if options.show_tool_details and agent.tools:
             for tool in agent.tools:
                 tool_node = create_tool_node_spec(tool, styles)
                 nodes.append(tool_node)
-                
+
                 tool_edge = create_tool_edge_spec(agent.name, tool.schema.name, styles)
                 edges.append(tool_edge)
-        
+
         # Add handoff edges
         if agent.handoffs:
             for handoff_target in agent.handoffs:
                 handoff_edge = create_handoff_edge_spec(agent.name, handoff_target, styles)
                 edges.append(handoff_edge)
-    
+
     return GraphSpec(
         title=options.title or "JAF Graph",
         graph_attributes=create_graph_attributes(options),
@@ -211,11 +211,11 @@ def create_tool_graph_spec(
 ) -> GraphSpec:
     """Pure function to create tool graph specification."""
     nodes = []
-    
+
     for tool in tools:
         tool_node = create_tool_node_spec(tool, styles)
         nodes.append(tool_node)
-    
+
     return GraphSpec(
         title=options.title or "JAF Tool Graph",
         graph_attributes=create_graph_attributes(options),

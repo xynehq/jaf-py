@@ -7,35 +7,46 @@ via REST API endpoints with proper error handling and validation.
 
 import time
 import uuid
-import json
-from typing import Any, Dict, List, Optional, TypeVar
-from dataclasses import replace, asdict
+from dataclasses import asdict, replace
+from typing import TypeVar
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from pydantic import ValidationError
 
-from .types import (
-    ServerConfig, ChatRequest, ChatResponse, AgentListResponse,
-    HealthResponse, HttpMessage, CompletedChatData, AgentInfo, AgentListData,
-    ConversationResponse, ConversationData, MemoryHealthResponse, MemoryHealthData,
-    DeleteConversationResponse, DeleteConversationData
-)
 from ..core.engine import run
 from ..core.types import (
-    RunState, Message, create_run_id, create_trace_id, 
-    CompletedOutcome, ErrorOutcome
+    CompletedOutcome,
+    ErrorOutcome,
+    Message,
+    RunState,
+    create_run_id,
+    create_trace_id,
 )
 from ..memory.types import MemoryConfig
+from .types import (
+    AgentInfo,
+    AgentListData,
+    AgentListResponse,
+    ChatRequest,
+    ChatResponse,
+    CompletedChatData,
+    ConversationData,
+    ConversationResponse,
+    DeleteConversationData,
+    DeleteConversationResponse,
+    HealthResponse,
+    HttpMessage,
+    MemoryHealthResponse,
+    ServerConfig,
+)
 
 Ctx = TypeVar('Ctx')
 
 def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
     """Create and configure a JAF server instance."""
-    
+
     start_time = time.time()
-    
+
     app = FastAPI(
         title="JAF Agent Framework Server",
         description="HTTP API for JAF agents",
@@ -84,7 +95,7 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
             raise HTTPException(status_code=404, detail=f"Agent '{request.agent_name}' not found")
 
         conversation_id = request.conversation_id or str(uuid.uuid4())
-        
+
         initial_state = RunState(
             run_id=create_run_id(str(uuid.uuid4())),
             trace_id=create_trace_id(str(uuid.uuid4())),
@@ -101,14 +112,14 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
                 memory=MemoryConfig(provider=config.default_memory_provider, auto_store=True),
                 conversation_id=conversation_id
             )
-        
+
         if request.max_turns is not None:
             run_config_with_memory = replace(run_config_with_memory, max_turns=request.max_turns)
 
         result = await run(initial_state, run_config_with_memory)
-        
+
         http_messages = [HttpMessage.model_validate(asdict(msg)) for msg in result.final_state.messages]
-        
+
         outcome_dict = {}
         if isinstance(result.outcome, CompletedOutcome):
             outcome_dict = {
@@ -143,11 +154,11 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
         @app.get("/conversations/{conversation_id}", response_model=ConversationResponse)
         async def get_conversation(conversation_id: str):
             result = await config.default_memory_provider.get_conversation(conversation_id)
-            
+
             # Handle Result type properly
             if hasattr(result, 'error'):  # Failure case
                 raise HTTPException(status_code=500, detail=str(result.error.message))
-            
+
             conversation = result.data
             if not conversation:
                 raise HTTPException(status_code=404, detail="Conversation not found")
@@ -165,24 +176,24 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
         @app.delete("/conversations/{conversation_id}", response_model=DeleteConversationResponse)
         async def delete_conversation(conversation_id: str):
             result = await config.default_memory_provider.delete_conversation(conversation_id)
-            
+
             # Handle Result type properly
             if hasattr(result, 'error'):  # Failure case
                 raise HTTPException(status_code=500, detail=str(result.error.message))
-            
+
             return DeleteConversationResponse(
-                success=True, 
+                success=True,
                 data=DeleteConversationData(conversation_id=conversation_id, deleted=result.data)
             )
 
         @app.get("/memory/health", response_model=MemoryHealthResponse)
         async def memory_health():
             result = await config.default_memory_provider.health_check()
-            
+
             # Handle Result type properly
             if hasattr(result, 'error'):  # Failure case
                 raise HTTPException(status_code=500, detail=str(result.error.message))
-            
+
             return MemoryHealthResponse(success=True, data=result.data)
 
     return app

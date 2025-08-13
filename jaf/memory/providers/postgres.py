@@ -6,16 +6,23 @@ Best for production environments requiring complex queries and full persistence.
 """
 
 import json
-import asyncio
-from typing import Dict, List, Optional, Any, Union
 from datetime import datetime
+from typing import Any, Dict, List, Optional, Union
 
+from ...core.types import Message
 from ..types import (
-    MemoryProvider, ConversationMemory, MemoryQuery, PostgresConfig,
-    Result, Success, Failure, MemoryConnectionError, MemoryNotFoundError, MemoryStorageError
+    ConversationMemory,
+    Failure,
+    MemoryConnectionError,
+    MemoryNotFoundError,
+    MemoryProvider,
+    MemoryQuery,
+    MemoryStorageError,
+    PostgresConfig,
+    Result,
+    Success,
 )
-from ...core.types import Message, ToolCall, ToolCallFunction
-from dataclasses import asdict
+from ..utils import prepare_message_list_for_db
 
 try:
     import asyncpg
@@ -27,7 +34,7 @@ class PostgresProvider(MemoryProvider):
     """
     PostgreSQL implementation of MemoryProvider.
     """
-    
+
     def __init__(self, config: PostgresConfig, client: PostgresClient):
         self.config = config
         self.client = client
@@ -51,33 +58,17 @@ class PostgresProvider(MemoryProvider):
             return await self.client.execute(query, *args)
 
     def _row_to_conversation(self, row) -> ConversationMemory:
-        messages_data = json.loads(row['messages'])
-        messages = []
-        for msg_data in messages_data:
-            tool_calls = None
-            if msg_data.get('tool_calls'):
-                tool_calls = [
-                    ToolCall(
-                        id=tc['id'],
-                        type=tc['type'],
-                        function=ToolCallFunction(
-                            name=tc['function']['name'],
-                            arguments=tc['function']['arguments']
-                        )
-                    ) for tc in msg_data['tool_calls']
-                ]
-            messages.append(Message(
-                role=msg_data['role'],
-                content=msg_data['content'],
-                tool_call_id=msg_data.get('tool_call_id'),
-                tool_calls=tool_calls
-            ))
+        """Convert database row to ConversationMemory using shared utilities."""
+        from ..utils import extract_messages_from_db_row, validate_conversation_metadata
+
+        messages = extract_messages_from_db_row(row['messages'])
+        metadata = validate_conversation_metadata(json.loads(row['metadata']))
 
         return ConversationMemory(
             conversation_id=row['conversation_id'],
             user_id=row['user_id'],
             messages=messages,
-            metadata=json.loads(row['metadata'])
+            metadata=metadata
         )
 
     async def store_messages(
@@ -97,7 +88,7 @@ class PostgresProvider(MemoryProvider):
 
             # For new rows, we also need created_at
             insert_metadata = update_metadata.copy()
-            if not "created_at" in insert_metadata:
+            if "created_at" not in insert_metadata:
                 insert_metadata["created_at"] = now.isoformat()
 
             # Using INSERT ON CONFLICT for a single, atomic operation
@@ -108,12 +99,12 @@ class PostgresProvider(MemoryProvider):
                 messages = EXCLUDED.messages,
                 metadata = {self.config.table_name}.metadata || $5::jsonb;
             """
-            
+
             await self._db_execute(
                 query,
                 conversation_id,
                 current_metadata.get("user_id"),
-                json.dumps([asdict(msg) for msg in messages]),
+                prepare_message_list_for_db(messages),
                 json.dumps(insert_metadata),
                 json.dumps(update_metadata)
             )
@@ -122,17 +113,17 @@ class PostgresProvider(MemoryProvider):
             return Failure(MemoryStorageError(operation="store_messages", provider="Postgres", message=str(e), cause=e))
 
     async def get_conversation(
-        self, 
+        self,
         conversation_id: str
     ) -> Result[Optional[ConversationMemory], MemoryStorageError]:
         try:
             row = await self._db_fetchrow(f"SELECT * FROM {self.config.table_name} WHERE conversation_id = $1", conversation_id)
             if not row:
                 return Success(None)
-            
+
             # Update last activity
             await self._db_execute(f"UPDATE {self.config.table_name} SET metadata = metadata || '{{\"last_activity\": \"{datetime.now().isoformat()}\"}}' WHERE conversation_id = $1", conversation_id)
-            
+
             return Success(self._row_to_conversation(row))
         except Exception as e:
             return Failure(MemoryStorageError(operation="get_conversation", provider="Postgres", message=str(e), cause=e))
@@ -167,8 +158,8 @@ class PostgresProvider(MemoryProvider):
             WHERE conversation_id = $3;
             """
 
-            new_messages_json = json.dumps([asdict(msg) for msg in messages])
-            
+            new_messages_json = prepare_message_list_for_db(messages)
+
             await self._db_execute(
                 query,
                 new_messages_json,
@@ -180,7 +171,7 @@ class PostgresProvider(MemoryProvider):
             return Failure(MemoryStorageError(operation="append_messages", provider="Postgres", message=str(e), cause=e))
 
     async def find_conversations(
-        self, 
+        self,
         query: MemoryQuery
     ) -> Result[List[ConversationMemory], MemoryStorageError]:
         try:
@@ -190,22 +181,22 @@ class PostgresProvider(MemoryProvider):
             return Failure(MemoryStorageError(operation="find_conversations", provider="Postgres", message=str(e), cause=e))
 
     async def get_recent_messages(
-        self, 
-        conversation_id: str, 
+        self,
+        conversation_id: str,
         limit: int = 50
     ) -> Result[List[Message], Union[MemoryNotFoundError, MemoryStorageError]]:
         result = await self.get_conversation(conversation_id)
         if isinstance(result, Failure):
             return result
-        
+
         conversation = result.data
         if not conversation:
             return Failure(MemoryNotFoundError(conversation_id=conversation_id, provider="Postgres", message=f"Conversation {conversation_id} not found"))
-        
+
         return Success(conversation.messages[-limit:])
 
     async def delete_conversation(
-        self, 
+        self,
         conversation_id: str
     ) -> Result[bool, MemoryStorageError]:
         try:
@@ -215,7 +206,7 @@ class PostgresProvider(MemoryProvider):
             return Failure(MemoryStorageError(operation="delete_conversation", provider="Postgres", message=str(e), cause=e))
 
     async def clear_user_conversations(
-        self, 
+        self,
         user_id: str
     ) -> Result[int, MemoryStorageError]:
         try:
@@ -225,7 +216,7 @@ class PostgresProvider(MemoryProvider):
             return Failure(MemoryStorageError(operation="clear_user_conversations", provider="Postgres", message=str(e), cause=e))
 
     async def get_stats(
-        self, 
+        self,
         user_id: Optional[str] = None
     ) -> Result[Dict[str, Any], MemoryStorageError]:
         try:
@@ -280,9 +271,9 @@ async def create_postgres_provider(config: PostgresConfig) -> Result[PostgresPro
                 password=config.password,
                 database=config.database
             )
-        
+
         table_name = config.table_name or "conversations"
-        
+
         # Initialize schema
         create_table_sql = f"""
         CREATE TABLE IF NOT EXISTS {table_name} (
@@ -293,7 +284,7 @@ async def create_postgres_provider(config: PostgresConfig) -> Result[PostgresPro
         );
         """
         await client.execute(create_table_sql)
-        
+
         # We need to update the config with the table name we are using
         # to ensure the provider uses it.
         provider_config = config

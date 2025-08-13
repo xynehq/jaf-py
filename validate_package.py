@@ -5,20 +5,19 @@ Package validation script for JAF Python.
 This script validates that the Python package is complete and ready for production.
 """
 
-import sys
 import subprocess
-import os
+import sys
 from pathlib import Path
-from typing import List, Tuple, Optional
+from typing import List, Optional, Tuple
 
 
 def run_command(cmd: List[str], cwd: Optional[Path] = None) -> Tuple[int, str, str]:
     """Run a command and return exit code, stdout, and stderr."""
     try:
         result = subprocess.run(
-            cmd, 
-            capture_output=True, 
-            text=True, 
+            cmd,
+            capture_output=True,
+            text=True,
             cwd=cwd,
             timeout=60
         )
@@ -53,17 +52,17 @@ def check_import(module: str) -> bool:
 def validate_package_structure() -> bool:
     """Validate the package structure."""
     print("🔍 Validating package structure...")
-    
+
     root = Path(__file__).parent
     all_good = True
-    
+
     # Core files
     required_files = [
         (root / "jaf" / "__init__.py", "Main package init"),
         (root / "jaf" / "cli.py", "CLI module"),
         (root / "pyproject.toml", "Package configuration"),
         (root / "README.md", "Documentation"),
-        
+
         # Core modules
         (root / "jaf" / "core" / "__init__.py", "Core init"),
         (root / "jaf" / "core" / "engine.py", "Core engine"),
@@ -71,49 +70,49 @@ def validate_package_structure() -> bool:
         (root / "jaf" / "core" / "errors.py", "Error handling"),
         (root / "jaf" / "core" / "tool_results.py", "Tool results"),
         (root / "jaf" / "core" / "tracing.py", "Tracing"),
-        
+
         # Providers
         (root / "jaf" / "providers" / "__init__.py", "Providers init"),
         (root / "jaf" / "providers" / "model.py", "Model provider"),
         (root / "jaf" / "providers" / "mcp.py", "MCP provider"),
-        
+
         # Policies
         (root / "jaf" / "policies" / "__init__.py", "Policies init"),
         (root / "jaf" / "policies" / "validation.py", "Validation policies"),
         (root / "jaf" / "policies" / "handoff.py", "Handoff policies"),
-        
+
         # Server
         (root / "jaf" / "server" / "__init__.py", "Server init"),
         (root / "jaf" / "server" / "server.py", "Server implementation"),
         (root / "jaf" / "server" / "types.py", "Server types"),
-        
+
         # Examples
         (root / "examples" / "server_example.py", "Server example"),
         (root / "examples" / "rag_example.py", "RAG example"),
-        
+
         # Tests
         (root / "tests" / "test_engine.py", "Engine tests"),
         (root / "tests" / "test_validation.py", "Validation tests"),
     ]
-    
+
     for file_path, description in required_files:
         if not check_file_exists(file_path, description):
             all_good = False
-    
+
     return all_good
 
 
 def validate_imports() -> bool:
     """Validate that key imports work."""
     print("\n🔍 Validating imports...")
-    
+
     all_good = True
-    
+
     # Core imports
     imports_to_test = [
         "jaf",
         "jaf.core.engine",
-        "jaf.core.types", 
+        "jaf.core.types",
         "jaf.core.errors",
         "jaf.core.tool_results",
         "jaf.core.tracing",
@@ -124,21 +123,21 @@ def validate_imports() -> bool:
         "jaf.server.server",
         "jaf.cli",
     ]
-    
+
     for module in imports_to_test:
         if not check_import(module):
             all_good = False
-    
+
     return all_good
 
 
 def validate_key_exports() -> bool:
     """Validate that key exports are available."""
     print("\n🔍 Validating key exports...")
-    
+
     try:
         import jaf
-        
+
         # Check key exports
         key_exports = [
             "Agent", "Tool", "RunState", "RunConfig", "run",
@@ -147,7 +146,7 @@ def validate_key_exports() -> bool:
             "MCPClient", "create_mcp_stdio_client",
             "ToolResult", "ToolResultStatus"
         ]
-        
+
         all_good = True
         for export in key_exports:
             if hasattr(jaf, export):
@@ -155,9 +154,9 @@ def validate_key_exports() -> bool:
             else:
                 print(f"❌ Export {export}: Missing")
                 all_good = False
-        
+
         return all_good
-        
+
     except Exception as e:
         print(f"❌ Failed to validate exports: {e}")
         return False
@@ -166,32 +165,32 @@ def validate_key_exports() -> bool:
 def validate_dependencies() -> bool:
     """Validate that dependencies are correctly specified."""
     print("\n🔍 Validating dependencies...")
-    
+
     try:
-        import pydantic
         import fastapi
-        import uvicorn
-        import openai
-        import websockets
         import httpx
-        
+        import openai
+        import pydantic
+        import uvicorn
+        import websockets
+
         print("✅ Core dependencies: Available")
-        
+
         # Check optional dependencies
         optional_deps = {
             "google-generativeai": "google.generativeai",
             "python-dotenv": "dotenv"
         }
-        
+
         for dep_name, module_name in optional_deps.items():
             try:
                 __import__(module_name)
                 print(f"✅ Optional dependency {dep_name}: Available")
             except ImportError:
                 print(f"ℹ️  Optional dependency {dep_name}: Not installed (OK)")
-        
+
         return True
-        
+
     except ImportError as e:
         print(f"❌ Missing core dependency: {e}")
         return False
@@ -200,17 +199,17 @@ def validate_dependencies() -> bool:
 def validate_cli() -> bool:
     """Validate CLI functionality."""
     print("\n🔍 Validating CLI...")
-    
+
     # Test that the CLI can be imported and run
     exit_code, stdout, stderr = run_command([
         sys.executable, "-c", "from jaf.cli import cli_main; print('CLI import OK')"
     ])
-    
+
     if exit_code == 0:
         print("✅ CLI import: OK")
         return True
     else:
-        print(f"❌ CLI import: FAILED")
+        print("❌ CLI import: FAILED")
         print(f"   stdout: {stdout}")
         print(f"   stderr: {stderr}")
         return False
@@ -219,18 +218,18 @@ def validate_cli() -> bool:
 def validate_examples() -> bool:
     """Validate that examples can be imported."""
     print("\n🔍 Validating examples...")
-    
+
     root = Path(__file__).parent
     all_good = True
-    
+
     examples = [
         "server_example.py",
         "rag_example.py"
     ]
-    
+
     for example in examples:
         example_path = root / "examples" / example
-        
+
         # Test syntax by compiling (don't execute server examples that might block)
         if "server" in example:
             # Just compile, don't execute server examples
@@ -243,21 +242,21 @@ def validate_examples() -> bool:
                 sys.executable, "-c", f"import sys; sys.path.insert(0, '{root / 'examples'}'); "
                 f"exec(compile(open('{example_path}').read(), '{example_path}', 'exec'))"
             ])
-        
+
         if exit_code == 0:
             print(f"✅ Example {example}: Syntax OK")
         else:
             print(f"❌ Example {example}: Syntax Error")
             print(f"   stderr: {stderr}")
             all_good = False
-    
+
     return all_good
 
 
 def run_quick_tests() -> bool:
     """Run a quick test to verify basic functionality."""
     print("\n🔍 Running quick functionality test...")
-    
+
     try:
         # Test basic functionality
         test_code = '''
@@ -300,20 +299,20 @@ config = RunConfig(
 
 print("Basic functionality test: PASSED")
 '''
-        
+
         exit_code, stdout, stderr = run_command([
             sys.executable, "-c", test_code
         ])
-        
+
         if exit_code == 0 and "PASSED" in stdout:
             print("✅ Quick functionality test: PASSED")
             return True
         else:
-            print(f"❌ Quick functionality test: FAILED")
+            print("❌ Quick functionality test: FAILED")
             print(f"   stdout: {stdout}")
             print(f"   stderr: {stderr}")
             return False
-    
+
     except Exception as e:
         print(f"❌ Quick functionality test: ERROR - {e}")
         return False
@@ -323,7 +322,7 @@ def main():
     """Main validation function."""
     print("🚀 JAF Python Package Validation")
     print("=" * 50)
-    
+
     all_checks = [
         ("Package Structure", validate_package_structure),
         ("Imports", validate_imports),
@@ -333,9 +332,9 @@ def main():
         ("Examples", validate_examples),
         ("Quick Tests", run_quick_tests),
     ]
-    
+
     results = []
-    
+
     for check_name, check_func in all_checks:
         print()
         try:
@@ -344,14 +343,14 @@ def main():
         except Exception as e:
             print(f"❌ {check_name}: EXCEPTION - {e}")
             results.append((check_name, False))
-    
+
     print("\n" + "=" * 50)
     print("📊 VALIDATION SUMMARY")
     print("=" * 50)
-    
+
     passed = 0
     failed = 0
-    
+
     for check_name, result in results:
         status = "✅ PASSED" if result else "❌ FAILED"
         print(f"{check_name:20} {status}")
@@ -359,10 +358,10 @@ def main():
             passed += 1
         else:
             failed += 1
-    
+
     print("-" * 50)
     print(f"Total: {passed + failed} | Passed: {passed} | Failed: {failed}")
-    
+
     if failed == 0:
         print("\n🎉 ALL VALIDATIONS PASSED! Package is ready for production.")
         return 0

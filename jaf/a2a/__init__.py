@@ -27,136 +27,169 @@ server = await start_a2a_server(server_config)
 """
 
 # Core A2A Types
-from .types import (
-    # Core A2A protocol types
-    A2AMessage, A2ATask, A2AAgent, A2AAgentTool, A2AArtifact,
-    A2ATaskStatus, A2APart, A2AStreamEvent, A2AError, A2AErrorCodes,
-    
-    # JSON-RPC types
-    JSONRPCRequest, JSONRPCResponse, JSONRPCError,
-    SendMessageRequest, SendStreamingMessageRequest, GetTaskRequest,
-    
-    # Agent and configuration types
-    AgentCard, AgentSkill, AgentCapabilities, AgentProvider,
-    A2AServerConfig, A2AClientConfig, A2AClientState,
-    MessageSendConfiguration, ToolContext, A2AToolResult,
-    
-    # Stream and state types
-    AgentState, StreamEvent, TaskState,
-    
-    # Factory functions
-    create_a2a_message, create_a2a_task, create_a2a_agent_tool,
-    create_a2a_artifact, create_a2a_text_part, create_a2a_data_part,
-    create_jsonrpc_request, create_jsonrpc_success_response,
-    create_jsonrpc_error_response, create_a2a_error
-)
-
 # Agent utilities
 from .agent import (
-    # Agent creation
-    create_a2a_agent, create_a2a_tool,
-    
-    # Agent transformation
-    transform_a2a_agent_to_jaf, transform_a2a_tool_to_jaf,
-    
-    # State management
-    create_initial_agent_state, add_message_to_state,
-    update_state_from_run_result, create_user_message,
-    
-    # Message processing
-    process_agent_query, extract_text_from_a2a_message,
-    create_a2a_text_message, create_a2a_data_message,
-    
-    # Task management
-    create_a2a_task, update_a2a_task_status, add_artifact_to_a2a_task,
+    add_artifact_to_a2a_task,
+    add_message_to_state,
     complete_a2a_task,
-    
-    # Execution functions
-    execute_a2a_agent, execute_a2a_agent_with_streaming,
-    
+    # Agent creation
+    create_a2a_agent,
+    create_a2a_data_message,
+    # Task management
+    create_a2a_task,
+    create_a2a_text_message,
+    create_a2a_tool,
+    # State management
+    create_initial_agent_state,
     # Configuration
-    create_run_config_for_a2a_agent, transform_to_run_state
-)
-
-# Protocol handlers
-from .protocol import (
-    # Validation
-    validate_jsonrpc_request, validate_send_message_request,
-    
-    # Request handlers
-    handle_message_send, handle_message_stream,
-    handle_tasks_get, handle_tasks_cancel,
-    handle_get_authenticated_extended_card,
-    
-    # Response utilities
-    create_jsonrpc_success_response_dict, create_jsonrpc_error_response_dict,
-    map_error_to_a2a_error,
-    
-    # Routing
-    route_a2a_request, create_protocol_handler_config
+    create_run_config_for_a2a_agent,
+    create_user_message,
+    # Execution functions
+    execute_a2a_agent,
+    execute_a2a_agent_with_streaming,
+    extract_text_from_a2a_message,
+    # Message processing
+    process_agent_query,
+    # Agent transformation
+    transform_a2a_agent_to_jaf,
+    transform_a2a_tool_to_jaf,
+    transform_to_run_state,
+    update_a2a_task_status,
+    update_state_from_run_result,
 )
 
 # Agent Card generation
 from .agent_card import (
+    create_agent_card_from_config,
+    create_minimal_agent_card,
     # Agent card generation
-    generate_agent_card, generate_agent_card_for_agent,
-    create_minimal_agent_card, create_agent_card_from_config,
-    
-    # Skills generation
-    generate_skills_from_agents, generate_examples_for_agent,
+    generate_agent_card,
+    generate_agent_card_for_agent,
+    generate_examples_for_agent,
     generate_examples_for_tool,
-    
+    generate_security_requirements,
     # Security
-    generate_security_schemes, generate_security_requirements,
-    
-    # Validation
-    validate_agent_card, is_valid_url,
-    
+    generate_security_schemes,
+    # Skills generation
+    generate_skills_from_agents,
+    is_valid_url,
     # Utilities
-    merge_agent_cards
+    merge_agent_cards,
+    # Validation
+    validate_agent_card,
+)
+
+# Client functionality
+from .client import (
+    # Health and capabilities
+    check_a2a_health,
+    connect_to_a2a_agent,
+    # Client creation
+    create_a2a_client,
+    # Utilities
+    create_a2a_message_dict,
+    # Request creation
+    create_message_request,
+    create_streaming_message_request,
+    discover_agents,
+    # Response processing
+    extract_text_response,
+    get_a2a_capabilities,
+    # Discovery
+    get_agent_card,
+    parse_sse_event,
+    send_a2a_request,
+    # HTTP utilities
+    send_http_request,
+    # Message handling
+    send_message,
+    send_message_to_agent,
+    stream_message,
+    stream_message_to_agent,
+    validate_a2a_response,
+)
+
+# Protocol handlers
+from .protocol import (
+    create_jsonrpc_error_response_dict,
+    # Response utilities
+    create_jsonrpc_success_response_dict,
+    create_protocol_handler_config,
+    handle_get_authenticated_extended_card,
+    # Request handlers
+    handle_message_send,
+    handle_message_stream,
+    handle_tasks_cancel,
+    handle_tasks_get,
+    map_error_to_a2a_error,
+    # Routing
+    route_a2a_request,
+    # Validation
+    validate_jsonrpc_request,
+    validate_send_message_request,
 )
 
 # Server functionality
 from .server import (
     # Server creation
-    create_a2a_server, create_fastapi_app, start_a2a_server,
-    
+    create_a2a_server,
     # Configuration
-    create_a2a_server_config, create_server_config,
-    
+    create_a2a_server_config,
+    create_fastapi_app,
+    create_server_config,
+    handle_a2a_request_for_agent,
+    # Request handling
+    handle_a2a_request_internal,
+    route_a2a_request_wrapper,
     # Route setup
     setup_a2a_routes,
-    
-    # Request handling
-    handle_a2a_request_internal, handle_a2a_request_for_agent,
-    route_a2a_request_wrapper
+    start_a2a_server,
 )
-
-# Client functionality
-from .client import (
-    # Client creation
-    create_a2a_client, connect_to_a2a_agent,
-    
-    # Message handling
-    send_message, stream_message, send_message_to_agent, stream_message_to_agent,
-    
-    # Request creation
-    create_message_request, create_streaming_message_request,
-    
-    # HTTP utilities
-    send_http_request, send_a2a_request,
-    
-    # Discovery
-    get_agent_card, discover_agents,
-    
-    # Health and capabilities
-    check_a2a_health, get_a2a_capabilities,
-    
-    # Response processing
-    extract_text_response,
-    
-    # Utilities
-    create_a2a_message_dict, parse_sse_event, validate_a2a_response
+from .types import (
+    A2AAgent,
+    A2AAgentTool,
+    A2AArtifact,
+    A2AClientConfig,
+    A2AClientState,
+    A2AError,
+    A2AErrorCodes,
+    # Core A2A protocol types
+    A2AMessage,
+    A2APart,
+    A2AServerConfig,
+    A2AStreamEvent,
+    A2ATask,
+    A2ATaskStatus,
+    A2AToolResult,
+    AgentCapabilities,
+    # Agent and configuration types
+    AgentCard,
+    AgentProvider,
+    AgentSkill,
+    # Stream and state types
+    AgentState,
+    GetTaskRequest,
+    JSONRPCError,
+    # JSON-RPC types
+    JSONRPCRequest,
+    JSONRPCResponse,
+    MessageSendConfiguration,
+    SendMessageRequest,
+    SendStreamingMessageRequest,
+    StreamEvent,
+    TaskState,
+    ToolContext,
+    create_a2a_agent_tool,
+    create_a2a_artifact,
+    create_a2a_data_part,
+    create_a2a_error,
+    # Factory functions
+    create_a2a_message,
+    create_a2a_task,
+    create_a2a_text_part,
+    create_jsonrpc_error_response,
+    create_jsonrpc_request,
+    create_jsonrpc_success_response,
 )
 
 # Main exports for easy access
@@ -167,20 +200,20 @@ __all__ = [
     "JSONRPCRequest", "JSONRPCResponse", "JSONRPCError",
     "AgentCard", "AgentSkill", "AgentCapabilities", "AgentProvider",
     "A2AServerConfig", "A2AClientConfig", "A2AClientState",
-    
+
     # Agent utilities
     "create_a2a_agent", "create_a2a_tool", "transform_a2a_agent_to_jaf",
     "process_agent_query", "execute_a2a_agent", "execute_a2a_agent_with_streaming",
-    
+
     # Protocol
     "validate_jsonrpc_request", "route_a2a_request",
-    
+
     # Agent Card
     "generate_agent_card", "validate_agent_card",
-    
+
     # Server
     "create_a2a_server", "start_a2a_server", "create_server_config",
-    
+
     # Client
     "create_a2a_client", "connect_to_a2a_agent", "send_message",
     "stream_message", "discover_agents"
@@ -201,32 +234,32 @@ class A2A:
         server = A2A.server(agents, "My Server", "Description", 3000)
         await server.start()
     """
-    
+
     @staticmethod
     def client(base_url: str, config=None):
         """Create A2A client with convenient methods"""
         return create_a2a_client(base_url, config)
-    
+
     @staticmethod
     async def connect(base_url: str):
         """Connect to A2A agent with full capabilities"""
         return await connect_to_a2a_agent(base_url)
-    
+
     @staticmethod
     def agent(name: str, description: str, instruction: str, tools=None):
         """Create A2A agent"""
         return create_a2a_agent(name, description, instruction, tools or [])
-    
+
     @staticmethod
     def server(agents: dict, name: str, description: str, port: int, **kwargs):
         """Create A2A server configuration"""
         return create_server_config(agents, name, description, port, **kwargs)
-    
+
     @staticmethod
     async def start_server(config: dict):
         """Start A2A server"""
         return await start_a2a_server(config)
-    
+
     @staticmethod
     def tool(name: str, description: str, parameters: dict, execute_func):
         """Create A2A tool"""
@@ -243,7 +276,7 @@ __description__ = "Agent-to-Agent Communication Protocol for JAF"
 A2A_PROTOCOL_VERSION = "0.3.0"
 A2A_SUPPORTED_METHODS = [
     "message/send",
-    "message/stream", 
+    "message/stream",
     "tasks/get",
     "tasks/cancel",
     "agent/getAuthenticatedExtendedCard"

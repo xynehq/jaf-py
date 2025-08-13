@@ -5,17 +5,24 @@ This module defines all the fundamental data structures and types used throughou
 the framework, maintaining immutability and type safety.
 """
 
-from typing import (
-    TypeVar, Generic, Dict, List, Optional, Union, Callable, Any, 
-    Protocol, runtime_checkable, Awaitable, NewType, Literal, Tuple
-)
+from collections.abc import Awaitable
 
 # ReadOnly is only available in Python 3.13+, so we'll use a simpler approach
 from dataclasses import dataclass, field
-from abc import ABC, abstractmethod
-import json
-from pydantic import BaseModel, Field, ConfigDict
-from enum import Enum
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generic,
+    List,
+    Literal,
+    Optional,
+    Protocol,
+    TypeVar,
+    Union,
+    runtime_checkable,
+)
+
 
 # Branded types for type safety - using class-based approach for better type safety
 class TraceId(str):
@@ -38,14 +45,14 @@ def create_run_id(id_str: str) -> RunId:
 
 def generate_run_id() -> RunId:
     """Generate a new unique run ID."""
-    import uuid
     import time
+    import uuid
     return RunId(f"run_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}")
 
 def generate_trace_id() -> TraceId:
     """Generate a new unique trace ID."""
-    import uuid
     import time
+    import uuid
     return TraceId(f"trace_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}")
 
 # Type variables for generic contexts and outputs
@@ -105,12 +112,12 @@ class ToolSchema(Generic[Args]):
 @runtime_checkable
 class Tool(Protocol[Args, Ctx]):
     """Protocol for tool implementations."""
-    
+
     @property
     def schema(self) -> ToolSchema[Args]:
         """Tool schema including name, description, and parameter validation."""
         ...
-    
+
     async def execute(self, args: Args, context: Ctx) -> Union[str, 'ToolResult']:
         """Execute the tool with given arguments and context."""
         ...
@@ -183,7 +190,7 @@ class AgentNotFound:
 # Union type for all possible errors
 JAFError = Union[
     MaxTurnsExceeded,
-    ModelBehaviorError, 
+    ModelBehaviorError,
     DecodeError,
     InputGuardrailTripwire,
     OutputGuardrailTripwire,
@@ -316,7 +323,7 @@ class ModelCompletionResponse:
 @runtime_checkable
 class ModelProvider(Protocol[Ctx]):
     """Protocol for model providers."""
-    
+
     async def get_completion(
         self,
         state: RunState[Ctx],

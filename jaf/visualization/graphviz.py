@@ -6,17 +6,13 @@ Provides the core functionality to generate visual representations of agent
 architectures, tool ecosystems, and system relationships.
 """
 
-import asyncio
-from typing import List, Dict, Any, Optional, Union
+# ========== Color Schemes (Immutable Constants) ==========
+from typing import Any, Dict, Final, List, Optional
+
 from graphviz import Digraph
 
 from ..core.types import Agent, Tool
-from .types import GraphOptions, GraphResult, NodeStyle, EdgeStyle, ColorSchemeConfig
-
-
-# ========== Color Schemes (Immutable Constants) ==========
-
-from typing import Final
+from .types import GraphOptions, GraphResult
 
 COLOR_SCHEMES: Final[Dict[str, Dict[str, Any]]] = {
     'default': {
@@ -136,10 +132,10 @@ async def generate_agent_graph(
     """
     from .functional_core import create_agent_graph_spec
     from .imperative_shell import render_graph_spec
-    
+
     try:
         opts = options or GraphOptions()
-        
+
         # Validate options (pure function)
         errors = validate_graph_options(opts)
         if errors:
@@ -147,16 +143,16 @@ async def generate_agent_graph(
                 success=False,
                 error=f"Invalid options: {', '.join(errors)}"
             )
-        
+
         # Get color scheme (immutable data)
         styles = COLOR_SCHEMES[opts.color_scheme]
-        
+
         # Create pure graph specification (functional core)
         graph_spec = create_agent_graph_spec(agents, opts, styles)
-        
+
         # Render graph using imperative shell
         return render_graph_spec(graph_spec, opts, 'AgentGraph')
-        
+
     except Exception as error:
         return GraphResult(
             success=False,
@@ -180,13 +176,13 @@ async def generate_tool_graph(
     """
     from .functional_core import create_tool_graph_spec
     from .imperative_shell import render_graph_spec
-    
+
     try:
         opts = options or GraphOptions(
             title="JAF Tool Graph",
             layout='circo'
         )
-        
+
         # Validate options (pure function)
         errors = validate_graph_options(opts)
         if errors:
@@ -194,16 +190,16 @@ async def generate_tool_graph(
                 success=False,
                 error=f"Invalid options: {', '.join(errors)}"
             )
-        
+
         # Get color scheme (immutable data)
         styles = COLOR_SCHEMES[opts.color_scheme]
-        
+
         # Create pure graph specification (functional core)
         graph_spec = create_tool_graph_spec(tools, opts, styles)
-        
+
         # Render graph using imperative shell
         return render_graph_spec(graph_spec, opts, 'ToolGraph')
-        
+
     except Exception as error:
         return GraphResult(
             success=False,
@@ -230,7 +226,7 @@ async def generate_runner_graph(
             title="JAF Runner Architecture",
             color_scheme='modern'
         )
-        
+
         # Validate options
         errors = validate_graph_options(opts)
         if errors:
@@ -238,13 +234,13 @@ async def generate_runner_graph(
                 success=False,
                 error=f"Invalid options: {', '.join(errors)}"
             )
-        
+
         # Create digraph
         graph = Digraph('RunnerGraph', comment=opts.title)
         graph.attr('graph', compound='true')
-        
+
         # Set graph attributes
-        graph.attr('graph', 
+        graph.attr('graph',
                   rankdir=opts.rankdir,
                   label=opts.title or '',
                   labelloc='t',
@@ -252,28 +248,28 @@ async def generate_runner_graph(
                   fontname='Arial Bold',
                   bgcolor='white',
                   pad='0.5')
-        
+
         # Get color scheme
         styles = COLOR_SCHEMES[opts.color_scheme]
-        
+
         # Create clusters for different components
         with graph.subgraph(name='cluster_agents') as agent_cluster:
             agent_cluster.attr(label='Agents')
             agent_cluster.attr(style='filled')
             agent_cluster.attr(fillcolor='#f8f9fa')
-            
+
             # Add agents to cluster
             for agent_name, agent in agent_registry.items():
                 # Create agent label
                 model_name = getattr(agent.model_config, 'name', 'default') if agent.model_config else 'default'
                 label = f"{agent.name}\\n({model_name})"
-                
+
                 if opts.show_tool_details and agent.tools:
                     label += f"\\n{len(agent.tools)} tools"
-                
+
                 if agent.handoffs:
                     label += f"\\n{len(agent.handoffs)} handoffs"
-                
+
                 # Add agent node
                 agent_cluster.node(
                     agent.name,
@@ -283,12 +279,12 @@ async def generate_runner_graph(
                     fontcolor=styles['agent']['fontcolor'],
                     style=styles['agent']['style']
                 )
-        
+
         with graph.subgraph(name='cluster_session') as session_cluster:
             session_cluster.attr(label='Session Layer')
             session_cluster.attr(style='filled')
             session_cluster.attr(fillcolor='#fff3cd')
-            
+
             # Add session provider
             session_cluster.node(
                 'session_provider',
@@ -298,7 +294,7 @@ async def generate_runner_graph(
                 fontcolor='black',
                 style='filled,rounded'
             )
-        
+
         # Add runner node
         graph.node(
             'runner',
@@ -310,31 +306,31 @@ async def generate_runner_graph(
             fontsize='14',
             fontname='Arial Bold'
         )
-        
+
         # Add edges
-        for agent_name in agent_registry.keys():
-            graph.edge('runner', agent_name, color=styles['edge']['color'], 
+        for agent_name in agent_registry:
+            graph.edge('runner', agent_name, color=styles['edge']['color'],
                       style=styles['edge']['style'], label='executes')
-        
+
         graph.edge('runner', 'session_provider', color='#ffc107',
                   style='dashed', label='manages')
-        
+
         # Generate output
         output_path = opts.output_path or f"./runner-graph.{opts.output_format}"
-        
+
         # Render the graph
         graph.render(
             filename=output_path.replace(f'.{opts.output_format}', ''),
             format=opts.output_format,
             cleanup=True
         )
-        
+
         return GraphResult(
             success=True,
             output_path=output_path,
             graph_dot=graph.source
         )
-        
+
     except Exception as error:
         return GraphResult(
             success=False,
@@ -359,23 +355,23 @@ def validate_graph_options(options: GraphOptions) -> List[str]:
         List of validation error messages
     """
     errors = []
-    
+
     valid_layouts = ['dot', 'neato', 'fdp', 'circo', 'twopi']
     if options.layout not in valid_layouts:
         errors.append(f"Invalid layout '{options.layout}'. Must be one of: {valid_layouts}")
-    
+
     valid_rankdirs = ['TB', 'LR', 'BT', 'RL']
     if options.rankdir not in valid_rankdirs:
         errors.append(f"Invalid rankdir '{options.rankdir}'. Must be one of: {valid_rankdirs}")
-    
+
     valid_formats = ['png', 'svg', 'pdf']
     if options.output_format not in valid_formats:
         errors.append(f"Invalid output_format '{options.output_format}'. Must be one of: {valid_formats}")
-    
+
     valid_schemes = ['default', 'modern', 'minimal']
     if options.color_scheme not in valid_schemes:
         errors.append(f"Invalid color_scheme '{options.color_scheme}'. Must be one of: {valid_schemes}")
-    
+
     return errors
 
 
@@ -394,14 +390,14 @@ def get_graph_dot(agents: List[Agent], options: Optional[GraphOptions] = None) -
     """
     from .functional_core import create_agent_graph_spec
     from .imperative_shell import graph_spec_to_dot
-    
+
     opts = options or GraphOptions()
-    
+
     # Get color scheme (immutable data)
     styles = COLOR_SCHEMES[opts.color_scheme]
-    
+
     # Create pure graph specification (functional core)
     graph_spec = create_agent_graph_spec(agents, opts, styles)
-    
+
     # Convert to DOT using imperative shell (no file system side effects)
     return graph_spec_to_dot(graph_spec, 'AgentGraph')

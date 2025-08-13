@@ -10,9 +10,9 @@ This follows the functional core, imperative shell pattern where:
 - All side effects are contained here in the imperative shell
 """
 
-from typing import Dict, Any
 from graphviz import Digraph
-from .functional_core import GraphSpec, NodeSpec, EdgeSpec
+
+from .functional_core import GraphSpec
 from .types import GraphOptions, GraphResult
 
 
@@ -23,15 +23,15 @@ def apply_graph_spec_to_digraph(spec: GraphSpec, digraph: Digraph) -> Digraph:
     """
     # Apply graph attributes
     digraph.attr('graph', **spec.graph_attributes)
-    
+
     # Add all nodes
     for node in spec.nodes:
         digraph.node(node.id, **node.attributes)
-    
+
     # Add all edges
     for edge in spec.edges:
         digraph.edge(edge.from_node, edge.to_node, **edge.attributes)
-    
+
     return digraph
 
 
@@ -47,26 +47,26 @@ def render_graph_spec(
     try:
         # Create fresh Digraph
         graph = Digraph(graph_name, comment=spec.title)
-        
+
         # Apply the pure specification
         apply_graph_spec_to_digraph(spec, graph)
-        
+
         # Handle output path
         output_path = options.output_path or f"./{graph_name.lower()}.{options.output_format}"
-        
+
         # Render (side effect)
         graph.render(
             filename=output_path.replace(f'.{options.output_format}', ''),
             format=options.output_format,
             cleanup=True
         )
-        
+
         return GraphResult(
             success=True,
             output_path=output_path,
             graph_dot=graph.source
         )
-        
+
     except Exception as error:
         return GraphResult(
             success=False,
@@ -81,9 +81,9 @@ def graph_spec_to_dot(spec: GraphSpec, graph_name: str = 'Graph') -> str:
     """
     # Create fresh Digraph
     graph = Digraph(graph_name, comment=spec.title)
-    
+
     # Apply the pure specification
     apply_graph_spec_to_digraph(spec, graph)
-    
+
     # Return DOT source (no side effects)
     return graph.source

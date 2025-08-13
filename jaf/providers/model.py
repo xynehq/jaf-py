@@ -5,12 +5,12 @@ This module provides model providers that integrate with various LLM services,
 starting with LiteLLM for multi-provider support.
 """
 
-import json
-from typing import Any, Dict, List, Optional, TypeVar, Union
+from typing import Any, Dict, TypeVar
+
 from openai import OpenAI
 from pydantic import BaseModel
 
-from ..core.types import ModelProvider, RunState, Agent, RunConfig, Message
+from ..core.types import Agent, Message, ModelProvider, RunConfig, RunState
 
 Ctx = TypeVar('Ctx')
 
@@ -28,7 +28,7 @@ def make_litellm_provider(
     Returns:
         ModelProvider instance
     """
-    
+
     class LiteLLMProvider:
         def __init__(self):
             # Default to "anything" if api_key is not provided, for local servers
@@ -38,7 +38,7 @@ def make_litellm_provider(
                 api_key=effective_api_key,
                 # Note: dangerouslyAllowBrowser is JavaScript-specific
             )
-        
+
         async def get_completion(
             self,
             state: RunState[Ctx],
@@ -46,22 +46,22 @@ def make_litellm_provider(
             config: RunConfig[Ctx]
         ) -> Dict[str, Any]:
             """Get completion from the model."""
-            
+
             # Determine model to use
-            model = (config.model_override or 
+            model = (config.model_override or
                     (agent.model_config.name if agent.model_config else "gpt-4o"))
-            
+
             # Create system message
             system_message = {
                 "role": "system",
                 "content": agent.instructions(state)
             }
-            
+
             # Convert messages to OpenAI format
             messages = [system_message] + [
                 _convert_message(msg) for msg in state.messages
             ]
-            
+
             # Convert tools to OpenAI format
             tools = None
             if agent.tools:
@@ -76,38 +76,38 @@ def make_litellm_provider(
                     }
                     for tool in agent.tools
                 ]
-            
+
             # Determine tool choice behavior
             last_message = state.messages[-1] if state.messages else None
             is_after_tool_call = last_message and last_message.role == 'tool'
-            
+
             # Prepare request parameters
             request_params = {
                 "model": model,
                 "messages": messages,
             }
-            
+
             # Add optional parameters
             if agent.model_config:
                 if agent.model_config.temperature is not None:
                     request_params["temperature"] = agent.model_config.temperature
                 if agent.model_config.max_tokens is not None:
                     request_params["max_tokens"] = agent.model_config.max_tokens
-            
+
             if tools:
                 request_params["tools"] = tools
                 if is_after_tool_call:
                     request_params["tool_choice"] = "auto"
-            
+
             if agent.output_codec:
                 request_params["response_format"] = {"type": "json_object"}
-            
+
             # Make the API call
             response = self.client.chat.completions.create(**request_params)
-            
+
             # Return in the expected format that the engine expects
             choice = response.choices[0]
-            
+
             # Convert tool_calls to dict format if present
             tool_calls = None
             if choice.message.tool_calls:
@@ -122,14 +122,14 @@ def make_litellm_provider(
                     }
                     for tc in choice.message.tool_calls
                 ]
-            
+
             return {
                 'message': {
                     'content': choice.message.content,
                     'tool_calls': tool_calls
                 }
             }
-    
+
     return LiteLLMProvider()
 
 def _convert_message(msg: Message) -> Dict[str, Any]:
@@ -182,21 +182,21 @@ def _pydantic_to_json_schema(model_class: type[BaseModel]) -> Dict[str, Any]:
     else:
         # Pydantic v1 fallback
         schema = model_class.schema()
-    
+
     # Ensure the schema has the required fields for OpenAI
     if 'type' not in schema:
         schema['type'] = 'object'
-    
+
     # Remove any unsupported fields
     clean_schema = {
         'type': schema.get('type', 'object'),
         'properties': schema.get('properties', {}),
     }
-    
+
     if 'required' in schema:
         clean_schema['required'] = schema['required']
-    
+
     # Set additionalProperties to false for strict validation
     clean_schema['additionalProperties'] = False
-    
+
     return clean_schema

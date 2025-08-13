@@ -5,12 +5,12 @@ This module provides a consistent interface for tool execution results,
 error handling, and metadata tracking.
 """
 
-from typing import Any, Dict, List, Optional, Callable, Awaitable, Union, TypeVar, Generic, Literal
-from dataclasses import dataclass
-from enum import Enum
 import json
 import time
 import traceback
+from collections.abc import Awaitable
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, Generic, List, Literal, Optional, TypeVar, Union
 
 T = TypeVar('T')
 TArgs = TypeVar('TArgs')
@@ -34,7 +34,7 @@ class ToolMetadata:
     tool_name: Optional[str] = None
     # Allow additional fields
     extra: Optional[Dict[str, Any]] = None
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         result = {}
@@ -61,26 +61,26 @@ class ToolErrorCodes:
     INVALID_INPUT = 'INVALID_INPUT'
     MISSING_REQUIRED_FIELD = 'MISSING_REQUIRED_FIELD'
     INVALID_FORMAT = 'INVALID_FORMAT'
-    
+
     # Permission errors
     PERMISSION_DENIED = 'PERMISSION_DENIED'
     INSUFFICIENT_PERMISSIONS = 'INSUFFICIENT_PERMISSIONS'
-    
+
     # Resource errors
     NOT_FOUND = 'NOT_FOUND'
     RESOURCE_UNAVAILABLE = 'RESOURCE_UNAVAILABLE'
-    
+
     # Execution errors
     EXECUTION_FAILED = 'EXECUTION_FAILED'
     TIMEOUT = 'TIMEOUT'
     EXTERNAL_SERVICE_ERROR = 'EXTERNAL_SERVICE_ERROR'
-    
+
     # Generic
     UNKNOWN_ERROR = 'UNKNOWN_ERROR'
 
 class ToolResponse:
     """Helper functions for creating standardized tool results."""
-    
+
     @staticmethod
     def success(data: T, metadata: Optional[Dict[str, Any]] = None) -> ToolResult[T]:
         """Create a successful tool result."""
@@ -89,16 +89,16 @@ class ToolResponse:
             tool_metadata = ToolMetadata(
                 execution_time_ms=metadata.get('executionTimeMs'),
                 tool_name=metadata.get('toolName'),
-                extra={k: v for k, v in metadata.items() 
+                extra={k: v for k, v in metadata.items()
                       if k not in ['executionTimeMs', 'toolName']}
             )
-        
+
         return ToolResult(
             status='success',
             data=data,
             metadata=tool_metadata
         )
-    
+
     @staticmethod
     def error(
         code: str,
@@ -112,16 +112,16 @@ class ToolResponse:
             tool_metadata = ToolMetadata(
                 execution_time_ms=metadata.get('executionTimeMs'),
                 tool_name=metadata.get('toolName'),
-                extra={k: v for k, v in metadata.items() 
+                extra={k: v for k, v in metadata.items()
                       if k not in ['executionTimeMs', 'toolName']}
             )
-        
+
         return ToolResult(
             status='error',
             error=ToolErrorInfo(code=code, message=message, details=details),
             metadata=tool_metadata
         )
-    
+
     @staticmethod
     def validation_error(
         message: str,
@@ -134,10 +134,10 @@ class ToolResponse:
             tool_metadata = ToolMetadata(
                 execution_time_ms=metadata.get('executionTimeMs'),
                 tool_name=metadata.get('toolName'),
-                extra={k: v for k, v in metadata.items() 
+                extra={k: v for k, v in metadata.items()
                       if k not in ['executionTimeMs', 'toolName']}
             )
-        
+
         return ToolResult(
             status='validation_error',
             error=ToolErrorInfo(
@@ -147,7 +147,7 @@ class ToolResponse:
             ),
             metadata=tool_metadata
         )
-    
+
     @staticmethod
     def permission_denied(
         message: str,
@@ -160,10 +160,10 @@ class ToolResponse:
             tool_metadata = ToolMetadata(
                 execution_time_ms=metadata.get('executionTimeMs'),
                 tool_name=metadata.get('toolName'),
-                extra={k: v for k, v in metadata.items() 
+                extra={k: v for k, v in metadata.items()
                       if k not in ['executionTimeMs', 'toolName']}
             )
-        
+
         return ToolResult(
             status='permission_denied',
             error=ToolErrorInfo(
@@ -173,7 +173,7 @@ class ToolResponse:
             ),
             metadata=tool_metadata
         )
-    
+
     @staticmethod
     def not_found(
         resource: str,
@@ -184,16 +184,16 @@ class ToolResponse:
         message = f"{resource} not found"
         if identifier:
             message += f": {identifier}"
-        
+
         tool_metadata = None
         if metadata:
             tool_metadata = ToolMetadata(
                 execution_time_ms=metadata.get('executionTimeMs'),
                 tool_name=metadata.get('toolName'),
-                extra={k: v for k, v in metadata.items() 
+                extra={k: v for k, v in metadata.items()
                       if k not in ['executionTimeMs', 'toolName']}
             )
-        
+
         return ToolResult(
             status='not_found',
             error=ToolErrorInfo(
@@ -220,27 +220,27 @@ def with_error_handling(
     """
     async def wrapper(args: TArgs, context: TContext) -> ToolResult[TResult]:
         start_time = time.time() * 1000  # Convert to milliseconds like TypeScript Date.now()
-        
+
         try:
             print(f"[TOOL:{tool_name}] Starting execution with args:", args)
-            
+
             # Handle both sync and async executors
             result = executor(args, context)
             if hasattr(result, '__await__'):  # Check if it's awaitable
                 result = await result
-            
+
             execution_time = int(time.time() * 1000 - start_time)
             print(f"[TOOL:{tool_name}] Completed successfully in {execution_time}ms")
-            
+
             return ToolResponse.success(result, {
                 'executionTimeMs': execution_time,
                 'toolName': tool_name
             })
-            
+
         except Exception as error:
             execution_time = int(time.time() * 1000 - start_time)
             print(f"[TOOL:{tool_name}] Failed after {execution_time}ms:", error)
-            
+
             if isinstance(error, Exception):
                 return ToolResponse.error(
                     ToolErrorCodes.EXECUTION_FAILED,
@@ -248,14 +248,14 @@ def with_error_handling(
                     {'stack': traceback.format_exc()},
                     {'executionTimeMs': execution_time, 'toolName': tool_name}
                 )
-            
+
             return ToolResponse.error(
                 ToolErrorCodes.UNKNOWN_ERROR,
                 'Unknown error occurred',
                 error,
                 {'executionTimeMs': execution_time, 'toolName': tool_name}
             )
-    
+
     return wrapper
 
 def require_permissions(
@@ -273,24 +273,22 @@ def require_permissions(
     def check_permissions(context: TContext) -> Optional[ToolResult[None]]:
         # Try to get permissions from context
         user_permissions = getattr(context, 'permissions', None)
-        if user_permissions is None:
+        if user_permissions is None or not isinstance(user_permissions, list):
             user_permissions = []
-        elif not isinstance(user_permissions, list):
-            user_permissions = []
-        
+
         missing_permissions = [
-            perm for perm in required_permissions 
+            perm for perm in required_permissions
             if perm not in user_permissions
         ]
-        
+
         if missing_permissions:
             return ToolResponse.permission_denied(
                 f"Missing required permissions: {', '.join(missing_permissions)}",
                 required_permissions
             )
-        
+
         return None  # No error
-    
+
     return check_permissions
 
 def tool_result_to_string(result: ToolResult[Any]) -> str:
@@ -307,18 +305,18 @@ def tool_result_to_string(result: ToolResult[Any]) -> str:
         if isinstance(result.data, str):
             return result.data
         return json.dumps(result.data, default=str)
-    
+
     # For errors, return a structured error message
     error_obj = {
         'error': result.status,
         'code': result.error.code if result.error else 'UNKNOWN',
         'message': result.error.message if result.error else 'Unknown error',
     }
-    
+
     if result.error and result.error.details:
         error_obj['details'] = result.error.details
-    
+
     if result.metadata:
         error_obj['metadata'] = result.metadata.to_dict()
-    
+
     return json.dumps(error_obj, indent=2, default=str)

@@ -6,15 +6,22 @@ configuration, enabling flexible deployment across different storage backends.
 """
 
 import os
-from typing import Optional, Dict, Any, Union
+from typing import Any, Dict, Optional
 
-from .types import (
-    MemoryProvider, InMemoryConfig, RedisConfig, PostgresConfig,
-    Result, Success, Failure, MemoryConnectionError
-)
 from .providers.in_memory import create_in_memory_provider
-from .providers.redis import create_redis_provider
 from .providers.postgres import create_postgres_provider
+from .providers.redis import create_redis_provider
+from .types import (
+    Failure,
+    InMemoryConfig,
+    MemoryConnectionError,
+    MemoryProvider,
+    PostgresConfig,
+    RedisConfig,
+    Result,
+    Success,
+)
+
 
 async def create_memory_provider_from_env(
     external_clients: Optional[Dict[str, Any]] = None
@@ -24,14 +31,14 @@ async def create_memory_provider_from_env(
     """
     memory_type = os.getenv("JAF_MEMORY_TYPE", "memory").lower()
     external_clients = external_clients or {}
-    
+
     if memory_type == "memory":
         config = InMemoryConfig(
             max_conversations=int(os.getenv("JAF_MEMORY_MAX_CONVERSATIONS", "1000")),
             max_messages_per_conversation=int(os.getenv("JAF_MEMORY_MAX_MESSAGES", "1000"))
         )
         return Success(create_in_memory_provider(config))
-    
+
     elif memory_type == "redis":
         redis_password = os.getenv("JAF_REDIS_PASSWORD")
         config_data = {
@@ -44,10 +51,10 @@ async def create_memory_provider_from_env(
         }
         if redis_password:
             config_data["password"] = redis_password
-            
+
         config = RedisConfig(**config_data)
         return await create_redis_provider(config)
-        
+
     elif memory_type == "postgres":
         connection_string = os.getenv("JAF_POSTGRES_CONNECTION_STRING")
         config_data = {
@@ -62,9 +69,9 @@ async def create_memory_provider_from_env(
         }
         if connection_string:
             config_data["connection_string"] = connection_string
-            
+
         config = PostgresConfig(**config_data)
         return await create_postgres_provider(config)
-        
+
     else:
         return Failure(MemoryConnectionError(f"Unsupported memory type: {memory_type}", "Factory"))

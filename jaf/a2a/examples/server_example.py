@@ -16,24 +16,25 @@ The server will start on http://localhost:3000 with the following endpoints:
 """
 
 import asyncio
-import json
-from typing import Dict, Any, Optional
+from typing import Any, Dict
+
 from pydantic import BaseModel, Field
 
-# Import A2A functionality
-from jaf.a2a.types import A2AAgent, A2AAgentTool
 from jaf.a2a.agent import create_a2a_agent, create_a2a_tool
-from jaf.a2a.server import create_server_config, create_a2a_server
+from jaf.a2a.server import create_a2a_server, create_server_config
+
+# Import A2A functionality
+
 
 # Mock model provider for demonstration
 class MockModelProvider:
     """Mock model provider for testing"""
-    
+
     async def get_completion(self, state, agent, config):
         # Simple mock responses based on agent type
         agent_name = agent.name.lower()
         last_message = state.messages[-1].content if state.messages else ""
-        
+
         if "math" in agent_name:
             return {
                 "message": {
@@ -80,7 +81,7 @@ async def calculator_tool(args: CalculateArgs, context) -> Dict[str, Any]:
     """Safe calculator tool using AST parsing"""
     import ast
     import operator
-    
+
     # Allowed operations for safe calculation
     allowed_operators = {
         ast.Add: operator.add,
@@ -92,14 +93,14 @@ async def calculator_tool(args: CalculateArgs, context) -> Dict[str, Any]:
         ast.USub: operator.neg,
         ast.UAdd: operator.pos,
     }
-    
+
     allowed_functions = {
         'abs': abs,
         'round': round,
         'min': min,
         'max': max,
     }
-    
+
     def safe_eval_node(node):
         """Safely evaluate an AST node"""
         if isinstance(node, ast.Constant):  # Numbers
@@ -132,17 +133,17 @@ async def calculator_tool(args: CalculateArgs, context) -> Dict[str, Any]:
             return allowed_functions[func_name](*args)
         else:
             raise ValueError(f"Node type {type(node).__name__} is not allowed")
-    
+
     try:
         expression = args.expression.strip()
-        
+
         # Additional security checks
         dangerous_patterns = [
-            'import', 'exec', 'eval', '__', 'open', 'file', 'input', 
+            'import', 'exec', 'eval', '__', 'open', 'file', 'input',
             'raw_input', 'compile', 'globals', 'locals', 'vars', 'dir',
             'getattr', 'setattr', 'hasattr', 'delattr', 'callable'
         ]
-        
+
         expression_lower = expression.lower()
         for pattern in dangerous_patterns:
             if pattern in expression_lower:
@@ -150,26 +151,26 @@ async def calculator_tool(args: CalculateArgs, context) -> Dict[str, Any]:
                     "error": f"Security violation: '{pattern}' is not allowed in expressions",
                     "result": None
                 }
-        
+
         # Parse expression into AST
         try:
             parsed = ast.parse(expression, mode='eval')
         except SyntaxError as e:
             return {
-                "error": f"Invalid mathematical expression: {str(e)}",
+                "error": f"Invalid mathematical expression: {e!s}",
                 "result": None
             }
-        
+
         # Evaluate safely
         result = safe_eval_node(parsed.body)
-        
+
         # Handle division by zero and other math errors
         if not isinstance(result, (int, float, complex)):
             return {
                 "error": "Expression must evaluate to a number",
                 "result": None
             }
-        
+
         return {
             "result": f"The result of {expression} is {result}",
             "calculation": {
@@ -177,7 +178,7 @@ async def calculator_tool(args: CalculateArgs, context) -> Dict[str, Any]:
                 "result": result
             }
         }
-        
+
     except ZeroDivisionError:
         return {
             "error": "Division by zero is not allowed",
@@ -185,12 +186,12 @@ async def calculator_tool(args: CalculateArgs, context) -> Dict[str, Any]:
         }
     except ValueError as e:
         return {
-            "error": f"Invalid expression: {str(e)}",
+            "error": f"Invalid expression: {e!s}",
             "result": None
         }
     except Exception as e:
         return {
-            "error": f"Calculation error: {str(e)}",
+            "error": f"Calculation error: {e!s}",
             "result": None
         }
 
@@ -206,9 +207,9 @@ async def weather_tool(args: WeatherArgs, context) -> Dict[str, Any]:
         "humidity": 65,
         "wind_speed": 15
     }
-    
+
     temp_unit = "°C" if args.units == "celsius" else "°F"
-    
+
     return {
         "result": f"Weather in {args.location}: {weather_data['temperature']}{temp_unit}, {weather_data['condition']}",
         "weather_data": weather_data
@@ -225,9 +226,9 @@ async def translate_tool(args: TranslateArgs, context) -> Dict[str, Any]:
         "it": f"[Italian] {args.text}",
         "pt": f"[Portuguese] {args.text}"
     }
-    
+
     translated = translations.get(args.target_language, f"[{args.target_language.upper()}] {args.text}")
-    
+
     return {
         "result": f"Translation to {args.target_language}: {translated}",
         "translation": {
@@ -240,7 +241,7 @@ async def translate_tool(args: TranslateArgs, context) -> Dict[str, Any]:
 
 def create_example_agents():
     """Create example A2A agents with different capabilities"""
-    
+
     # Math Agent with calculator tool
     calc_tool = create_a2a_tool(
         "calculator",
@@ -248,14 +249,14 @@ def create_example_agents():
         CalculateArgs.model_json_schema(),
         calculator_tool
     )
-    
+
     math_agent = create_a2a_agent(
         "MathTutor",
         "A mathematical assistant that can solve equations and calculations",
         "You are a helpful math tutor. Use the calculator tool for computations.",
         [calc_tool]
     )
-    
+
     # Weather Agent with weather tool
     weather_tool_obj = create_a2a_tool(
         "get_weather",
@@ -263,14 +264,14 @@ def create_example_agents():
         WeatherArgs.model_json_schema(),
         weather_tool
     )
-    
+
     weather_agent = create_a2a_agent(
         "WeatherBot",
         "A weather assistant that provides current weather information",
         "You are a weather assistant. Use the weather tool to get current conditions.",
         [weather_tool_obj]
     )
-    
+
     # Translation Agent with translation tool
     translate_tool_obj = create_a2a_tool(
         "translate_text",
@@ -278,14 +279,14 @@ def create_example_agents():
         TranslateArgs.model_json_schema(),
         translate_tool
     )
-    
+
     translation_agent = create_a2a_agent(
         "Translator",
         "A multilingual assistant that can translate text between languages",
         "You are a translation assistant. Use the translation tool for language conversion.",
         [translate_tool_obj]
     )
-    
+
     # General Assistant (no specific tools)
     general_agent = create_a2a_agent(
         "Assistant",
@@ -293,10 +294,10 @@ def create_example_agents():
         "You are a helpful, friendly assistant ready to help with various tasks.",
         []
     )
-    
+
     return {
         "MathTutor": math_agent,
-        "WeatherBot": weather_agent, 
+        "WeatherBot": weather_agent,
         "Translator": translation_agent,
         "Assistant": general_agent
     }
@@ -305,15 +306,15 @@ def create_example_agents():
 async def main():
     """Main function to start the A2A server"""
     print("🚀 Starting A2A Server Example...")
-    
+
     # Create example agents
     agents = create_example_agents()
     print(f"📦 Created {len(agents)} agents: {', '.join(agents.keys())}")
-    
+
     # Create A2A server
     try:
         print("\n🌟 Starting A2A-enabled JAF server...")
-        
+
         # Create server configuration
         server_config = create_server_config(
             agents=agents,
@@ -322,30 +323,30 @@ async def main():
             host="localhost",
             port=3000
         )
-        
+
         # Add mock model provider
         server_config["model_provider"] = MockModelProvider()
-        
+
         print("🔧 Server configuration created")
-        print(f"🏠 Host: localhost:3000")
+        print("🏠 Host: localhost:3000")
         print(f"🤖 Agents: {len(agents)}")
-        
+
         # Create and start the server
         server = create_a2a_server(server_config)
         await server["start"]()
-        
+
         print("\n✅ Server started successfully!")
         print("\n📋 Available endpoints:")
-        print(f"   🔍 Agent Card: http://localhost:3000/.well-known/agent-card")
-        print(f"   🔗 A2A Endpoint: http://localhost:3000/a2a")
-        print(f"   🏥 Health Check: http://localhost:3000/a2a/health")
-        print(f"   ⚡ Capabilities: http://localhost:3000/a2a/capabilities")
-        print(f"   📖 API Docs: http://localhost:3000/docs")
-        
+        print("   🔍 Agent Card: http://localhost:3000/.well-known/agent-card")
+        print("   🔗 A2A Endpoint: http://localhost:3000/a2a")
+        print("   🏥 Health Check: http://localhost:3000/a2a/health")
+        print("   ⚡ Capabilities: http://localhost:3000/a2a/capabilities")
+        print("   📖 API Docs: http://localhost:3000/docs")
+
         print("\n🎯 Agent-specific endpoints:")
         for agent_name in agents.keys():
             print(f"   📱 {agent_name}: http://localhost:3000/a2a/agents/{agent_name}")
-        
+
         print("\n📝 Example A2A requests you can try:")
         print("""
     # Send message to math agent:
@@ -384,9 +385,9 @@ async def main():
         }
       }'
         """)
-        
+
         print("\n🔄 Server is running... Press Ctrl+C to stop")
-        
+
         # Keep server running
         try:
             while True:
@@ -395,7 +396,7 @@ async def main():
             print("\n🛑 Received shutdown signal...")
             await server["stop"](server)
             print("✅ Server stopped gracefully")
-            
+
     except Exception as error:
         print(f"❌ Failed to start server: {error}")
         raise
