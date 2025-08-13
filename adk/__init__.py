@@ -1,12 +1,21 @@
 """
-JAF Agent Development Kit (ADK) - Production-Ready Layer
+JAF Agent Development Kit (ADK) - Production-Ready Layer with Intelligence
 
 The ADK provides a production-ready abstraction layer on top of the JAF Core,
-featuring real LLM integration, production-grade session providers, and
-comprehensive error handling.
+featuring real LLM integration, production-grade session providers, 
+comprehensive error handling, intelligent multi-agent coordination, and
+advanced schema validation.
 
-This layer transforms the JAF framework from a sophisticated mock-up into
-a production-ready system with actual database storage and real LLM providers.
+Key Features:
+- Real LLM integration with production providers
+- Advanced multi-agent coordination with intelligent selection
+- Comprehensive JSON Schema validation with business rules
+- Production-grade session and memory providers
+- Enhanced security and input sanitization
+- Sophisticated response merging and delegation strategies
+
+This layer transforms the JAF framework into a production-ready system with
+intelligent orchestration capabilities.
 """
 
 from .config import (
@@ -89,6 +98,41 @@ from .types import (
     add_message_to_session
 )
 
+# Enhanced Capabilities - Schemas and Multi-Agent Coordination
+from .schemas import (
+    validate_schema,
+    validate_string,
+    validate_number,
+    validate_array,
+    validate_object,
+    ValidationResult,
+    JsonSchema
+)
+
+from .runners import (
+    execute_multi_agent,
+    select_best_agent,
+    merge_parallel_responses,
+    extract_delegation_decision,
+    execute_with_coordination_rules,
+    extract_keywords,
+    execute_agent,
+    run_agent,
+    MultiAgentConfig,
+    AgentConfig,
+    CoordinationRule,
+    DelegationStrategy,
+    RunnerCallbacks,
+    RunnerConfig,
+    LLMControlResult,
+    ToolSelectionControlResult,
+    ToolExecutionControlResult,
+    IterationControlResult,
+    IterationCompleteResult,
+    SynthesisCheckResult,
+    FallbackCheckResult
+)
+
 __all__ = [
     # Config
     'create_adk_llm_config',
@@ -160,5 +204,39 @@ __all__ = [
     # Immutable Types
     'ImmutableAdkSession',
     'create_immutable_session',
-    'add_message_to_session'
+    'add_message_to_session',
+    
+    # Enhanced Schema Validation
+    'validate_schema',
+    'validate_string',
+    'validate_number',
+    'validate_array',
+    'validate_object',
+    'ValidationResult',
+    'JsonSchema',
+    
+    # Intelligent Multi-Agent Coordination
+    'execute_multi_agent',
+    'select_best_agent',
+    'merge_parallel_responses',
+    'extract_delegation_decision',
+    'execute_with_coordination_rules',
+    'extract_keywords',
+    'MultiAgentConfig',
+    'AgentConfig',
+    'CoordinationRule',
+    'DelegationStrategy',
+    
+    # Advanced Runner with Callback System
+    'execute_agent',
+    'run_agent',
+    'RunnerCallbacks',
+    'RunnerConfig',
+    'LLMControlResult',
+    'ToolSelectionControlResult',
+    'ToolExecutionControlResult',
+    'IterationControlResult',
+    'IterationCompleteResult',
+    'SynthesisCheckResult',
+    'FallbackCheckResult'
 ]

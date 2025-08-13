@@ -78,6 +78,7 @@ nav:
     - Model Providers: model-providers.md
   - ADK Production Framework:
     - ADK Overview: adk-overview.md
+    - Callback System: callback-system.md
     - Security Framework: security-framework.md
     - Session Management: session-management.md
     - Error Handling: error-handling.md

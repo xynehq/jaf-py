@@ -132,7 +132,53 @@ anthropic_service = create_anthropic_llm_service({
 })
 ```
 
-### 4. Error Handling & Recovery
+### 4. Advanced Runner with Callback System
+
+**Comprehensive Agent Instrumentation**
+```python
+from adk.runners import RunnerConfig, execute_agent
+
+# Create callback implementation for custom behavior
+class IterativeCallbacks:
+    async def on_start(self, context, message, session_state):
+        print(f"🚀 Starting: {message.content}")
+    
+    async def on_check_synthesis(self, session_state, context_data):
+        if len(context_data) >= 5:
+            return {'complete': True, 'answer': 'Synthesis ready!'}
+    
+    async def on_query_rewrite(self, original_query, context_data):
+        return f"Refined: {original_query} with context"
+
+# Configure advanced runner
+config = RunnerConfig(
+    agent=my_agent,
+    callbacks=IterativeCallbacks(),
+    enable_context_accumulation=True,
+    enable_loop_detection=True
+)
+
+result = await execute_agent(config, session_state, message, context, model_provider)
+```
+
+**Sophisticated Agent Patterns**
+```python
+# ReAct-style iterative agents
+class ReActCallbacks:
+    async def on_iteration_start(self, iteration):
+        if iteration > 5:
+            return {'continue_iteration': False}
+    
+    async def on_loop_detection(self, tool_history, current_tool):
+        # Prevent repetitive tool calls
+        recent_tools = [t['tool'] for t in tool_history[-3:]]
+        return recent_tools.count(current_tool) > 2
+
+# Enable complex reasoning patterns
+config = RunnerConfig(agent=research_agent, callbacks=ReActCallbacks())
+```
+
+### 5. Error Handling & Recovery
 
 **Circuit Breaker Pattern**
 ```python
@@ -267,6 +313,7 @@ session_provider = create_redis_session_provider({
 
 ## 🔗 Next Steps
 
+- **[Callback System](callback-system.md)** - Advanced agent instrumentation and control
 - **[Security Framework](security-framework.md)** - Deep dive into security features
 - **[Session Management](session-management.md)** - Learn immutable session patterns
 - **[Error Handling](error-handling.md)** - Implement robust error recovery

@@ -788,15 +788,340 @@ config = RunConfig(
 )
 ```
 
+## ADK Callback System
+
+### RunnerCallbacks Protocol
+
+#### `RunnerCallbacks`
+
+Protocol defining hooks for advanced agent instrumentation and control.
+
+**Available Hooks:**
+
+```python
+from adk.runners import RunnerCallbacks, RunnerConfig, execute_agent
+
+class MyCallbacks:
+    """Custom callback implementation for advanced agent behaviors."""
+    
+    # === Lifecycle Hooks ===
+    async def on_start(self, context: RunContext, message: Message, session_state: Dict[str, Any]) -> None:
+        """Called when agent execution starts."""
+        pass
+    
+    async def on_complete(self, response: AgentResponse) -> None:
+        """Called when execution completes successfully."""
+        pass
+    
+    async def on_error(self, error: Exception, context: RunContext) -> None:
+        """Called when execution encounters an error."""
+        pass
+    
+    # === LLM Interaction Hooks ===
+    async def on_before_llm_call(self, agent: Agent, message: Message, session_state: Dict[str, Any]) -> Optional[LLMControlResult]:
+        """Modify or skip LLM calls."""
+        return None
+    
+    async def on_after_llm_call(self, response: Message, session_state: Dict[str, Any]) -> Optional[Message]:
+        """Modify LLM responses."""
+        return None
+    
+    # === Iteration Control Hooks ===
+    async def on_iteration_start(self, iteration: int) -> Optional[IterationControlResult]:
+        """Control iteration flow."""
+        return None
+    
+    async def on_iteration_complete(self, iteration: int, has_tool_calls: bool) -> Optional[IterationControlResult]:
+        """Decide whether to continue iterating."""
+        return None
+    
+    # === Tool Execution Hooks ===
+    async def on_before_tool_selection(self, tools: List[Tool], context_data: List[Any]) -> Optional[ToolSelectionControlResult]:
+        """Filter or modify available tools."""
+        return None
+    
+    async def on_tool_selected(self, tool_name: str, params: Dict[str, Any]) -> None:
+        """Track tool usage."""
+        pass
+    
+    async def on_before_tool_execution(self, tool: Tool, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Modify parameters or skip execution."""
+        return None
+    
+    async def on_after_tool_execution(self, tool: Tool, result: Any, error: Optional[Exception] = None) -> Optional[Any]:
+        """Process tool results."""
+        return None
+    
+    # === Context and Synthesis Hooks ===
+    async def on_check_synthesis(self, session_state: Dict[str, Any], context_data: List[Any]) -> Optional[SynthesisCheckResult]:
+        """Determine if synthesis is complete."""
+        return None
+    
+    async def on_query_rewrite(self, original_query: str, context_data: List[Any]) -> Optional[str]:
+        """Refine queries based on accumulated context."""
+        return None
+    
+    async def on_context_update(self, current_context: List[Any], new_items: List[Any]) -> Optional[List[Any]]:
+        """Manage context accumulation."""
+        return None
+    
+    # === Loop Detection ===
+    async def on_loop_detection(self, tool_history: List[Dict[str, Any]], current_tool: str) -> bool:
+        """Detect and prevent loops."""
+        return False
+```
+
+### Callback Configuration
+
+#### `RunnerConfig`
+
+Enhanced configuration for callback-enabled agent execution.
+
+**Fields:**
+- `agent: Agent` - JAF agent to execute
+- `session_provider: Optional[Any]` - Session provider for persistence
+- `callbacks: Optional[RunnerCallbacks]` - Callback implementation
+- `max_llm_calls: int` - Maximum LLM calls per execution (default: 10)
+- `enable_context_accumulation: bool` - Enable context management (default: False)
+- `enable_loop_detection: bool` - Enable loop prevention (default: False)
+- `max_context_items: int` - Maximum context items to retain (default: 50)
+- `max_repeated_tools: int` - Maximum repeated tool calls before loop detection (default: 3)
+
+**Example:**
+```python
+from adk.runners import RunnerConfig, execute_agent
+
+config = RunnerConfig(
+    agent=my_agent,
+    session_provider=session_provider,
+    callbacks=MyCallbacks(),
+    max_llm_calls=15,
+    enable_context_accumulation=True,
+    enable_loop_detection=True,
+    max_context_items=100
+)
+
+result = await execute_agent(config, session_state, message, context, model_provider)
+```
+
+### Callback Return Types
+
+#### `LLMControlResult`
+
+TypedDict for controlling LLM interactions.
+
+**Fields:**
+- `skip: Optional[bool]` - Skip LLM call if True
+- `message: Optional[Message]` - Modified message for LLM
+- `response: Optional[Message]` - Direct response (when skipping)
+
+#### `ToolSelectionControlResult`
+
+TypedDict for controlling tool selection.
+
+**Fields:**
+- `tools: Optional[List[Tool]]` - Filtered tool list
+- `custom_selection: Optional[Dict[str, Any]]` - Custom tool selection logic
+
+#### `IterationControlResult`
+
+TypedDict for controlling iteration flow.
+
+**Fields:**
+- `continue_iteration: Optional[bool]` - Whether to continue current iteration
+- `should_stop: Optional[bool]` - Whether to stop execution
+- `should_continue: Optional[bool]` - Whether to continue to next iteration
+
+#### `SynthesisCheckResult`
+
+TypedDict for synthesis completion results.
+
+**Fields:**
+- `complete: bool` - Whether synthesis is complete
+- `answer: Optional[str]` - Final synthesized answer
+- `confidence: Optional[float]` - Confidence score (0.0-1.0)
+
+### Advanced Agent Execution
+
+#### `execute_agent(config: RunnerConfig, session_state: Dict[str, Any], message: Message, context: RunContext, model_provider: ModelProvider) -> AgentResponse`
+
+Execute an agent with full callback instrumentation.
+
+**Parameters:**
+- `config: RunnerConfig` - Callback-enabled configuration
+- `session_state: Dict[str, Any]` - Mutable session state
+- `message: Message` - Input message to process
+- `context: RunContext` - Execution context
+- `model_provider: ModelProvider` - LLM provider
+
+**Returns:**
+- `AgentResponse` - Enhanced response with execution metadata
+
+**Example:**
+```python
+import asyncio
+from adk.runners import RunnerConfig, execute_agent
+from jaf.core.types import Agent, Message
+
+# Create callback implementation
+class ReActCallbacks:
+    def __init__(self):
+        self.iteration_count = 0
+        self.context_accumulator = []
+    
+    async def on_iteration_start(self, iteration):
+        self.iteration_count = iteration
+        print(f"🔄 Iteration {iteration}")
+        return None
+    
+    async def on_check_synthesis(self, session_state, context_data):
+        if len(context_data) >= 3:
+            return {
+                'complete': True,
+                'answer': self.synthesize_information(context_data),
+                'confidence': 0.85
+            }
+        return None
+    
+    async def on_query_rewrite(self, original_query, context_data):
+        gaps = self.identify_gaps(context_data)
+        if gaps:
+            return f"{original_query} focusing on {', '.join(gaps)}"
+        return None
+
+# Configure and execute
+config = RunnerConfig(
+    agent=research_agent,
+    callbacks=ReActCallbacks(),
+    enable_context_accumulation=True,
+    max_llm_calls=10
+)
+
+result = await execute_agent(
+    config, 
+    session_state={}, 
+    message=Message(role='user', content='Research machine learning applications'),
+    context={'user_id': 'researcher_123'},
+    model_provider=litellm_provider
+)
+
+print(f"Result: {result.content}")
+print(f"Iterations: {result.metadata.get('iterations', 0)}")
+print(f"Synthesis confidence: {result.metadata.get('synthesis_confidence', 0)}")
+```
+
+### Common Callback Patterns
+
+#### ReAct (Reasoning + Acting) Pattern
+
+```python
+class ReActAgent:
+    async def on_iteration_start(self, iteration):
+        thought = f"Iteration {iteration}: I need to gather more information"
+        print(f"🤔 Thought: {thought}")
+        return None
+    
+    async def on_before_tool_execution(self, tool, params):
+        action = f"Using {tool.schema.name} with {params}"
+        print(f"🎯 Action: {action}")
+        return None
+    
+    async def on_after_tool_execution(self, tool, result, error=None):
+        if error:
+            observation = f"Action failed: {error}"
+        else:
+            observation = f"Observed: {result}"
+        print(f"👁️ Observation: {observation}")
+        return None
+```
+
+#### Intelligent Caching Pattern
+
+```python
+class CachingCallbacks:
+    def __init__(self):
+        self.cache = {}
+    
+    async def on_before_llm_call(self, agent, message, session_state):
+        cache_key = hash(message.content)
+        if cache_key in self.cache:
+            return {'skip': True, 'response': self.cache[cache_key]}
+        return None
+    
+    async def on_after_llm_call(self, response, session_state):
+        cache_key = hash(response.content)
+        self.cache[cache_key] = response
+        return None
+```
+
+#### Context Accumulation Pattern
+
+```python
+class ContextAccumulator:
+    def __init__(self):
+        self.context_items = []
+    
+    async def on_context_update(self, current_context, new_items):
+        # Deduplicate and filter
+        filtered_items = self.filter_duplicates(new_items)
+        
+        # Merge and sort by relevance
+        merged = current_context + filtered_items
+        sorted_context = sorted(merged, key=lambda x: x.get('relevance', 0), reverse=True)
+        
+        # Keep top items
+        return sorted_context[:50]
+    
+    async def on_check_synthesis(self, session_state, context_data):
+        if len(context_data) >= 5:
+            confidence = self.calculate_confidence(context_data)
+            if confidence >= 0.8:
+                return {
+                    'complete': True,
+                    'answer': self.synthesize(context_data),
+                    'confidence': confidence
+                }
+        return None
+```
+
+#### Loop Detection Pattern
+
+```python
+class LoopDetector:
+    def __init__(self, similarity_threshold=0.7):
+        self.threshold = similarity_threshold
+        self.tool_history = []
+    
+    async def on_loop_detection(self, tool_history, current_tool):
+        if len(tool_history) < 3:
+            return False
+        
+        # Check for repeated tool calls
+        recent_tools = [item['tool'] for item in tool_history[-3:]]
+        if recent_tools.count(current_tool) > 2:
+            return True
+        
+        # Check parameter similarity
+        for item in tool_history[-3:]:
+            similarity = self.calculate_similarity(item.get('params', {}), current_tool)
+            if similarity > self.threshold:
+                return True
+        
+        return False
+```
+
 ## Complete Example
 
-Here's a complete example showing how to use the main APIs together:
+Here's a complete example showing how to use the main APIs together with advanced callback functionality:
 
 ```python
 import asyncio
+import time
 from dataclasses import dataclass
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 import jaf
+from adk.runners import RunnerConfig, execute_agent
 
 @dataclass
 class UserContext:
@@ -824,29 +1149,135 @@ class CalculatorTool:
         
         try:
             # Use safe evaluation in production
-            result = eval(args.expression)
-            return jaf.ToolResponse.success(
-                f"Result: {args.expression} = {result}"
-            ).format()
+            from adk.utils.safe_evaluator import safe_calculate
+            result = safe_calculate(args.expression)
+            if result["status"] == "success":
+                return jaf.ToolResponse.success(
+                    f"Result: {args.expression} = {result['result']}"
+                ).format()
+            else:
+                return jaf.ToolResponse.error(
+                    'calculation_error', 
+                    result['error']
+                ).format()
         except Exception as e:
             return jaf.ToolResponse.error(
                 'calculation_error', 
                 str(e)
             ).format()
 
+# Advanced callback implementation for production use
+class ProductionMathCallbacks:
+    """Production-ready callbacks with caching and monitoring."""
+    
+    def __init__(self):
+        self.start_time = None
+        self.calculations_cache = {}
+        self.performance_metrics = {
+            'llm_calls': 0,
+            'tool_calls': 0,
+            'cache_hits': 0
+        }
+    
+    async def on_start(self, context, message, session_state):
+        """Initialize execution with user context."""
+        self.start_time = time.time()
+        user_id = context.get('user_id', 'unknown')
+        print(f"🧮 Math Assistant started for user: {user_id}")
+        print(f"📝 Query: {message.content}")
+    
+    async def on_before_llm_call(self, agent, message, session_state):
+        """Implement intelligent caching and context enhancement."""
+        self.performance_metrics['llm_calls'] += 1
+        
+        # Check for cached mathematical explanations
+        cache_key = hash(f"math:{message.content}")
+        if cache_key in self.calculations_cache:
+            self.performance_metrics['cache_hits'] += 1
+            print(f"💾 Using cached explanation")
+            return {
+                'skip': True, 
+                'response': self.calculations_cache[cache_key]
+            }
+        
+        # Enhance message with mathematical context
+        enhanced_content = f"""Mathematical Problem: {message.content}
+        
+Please provide step-by-step explanations and use the calculator tool for all arithmetic operations.
+        """
+        
+        return {
+            'message': jaf.Message(role='user', content=enhanced_content)
+        }
+    
+    async def on_after_llm_call(self, response, session_state):
+        """Cache educational responses."""
+        if 'step' in response.content.lower() or 'calculate' in response.content.lower():
+            cache_key = hash(f"explanation:{response.content[:100]}")
+            self.calculations_cache[cache_key] = response
+        return None
+    
+    async def on_tool_selected(self, tool_name, params):
+        """Track tool usage and validate calculations."""
+        self.performance_metrics['tool_calls'] += 1
+        if tool_name == 'calculate':
+            expression = params.get('expression', '')
+            print(f"🔢 Calculating: {expression}")
+    
+    async def on_after_tool_execution(self, tool, result, error=None):
+        """Validate and enhance calculation results."""
+        if error:
+            print(f"❌ Calculation error: {error}")
+            return None
+        
+        if tool.schema.name == 'calculate' and 'Result:' in str(result):
+            # Extract and validate the calculation
+            print(f"✅ Calculation completed: {result}")
+        
+        return None
+    
+    async def on_complete(self, response):
+        """Log comprehensive execution metrics."""
+        duration = time.time() - self.start_time if self.start_time else 0
+        
+        print(f"\n📊 Execution Summary:")
+        print(f"   Duration: {duration*1000:.0f}ms")
+        print(f"   LLM Calls: {self.performance_metrics['llm_calls']}")
+        print(f"   Tool Calls: {self.performance_metrics['tool_calls']}")
+        print(f"   Cache Hits: {self.performance_metrics['cache_hits']}")
+        print(f"   Cache Size: {len(self.calculations_cache)} items")
+    
+    async def on_error(self, error, context):
+        """Handle mathematical errors gracefully."""
+        print(f"❌ Math Assistant Error: {str(error)}")
+        # In production, log to monitoring system
+
 def create_math_agent():
     def instructions(state: jaf.RunState[UserContext]) -> str:
-        return f"""You are a helpful math assistant for user {state.context.user_id}.
-        You can perform calculations using the calculate tool.
-        Always explain your reasoning clearly."""
+        return f"""You are an advanced math tutor for user {state.context.user_id}.
+        
+Your capabilities:
+- Perform calculations using the calculate tool
+- Provide step-by-step explanations
+- Show alternative solving methods
+- Explain mathematical concepts clearly
+
+Always:
+1. Break down complex problems into steps
+2. Use the calculator tool for all arithmetic
+3. Explain your reasoning
+4. Verify your answers"""
     
     return jaf.Agent(
-        name='MathAssistant',
+        name='AdvancedMathAssistant',
         instructions=instructions,
         tools=[CalculatorTool()]
     )
 
-async def main():
+async def demonstrate_traditional_jaf():
+    """Demonstrate traditional JAF Core approach."""
+    print("=== Traditional JAF Core Approach ===")
+    
     # Set up tracing
     tracer = jaf.ConsoleTraceCollector()
     
@@ -861,7 +1292,7 @@ async def main():
     
     # Set up configuration
     config = jaf.RunConfig(
-        agent_registry={'MathAssistant': math_agent},
+        agent_registry={'AdvancedMathAssistant': math_agent},
         model_provider=model_provider,
         max_turns=10,
         on_event=tracer.collect,
@@ -877,7 +1308,7 @@ async def main():
         run_id=jaf.generate_run_id(),
         trace_id=jaf.generate_trace_id(),
         messages=[jaf.Message(role='user', content='What is 15 * 8 + 32?')],
-        current_agent_name='MathAssistant',
+        current_agent_name='AdvancedMathAssistant',
         context=UserContext(user_id='user_123', permissions=['calculator']),
         turn_count=0
     )
@@ -887,9 +1318,62 @@ async def main():
     
     # Handle result
     if result.outcome.status == 'completed':
-        print(f"✅ Success: {result.outcome.output}")
+        print(f"✅ JAF Core Result: {result.outcome.output}")
     else:
-        print(f"❌ Error: {result.outcome.error}")
+        print(f"❌ JAF Core Error: {result.outcome.error}")
+
+async def demonstrate_callback_approach():
+    """Demonstrate ADK Callback approach with advanced features."""
+    print("\n=== ADK Callback Approach with Advanced Features ===")
+    
+    # Create model provider
+    model_provider = jaf.make_litellm_provider('http://localhost:4000')
+    
+    # Create agent
+    math_agent = create_math_agent()
+    
+    # Set up callback configuration
+    callback_config = RunnerConfig(
+        agent=math_agent,
+        callbacks=ProductionMathCallbacks(),
+        max_llm_calls=8,
+        enable_context_accumulation=True,
+        enable_loop_detection=True
+    )
+    
+    # Execute with full instrumentation
+    result = await execute_agent(
+        callback_config,
+        session_state={'learning_level': 'intermediate'},
+        message=jaf.Message(role='user', content='Solve step by step: (25 + 17) * 3 - 15'),
+        context=UserContext(user_id='callback_user', permissions=['calculator']),
+        model_provider=model_provider
+    )
+    
+    print(f"✅ Callback Result: {result.content}")
+    print(f"📈 Metadata: {result.metadata}")
+
+async def main():
+    """Complete demonstration of JAF APIs with both approaches."""
+    print("🧮 JAF Python Framework - Complete API Demonstration")
+    print("=" * 60)
+    
+    try:
+        # Demonstrate traditional JAF approach
+        await demonstrate_traditional_jaf()
+        
+        # Demonstrate advanced callback approach
+        await demonstrate_callback_approach()
+        
+        print("\n🎉 Both approaches completed successfully!")
+        print("\nKey Differences:")
+        print("• JAF Core: Functional, immutable, production-ready")
+        print("• ADK Callbacks: Enhanced with instrumentation, caching, monitoring")
+        print("• Both: Type-safe, composable, enterprise-grade")
+        
+    except Exception as e:
+        print(f"❌ Demo Error: {e}")
+        # In production, comprehensive error handling would be here
 
 if __name__ == "__main__":
     asyncio.run(main())

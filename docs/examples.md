@@ -8,8 +8,9 @@ JAF includes several example applications that showcase different aspects of the
 
 1. **Server Demo** - Multi-agent HTTP server with tools and memory
 2. **RAG Example** - Retrieval-Augmented Generation with knowledge base
-3. **Custom Tools** - Advanced tool implementation patterns
-4. **Memory Integration** - Persistent conversation examples
+3. **Iterative Search Agent** - Advanced callback system showcase with ReAct patterns
+4. **Custom Tools** - Advanced tool implementation patterns
+5. **Memory Integration** - Persistent conversation examples
 
 ## Server Demo Walkthrough
 
@@ -915,9 +916,234 @@ async def process_batch(items: List[Any], batch_size: int = 10):
     return results
 ```
 
+## Iterative Search Agent - Callback System Showcase
+
+The iterative search agent (`examples/iterative_search_agent.py`) demonstrates the full power of JAF's advanced callback system by implementing a sophisticated ReAct-style agent that can iteratively gather information, check for synthesis completion, and provide comprehensive answers.
+
+### Key Features Demonstrated
+
+This example showcases how the callback system enables complex agent behaviors:
+
+- **🔄 Iterative Information Gathering** - Agent searches across multiple iterations
+- **🧠 Synthesis Checking** - Automatically determines when enough information is gathered
+- **📝 Dynamic Query Refinement** - Refines search queries based on previous results
+- **🚫 Loop Detection** - Prevents repetitive searches
+- **📊 Context Management** - Intelligently accumulates and filters information
+- **⚡ Performance Monitoring** - Tracks metrics and execution statistics
+
+### Architecture Overview
+
+```python
+from adk.runners import RunnerConfig, execute_agent
+
+# Comprehensive callback implementation
+class IterativeSearchCallbacks:
+    async def on_start(self, context, message, session_state):
+        """Initialize tracking for iterative search."""
+        self.original_query = message.content
+        print(f"🚀 Starting search for: '{self.original_query}'")
+    
+    async def on_check_synthesis(self, session_state, context_data):
+        """Determine if enough information has been gathered."""
+        if len(context_data) >= self.synthesis_threshold:
+            confidence = self._calculate_confidence(context_data)
+            if confidence >= 0.75:
+                return {
+                    'complete': True,
+                    'answer': self._generate_synthesis_prompt(context_data),
+                    'confidence': confidence
+                }
+        return None
+    
+    async def on_query_rewrite(self, original_query, context_data):
+        """Refine queries based on accumulated context."""
+        gaps = self._identify_knowledge_gaps(context_data)
+        if gaps:
+            return f"{original_query} focusing on {', '.join(gaps)}"
+        return None
+    
+    async def on_loop_detection(self, tool_history, current_tool):
+        """Prevent repetitive searches."""
+        recent_queries = [item['query'] for item in tool_history[-3:]]
+        return self._detect_similarity(recent_queries) > 0.7
+
+# Configure agent with callbacks
+config = RunnerConfig(
+    agent=search_agent,
+    callbacks=IterativeSearchCallbacks(max_iterations=5, synthesis_threshold=4),
+    enable_context_accumulation=True,
+    enable_loop_detection=True
+)
+
+# Execute with full instrumentation
+result = await execute_agent(config, session_state, message, context, model_provider)
+```
+
+### Example Execution Flow
+
+When you run the iterative search agent, you'll see output like this:
+
+```
+🚀 ITERATIVE SEARCH AGENT DEMONSTRATION
+============================================================
+🚀 Starting iterative search for: 'What are the applications of machine learning?'
+
+🔄 ITERATION 1/4
+🔍 Executing search: 'machine learning applications in different industries'
+📚 Adding 3 new context items...
+   Total context items: 3
+
+🔄 ITERATION 2/4
+📝 Query refined: 'machine learning applications in finance and trading'
+🔍 Executing search: 'machine learning applications in finance and trading'
+📚 Adding 2 new context items...
+   Total context items: 5
+
+🧮 Evaluating synthesis readiness with 5 context items...
+   Coverage: 0.85
+   Quality: 0.90
+   Completeness: 0.50
+   Overall confidence: 0.75
+
+✅ Synthesis complete! Confidence: 0.85
+
+🎉 ITERATIVE SEARCH COMPLETED
+   Total iterations: 2
+   Context items gathered: 5
+   Searches performed: 2
+   Final confidence: 0.85
+   Execution time: 1247ms
+============================================================
+```
+
+### Key Implementation Patterns
+
+#### 1. Context Accumulation
+
+```python
+async def on_context_update(self, current_context, new_items):
+    """Manage context with deduplication and relevance filtering."""
+    # Deduplicate based on content similarity
+    filtered_items = self._deduplicate_and_filter(new_items)
+    
+    # Merge and sort by relevance
+    self.context_accumulator.extend(filtered_items)
+    self.context_accumulator.sort(key=lambda x: x.get('relevance', 0), reverse=True)
+    
+    # Keep top items within limits
+    return self.context_accumulator[:20]
+```
+
+#### 2. Intelligent Query Refinement
+
+```python
+async def on_query_rewrite(self, original_query, context_data):
+    """Analyze context gaps and refine search queries."""
+    topics_covered = self._analyze_topic_coverage(context_data)
+    
+    if 'healthcare' in topics_covered and 'finance' not in topics_covered:
+        return f"{original_query} applications in finance and trading"
+    elif len(topics_covered) >= 2:
+        return f"{original_query} future trends and emerging applications"
+    
+    return None
+```
+
+#### 3. Synthesis Quality Assessment
+
+```python
+async def on_check_synthesis(self, session_state, context_data):
+    """Multi-factor synthesis readiness assessment."""
+    coverage_score = self._analyze_coverage(context_data)
+    quality_score = self._analyze_quality(context_data)
+    completeness_score = min(len(context_data) / 10.0, 1.0)
+    
+    confidence = (coverage_score + quality_score + completeness_score) / 3.0
+    
+    if confidence >= 0.75:
+        return {
+            'complete': True,
+            'answer': self._create_comprehensive_synthesis(context_data),
+            'confidence': confidence
+        }
+    return None
+```
+
+### Running the Example
+
+#### 1. Basic Execution
+
+```bash
+python examples/iterative_search_agent.py
+```
+
+#### 2. Custom Configuration
+
+```python
+from examples.iterative_search_agent import IterativeSearchCallbacks
+
+# Configure for different behavior
+callbacks = IterativeSearchCallbacks(
+    max_iterations=10,        # More thorough search
+    synthesis_threshold=8     # Require more information
+)
+
+config = RunnerConfig(
+    agent=search_agent,
+    callbacks=callbacks,
+    enable_context_accumulation=True,
+    max_context_items=50      # Larger context window
+)
+```
+
+### Advanced Patterns Demonstrated
+
+#### ReAct (Reasoning + Acting) Pattern
+
+The example implements a full ReAct pattern where the agent:
+
+1. **Reasons** about what information it needs
+2. **Acts** by searching for that information  
+3. **Observes** the results and their relevance
+4. **Reasons** about gaps and next steps
+5. **Repeats** until synthesis is complete
+
+#### Dynamic Behavior Adaptation
+
+```python
+class AdaptiveCallbacks(IterativeSearchCallbacks):
+    async def on_iteration_complete(self, iteration, has_tool_calls):
+        """Adapt behavior based on progress."""
+        if not has_tool_calls:
+            # No tools called, likely finished
+            return {'should_stop': True}
+        
+        if self._making_progress():
+            # Continue if making good progress
+            return {'should_continue': True}
+        else:
+            # Try different approach
+            return {'should_stop': True}
+```
+
+#### Performance Monitoring
+
+```python
+async def on_complete(self, response):
+    """Comprehensive execution analytics."""
+    print(f"📊 Performance Metrics:")
+    print(f"   Iterations: {self.iteration_count}")
+    print(f"   Context Quality: {self.final_quality_score:.2f}")
+    print(f"   Search Efficiency: {len(self.context_accumulator)/self.iteration_count:.1f} items/iteration")
+    print(f"   Synthesis Confidence: {self.synthesis_confidence:.2f}")
+```
+
+This example demonstrates how the callback system transforms JAF from a simple agent executor into a sophisticated reasoning engine capable of complex, adaptive behaviors that would be impossible with traditional fixed execution patterns.
+
 ## Next Steps
 
 - Learn about [Deployment](deployment.md) for production setup
 - Review [Troubleshooting](troubleshooting.md) for common issues
 - Explore [API Reference](api-reference.md) for complete documentation
 - Check [Tools Guide](tools.md) for advanced tool patterns
+- **[Callback System](callback-system.md)** - Deep dive into advanced agent instrumentation

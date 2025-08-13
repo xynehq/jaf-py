@@ -68,6 +68,16 @@ A **production-ready** functional agent framework with immutable state and compo
   </div>
 
   <div class="feature-card">
+    <h3>🎣 Advanced Callback System</h3>
+    <ul>
+      <li>✅ 14+ Instrumentation Hooks</li>
+      <li>✅ ReAct Pattern Support</li>
+      <li>✅ Iterative Agent Behaviors</li>
+      <li>✅ LLM Call Interception</li>
+    </ul>
+  </div>
+
+  <div class="feature-card">
     <h3>🔧 Production Quality Assurance</h3>
     <ul>
       <li>✅ Comprehensive Validation Suite</li>
@@ -203,6 +213,7 @@ JAF follows functional programming principles for predictable, testable AI syste
 
 ### 🛡️ ADK Production Framework
 - **[ADK Overview](adk-overview.md)** - Agent Development Kit introduction
+- **[Callback System](callback-system.md)** - Advanced agent instrumentation and control
 - **[Security Framework](security-framework.md)** - Input sanitization and safe execution
 - **[Session Management](session-management.md)** - Immutable sessions and functional patterns
 - **[Error Handling](error-handling.md)** - Circuit breakers, retries, and recovery
