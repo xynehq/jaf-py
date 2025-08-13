@@ -16,7 +16,10 @@ echo "⚠️  Press Ctrl+C to stop the server"
 echo ""
 
 # Check if mkdocs is installed
-if ! command -v mkdocs &> /dev/null; then
+MKDOCS_CMD="mkdocs"
+if command -v /Users/harshpreet.singh/Library/Python/3.12/bin/mkdocs &> /dev/null; then
+    MKDOCS_CMD="/Users/harshpreet.singh/Library/Python/3.12/bin/mkdocs"
+elif ! command -v mkdocs &> /dev/null; then
     echo "❌ MkDocs is not installed!"
     echo "📦 Install it with: pip install -r requirements-docs.txt"
     exit 1
@@ -30,4 +33,4 @@ if [ ! -f "mkdocs.yml" ]; then
 fi
 
 # Start the development server
-mkdocs serve --dev-addr 127.0.0.1:8000
+$MKDOCS_CMD serve --dev-addr 127.0.0.1:8000
