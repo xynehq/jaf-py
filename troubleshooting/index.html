@@ -1472,9 +1472,9 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#issue-pip-install-jaf-python-fails" class="md-nav__link">
+  <a href="#issue-pip-install-jaf-py-fails" class="md-nav__link">
     <span class="md-ellipsis">
-      Issue: pip install jaf-python fails
+      Issue: pip install jaf-py fails
     </span>
   </a>
   
@@ -1785,19 +1785,19 @@
 <p>This guide helps you resolve common issues when working with JAF Python.</p>
 <div class="admonition warning">
 <p class="admonition-title">Before You Start</p>
-<p>Make sure you're using a supported Python version (3.9+) and have properly installed JAF with <code>pip install jaf-python</code>.</p>
+<p>Make sure you're using a supported Python version (3.9+) and have properly installed JAF with <code>pip install jaf-py</code>.</p>
 </div>
 <h2 id="common-issues">Common Issues<a class="headerlink" href="#common-issues" title="Anchor link to this section for reference">&para;</a></h2>
 <h3 id="installation-problems">Installation Problems<a class="headerlink" href="#installation-problems" title="Anchor link to this section for reference">&para;</a></h3>
-<h4 id="issue-pip-install-jaf-python-fails">Issue: <code>pip install jaf-python</code> fails<a class="headerlink" href="#issue-pip-install-jaf-python-fails" title="Anchor link to this section for reference">&para;</a></h4>
-<div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="issue-pip-install-jaf-python-fails-solution-1-update-pip" name="__tabbed_1" type="radio" /><input id="issue-pip-install-jaf-python-fails-solution-2-use-virtual-environment" name="__tabbed_1" type="radio" /><input id="issue-pip-install-jaf-python-fails-solution-3-clear-cache" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="issue-pip-install-jaf-python-fails-solution-1-update-pip">Solution 1: Update pip</label><label for="issue-pip-install-jaf-python-fails-solution-2-use-virtual-environment">Solution 2: Use virtual environment</label><label for="issue-pip-install-jaf-python-fails-solution-3-clear-cache">Solution 3: Clear cache</label></div>
+<h4 id="issue-pip-install-jaf-py-fails">Issue: <code>pip install jaf-py</code> fails<a class="headerlink" href="#issue-pip-install-jaf-py-fails" title="Anchor link to this section for reference">&para;</a></h4>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="issue-pip-install-jaf-py-fails-solution-1-update-pip" name="__tabbed_1" type="radio" /><input id="issue-pip-install-jaf-py-fails-solution-2-use-virtual-environment" name="__tabbed_1" type="radio" /><input id="issue-pip-install-jaf-py-fails-solution-3-clear-cache" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="issue-pip-install-jaf-py-fails-solution-1-update-pip">Solution 1: Update pip</label><label for="issue-pip-install-jaf-py-fails-solution-2-use-virtual-environment">Solution 2: Use virtual environment</label><label for="issue-pip-install-jaf-py-fails-solution-3-clear-cache">Solution 3: Clear cache</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Update pip to the latest version</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--upgrade<span class="w"> </span>pip
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Then try installing JAF again</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>pip<span class="w"> </span>install<span class="w"> </span>jaf-python
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>pip<span class="w"> </span>install<span class="w"> </span>jaf-py
 </span></code></pre></div>
 </div>
 <div class="tabbed-block">
@@ -1806,13 +1806,13 @@
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nb">source</span><span class="w"> </span>jaf-env/bin/activate<span class="w">  </span><span class="c1"># On Windows: jaf-env\Scripts\activate</span>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="c1"># Install JAF</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>pip<span class="w"> </span>install<span class="w"> </span>jaf-python
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>pip<span class="w"> </span>install<span class="w"> </span>jaf-py
 </span></code></pre></div>
 </div>
 <div class="tabbed-block">
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Clear pip cache and reinstall</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>pip<span class="w"> </span>cache<span class="w"> </span>purge
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>pip<span class="w"> </span>install<span class="w"> </span>--no-cache-dir<span class="w"> </span>jaf-python
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>pip<span class="w"> </span>install<span class="w"> </span>--no-cache-dir<span class="w"> </span>jaf-py
 </span></code></pre></div>
 </div>
 </div>
@@ -1831,8 +1831,8 @@
 </span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>pip<span class="w"> </span>list<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>jaf
 </span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
 </span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="c1"># Reinstall if necessary</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>pip<span class="w"> </span>uninstall<span class="w"> </span>jaf-python
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>pip<span class="w"> </span>install<span class="w"> </span>jaf-python
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>pip<span class="w"> </span>uninstall<span class="w"> </span>jaf-py
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>pip<span class="w"> </span>install<span class="w"> </span>jaf-py
 </span></code></pre></div>
 <h3 id="model-provider-issues">Model Provider Issues<a class="headerlink" href="#model-provider-issues" title="Anchor link to this section for reference">&para;</a></h3>
 <h4 id="issue-litellm-connection-failed">Issue: LiteLLM connection failed<a class="headerlink" href="#issue-litellm-connection-failed" title="Anchor link to this section for reference">&para;</a></h4>
@@ -2140,20 +2140,20 @@
 <h3 id="q-can-i-run-jaf-in-production">Q: Can I run JAF in production?<a class="headerlink" href="#q-can-i-run-jaf-in-production" title="Anchor link to this section for reference">&para;</a></h3>
 <p><strong>A</strong>: Absolutely! JAF is designed for production use. See our <a href="../deployment/">Deployment Guide</a> for best practices.</p>
 <h3 id="q-how-do-i-contribute-to-jaf">Q: How do I contribute to JAF?<a class="headerlink" href="#q-how-do-i-contribute-to-jaf" title="Anchor link to this section for reference">&para;</a></h3>
-<p><strong>A</strong>: We welcome contributions! See the <a href="https://github.com/juspay/jaf-python#contributing">Contributing section</a> in our README.</p>
+<p><strong>A</strong>: We welcome contributions! See the <a href="https://github.com/xynehq/jaf-py#contributing">Contributing section</a> in our README.</p>
 <h2 id="getting-help">Getting Help<a class="headerlink" href="#getting-help" title="Anchor link to this section for reference">&para;</a></h2>
 <p>If you're still having issues:</p>
 <ol>
 <li><strong>Check the <a href="../examples/">Examples</a></strong> - Working code you can reference</li>
 <li><strong>Review the <a href="../api-reference/">API Reference</a></strong> - Detailed function documentation  </li>
-<li><strong>Search <a href="https://github.com/juspay/jaf-python/issues">GitHub Issues</a></strong> - Someone might have solved your issue</li>
+<li><strong>Search <a href="https://github.com/xynehq/jaf-py/issues">GitHub Issues</a></strong> - Someone might have solved your issue</li>
 <li><strong>Open a new issue</strong> - Provide error messages, code samples, and environment details</li>
 </ol>
 <div class="admonition tip">
 <p class="admonition-title">When Reporting Issues</p>
 <p>Please include:</p>
 <ul>
-<li>JAF version: <code>pip show jaf-python</code></li>
+<li>JAF version: <code>pip show jaf-py</code></li>
 <li>Python version: <code>python --version</code></li>
 <li>Operating system</li>
 <li>Complete error traceback</li>
