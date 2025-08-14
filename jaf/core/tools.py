@@ -25,7 +25,23 @@ class FunctionTool:
         """Initialize a function tool from configuration."""
         self._name = config['name']
         self._description = config['description']
-        self._execute_func = config['execute']
+        
+        # Validate execute function
+        execute_func = config['execute']
+        if isinstance(execute_func, FunctionTool):
+            raise ValueError(
+                f"Invalid 'execute' parameter for tool '{self._name}': received a FunctionTool object instead of a callable function. "
+                f"The 'execute' parameter should be a function or async function, not a FunctionTool instance. "
+                f"Did you accidentally pass a tool object instead of its execute method?"
+            )
+        
+        if not callable(execute_func):
+            raise ValueError(
+                f"Invalid 'execute' parameter for tool '{self._name}': expected a callable function, got {type(execute_func).__name__}. "
+                f"The 'execute' parameter should be a function or async function."
+            )
+        
+        self._execute_func = execute_func
         self._parameters = config['parameters']
         self._metadata = config.get('metadata', {})
         self._source = config.get('source', ToolSource.NATIVE)
@@ -35,6 +51,20 @@ class FunctionTool:
             name=self._name,
             description=self._description,
             parameters=self._parameters
+        )
+    
+    def __call__(self, *args, **kwargs):
+        """
+        Make FunctionTool callable but with helpful error message.
+        This prevents the 'FunctionTool object is not callable' error and provides guidance.
+        """
+        raise TypeError(
+            f"FunctionTool '{self._name}' object is not directly callable. "
+            f"Use 'await tool.execute(args, context)' instead of 'tool(args, context)'. "
+            f"The correct pattern is:\n"
+            f"  result = await {self._name}.execute(args, context)\n"
+            f"Not:\n"
+            f"  result = await {self._name}(args, context)"
         )
     
     @property
@@ -97,6 +127,21 @@ def create_function_tool(config: FunctionToolConfig) -> Tool:
         })
         ```
     """
+    # Validate that execute is callable and not a FunctionTool object
+    execute_func = config['execute']
+    if isinstance(execute_func, FunctionTool):
+        raise ValueError(
+            f"Invalid 'execute' parameter: received a FunctionTool object instead of a callable function. "
+            f"The 'execute' parameter should be a function or async function, not a FunctionTool instance. "
+            f"Did you accidentally pass a tool object instead of its execute method?"
+        )
+    
+    if not callable(execute_func):
+        raise ValueError(
+            f"Invalid 'execute' parameter: expected a callable function, got {type(execute_func).__name__}. "
+            f"The 'execute' parameter should be a function or async function."
+        )
+    
     return FunctionTool(config)
 
 
@@ -130,6 +175,21 @@ def create_function_tool_legacy(
         DeprecationWarning,
         stacklevel=2
     )
+    
+    # Validate execute function
+    if isinstance(execute, FunctionTool):
+        raise ValueError(
+            f"Invalid 'execute' parameter for tool '{name}': received a FunctionTool object instead of a callable function. "
+            f"The 'execute' parameter should be a function or async function, not a FunctionTool instance. "
+            f"Did you accidentally pass a tool object instead of its execute method?"
+        )
+    
+    if not callable(execute):
+        raise ValueError(
+            f"Invalid 'execute' parameter for tool '{name}': expected a callable function, got {type(execute).__name__}. "
+            f"The 'execute' parameter should be a function or async function."
+        )
+    
     config: FunctionToolConfig = {
         'name': name,
         'description': description,
