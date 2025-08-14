@@ -9,7 +9,7 @@ Based on src/a2a/memory/__tests__/serialization.test.ts patterns.
 
 import json
 from datetime import datetime, timezone
-
+import pytest
 from jaf.a2a.memory.serialization import (
     A2ATaskSerialized,
     clone_task,
@@ -151,17 +151,12 @@ class TestSerializeA2ATask(TestA2ATaskSerialization):
         """Should gracefully handle circular references"""
         task = self.create_test_task()
         # Create circular reference by adding task to its own metadata
-        task_dict = task.model_dump()
-        task_dict['metadata']['circular'] = task_dict  # This will cause JSON serialization to fail
+        task.metadata['circular'] = task
 
-        # Create a new task with circular structure
-        circular_task = A2ATask.model_validate(task_dict)
-
-        result = serialize_a2a_task(circular_task)
-
-        # Should fail gracefully with error result
-        assert result.data is None
-        assert "serialize" in str(result.error.message)
+        result = serialize_a2a_task(task)
+        
+        assert result.error is not None, "Should fail with circular reference"
+        assert "JSON serializable" in str(result.error.cause), "Should indicate JSON serialization error"
 
     def test_serialize_datetime_objects(self):
         """Should properly convert datetime objects to ISO strings"""
@@ -210,7 +205,7 @@ class TestDeserializeA2ATask(TestA2ATaskSerialization):
 
         result = deserialize_a2a_task(invalid_serialized)
 
-        assert result.data is None
+        assert result.error is not None
         assert "deserialize" in str(result.error.message)
 
     def test_deserialize_validates_required_fields(self):
@@ -231,8 +226,8 @@ class TestDeserializeA2ATask(TestA2ATaskSerialization):
 
         result = deserialize_a2a_task(incomplete_serialized)
 
-        assert result.data is None
-        assert "Invalid task structure" in str(result.error.message)
+        assert result.error is not None
+        assert "Invalid task structure" in str(result.error.cause)
 
     def test_deserialize_handles_malformed_message_data(self):
         """Should handle corrupted message data in task"""
@@ -262,7 +257,7 @@ class TestDeserializeA2ATask(TestA2ATaskSerialization):
 
         result = deserialize_a2a_task(corrupt_serialized)
 
-        assert result.data is None
+        assert result.error is not None
         assert "deserialize" in str(result.error.message)
 
 
@@ -472,7 +467,7 @@ class TestValidateTaskIntegrity(TestA2ATaskSerialization):
         # This will fail at Pydantic validation level, so test with mock
         result = validate_task_integrity(None)  # Simulate missing ID scenario
 
-        assert result.data is None
+        assert result.error is not None
         assert "Task ID is required" in str(result.error.message) or "validate" in str(result.error.message)
 
     def test_reject_task_without_context_id(self):
@@ -488,8 +483,8 @@ class TestValidateTaskIntegrity(TestA2ATaskSerialization):
 
         result = validate_task_integrity(invalid_task)
 
-        assert result.data is None
-        assert "Context ID is required" in str(result.error.message)
+        assert result.error is not None
+        assert "Context ID is required" in str(result.error.cause)
 
     def test_reject_task_without_status(self):
         """Should reject task missing status"""
@@ -507,8 +502,8 @@ class TestValidateTaskIntegrity(TestA2ATaskSerialization):
         invalid_task = InvalidTask()
         result = validate_task_integrity(invalid_task)
 
-        assert result.data is None
-        assert "Task status and state are required" in str(result.error.message)
+        assert result.error is not None
+        assert "Task status and state are required" in str(result.error.cause)
 
     def test_reject_task_with_wrong_kind(self):
         """Should reject task with incorrect kind"""
@@ -627,7 +622,7 @@ class TestSanitizeTask(TestA2ATaskSerialization):
         # Test with completely invalid task structure
         result = sanitize_task(None)
 
-        assert result.data is None
+        assert result.error is not None
         assert "sanitize" in str(result.error.message) or "validate" in str(result.error.message)
 
 
