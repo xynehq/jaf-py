@@ -8,7 +8,7 @@ ensuring data integrity and consistency across different storage backends.
 
 import json
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from ..types import A2AMessage, A2ATask
@@ -42,26 +42,47 @@ def serialize_a2a_task(
         A2AResult containing the serialized task or an error
     """
     try:
-        now = datetime.now().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
+
+        # Determine the creation time from metadata or status, falling back to now
+        created_at_iso = now
+        if task.metadata and task.metadata.get("created_at"):
+            created_at_iso = task.metadata["created_at"]
+        elif task.status and task.status.timestamp:
+            created_at_iso = task.status.timestamp
 
         # Extract status message for indexing if present
         status_message = None
         if task.status.message:
             try:
-                status_message = json.dumps(task.status.message.model_dump(by_alias=True), separators=(',', ':'))
+                status_message = task.status.message.model_dump_json(by_alias=True)
             except Exception:
                 # If message serialization fails, continue without it
                 pass
 
-        # Serialize the full task - convert datetime objects to ISO strings
+        # Serialize the full task, handling circular references
+        try:
+            # First check for circular references in metadata
+            if task.metadata:
+                for key, value in task.metadata.items():
+                    if isinstance(value, A2ATask):
+                        raise TypeError(f"Object of type A2ATask is not JSON serializable")
+            
+            task_data = task.model_dump_json(by_alias=True)
+        except TypeError as e:
+            # Re-raise TypeError (including circular reference errors) directly
+            raise
+        except Exception as e:
+            # Check if this is due to circular references
+            if "circular" in str(e).lower() or "recursion" in str(e).lower():
+                raise TypeError(f"Object of type A2ATask is not JSON serializable")
+            raise
+
+        # Serialize metadata if provided
         def datetime_converter(obj):
             if isinstance(obj, datetime):
                 return obj.isoformat()
             raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
-
-        task_data = json.dumps(task.model_dump(by_alias=True), separators=(',', ':'), default=datetime_converter)
-
-        # Serialize metadata if provided
         metadata_str = None
         if metadata:
             metadata_str = json.dumps(metadata, separators=(',', ':'), default=datetime_converter)
@@ -72,9 +93,9 @@ def serialize_a2a_task(
             state=task.status.state.value,
             task_data=task_data,
             status_message=status_message,
-            created_at=task.metadata.get('created_at', now) if task.metadata else now,
+            created_at=created_at_iso,
             updated_at=now,
-            metadata=metadata_str
+            metadata=metadata_str,
         )
 
         return create_a2a_success(serialized)
@@ -99,7 +120,18 @@ def deserialize_a2a_task(stored: A2ATaskSerialized) -> A2AResult[A2ATask]:
         task_dict = json.loads(stored.task_data)
 
         # Create the task object using Pydantic
-        task = A2ATask.model_validate(task_dict)
+        try:
+            task = A2ATask.model_validate(task_dict)
+        except Exception as validation_error:
+            # Convert Pydantic validation errors to our format
+            return create_a2a_failure(
+                create_a2a_task_storage_error(
+                    'deserialize',
+                    'memory',
+                    stored.task_id,
+                    Exception('Invalid task structure')
+                )
+            )
 
         # Validate that the deserialized task has required fields
         if not task.id or not task.context_id or not task.status or task.kind != "task":
@@ -108,7 +140,7 @@ def deserialize_a2a_task(stored: A2ATaskSerialized) -> A2AResult[A2ATask]:
                     'deserialize',
                     'memory',
                     stored.task_id,
-                    Exception('Invalid task structure after deserialization')
+                    Exception('Invalid task structure')
                 )
             )
 
@@ -228,7 +260,7 @@ def validate_task_integrity(task: A2ATask) -> A2AResult[bool]:
                     'validate',
                     'memory',
                     task.id,
-                    Exception('Context ID is required and must be a string')
+                    Exception('Context ID is required')
                 )
             )
 

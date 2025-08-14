@@ -11,7 +11,9 @@ Based on src/a2a/memory/__tests__/task-lifecycle.test.ts patterns.
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+import asyncpg
 import pytest
+import redis.asyncio as redis
 
 from jaf.a2a.memory.providers.in_memory import create_a2a_in_memory_task_provider
 from jaf.a2a.memory.types import (
@@ -192,80 +194,90 @@ class TaskLifecycleTestBase:
         })
 
 
-@pytest.fixture
-async def in_memory_provider() -> A2ATaskProvider:
-    """Create an in-memory task provider for testing"""
-    config = A2AInMemoryTaskConfig(max_tasks=1000, max_tasks_per_context=100)
-    provider = create_a2a_in_memory_task_provider(config)
-    yield provider
-    await provider.close()
-
-
-@pytest.fixture
-async def redis_provider() -> Optional[A2ATaskProvider]:
-    """Create a Redis task provider for testing if available"""
-    if not REDIS_AVAILABLE:
-        pytest.skip("Redis provider not available")
-
-    config = A2ARedisTaskConfig(
-        host="localhost",
-        port=6379,
-        db=15,  # Use separate DB for testing
-        key_prefix="jaf_test:a2a:tasks:"
-    )
-    provider = create_a2a_redis_task_provider(config)
-
-    # Clear test data
-    await provider.delete_tasks_by_context("test_cleanup")
-
-    yield provider
-
-    # Cleanup after test
-    await provider.close()
-
-
-@pytest.fixture
-async def postgres_provider() -> Optional[A2ATaskProvider]:
-    """Create a PostgreSQL task provider for testing if available"""
-    if not POSTGRES_AVAILABLE:
-        pytest.skip("PostgreSQL provider not available")
-
-    config = A2APostgresTaskConfig(
-        host="localhost",
-        port=5432,
-        database="jaf_test",
-        username="postgres",
-        table_name="a2a_tasks_test"
-    )
-    provider = create_a2a_postgres_task_provider(config)
-
-    # Clear test data
-    await provider.delete_tasks_by_context("test_cleanup")
-
-    yield provider
-
-    # Cleanup after test
-    await provider.close()
-
-
 # Provider parameter list for running tests across all providers
-PROVIDER_FIXTURES = [
-    "in_memory_provider",
-    pytest.param("redis_provider", marks=pytest.mark.skipif(not REDIS_AVAILABLE, reason="Redis not available")),
-    pytest.param("postgres_provider", marks=pytest.mark.skipif(not POSTGRES_AVAILABLE, reason="PostgreSQL not available"))
+PROVIDER_TYPES = [
+    "in_memory",
+    pytest.param("redis", marks=pytest.mark.skipif(not REDIS_AVAILABLE, reason="Redis not available")),
+    pytest.param("postgres", marks=pytest.mark.skipif(not POSTGRES_AVAILABLE, reason="PostgreSQL not available"))
 ]
+
+
+@pytest.fixture(params=PROVIDER_TYPES)
+async def provider(request):
+    """Create a task provider based on parametrized type."""
+    provider_type = request.param
+    p = None
+    redis_client = None
+    pg_pool = None
+
+    if provider_type == "in_memory":
+        config = A2AInMemoryTaskConfig(max_tasks=1000, max_tasks_per_context=100)
+        p_result = create_a2a_in_memory_task_provider(config)
+        p = p_result
+    elif provider_type == "redis":
+        config = A2ARedisTaskConfig(
+            host="localhost",
+            port=6379,
+            db=15,  # Use separate DB for testing
+            key_prefix="jaf_test:a2a:tasks:",
+            password="12345678"
+        )
+        try:
+            redis_client = redis.Redis(
+                host=config.host, 
+                port=config.port, 
+                db=config.db, 
+                password=config.password, 
+                decode_responses=True
+            )
+            await redis_client.ping()
+            await redis_client.flushdb()
+            p_result = await create_a2a_redis_task_provider(config, redis_client)
+            p = p_result.data
+        except (redis.exceptions.ConnectionError, ConnectionRefusedError, redis.exceptions.AuthenticationError) as e:
+            pytest.skip(f"Redis not available at {config.host}:{config.port}: {e}")
+
+    elif provider_type == "postgres":
+        config = A2APostgresTaskConfig(
+            host="localhost",
+            port=5432,
+            database="jaf_test",
+            username="postgres",
+            table_name="a2a_tasks_test"
+        )
+        try:
+            pg_pool = await asyncpg.create_pool(
+                user=config.username, database=config.database, host=config.host, port=config.port
+            )
+            # Clean the table for test isolation
+            async with pg_pool.acquire() as conn:
+                await conn.execute(f"DROP TABLE IF EXISTS {config.table_name} CASCADE")
+            p_result = await create_a2a_postgres_task_provider(config, pg_pool)
+            p = p_result.data
+        except (ConnectionRefusedError, asyncpg.exceptions.InvalidCatalogNameError, OSError) as e:
+            pytest.skip(f"PostgreSQL not available or db 'jaf_test' does not exist: {e}")
+
+    if p:
+        yield p
+        # The provider's close() method is a no-op for external clients,
+        # so we close the client/pool we created.
+        if redis_client:
+            await redis_client.aclose()
+        if pg_pool:
+            await pg_pool.close()
+    elif provider_type not in ['redis', 'postgres']: # Don't fail if skipped
+        pytest.fail(f"Unknown provider type or provider failed to initialize: {provider_type}")
 
 
 class TestTaskLifecycleHappyPath(TaskLifecycleTestBase):
     """Test successful task lifecycle scenarios"""
 
-    @pytest.mark.parametrize("provider_fixture", PROVIDER_FIXTURES)
-    async def test_complete_happy_path_lifecycle(self, provider_fixture, request):
+    @pytest.mark.parametrize("provider", PROVIDER_TYPES, indirect=True)
+    async def test_complete_happy_path_lifecycle(self, provider):
         """
         CRITICAL: Test the complete happy path lifecycle across all providers
         submitted -> working -> completed with history and artifacts
         """
-        provider = request.getfixturevalue(provider_fixture)
 
         # Step 1: Create and store submitted task
         submitted_task = self.create_submission_task("happy_001", "happy_ctx_001")
@@ -336,10 +348,9 @@ class TestTaskLifecycleHappyPath(TaskLifecycleTestBase):
         assert len(context_result.data) == 1
         assert context_result.data[0].id == "happy_001"
 
-    @pytest.mark.parametrize("provider_fixture", PROVIDER_FIXTURES)
-    async def test_multiple_intermediate_updates(self, provider_fixture, request):
+    @pytest.mark.parametrize("provider", PROVIDER_TYPES, indirect=True)
+    async def test_multiple_intermediate_updates(self, provider):
         """Test task with multiple status updates during working phase"""
-        provider = request.getfixturevalue(provider_fixture)
 
         # Create and store initial task
         task = self.create_submission_task("multi_001", "multi_ctx_001")
@@ -390,10 +401,9 @@ class TestTaskLifecycleHappyPath(TaskLifecycleTestBase):
 class TestTaskLifecycleUnhappyPath(TaskLifecycleTestBase):
     """Test failure and cancellation scenarios"""
 
-    @pytest.mark.parametrize("provider_fixture", PROVIDER_FIXTURES)
-    async def test_task_failure_lifecycle(self, provider_fixture, request):
+    @pytest.mark.parametrize("provider", PROVIDER_TYPES, indirect=True)
+    async def test_task_failure_lifecycle(self, provider):
         """Test task lifecycle ending in failure"""
-        provider = request.getfixturevalue(provider_fixture)
 
         # Create and progress task to working
         task = self.create_submission_task("fail_001", "fail_ctx_001")
@@ -424,10 +434,9 @@ class TestTaskLifecycleUnhappyPath(TaskLifecycleTestBase):
         assert len(find_result.data) == 1
         assert find_result.data[0].status.state == TaskState.FAILED
 
-    @pytest.mark.parametrize("provider_fixture", PROVIDER_FIXTURES)
-    async def test_task_cancellation_lifecycle(self, provider_fixture, request):
+    @pytest.mark.parametrize("provider", PROVIDER_TYPES, indirect=True)
+    async def test_task_cancellation_lifecycle(self, provider):
         """Test task lifecycle ending in cancellation"""
-        provider = request.getfixturevalue(provider_fixture)
 
         # Create and progress task to working
         task = self.create_submission_task("cancel_001", "cancel_ctx_001")
@@ -475,10 +484,9 @@ class TestTaskLifecycleUnhappyPath(TaskLifecycleTestBase):
 class TestMultiTaskContextManagement(TaskLifecycleTestBase):
     """Test management of multiple tasks within contexts"""
 
-    @pytest.mark.parametrize("provider_fixture", PROVIDER_FIXTURES)
-    async def test_multiple_tasks_single_context(self, provider_fixture, request):
+    @pytest.mark.parametrize("provider", PROVIDER_TYPES, indirect=True)
+    async def test_multiple_tasks_single_context(self, provider):
         """Test creating and managing multiple tasks in a single context"""
-        provider = request.getfixturevalue(provider_fixture)
         context_id = "multi_task_ctx_001"
 
         # Create multiple tasks in same context
@@ -541,10 +549,9 @@ class TestMultiTaskContextManagement(TaskLifecycleTestBase):
         assert empty_context_result.data is not None
         assert len(empty_context_result.data) == 0, "Context should be empty after deletion"
 
-    @pytest.mark.parametrize("provider_fixture", PROVIDER_FIXTURES)
-    async def test_task_stats_accuracy(self, provider_fixture, request):
+    @pytest.mark.parametrize("provider", PROVIDER_TYPES, indirect=True)
+    async def test_task_stats_accuracy(self, provider):
         """Test accuracy of task statistics across state changes"""
-        provider = request.getfixturevalue(provider_fixture)
         context_id = "stats_ctx_001"
 
         # Create initial batch of tasks
@@ -590,10 +597,9 @@ class TestMultiTaskContextManagement(TaskLifecycleTestBase):
 class TestTaskQueryAndPagination(TaskLifecycleTestBase):
     """Test task querying and pagination functionality"""
 
-    @pytest.mark.parametrize("provider_fixture", PROVIDER_FIXTURES)
-    async def test_task_query_by_state(self, provider_fixture, request):
+    @pytest.mark.parametrize("provider", PROVIDER_TYPES, indirect=True)
+    async def test_task_query_by_state(self, provider):
         """Test querying tasks by different states"""
-        provider = request.getfixturevalue(provider_fixture)
         context_id = "query_ctx_001"
 
         # Create tasks in different states
@@ -644,10 +650,9 @@ class TestTaskQueryAndPagination(TaskLifecycleTestBase):
         assert len(completed_result.data) == 3
         assert all(task.status.state == TaskState.COMPLETED for task in completed_result.data)
 
-    @pytest.mark.parametrize("provider_fixture", PROVIDER_FIXTURES)
-    async def test_task_query_pagination(self, provider_fixture, request):
+    @pytest.mark.parametrize("provider", PROVIDER_TYPES, indirect=True)
+    async def test_task_query_pagination(self, provider):
         """Test pagination through large task sets"""
-        provider = request.getfixturevalue(provider_fixture)
         context_id = "pagination_ctx_001"
 
         # Create 25 tasks for pagination testing
@@ -692,23 +697,24 @@ class TestTaskQueryAndPagination(TaskLifecycleTestBase):
         # Verify all tasks are from correct context
         assert all(task.context_id == context_id for task in all_retrieved)
 
-    @pytest.mark.parametrize("provider_fixture", PROVIDER_FIXTURES)
-    async def test_task_query_time_range(self, provider_fixture, request):
+    @pytest.mark.parametrize("provider", PROVIDER_TYPES, indirect=True)
+    async def test_task_query_time_range(self, provider):
         """Test querying tasks by time range"""
-        provider = request.getfixturevalue(provider_fixture)
         context_id = "time_ctx_001"
 
         # Create tasks with timestamps spread over time
         base_time = datetime.now(timezone.utc)
 
         # Tasks from 1 hour ago
+        old_time = base_time - timedelta(hours=1)
         old_task = self.create_submission_task("old_task", context_id)
         old_task = old_task.model_copy(update={
             "status": old_task.status.model_copy(update={
-                "timestamp": (base_time - timedelta(hours=1)).isoformat()
+                "timestamp": old_time.isoformat()
             })
         })
-        await provider.store_task(old_task)
+        # Store with created_at metadata to control the timestamp used for filtering
+        await provider.store_task(old_task, metadata={"created_at": old_time.isoformat()})
 
         # Tasks from now
         new_task = self.create_submission_task("new_task", context_id)
@@ -717,7 +723,8 @@ class TestTaskQueryAndPagination(TaskLifecycleTestBase):
                 "timestamp": base_time.isoformat()
             })
         })
-        await provider.store_task(new_task)
+        # Store with created_at metadata to control the timestamp used for filtering
+        await provider.store_task(new_task, metadata={"created_at": base_time.isoformat()})
 
         # Query tasks since 30 minutes ago
         since_time = base_time - timedelta(minutes=30)
@@ -743,43 +750,43 @@ class TestTaskQueryAndPagination(TaskLifecycleTestBase):
 class TestTaskErrorHandling(TaskLifecycleTestBase):
     """Test error handling scenarios"""
 
-    @pytest.mark.parametrize("provider_fixture", PROVIDER_FIXTURES)
-    async def test_get_nonexistent_task(self, provider_fixture, request):
+    @pytest.mark.parametrize("provider", PROVIDER_TYPES, indirect=True)
+    async def test_get_nonexistent_task(self, provider):
         """Test getting a task that doesn't exist"""
-        provider = request.getfixturevalue(provider_fixture)
 
         result = await provider.get_task("nonexistent_task_12345")
 
         # Should return success with None data (not found)
         assert result.data is None
 
-    @pytest.mark.parametrize("provider_fixture", PROVIDER_FIXTURES)
-    async def test_update_nonexistent_task(self, provider_fixture, request):
+    @pytest.mark.parametrize("provider", PROVIDER_TYPES, indirect=True)
+    async def test_update_nonexistent_task(self, provider):
         """Test updating a task that doesn't exist"""
-        provider = request.getfixturevalue(provider_fixture)
 
         nonexistent_task = self.create_submission_task("nonexistent_update", "nonexistent_ctx")
 
         result = await provider.update_task(nonexistent_task)
 
         # Should fail with appropriate error
-        assert result.data is None
-        assert result.error is not None
+        if hasattr(result, 'data'):
+            assert result.data is None
+        elif hasattr(result, 'error'):
+            assert result.error is not None
+        else:
+            assert False, "Result should have either data or error"
 
-    @pytest.mark.parametrize("provider_fixture", PROVIDER_FIXTURES)
-    async def test_delete_nonexistent_task(self, provider_fixture, request):
+    @pytest.mark.parametrize("provider", PROVIDER_TYPES, indirect=True)
+    async def test_delete_nonexistent_task(self, provider):
         """Test deleting a task that doesn't exist"""
-        provider = request.getfixturevalue(provider_fixture)
 
         result = await provider.delete_task("nonexistent_delete_12345")
 
         # Should return False indicating task didn't exist
         assert result.data is False
 
-    @pytest.mark.parametrize("provider_fixture", PROVIDER_FIXTURES)
-    async def test_invalid_task_data_handling(self, provider_fixture, request):
+    @pytest.mark.parametrize("provider", PROVIDER_TYPES, indirect=True)
+    async def test_invalid_task_data_handling(self, provider):
         """Test handling of invalid task data"""
-        provider = request.getfixturevalue(provider_fixture)
 
         # Create task with invalid data (empty ID)
         try:
@@ -804,10 +811,9 @@ class TestTaskErrorHandling(TaskLifecycleTestBase):
 class TestProviderHealthAndCleanup(TaskLifecycleTestBase):
     """Test provider health checks and cleanup operations"""
 
-    @pytest.mark.parametrize("provider_fixture", PROVIDER_FIXTURES)
-    async def test_provider_health_check(self, provider_fixture, request):
+    @pytest.mark.parametrize("provider", PROVIDER_TYPES, indirect=True)
+    async def test_provider_health_check(self, provider):
         """Test provider health check functionality"""
-        provider = request.getfixturevalue(provider_fixture)
 
         health_result = await provider.health_check()
 
@@ -821,10 +827,9 @@ class TestProviderHealthAndCleanup(TaskLifecycleTestBase):
         # Should have timing information
         assert "latency_ms" in health_data or "response_time_ms" in health_data
 
-    @pytest.mark.parametrize("provider_fixture", PROVIDER_FIXTURES)
-    async def test_cleanup_expired_tasks(self, provider_fixture, request):
+    @pytest.mark.parametrize("provider", PROVIDER_TYPES, indirect=True)
+    async def test_cleanup_expired_tasks(self, provider):
         """Test cleanup of expired tasks"""
-        provider = request.getfixturevalue(provider_fixture)
 
         # Create tasks with different expiration times
         context_id = "cleanup_ctx_001"

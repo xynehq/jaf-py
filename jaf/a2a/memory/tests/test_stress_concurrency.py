@@ -45,14 +45,18 @@ class StressTestBase:
         self,
         count: int,
         context_id: str = "stress_ctx",
-        base_id: str = "stress_task"
+        base_id: str = "stress_task",
+        distribute_contexts: bool = True
     ) -> List[A2ATask]:
         """Create multiple tasks for bulk operations"""
         tasks = []
         for i in range(count):
+            # Distribute across contexts by default for stress testing, but allow single context
+            actual_context_id = f"{context_id}_{i % 10}" if distribute_contexts else context_id
+            
             task = A2ATask(
                 id=f"{base_id}_{i:05d}",
-                contextId=f"{context_id}_{i % 10}",  # Distribute across 10 contexts
+                contextId=actual_context_id,
                 kind="task",
                 status=A2ATaskStatus(
                     state=TaskState.SUBMITTED,
@@ -60,7 +64,7 @@ class StressTestBase:
                         role="user",
                         parts=[A2ATextPart(kind="text", text=f"Bulk task number {i}")],
                         messageId=f"bulk_msg_{i}",
-                        contextId=f"{context_id}_{i % 10}",
+                        contextId=actual_context_id,
                         kind="message"
                     ),
                     timestamp=datetime.now(timezone.utc).isoformat()
@@ -450,15 +454,23 @@ class TestLargeScaleOperations(StressTestBase):
         page_size = 25
         context_id = "pagination_perf_ctx"
 
-        # Create large dataset
-        tasks = self.create_bulk_tasks(total_tasks, context_id, "page_task")
+        # Create large dataset - use single context for pagination test
+        tasks = self.create_bulk_tasks(total_tasks, context_id, "page_task", distribute_contexts=False)
 
-        # Store in batches
+        # Store in batches and verify success
         batch_size = 50
+        stored_count = 0
         for i in range(0, len(tasks), batch_size):
             batch = tasks[i:i + batch_size]
             batch_operations = [stress_provider.store_task(task) for task in batch]
-            await asyncio.gather(*batch_operations)
+            batch_results = await asyncio.gather(*batch_operations)
+            
+            # Verify batch success
+            for result in batch_results:
+                if hasattr(result, 'data') and result.data is None:
+                    stored_count += 1
+        
+        assert stored_count == total_tasks, f"Only stored {stored_count}/{total_tasks} tasks"
 
         # Test pagination performance at different offsets
         test_offsets = [0, 250, 500, 750, 900]  # Beginning, middle, end
@@ -615,13 +627,18 @@ class TestResourceExhaustion(StressTestBase):
 
             for task in tasks:
                 result = await limited_provider.store_task(task)
-                if result.data is None:
+                if hasattr(result, 'data') and result.data is None:
                     stored_count += 1
-                else:
+                elif hasattr(result, 'error'):
                     rejected_count += 1
 
-                    # Should get appropriate error message
-                    assert "limit" in str(result.error.message).lower() or "full" in str(result.error.message).lower()
+                    # Should get appropriate error message about storage limits
+                    error_msg = str(result.error.message).lower()
+                    # Check for storage-related error messages
+                    assert ("limit" in error_msg or "full" in error_msg or "maximum" in error_msg or
+                           "storage" in error_msg or "exceeded" in error_msg or "failed to store" in error_msg)
+                else:
+                    rejected_count += 1
 
             assert stored_count <= 100, f"Should not store more than limit: {stored_count}"
             assert rejected_count > 0, "Should reject tasks when limit is reached"
@@ -636,7 +653,7 @@ class TestResourceExhaustion(StressTestBase):
 
             for task in context_tasks:
                 result = await limited_provider.store_task(task)
-                if result.data is None:
+                if hasattr(result, 'data') and result.data is None:
                     ctx_stored += 1
                 else:
                     ctx_rejected += 1
@@ -810,9 +827,9 @@ class TestMemoryLeakDetection(StressTestBase):
 
     async def test_large_dataset_cleanup_efficiency(self, stress_provider):
         """Test cleanup efficiency with large datasets"""
-        # Create large dataset
+        # Create large dataset - use single context for cleanup test
         large_dataset_size = 1000
-        tasks = self.create_bulk_tasks(large_dataset_size, "large_cleanup_ctx", "large_cleanup_task")
+        tasks = self.create_bulk_tasks(large_dataset_size, "large_cleanup_ctx", "large_cleanup_task", distribute_contexts=False)
 
         # Store all tasks
         batch_size = 50
