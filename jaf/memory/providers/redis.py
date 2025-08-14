@@ -130,10 +130,17 @@ class RedisProvider(MemoryProvider):
             keys = await self.redis_client.keys(f"{self.config.key_prefix}*")
             conversations = []
             for key in keys:
+                # Ensure we are only processing conversation keys
+                if not key.decode().startswith(f"{self.config.key_prefix}conversation:"):
+                    continue
                 value = await self.redis_client.get(key)
                 if value:
                     conv = self._deserialize(value)
                     # Filtering logic here
+                    if query.user_id and conv.user_id != query.user_id:
+                        continue
+                    if query.conversation_id and conv.conversation_id != query.conversation_id:
+                        continue
                     conversations.append(conv)
             return Success(conversations)
         except Exception as e:

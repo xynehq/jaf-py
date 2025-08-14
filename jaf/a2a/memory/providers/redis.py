@@ -292,24 +292,28 @@ async def create_a2a_redis_task_provider(
                 """Search tasks by query parameters"""
                 try:
                     task_ids: List[str] = []
-
+                    
+                    # Determine which sets to use for filtering
+                    keys_to_intersect = []
                     if query.context_id:
-                        # Get tasks by context
-                        context_index_key = get_context_index_key(query.context_id)
-                        task_ids = await redis_client.smembers(context_index_key)
-                    elif query.state:
-                        # Get tasks by state
-                        state_index_key = get_state_index_key(query.state.value)
-                        task_ids = await redis_client.smembers(state_index_key)
+                        keys_to_intersect.append(get_context_index_key(query.context_id))
+                    if query.state:
+                        keys_to_intersect.append(get_state_index_key(query.state.value))
+
+                    if keys_to_intersect:
+                        # If we have sets to intersect, use SINTER for efficiency
+                        if len(keys_to_intersect) > 1:
+                            task_ids = await redis_client.sinter(keys_to_intersect)
+                        else:
+                            task_ids = await redis_client.smembers(keys_to_intersect[0])
                     else:
-                        # Get all task keys and extract IDs
+                        # Get all task keys if no context or state is provided
                         pattern = f"{key_prefix}task:*"
                         keys = await redis_client.keys(pattern)
                         task_ids = [key.replace(f"{key_prefix}task:", '') for key in keys]
 
                     # Convert bytes to strings if needed
-                    if task_ids and isinstance(task_ids[0], bytes):
-                        task_ids = [tid.decode() for tid in task_ids]
+                    task_ids = [tid.decode() if isinstance(tid, bytes) else tid for tid in task_ids]
 
                     # Filter by specific task ID if provided
                     if query.task_id:
