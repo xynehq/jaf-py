@@ -74,12 +74,37 @@ class FunctionTool:
     
     async def execute(self, args: Any, context: Any) -> Union[str, ToolResult]:
         """Execute the tool with given arguments and context."""
-        result = self._execute_func(args, context)
+        # Additional safety check to ensure _execute_func is callable
+        if not callable(self._execute_func):
+            raise TypeError(
+                f"Tool '{self._name}' execute function is not callable. "
+                f"Got {type(self._execute_func).__name__}. "
+                f"This should not happen if the tool was created properly."
+            )
         
-        # Handle both sync and async execute functions
-        if hasattr(result, '__await__'):
-            return await result
-        return result
+        # Check if execute function is a FunctionTool (this should never happen but let's be safe)
+        if isinstance(self._execute_func, FunctionTool):
+            raise TypeError(
+                f"Tool '{self._name}' execute function is a FunctionTool object, but it should be a callable function. "
+                f"This indicates a bug in tool creation where a FunctionTool was passed as the execute parameter instead of a function."
+            )
+        
+        try:
+            result = self._execute_func(args, context)
+            
+            # Handle both sync and async execute functions
+            if hasattr(result, '__await__'):
+                return await result
+            return result
+        except TypeError as e:
+            if "object is not callable" in str(e):
+                raise TypeError(
+                    f"Failed to execute tool '{self._name}': {str(e)}. "
+                    f"The execute function appears to not be callable. "
+                    f"Execute function type: {type(self._execute_func).__name__}. "
+                    f"This might indicate that a non-function object was passed as the execute parameter during tool creation."
+                ) from e
+            raise
     
     @property
     def metadata(self) -> Dict[str, Any]:
