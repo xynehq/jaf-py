@@ -2,7 +2,7 @@
 
 <!-- ![JAF Banner](docs/cover.png) -->
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://pypi.org/project/jaf-python/)
+[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://pypi.org/project/jaf-py/)
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
 [![Docs](https://img.shields.io/badge/Docs-Live-brightgreen)](https://xynehq.github.io/jaf-py/)
 
@@ -67,16 +67,16 @@ A purely functional agent framework with immutable state and composable tools, p
 
 ```bash
 # Install from PyPI (recommended for production)
-pip install jaf-python
+pip install jaf-py
 
 # Or install with all optional dependencies
-pip install "jaf-python[all]"
+pip install "jaf-py[all]"
 
 # Install specific feature sets
-pip install "jaf-python[server]"        # FastAPI server support
-pip install "jaf-python[memory]"        # Redis/PostgreSQL memory providers
-pip install "jaf-python[visualization]" # Graphviz visualization tools
-pip install "jaf-python[dev]"           # Development tools
+pip install "jaf-py[server]"        # FastAPI server support
+pip install "jaf-py[memory]"        # Redis/PostgreSQL memory providers
+pip install "jaf-py[visualization]" # Graphviz visualization tools
+pip install "jaf-py[dev]"           # Development tools
 ```
 
 ### CLI Usage
@@ -148,7 +148,7 @@ For offline access, documentation is also available in the [`docs/`](docs/) dire
 ## 📁 Project Structure
 
 ```
-jaf-python/
+jaf-py/
 ├── docs/                    # 📚 Complete documentation suite
 │   ├── README.md           # Documentation hub and navigation
 │   ├── cover.png          # Project banner/logo
@@ -228,7 +228,7 @@ choco install graphviz
 Then install JAF with visualization support:
 
 ```bash
-pip install "jaf-python[visualization]"
+pip install "jaf-py[visualization]"
 ```
 
 ### Quick Start

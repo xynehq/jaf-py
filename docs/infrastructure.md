@@ -268,7 +268,7 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 # Install JAF with production dependencies
-RUN pip install "jaf-python[all]"
+RUN pip install "jaf-py[all]"
 
 # Copy application code
 COPY . .
@@ -358,7 +358,7 @@ spec:
     spec:
       containers:
       - name: jaf-app
-        image: jaf-python:latest
+        image: jaf-py:latest
         ports:
         - containerPort: 8000
         env:

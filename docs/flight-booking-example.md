@@ -163,7 +163,7 @@ enhanced_search = create_function_tool({
 
 ```bash
 # Install JAF with server dependencies
-pip install jaf-python[server]
+pip install jaf-py[server]
 
 # For production LLM integration
 pip install litellm

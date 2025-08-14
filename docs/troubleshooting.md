@@ -3,13 +3,13 @@
 This guide helps you resolve common issues when working with JAF Python.
 
 !!! warning "Before You Start"
-    Make sure you're using a supported Python version (3.9+) and have properly installed JAF with `pip install jaf-python`.
+    Make sure you're using a supported Python version (3.9+) and have properly installed JAF with `pip install jaf-py`.
 
 ## Common Issues
 
 ### Installation Problems
 
-#### Issue: `pip install jaf-python` fails
+#### Issue: `pip install jaf-py` fails
 
 === "Solution 1: Update pip"
     ```bash
@@ -17,7 +17,7 @@ This guide helps you resolve common issues when working with JAF Python.
     python -m pip install --upgrade pip
     
     # Then try installing JAF again
-    pip install jaf-python
+    pip install jaf-py
     ```
 
 === "Solution 2: Use virtual environment"
@@ -27,14 +27,14 @@ This guide helps you resolve common issues when working with JAF Python.
     source jaf-env/bin/activate  # On Windows: jaf-env\Scripts\activate
     
     # Install JAF
-    pip install jaf-python
+    pip install jaf-py
     ```
 
 === "Solution 3: Clear cache"
     ```bash
     # Clear pip cache and reinstall
     pip cache purge
-    pip install --no-cache-dir jaf-python
+    pip install --no-cache-dir jaf-py
     ```
 
 #### Issue: Import errors after installation
@@ -54,8 +54,8 @@ python -c "import sys; print(sys.path)"
 pip list | grep jaf
 
 # Reinstall if necessary
-pip uninstall jaf-python
-pip install jaf-python
+pip uninstall jaf-py
+pip install jaf-py
 ```
 
 ### Model Provider Issues
@@ -400,7 +400,7 @@ async def execute(self, args, context):
 
 ### Q: How do I contribute to JAF?
 
-**A**: We welcome contributions! See the [Contributing section](https://github.com/juspay/jaf-python#contributing) in our README.
+**A**: We welcome contributions! See the [Contributing section](https://github.com/xynehq/jaf-py#contributing) in our README.
 
 ## Getting Help
 
@@ -408,13 +408,13 @@ If you're still having issues:
 
 1. **Check the [Examples](examples.md)** - Working code you can reference
 2. **Review the [API Reference](api-reference.md)** - Detailed function documentation  
-3. **Search [GitHub Issues](https://github.com/juspay/jaf-python/issues)** - Someone might have solved your issue
+3. **Search [GitHub Issues](https://github.com/xynehq/jaf-py/issues)** - Someone might have solved your issue
 4. **Open a new issue** - Provide error messages, code samples, and environment details
 
 !!! tip "When Reporting Issues"
     Please include:
     
-    - JAF version: `pip show jaf-python`
+    - JAF version: `pip show jaf-py`
     - Python version: `python --version`
     - Operating system
     - Complete error traceback

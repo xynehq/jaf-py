@@ -59,7 +59,7 @@ Create `requirements.txt` for your JAF application:
 
 ```txt
 # JAF Framework
-jaf-python>=2.0.0
+jaf-py>=2.0.0
 
 # Web server
 fastapi>=0.104.0

@@ -184,7 +184,7 @@ memory_config = MemoryConfig(
 
 ```bash
 # Install dependencies
-pip install jaf-python litellm redis asyncpg
+pip install jaf-py litellm redis asyncpg
 
 # Set environment variables
 export LITELLM_URL=http://localhost:4000
@@ -422,7 +422,7 @@ You have access to information about programming, machine learning, web developm
 
 ```bash
 # Install dependencies
-pip install jaf-python litellm python-dotenv
+pip install jaf-py litellm python-dotenv
 
 # Configure environment
 export LITELLM_URL=http://localhost:4000

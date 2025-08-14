@@ -68,8 +68,8 @@ We actively welcome your pull requests:
 
 1. **Fork and Clone the Repository**
    ```bash
-   git clone https://github.com/YOUR_USERNAME/jaf-python.git
-   cd jaf-python
+   git clone https://github.com/xynehq/jaf-py.git
+   cd jaf-py
    ```
 
 2. **Create a Virtual Environment**
@@ -414,7 +414,7 @@ Contributors who make significant contributions will be:
 
 ## 🎯 Project Roadmap
 
-Check our [GitHub Projects](https://github.com/juspay/jaf-python/projects) for current priorities and upcoming features.
+Check our [GitHub Projects](https://github.com/xynehq/jaf-py/projects) for current priorities and upcoming features.
 
 ---
 

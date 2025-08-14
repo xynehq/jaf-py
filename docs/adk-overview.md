@@ -277,7 +277,7 @@ python3 validation/tests/validate_production_improvements.py
 
 ### 1. Installation
 ```bash
-pip install "jaf-python[adk]"
+pip install "jaf-py[adk]"
 # Installs ADK with all production dependencies
 ```
 

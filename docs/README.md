@@ -80,7 +80,7 @@ New to JAF? Start here:
 
 ## Getting Help
 
-- **GitHub Issues**: [Report bugs and request features](https://github.com/juspay/jaf-python/issues)
+- **GitHub Issues**: [Report bugs and request features](https://github.com/xynehq/jaf-py/issues)
 - **Examples**: Check the `examples/` directory for working code
 - **API Reference**: Detailed function and class documentation
 - **Troubleshooting**: Common solutions to frequent problems

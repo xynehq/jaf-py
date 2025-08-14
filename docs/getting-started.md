@@ -38,7 +38,7 @@ For production environments, install JAF with all dependencies:
 
 ```bash
 # Complete installation with all features
-pip install "jaf-python[all]"
+pip install "jaf-py[all]"
 
 # Verify installation
 python -c "import jaf; print(f'JAF {jaf.__version__} installed successfully')"
@@ -50,22 +50,22 @@ Install only the components you need for optimized deployments:
 
 ```bash
 # Core framework only
-pip install jaf-python
+pip install jaf-py
 
 # Server capabilities (FastAPI, uvicorn)
-pip install "jaf-python[server]"
+pip install "jaf-py[server]"
 
 # Memory providers (Redis, PostgreSQL)
-pip install "jaf-python[memory]"
+pip install "jaf-py[memory]"
 
 # Visualization tools (Graphviz, diagrams)
-pip install "jaf-python[visualization]"
+pip install "jaf-py[visualization]"
 
 # Development tools (testing, linting, type checking)
-pip install "jaf-python[dev]"
+pip install "jaf-py[dev]"
 
 # Combine multiple feature sets
-pip install "jaf-python[server,memory,visualization]"
+pip install "jaf-py[server,memory,visualization]"
 ```
 
 ### Development Environment Setup
@@ -74,8 +74,8 @@ For contributors and advanced development:
 
 ```bash
 # Clone the repository
-git clone https://github.com/juspay/jaf-python.git
-cd jaf-python
+git clone https://github.com/xynehq/jaf-py.git
+cd jaf-py
 
 # Install in development mode with all dependencies
 pip install -e ".[dev,server,memory,visualization]"
@@ -93,7 +93,7 @@ For containerized deployments:
 
 ```bash
 # Use official image
-docker pull juspay/jaf-python:latest
+docker pull xynehq/jaf-py:latest
 
 # Run with configuration
 docker run -d \
@@ -101,10 +101,10 @@ docker run -d \
   -p 8000:8000 \
   -e LITELLM_BASE_URL=http://your-llm-server:4000 \
   -e JAF_LOG_LEVEL=INFO \
-  juspay/jaf-python:latest
+  xynehq/jaf-py:latest
 
 # Custom build with your agents
-FROM juspay/jaf-python:latest
+FROM xynehq/jaf-py:latest
 COPY your_agents/ /app/agents/
 CMD ["python", "-m", "your_agents.main"]
 ```
@@ -749,7 +749,7 @@ Now that you have a working agent, explore these topics:
 
 **Import Error**: If you get `ModuleNotFoundError: No module named 'jaf'`:
 ```bash
-pip install jaf-python
+pip install jaf-py
 # Or for development:
 pip install -e .
 ```

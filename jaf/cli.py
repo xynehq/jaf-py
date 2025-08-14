@@ -216,7 +216,7 @@ if __name__ == "__main__":
     (project_path / "main.py").write_text(main_py_content)
 
     # Create requirements.txt
-    requirements_content = '''jaf-python>=2.0.0
+    requirements_content = '''jaf-py>=2.0.0
 python-dotenv>=1.0.0
 '''
     (project_path / "requirements.txt").write_text(requirements_content)

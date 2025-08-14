@@ -5,9 +5,9 @@
   <p>Functional Agent Framework for building production-ready AI agent systems</p>
 </div>
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://pypi.org/project/jaf-python/)
+[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://pypi.org/project/jaf-py/)
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
-[![Documentation](https://img.shields.io/badge/docs-mkdocs-blue.svg)](https://juspay.github.io/jaf-python/)
+[![Documentation](https://img.shields.io/badge/docs-mkdocs-blue.svg)](https://xynehq.github.io/jaf-py/)
 
 A **production-ready** functional agent framework with immutable state and composable tools, featuring enterprise-grade security, real database integration, and comprehensive LLM provider support. JAF transforms from prototype to production with robust error handling, input sanitization, and functional programming principles.
 
@@ -177,25 +177,25 @@ JAF follows functional programming principles for predictable, testable AI syste
 
     ```bash
     # Install from PyPI
-    pip install jaf-python
+    pip install jaf-py
     
     # Or with all optional dependencies
-    pip install "jaf-python[all]"
+    pip install "jaf-py[all]"
     ```
 
 === "Development"
 
     ```bash
-    git clone https://github.com/juspay/jaf-python
-    cd jaf-python
+    git clone https://github.com/xynehq/jaf-py
+    cd jaf-py
     pip install -e ".[dev]"
     ```
 
 === "Docker"
 
     ```bash
-    docker pull juspay/jaf-python:latest
-    docker run -p 8000:8000 juspay/jaf-python
+    docker pull xynehq/jaf-py:latest
+    docker run -p 8000:8000 xynehq/jaf-py
     ```
 
 ## 📖 Documentation Structure
@@ -344,8 +344,8 @@ Choose your path based on your goals:
 
 ## 🤝 Community & Support
 
-- **[GitHub Repository](https://github.com/juspay/jaf-python)** - Source code and issues
-- **[PyPI Package](https://pypi.org/project/jaf-python/)** - Official releases  
+- **[GitHub Repository](https://github.com/xynehq/jaf-py)** - Source code and issues
+- **[PyPI Package](https://pypi.org/project/jaf-py/)** - Official releases  
 - **[Examples](examples.md)** - Working code samples
 - **[API Reference](api-reference.md)** - Complete documentation
 

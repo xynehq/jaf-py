@@ -367,7 +367,7 @@ async def main() -> None:
         print('✅ Graphviz Python package available')
     except ImportError:
         print('❌ Graphviz Python package not installed')
-        print('   Install with: pip install "jaf-python[visualization]"')
+        print('   Install with: pip install "jaf-py[visualization]"')
         return
 
     try:
