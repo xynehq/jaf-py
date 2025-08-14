@@ -8,9 +8,10 @@ JAF includes several example applications that showcase different aspects of the
 
 1. **Server Demo** - Multi-agent HTTP server with tools and memory
 2. **RAG Example** - Retrieval-Augmented Generation with knowledge base
-3. **Iterative Search Agent** - Advanced callback system showcase with ReAct patterns
-4. **Custom Tools** - Advanced tool implementation patterns
-5. **Memory Integration** - Persistent conversation examples
+3. **MCP Filesystem Demo** - Model Context Protocol integration with secure filesystem operations
+4. **Iterative Search Agent** - Advanced callback system showcase with ReAct patterns
+5. **Custom Tools** - Advanced tool implementation patterns
+6. **Memory Integration** - Persistent conversation examples
 
 ## Server Demo Walkthrough
 

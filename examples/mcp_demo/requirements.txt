@@ -1,0 +1,11 @@
+# MCP Filesystem Server Demo Dependencies
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+
+# JAF-PY dependencies (if running standalone)
+# Uncomment these if running outside the main JAF-PY project
+# jaf-py>=2.0.0
+# fastapi>=0.104.0
+# uvicorn>=0.24.0
+# openai>=1.0.0
+# httpx>=0.25.0
