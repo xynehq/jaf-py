@@ -10,7 +10,7 @@ from typing import Any, Dict, TypeVar
 from openai import OpenAI
 from pydantic import BaseModel
 
-from ..core.types import Agent, Message, ModelProvider, RunConfig, RunState
+from ..core.types import Agent, ContentRole, Message, ModelProvider, RunConfig, RunState
 
 Ctx = TypeVar('Ctx')
 
@@ -79,7 +79,7 @@ def make_litellm_provider(
 
             # Determine tool choice behavior
             last_message = state.messages[-1] if state.messages else None
-            is_after_tool_call = last_message and last_message.role == 'tool'
+            is_after_tool_call = last_message and last_message.role == ContentRole.TOOL
 
             # Prepare request parameters
             request_params = {
@@ -157,7 +157,7 @@ def _convert_message(msg: Message) -> Dict[str, Any]:
                 for tc in msg.tool_calls
             ]
         return result
-    elif msg.role == 'tool':
+    elif msg.role == ContentRole.TOOL:
         return {
             "role": "tool",
             "content": msg.content,

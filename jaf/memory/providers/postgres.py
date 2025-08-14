@@ -122,7 +122,8 @@ class PostgresProvider(MemoryProvider):
                 return Success(None)
 
             # Update last activity
-            await self._db_execute(f"UPDATE {self.config.table_name} SET metadata = metadata || '{{\"last_activity\": \"{datetime.now().isoformat()}\"}}' WHERE conversation_id = $1", conversation_id)
+            timestamp = datetime.now().isoformat()
+            await self._db_execute(f"UPDATE {self.config.table_name} SET metadata = metadata || $2 WHERE conversation_id = $1", conversation_id, f'{{"last_activity": "{timestamp}"}}')
 
             return Success(self._row_to_conversation(row))
         except Exception as e:
@@ -251,7 +252,7 @@ async def create_postgres_provider(config: PostgresConfig) -> Result[PostgresPro
         # Connect to the default 'postgres' database to check if the target database exists
         try:
             conn = await asyncpg.connect(user=config.username, password=config.password, host=config.host, port=config.port, database='postgres')
-            db_exists = await conn.fetchval(f"SELECT 1 FROM pg_database WHERE datname = '{config.database}'")
+            db_exists = await conn.fetchval("SELECT 1 FROM pg_database WHERE datname = $1", config.database)
             if not db_exists:
                 await conn.execute(f'CREATE DATABASE "{config.database}"')
             await conn.close()

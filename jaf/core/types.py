@@ -271,13 +271,13 @@ JAFError = Union[
 class CompletedOutcome(Generic[Out]):
     """Successful completion outcome."""
     status: Literal['completed'] = 'completed'
-    output: Out = None
+    output: Out = field(default=None)
 
 @dataclass(frozen=True)
 class ErrorOutcome:
     """Error outcome."""
     status: Literal['error'] = 'error'
-    error: JAFError = None
+    error: JAFError = field(default=None)
 
 # Union type for outcomes
 RunOutcome = Union[CompletedOutcome[Out], ErrorOutcome]
