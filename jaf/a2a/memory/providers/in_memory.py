@@ -6,6 +6,7 @@ It leverages the existing JAF memory patterns while providing A2A-specific optim
 for task lifecycle management and efficient querying.
 """
 
+import asyncio
 from collections import defaultdict
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Set
@@ -43,6 +44,7 @@ class InMemoryTaskState:
             'total_tasks': 0,
             'created_at': datetime.now()
         }
+        self.lock = asyncio.Lock()
 
 def create_a2a_in_memory_task_provider(
     config: A2AInMemoryTaskConfig
@@ -104,7 +106,7 @@ def create_a2a_in_memory_task_provider(
                     'store',
                     'in-memory',
                     None,
-                    Exception(f'Maximum task limit reached: {config.max_tasks}')
+                    Exception(f'Storage limit exceeded: maximum {config.max_tasks} tasks allowed')
                 )
             )
         return create_a2a_success(None)
@@ -145,10 +147,11 @@ def create_a2a_in_memory_task_provider(
                 metadata=metadata
             )
 
-            # Store task and update indices
-            state.tasks[task.id] = task_storage
-            _add_to_indices(task.id, task.context_id, task.status.state)
-            state.stats['total_tasks'] = len(state.tasks)
+            async with state.lock:
+                # Store task and update indices
+                state.tasks[task.id] = task_storage
+                _add_to_indices(task.id, task.context_id, task.status.state)
+                state.stats['total_tasks'] = len(state.tasks)
 
             return create_a2a_success(None)
 
@@ -260,15 +263,23 @@ def create_a2a_in_memory_task_provider(
 
             task = deserialize_result.data
 
+            # Build updated history - add current status message to history
+            updated_history = list(task.history or [])
+            if task.status.message:
+                updated_history.append(task.status.message)
+
             # Update task status
             from ...types import A2ATaskStatus
             updated_status = A2ATaskStatus(
                 state=new_state,
-                message=status_message or task.status.message,
+                message=status_message,
                 timestamp=timestamp or datetime.now().isoformat()
             )
 
-            updated_task = task.model_copy(update={'status': updated_status})
+            updated_task = task.model_copy(update={
+                'status': updated_status,
+                'history': updated_history
+            })
 
             # Use update_task for the actual update
             return await update_task(updated_task)
@@ -281,35 +292,36 @@ def create_a2a_in_memory_task_provider(
     async def find_tasks(query: A2ATaskQuery) -> A2AResult[List[A2ATask]]:
         """Search tasks by query parameters"""
         try:
-            # Start with all tasks or filter by context/state
-            task_ids: Set[str] = set()
-
-            if query.context_id:
-                task_ids = state.context_index.get(query.context_id, set()).copy()
-            elif query.state:
-                task_ids = state.state_index.get(query.state.value, set()).copy()
-            else:
-                task_ids = set(state.tasks.keys())
-
-            # Filter by additional criteria
             results: List[A2ATask] = []
+            for task_id, stored in state.tasks.items():
+                # Filter by context
+                if query.context_id and stored.context_id != query.context_id:
+                    continue
 
-            for task_id in task_ids:
+                # Filter by state
+                if query.state and stored.state != query.state:
+                    continue
+
+                # Filter by task_id
                 if query.task_id and task_id != query.task_id:
                     continue
-
-                stored = state.tasks.get(task_id)
-                if not stored:
-                    continue
-
+                
                 # Check expiration
                 if stored.expires_at and stored.expires_at < datetime.now():
                     continue
 
-                # Date filtering
-                if query.since and stored.created_at < query.since:
+                # Date filtering - use metadata created_at if available, otherwise use stored created_at
+                task_timestamp = stored.created_at
+                if stored.metadata and stored.metadata.get('created_at'):
+                    try:
+                        task_timestamp = datetime.fromisoformat(stored.metadata['created_at'].replace('Z', '+00:00'))
+                    except:
+                        # Fall back to stored timestamp if parsing fails
+                        pass
+                
+                if query.since and task_timestamp < query.since:
                     continue
-                if query.until and stored.created_at > query.until:
+                if query.until and task_timestamp > query.until:
                     continue
 
                 # Deserialize task
@@ -318,7 +330,7 @@ def create_a2a_in_memory_task_provider(
 
                 if isinstance(deserialize_result, Success):
                     results.append(deserialize_result.data)
-
+            
             # Sort by timestamp (newest first)
             results.sort(
                 key=lambda t: t.status.timestamp or "1970-01-01T00:00:00Z",
@@ -366,13 +378,19 @@ def create_a2a_in_memory_task_provider(
     async def delete_tasks_by_context(context_id: str) -> A2AResult[int]:
         """Delete tasks by context ID and return count deleted"""
         try:
-            context_tasks = state.context_index.get(context_id, set()).copy()
-            deleted_count = 0
+            async with state.lock:
+                context_tasks = state.context_index.get(context_id, set()).copy()
+                deleted_count = 0
 
-            for task_id in context_tasks:
-                delete_result = await delete_task(task_id)
-                if isinstance(delete_result.data, bool) and delete_result.data:
-                    deleted_count += 1
+                for task_id in context_tasks:
+                    if task_id in state.tasks:
+                        stored_task = state.tasks[task_id]
+                        # Remove from storage and indices
+                        del state.tasks[task_id]
+                        _remove_from_indices(task_id, stored_task.context_id, stored_task.state)
+                        deleted_count += 1
+
+                state.stats['total_tasks'] = len(state.tasks)
 
             return create_a2a_success(deleted_count)
 
@@ -406,10 +424,34 @@ def create_a2a_in_memory_task_provider(
                 create_a2a_task_storage_error('cleanup', 'in-memory', None, error)
             )
 
+    async def cleanup_expired_tasks_by_context(context_id: str) -> A2AResult[int]:
+        """Clean up expired tasks for a specific context"""
+        try:
+            now = datetime.now()
+            cleaned_count = 0
+            
+            task_ids = state.context_index.get(context_id, set()).copy()
+            expired_task_ids = []
+            for task_id in task_ids:
+                stored = state.tasks.get(task_id)
+                if stored and stored.expires_at and stored.expires_at < now:
+                    expired_task_ids.append(task_id)
+
+            for task_id in expired_task_ids:
+                delete_result = await delete_task(task_id)
+                if isinstance(delete_result.data, bool) and delete_result.data:
+                    cleaned_count += 1
+            
+            return create_a2a_success(cleaned_count)
+        except Exception as error:
+            return create_a2a_failure(
+                create_a2a_task_storage_error('cleanup-by-context', 'in-memory', None, error)
+            )
+
     async def get_task_stats(context_id: Optional[str] = None) -> A2AResult[Dict[str, Any]]:
         """Get task statistics"""
         try:
-            tasks_by_state = {state.value: 0 for state in TaskState}
+            tasks_by_state = defaultdict(int)
             total_tasks = 0
             oldest_task: Optional[datetime] = None
             newest_task: Optional[datetime] = None
@@ -437,13 +479,18 @@ def create_a2a_in_memory_task_provider(
                     oldest_task = stored.created_at
                 if not newest_task or stored.created_at > newest_task:
                     newest_task = stored.created_at
-
-            return create_a2a_success({
+            
+            stats = {
                 'total_tasks': total_tasks,
-                'tasks_by_state': tasks_by_state,
+                'tasks_by_state': dict(tasks_by_state),
                 'oldest_task': oldest_task,
                 'newest_task': newest_task
-            })
+            }
+            # Also add individual state counts for backwards compatibility
+            for task_state in TaskState:
+                stats[task_state.value] = tasks_by_state[task_state.value]
+
+            return create_a2a_success(stats)
 
         except Exception as error:
             return create_a2a_failure(
@@ -461,6 +508,7 @@ def create_a2a_in_memory_task_provider(
 
             return create_a2a_success({
                 'healthy': True,
+                'provider': 'in_memory',
                 'latency_ms': latency_ms,
                 'task_count': task_count
             })
@@ -517,6 +565,9 @@ def create_a2a_in_memory_task_provider(
 
         async def cleanup_expired_tasks(self) -> A2AResult[int]:
             return await cleanup_expired_tasks()
+
+        async def cleanup_expired_tasks_by_context(self, context_id: str) -> A2AResult[int]:
+            return await cleanup_expired_tasks_by_context(context_id)
 
         async def get_task_stats(self, context_id: Optional[str] = None) -> A2AResult[Dict[str, Any]]:
             return await get_task_stats(context_id)

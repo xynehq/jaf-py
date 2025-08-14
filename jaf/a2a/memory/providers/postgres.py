@@ -156,12 +156,28 @@ async def create_a2a_postgres_task_provider(
                 param_index += 1
 
             if query.since:
-                conditions.append(f'created_at >= ${param_index}')
+                # Use metadata created_at if available, otherwise use database created_at
+                conditions.append(f'''(
+                    CASE 
+                        WHEN metadata ? 'created_at' THEN 
+                            (metadata->>'created_at')::timestamp with time zone >= ${param_index}
+                        ELSE 
+                            created_at >= ${param_index}
+                    END
+                )''')
                 params.append(query.since)
                 param_index += 1
 
             if query.until:
-                conditions.append(f'created_at <= ${param_index}')
+                # Use metadata created_at if available, otherwise use database created_at
+                conditions.append(f'''(
+                    CASE 
+                        WHEN metadata ? 'created_at' THEN 
+                            (metadata->>'created_at')::timestamp with time zone <= ${param_index}
+                        ELSE 
+                            created_at <= ${param_index}
+                    END
+                )''')
                 params.append(query.until)
                 param_index += 1
 
@@ -316,6 +332,11 @@ async def create_a2a_postgres_task_provider(
 
                     task = existing_result.data
 
+                    # Build updated history - add current status message to history before updating
+                    updated_history = list(task.history or [])
+                    if task.status.message:
+                        updated_history.append(task.status.message)
+
                     # Update task status
                     from ...types import A2ATaskStatus
                     updated_status = A2ATaskStatus(
@@ -324,7 +345,10 @@ async def create_a2a_postgres_task_provider(
                         timestamp=timestamp or datetime.now().isoformat()
                     )
 
-                    updated_task = task.model_copy(update={'status': updated_status})
+                    updated_task = task.model_copy(update={
+                        'status': updated_status,
+                        'history': updated_history
+                    })
 
                     return await self.update_task(updated_task)
 
@@ -453,12 +477,19 @@ async def create_a2a_postgres_task_provider(
                         oldest_task = date_row['oldest']
                         newest_task = date_row['newest']
 
-                    return create_a2a_success({
+                    # Build stats dict with individual state counts as top-level keys
+                    stats = {
                         'total_tasks': total_tasks,
                         'tasks_by_state': tasks_by_state,
                         'oldest_task': oldest_task,
                         'newest_task': newest_task
-                    })
+                    }
+                    
+                    # Also add individual state counts for backwards compatibility
+                    for state in TaskState:
+                        stats[state.value] = tasks_by_state[state.value]
+
+                    return create_a2a_success(stats)
 
                 except Exception as error:
                     return create_a2a_failure(
@@ -476,6 +507,7 @@ async def create_a2a_postgres_task_provider(
                     latency_ms = (datetime.now() - start_time).total_seconds() * 1000
                     return create_a2a_success({
                         'healthy': True,
+                        'provider': 'postgres',
                         'latency_ms': latency_ms
                     })
 

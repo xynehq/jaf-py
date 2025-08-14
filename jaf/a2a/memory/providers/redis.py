@@ -270,6 +270,11 @@ async def create_a2a_redis_task_provider(
 
                     task = get_result.data
 
+                    # Build updated history - add current status message to history before updating
+                    updated_history = list(task.history or [])
+                    if task.status.message:
+                        updated_history.append(task.status.message)
+
                     # Update task status
                     from ...types import A2ATaskStatus
                     updated_status = A2ATaskStatus(
@@ -278,7 +283,10 @@ async def create_a2a_redis_task_provider(
                         timestamp=timestamp or datetime.now().isoformat()
                     )
 
-                    updated_task = task.model_copy(update={'status': updated_status})
+                    updated_task = task.model_copy(update={
+                        'status': updated_status,
+                        'history': updated_history
+                    })
 
                     # Use update_task for the actual update
                     return await self.update_task(updated_task)
@@ -331,9 +339,39 @@ async def create_a2a_redis_task_provider(
 
                         # Apply date filters
                         if query.since or query.until:
-                            # For simplicity, we'll skip date filtering in this implementation
-                            # In a full implementation, you'd need to parse timestamps and filter
-                            pass
+                            # Get task data to check timestamp
+                            task_key = get_task_key(task_id)
+                            hash_data = await redis_client.hgetall(task_key)
+                            if hash_data:
+                                # Convert bytes to strings if needed
+                                if isinstance(hash_data, dict):
+                                    hash_data = {k.decode() if isinstance(k, bytes) else k:
+                                               v.decode() if isinstance(v, bytes) else v
+                                               for k, v in hash_data.items()}
+                                
+                                # Try to get timestamp from metadata first, then created_at
+                                task_timestamp = None
+                                if hash_data.get('metadata'):
+                                    try:
+                                        metadata = json.loads(hash_data['metadata'])
+                                        if metadata.get('created_at'):
+                                            task_timestamp = datetime.fromisoformat(metadata['created_at'].replace('Z', '+00:00'))
+                                    except:
+                                        pass
+                                
+                                # Fall back to createdAt field
+                                if not task_timestamp and hash_data.get('createdAt'):
+                                    try:
+                                        task_timestamp = datetime.fromisoformat(hash_data['createdAt'].replace('Z', '+00:00'))
+                                    except:
+                                        pass
+                                
+                                # Apply time filters
+                                if task_timestamp:
+                                    if query.since and task_timestamp < query.since:
+                                        continue
+                                    if query.until and task_timestamp > query.until:
+                                        continue
 
                         results.append(task)
 
@@ -419,14 +457,17 @@ async def create_a2a_redis_task_provider(
                         return create_a2a_success(0)
 
                     # Convert bytes to strings if needed
-                    if isinstance(task_ids[0], bytes):
+                    if task_ids and isinstance(list(task_ids)[0], bytes):
                         task_ids = [tid.decode() for tid in task_ids]
 
                     deleted_count = 0
                     for task_id in task_ids:
                         delete_result = await self.delete_task(task_id)
-                        if isinstance(delete_result.data, bool) and delete_result.data:
+                        if hasattr(delete_result, 'data') and isinstance(delete_result.data, bool) and delete_result.data:
                             deleted_count += 1
+                        elif hasattr(delete_result, 'error'):
+                            # Log error but continue with other deletions
+                            continue
 
                     return create_a2a_success(deleted_count)
 
@@ -465,12 +506,17 @@ async def create_a2a_redis_task_provider(
                         for task in tasks:
                             tasks_by_state[task.status.state.value] += 1
 
-                        return create_a2a_success({
+                        stats = {
                             'total_tasks': len(tasks),
                             'tasks_by_state': tasks_by_state,
                             'oldest_task': None,
                             'newest_task': None
-                        })
+                        }
+                        # Also add individual state counts for backwards compatibility
+                        for state in TaskState:
+                            stats[state.value] = tasks_by_state[state.value]
+
+                        return create_a2a_success(stats)
                     else:
                         # Get global stats from Redis hash
                         stats_key = get_stats_key()
@@ -482,18 +528,25 @@ async def create_a2a_redis_task_provider(
                                    for k, v in stats.items()}
 
                         total_tasks = int(stats.get('totalTasks', 0))
-                        tasks_by_state = {state.value: 0 for state in TaskState}
-
-                        # Get state counts
+                        
+                        # Build tasks_by_state dict
+                        tasks_by_state = {}
                         for state in TaskState:
                             tasks_by_state[state.value] = int(stats.get(f'state:{state.value}', 0))
-
-                        return create_a2a_success({
+                        
+                        # Build stats dict with individual state counts
+                        result_stats = {
                             'total_tasks': total_tasks,
                             'tasks_by_state': tasks_by_state,
                             'oldest_task': None,
                             'newest_task': None
-                        })
+                        }
+                        
+                        # Also add individual state counts for backwards compatibility
+                        for state in TaskState:
+                            result_stats[state.value] = tasks_by_state[state.value]
+
+                        return create_a2a_success(result_stats)
 
                 except Exception as error:
                     return create_a2a_failure(
@@ -511,6 +564,7 @@ async def create_a2a_redis_task_provider(
                     latency_ms = (datetime.now() - start_time).total_seconds() * 1000
                     return create_a2a_success({
                         'healthy': True,
+                        'provider': 'redis',
                         'latency_ms': latency_ms
                     })
 
