@@ -518,21 +518,21 @@ def create_a2a_server(config: Dict[str, Any]) -> Dict[str, Any]:
     app = create_fastapi_app()
     setup_a2a_routes(app, server_config)
 
+    # Create the server instance here to be shared by start/stop
+    uvicorn_config = uvicorn.Config(
+        app,
+        host=server_config.get("host", "localhost"),
+        port=server_config["port"],
+        log_level="info"
+    )
+    server = uvicorn.Server(uvicorn_config)
+
     async def start_server():
         """Start the A2A server"""
         host = server_config.get("host", "localhost")
         port = server_config["port"]
 
         print(f"🔧 Starting A2A-enabled JAF server on {host}:{port}...")
-
-        config_uvicorn = uvicorn.Config(
-            app,
-            host=host,
-            port=port,
-            log_level="info"
-        )
-        server = uvicorn.Server(config_uvicorn)
-
         print(f"🚀 A2A Server running on http://{host}:{port}")
         print(f"🤖 Available agents: {', '.join(server_config['agents'].keys())}")
         print(f"📋 Agent Card: http://{host}:{port}/.well-known/agent-card")
@@ -544,9 +544,8 @@ def create_a2a_server(config: Dict[str, Any]) -> Dict[str, Any]:
             print(f"🎯 Agent {agent_name}: http://{host}:{port}/a2a/agents/{agent_name}")
 
         await server.serve()
-        return server
 
-    async def stop_server(server):
+    async def stop_server():
         """Stop the A2A server"""
         if server:
             server.should_exit = True
