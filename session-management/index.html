@@ -18,7 +18,7 @@
         <link rel="prev" href="../security-framework/">
       
       
-        <link rel="next" href="../error-handling/">
+        <link rel="next" href="../callback-system/">
       
       
       <link rel="icon" href="../assets/favicon.png">
@@ -47,8 +47,8 @@
         
         
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
-        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
       
     
     
@@ -81,7 +81,7 @@
     
     
     
-    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="black">
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="blue">
   
     
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
@@ -106,9 +106,7 @@
     
       
 
-  
-
-<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+<header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href=".." title="JAF - Juspay Agent Framework (Python)" class="md-header__button md-logo" aria-label="JAF - Juspay Agent Framework (Python)" data-md-component="logo">
       
@@ -142,7 +140,7 @@
     
     
     
-    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="black"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
     
       <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
@@ -152,7 +150,7 @@
     
     
     
-    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="black"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
     
       <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
@@ -185,11 +183,6 @@
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
       </label>
       <nav class="md-search__options" aria-label="Search">
-        
-          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
-            
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
-          </a>
         
         <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
           
@@ -229,8 +222,14 @@
     
   </nav>
   
+</header>
     
+    <div class="md-container" data-md-component="container">
       
+      
+        
+          
+            
 <nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
   <div class="md-grid">
     <ul class="md-tabs__list">
@@ -259,20 +258,36 @@
   
   
   
-    
-    
-      <li class="md-tabs__item">
-        <a href="../getting-started/" class="md-tabs__link">
-          
+    <li class="md-tabs__item">
+      <a href="../getting-started/" class="md-tabs__link">
+        
   
   
     
   
-  Getting Started
+  Get Started
 
-        </a>
-      </li>
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../core-concepts/" class="md-tabs__link">
+        
+  
+  
     
+  
+  Understand Concepts
+
+      </a>
+    </li>
   
 
       
@@ -290,7 +305,7 @@
   
     
   
-  Agent Development
+  Build with JAF
 
         </a>
       </li>
@@ -314,7 +329,7 @@
   
     
   
-  ADK Production Framework
+  Production Features
 
         </a>
       </li>
@@ -330,29 +345,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../flight-booking-example/" class="md-tabs__link">
-          
-  
-  
-    
-  
-  Examples
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../server-api/" class="md-tabs__link">
+        <a href="../a2a-protocol/" class="md-tabs__link">
           
   
   
@@ -374,13 +367,35 @@
     
     
       <li class="md-tabs__item">
+        <a href="../examples/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Examples
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
         <a href="../infrastructure/" class="md-tabs__link">
           
   
   
     
   
-  Production Deployment
+  Deploy
 
         </a>
       </li>
@@ -402,29 +417,7 @@
   
     
   
-  API Reference
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../troubleshooting/" class="md-tabs__link">
-          
-  
-  
-    
-  
-  Advanced Topics
+  Reference
 
         </a>
       </li>
@@ -435,13 +428,7 @@
     </ul>
   </div>
 </nav>
-    
-  
-</header>
-    
-    <div class="md-container" data-md-component="container">
-      
-      
+          
         
       
       <main class="md-main" data-md-component="main">
@@ -458,9 +445,7 @@
   
 
 
-  
-
-<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
     <a href=".." title="JAF - Juspay Agent Framework (Python)" class="md-nav__button md-logo" aria-label="JAF - Juspay Agent Framework (Python)" data-md-component="logo">
       
@@ -512,64 +497,13 @@
   
   
   
-    
-    
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
-        
-          
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    Getting Started
-    
-  </span>
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2">
-            <span class="md-nav__icon md-icon"></span>
-            Getting Started
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
     <li class="md-nav__item">
       <a href="../getting-started/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Introduction
+    Get Started
     
   </span>
   
@@ -578,10 +512,9 @@
     </li>
   
 
-              
-            
-              
-                
+    
+      
+      
   
   
   
@@ -592,43 +525,12 @@
   
   
   <span class="md-ellipsis">
-    Core Concepts
+    Understand Concepts
     
   </span>
   
 
       </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../examples/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Examples
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
     </li>
   
 
@@ -663,15 +565,15 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
         
           
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
             
   
   
   <span class="md-ellipsis">
-    Agent Development
+    Build with JAF
     
   </span>
   
@@ -679,10 +581,10 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
-            Agent Development
+            Build with JAF
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
@@ -699,29 +601,6 @@
   
   <span class="md-ellipsis">
     Tools
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../function-composition/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Function Composition
     
   </span>
   
@@ -778,6 +657,29 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../function-composition/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Function Composition
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -806,6 +708,8 @@
       
         
       
+        
+      
     
     
     
@@ -822,15 +726,15 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
         
           
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
             
   
   
   <span class="md-ellipsis">
-    ADK Production Framework
+    Production Features
     
   </span>
   
@@ -838,10 +742,10 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_4">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
-            ADK Production Framework
+            Production Features
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
@@ -875,12 +779,12 @@
   
   
     <li class="md-nav__item">
-      <a href="../callback-system/" class="md-nav__link">
+      <a href="../adk-schema-validation/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Callback System
+    Schema Validation
     
   </span>
   
@@ -973,7 +877,7 @@
         <li class="md-nav__item">
   <a href="#overview" class="md-nav__link">
     <span class="md-ellipsis">
-      🎯 Overview
+      Overview
     </span>
   </a>
   
@@ -982,11 +886,11 @@
         <li class="md-nav__item">
   <a href="#core-concepts" class="md-nav__link">
     <span class="md-ellipsis">
-      🏗️ Core Concepts
+      Core Concepts
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="🏗️ Core Concepts">
+    <nav class="md-nav" aria-label="Core Concepts">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1039,11 +943,11 @@
         <li class="md-nav__item">
   <a href="#creating-sessions" class="md-nav__link">
     <span class="md-ellipsis">
-      🔧 Creating Sessions
+      Creating Sessions
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="🔧 Creating Sessions">
+    <nav class="md-nav" aria-label="Creating Sessions">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1114,11 +1018,11 @@
         <li class="md-nav__item">
   <a href="#querying-sessions" class="md-nav__link">
     <span class="md-ellipsis">
-      🔍 Querying Sessions
+      Querying Sessions
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="🔍 Querying Sessions">
+    <nav class="md-nav" aria-label="Querying Sessions">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1189,11 +1093,11 @@
         <li class="md-nav__item">
   <a href="#thread-safety" class="md-nav__link">
     <span class="md-ellipsis">
-      🔒 Thread Safety
+      Thread Safety
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="🔒 Thread Safety">
+    <nav class="md-nav" aria-label="Thread Safety">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1264,11 +1168,11 @@
         <li class="md-nav__item">
   <a href="#testing-session-management" class="md-nav__link">
     <span class="md-ellipsis">
-      🧪 Testing Session Management
+      Testing Session Management
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="🧪 Testing Session Management">
+    <nav class="md-nav" aria-label="Testing Session Management">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1297,11 +1201,11 @@
         <li class="md-nav__item">
   <a href="#best-practices" class="md-nav__link">
     <span class="md-ellipsis">
-      📊 Best Practices
+      Best Practices
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="📊 Best Practices">
+    <nav class="md-nav" aria-label="Best Practices">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1385,6 +1289,29 @@
   
   
     <li class="md-nav__item">
+      <a href="../callback-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Callback System
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../error-handling/" class="md-nav__link">
         
   
@@ -1419,80 +1346,11 @@
       
         
       
-    
-    
-    
-      
+        
       
         
       
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
-        
-          
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    Examples
-    
-  </span>
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5">
-            <span class="md-nav__icon md-icon"></span>
-            Examples
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../flight-booking-example/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Flight Booking System
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    
-    
       
         
       
@@ -1539,12 +1397,206 @@
   
   
     <li class="md-nav__item">
-      <a href="../server-api/" class="md-nav__link">
+      <a href="../a2a-protocol/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Overview
+    Protocol Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../a2a-api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    API Reference
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../a2a-deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Deployment Guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../a2a-specification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Technical Specification
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../a2a-examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Examples
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Examples
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Examples
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Basic Examples
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../flight-booking-example/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Flight Booking System
     
   </span>
   
@@ -1577,6 +1629,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1590,15 +1648,15 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
         
           
-          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
             
   
   
   <span class="md-ellipsis">
-    Production Deployment
+    Deploy
     
   </span>
   
@@ -1606,10 +1664,10 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_7">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
             <span class="md-nav__icon md-icon"></span>
-            Production Deployment
+            Deploy
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
@@ -1649,6 +1707,75 @@
   
   <span class="md-ellipsis">
     Deployment
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../monitoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Monitoring
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Security
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../server-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Server API
     
   </span>
   
@@ -1715,15 +1842,15 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
         
           
-          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
             
   
   
   <span class="md-ellipsis">
-    API Reference
+    Reference
     
   </span>
   
@@ -1731,10 +1858,10 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_8">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
             <span class="md-nav__icon md-icon"></span>
-            API Reference
+            Reference
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
@@ -1750,7 +1877,7 @@
   
   
   <span class="md-ellipsis">
-    API Overview
+    API Reference
     
   </span>
   
@@ -1760,83 +1887,6 @@
   
 
               
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../server-api/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Overview
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    
-    
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
-        
-          
-          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    Advanced Topics
-    
-  </span>
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_9">
-            <span class="md-nav__icon md-icon"></span>
-            Advanced Topics
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
             
               
                 
@@ -1875,6 +1925,431 @@
               </div>
             
             
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      Overview
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#core-concepts" class="md-nav__link">
+    <span class="md-ellipsis">
+      Core Concepts
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Core Concepts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#immutable-session-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      Immutable Session Architecture
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#before-vs-after-session-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      Before vs After: Session Management
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Before vs After: Session Management">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#before-mutable-sessions-prototype" class="md-nav__link">
+    <span class="md-ellipsis">
+      Before: Mutable Sessions (Prototype)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#after-immutable-sessions-production" class="md-nav__link">
+    <span class="md-ellipsis">
+      After: Immutable Sessions (Production)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#creating-sessions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Creating Sessions
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Creating Sessions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#basic-session-creation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Basic Session Creation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#session-with-initial-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      Session with Initial Data
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#managing-messages" class="md-nav__link">
+    <span class="md-ellipsis">
+      💬 Managing Messages
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="💬 Managing Messages">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#adding-messages-functionally" class="md-nav__link">
+    <span class="md-ellipsis">
+      Adding Messages Functionally
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#building-conversations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Building Conversations
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#message-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      Message Types
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#querying-sessions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Querying Sessions
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Querying Sessions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#retrieving-recent-messages" class="md-nav__link">
+    <span class="md-ellipsis">
+      Retrieving Recent Messages
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#message-filtering" class="md-nav__link">
+    <span class="md-ellipsis">
+      Message Filtering
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#session-statistics" class="md-nav__link">
+    <span class="md-ellipsis">
+      Session Statistics
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pure-function-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      🔄 Pure Function Operations
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="🔄 Pure Function Operations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#functional-session-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Functional Session Operations
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#session-transformation-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      Session Transformation Pipeline
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#thread-safety" class="md-nav__link">
+    <span class="md-ellipsis">
+      Thread Safety
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Thread Safety">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#concurrent-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Concurrent Operations
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#race-condition-prevention" class="md-nav__link">
+    <span class="md-ellipsis">
+      Race Condition Prevention
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#session-persistence" class="md-nav__link">
+    <span class="md-ellipsis">
+      💾 Session Persistence
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="💾 Session Persistence">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#session-providers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Session Providers
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#storing-and-retrieving-sessions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Storing and Retrieving Sessions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#session-serialization" class="md-nav__link">
+    <span class="md-ellipsis">
+      Session Serialization
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-session-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      Testing Session Management
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Testing Session Management">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#unit-tests-for-immutability" class="md-nav__link">
+    <span class="md-ellipsis">
+      Unit Tests for Immutability
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#performance-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      Performance Tests
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      Best Practices
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Best Practices">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-session-design-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Session Design Patterns
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Session Design Patterns">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#builder-pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      Builder Pattern
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#session-factory" class="md-nav__link">
+    <span class="md-ellipsis">
+      Session Factory
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-memory-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Memory Management
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-error-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Error Handling
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      🔗 Related Documentation
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
           
           
             <div class="md-content" data-md-component="content">
@@ -1890,14 +2365,6 @@
     </a>
   
   
-    
-      
-    
-    <a href="https://github.com/xynehq/jaf-py/raw/main/docs/session-management.md" title="View source of this page" class="md-content__button md-icon">
-      
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 18c.56 0 1 .44 1 1s-.44 1-1 1-1-.44-1-1 .44-1 1-1m0-3c-2.73 0-5.06 1.66-6 4 .94 2.34 3.27 4 6 4s5.06-1.66 6-4c-.94-2.34-3.27-4-6-4m0 6.5a2.5 2.5 0 0 1-2.5-2.5 2.5 2.5 0 0 1 2.5-2.5 2.5 2.5 0 0 1 2.5 2.5 2.5 2.5 0 0 1-2.5 2.5M9.27 20H6V4h7v5h5v4.07c.7.08 1.36.25 2 .49V8l-6-6H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h4.5a8.2 8.2 0 0 1-1.23-2"/></svg>
-    </a>
-  
 
 
 <h1 id="session-management">Session Management<a class="headerlink" href="#session-management" title="Anchor link to this section for reference">&para;</a></h1>
@@ -1905,15 +2372,15 @@
 <p class="admonition-title">Immutable Sessions</p>
 <p>JAF implements immutable session management following functional programming principles. All session operations create new sessions rather than modifying existing ones, ensuring thread safety and predictable behavior.</p>
 </div>
-<h2 id="overview">🎯 Overview<a class="headerlink" href="#overview" title="Anchor link to this section for reference">&para;</a></h2>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Anchor link to this section for reference">&para;</a></h2>
 <p>JAF's session management system provides:</p>
 <ul>
-<li><strong>🔒 Immutable Data Structures</strong>: Sessions never change after creation</li>
-<li><strong>🧠 Pure Functions</strong>: All operations are side-effect free</li>
-<li><strong>⚡ Thread Safety</strong>: Concurrent access is safe by design</li>
+<li>** Immutable Data Structures**: Sessions never change after creation</li>
+<li>** Pure Functions**: All operations are side-effect free</li>
+<li>** Thread Safety**: Concurrent access is safe by design</li>
 <li><strong>🔄 Functional Composition</strong>: Build complex workflows by composing simple operations</li>
 </ul>
-<h2 id="core-concepts">🏗️ Core Concepts<a class="headerlink" href="#core-concepts" title="Anchor link to this section for reference">&para;</a></h2>
+<h2 id="core-concepts">Core Concepts<a class="headerlink" href="#core-concepts" title="Anchor link to this section for reference">&para;</a></h2>
 <h3 id="immutable-session-architecture">Immutable Session Architecture<a class="headerlink" href="#immutable-session-architecture" title="Anchor link to this section for reference">&para;</a></h3>
 <pre class="mermaid"><code>graph TD
     A[Original Session] --&gt; B[with_message()]
@@ -1929,7 +2396,7 @@
     style G fill:#fff3e0</code></pre>
 <h3 id="before-vs-after-session-management">Before vs After: Session Management<a class="headerlink" href="#before-vs-after-session-management" title="Anchor link to this section for reference">&para;</a></h3>
 <h4 id="before-mutable-sessions-prototype">Before: Mutable Sessions (Prototype)<a class="headerlink" href="#before-mutable-sessions-prototype" title="Anchor link to this section for reference">&para;</a></h4>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># ❌ Old approach - mutable state, not thread-safe</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1">#  Old approach - mutable state, not thread-safe</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">OldSession</span><span class="p">:</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session_id</span><span class="p">):</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">messages</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># Mutable list</span>
@@ -1940,7 +2407,7 @@
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>        <span class="k">return</span> <span class="bp">self</span>  <span class="c1"># Returns same object</span>
 </span></code></pre></div>
 <h4 id="after-immutable-sessions-production">After: Immutable Sessions (Production)<a class="headerlink" href="#after-immutable-sessions-production" title="Anchor link to this section for reference">&para;</a></h4>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># ✅ New approach - immutable, thread-safe</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1">#  New approach - immutable, thread-safe</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">ImmutableAdkSession</span><span class="p">:</span>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">messages</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">AdkMessage</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>  <span class="c1"># Immutable tuple</span>
@@ -1953,7 +2420,7 @@
 </span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>            <span class="c1"># ... other fields</span>
 </span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>        <span class="p">)</span>
 </span></code></pre></div>
-<h2 id="creating-sessions">🔧 Creating Sessions<a class="headerlink" href="#creating-sessions" title="Anchor link to this section for reference">&para;</a></h2>
+<h2 id="creating-sessions">Creating Sessions<a class="headerlink" href="#creating-sessions" title="Anchor link to this section for reference">&para;</a></h2>
 <h3 id="basic-session-creation">Basic Session Creation<a class="headerlink" href="#basic-session-creation" title="Anchor link to this section for reference">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">adk.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_immutable_session</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
@@ -2036,7 +2503,7 @@
 </span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>    <span class="o">.</span><span class="n">with_message</span><span class="p">(</span><span class="n">assistant_msg</span><span class="p">)</span>
 </span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="p">)</span>
 </span></code></pre></div>
-<h2 id="querying-sessions">🔍 Querying Sessions<a class="headerlink" href="#querying-sessions" title="Anchor link to this section for reference">&para;</a></h2>
+<h2 id="querying-sessions">Querying Sessions<a class="headerlink" href="#querying-sessions" title="Anchor link to this section for reference">&para;</a></h2>
 <h3 id="retrieving-recent-messages">Retrieving Recent Messages<a class="headerlink" href="#retrieving-recent-messages" title="Anchor link to this section for reference">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Get recent messages (pure function)</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">recent_messages</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">get_recent_messages</span><span class="p">(</span><span class="n">count</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
@@ -2125,7 +2592,7 @@
 </span><span id="__span-11-30"><a id="__codelineno-11-30" name="__codelineno-11-30" href="#__codelineno-11-30"></a>
 </span><span id="__span-11-31"><a id="__codelineno-11-31" name="__codelineno-11-31" href="#__codelineno-11-31"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Pipeline result: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">complete_session</span><span class="o">.</span><span class="n">messages</span><span class="p">)</span><span class="si">}</span><span class="s2"> messages&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<h2 id="thread-safety">🔒 Thread Safety<a class="headerlink" href="#thread-safety" title="Anchor link to this section for reference">&para;</a></h2>
+<h2 id="thread-safety">Thread Safety<a class="headerlink" href="#thread-safety" title="Anchor link to this section for reference">&para;</a></h2>
 <h3 id="concurrent-operations">Concurrent Operations<a class="headerlink" href="#concurrent-operations" title="Anchor link to this section for reference">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
 </span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
@@ -2227,7 +2694,7 @@
 </span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="k">assert</span> <span class="n">restored_session</span><span class="o">.</span><span class="n">session_id</span> <span class="o">==</span> <span class="n">session_with_data</span><span class="o">.</span><span class="n">session_id</span>
 </span><span id="__span-16-10"><a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">restored_session</span><span class="o">.</span><span class="n">messages</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">session_with_data</span><span class="o">.</span><span class="n">messages</span><span class="p">)</span>
 </span></code></pre></div>
-<h2 id="testing-session-management">🧪 Testing Session Management<a class="headerlink" href="#testing-session-management" title="Anchor link to this section for reference">&para;</a></h2>
+<h2 id="testing-session-management">Testing Session Management<a class="headerlink" href="#testing-session-management" title="Anchor link to this section for reference">&para;</a></h2>
 <h3 id="unit-tests-for-immutability">Unit Tests for Immutability<a class="headerlink" href="#unit-tests-for-immutability" title="Anchor link to this section for reference">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_session_immutability</span><span class="p">():</span>
 </span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Test that sessions are truly immutable.&quot;&quot;&quot;</span>
@@ -2280,7 +2747,7 @@
 </span><span id="__span-18-21"><a id="__codelineno-18-21" name="__codelineno-18-21" href="#__codelineno-18-21"></a>    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">session</span><span class="o">.</span><span class="n">messages</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1000</span>
 </span><span id="__span-18-22"><a id="__codelineno-18-22" name="__codelineno-18-22" href="#__codelineno-18-22"></a>    <span class="k">assert</span> <span class="n">duration</span> <span class="o">&lt;</span> <span class="mf">1.0</span>  <span class="c1"># Should be fast</span>
 </span></code></pre></div>
-<h2 id="best-practices">📊 Best Practices<a class="headerlink" href="#best-practices" title="Anchor link to this section for reference">&para;</a></h2>
+<h2 id="best-practices">Best Practices<a class="headerlink" href="#best-practices" title="Anchor link to this section for reference">&para;</a></h2>
 <h3 id="1-session-design-patterns">1. Session Design Patterns<a class="headerlink" href="#1-session-design-patterns" title="Anchor link to this section for reference">&para;</a></h3>
 <h4 id="builder-pattern">Builder Pattern<a class="headerlink" href="#builder-pattern" title="Anchor link to this section for reference">&para;</a></h4>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">SessionBuilder</span><span class="p">:</span>
@@ -2421,13 +2888,13 @@
         
         
           
-          <a href="../error-handling/" class="md-footer__link md-footer__link--next" aria-label="Next: Error Handling">
+          <a href="../callback-system/" class="md-footer__link md-footer__link--next" aria-label="Next: Callback System">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Error Handling
+                Callback System
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -2442,10 +2909,6 @@
   <div class="md-footer-meta md-typeset">
     <div class="md-footer-meta__inner md-grid">
       <div class="md-copyright">
-  
-    <div class="md-copyright__highlight">
-      Copyright &copy; 2024 JAF Contributors
-    </div>
   
   
     Made with
@@ -2482,7 +2945,7 @@
     
     
       
-      <script id="__config" type="application/json">{"base": "..", "features": ["announce.dismiss", "content.action.edit", "content.action.view", "content.code.annotate", "content.code.copy", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.sections", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.tracking", "search.highlight", "search.share", "search.suggest", "toc.follow", "toc.integrate"], "search": "../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"base": "..", "features": ["content.action.edit", "content.code.copy", "navigation.footer", "navigation.indexes", "navigation.sections", "navigation.tabs", "navigation.top", "navigation.tracking", "search.highlight", "search.suggest", "toc.follow"], "search": "../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
       <script src="../assets/javascripts/bundle.50899def.min.js"></script>

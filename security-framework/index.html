@@ -15,7 +15,7 @@
         <link rel="canonical" href="https://xynehq.github.io/jaf-py/security-framework/">
       
       
-        <link rel="prev" href="../callback-system/">
+        <link rel="prev" href="../adk-schema-validation/">
       
       
         <link rel="next" href="../session-management/">
@@ -47,8 +47,8 @@
         
         
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
-        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
       
     
     
@@ -81,7 +81,7 @@
     
     
     
-    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="black">
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="blue">
   
     
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
@@ -106,9 +106,7 @@
     
       
 
-  
-
-<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+<header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href=".." title="JAF - Juspay Agent Framework (Python)" class="md-header__button md-logo" aria-label="JAF - Juspay Agent Framework (Python)" data-md-component="logo">
       
@@ -142,7 +140,7 @@
     
     
     
-    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="black"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
     
       <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
@@ -152,7 +150,7 @@
     
     
     
-    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="black"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
     
       <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
@@ -185,11 +183,6 @@
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
       </label>
       <nav class="md-search__options" aria-label="Search">
-        
-          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
-            
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
-          </a>
         
         <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
           
@@ -229,8 +222,14 @@
     
   </nav>
   
+</header>
     
+    <div class="md-container" data-md-component="container">
       
+      
+        
+          
+            
 <nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
   <div class="md-grid">
     <ul class="md-tabs__list">
@@ -259,20 +258,36 @@
   
   
   
-    
-    
-      <li class="md-tabs__item">
-        <a href="../getting-started/" class="md-tabs__link">
-          
+    <li class="md-tabs__item">
+      <a href="../getting-started/" class="md-tabs__link">
+        
   
   
     
   
-  Getting Started
+  Get Started
 
-        </a>
-      </li>
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../core-concepts/" class="md-tabs__link">
+        
+  
+  
     
+  
+  Understand Concepts
+
+      </a>
+    </li>
   
 
       
@@ -290,7 +305,7 @@
   
     
   
-  Agent Development
+  Build with JAF
 
         </a>
       </li>
@@ -314,7 +329,7 @@
   
     
   
-  ADK Production Framework
+  Production Features
 
         </a>
       </li>
@@ -330,29 +345,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../flight-booking-example/" class="md-tabs__link">
-          
-  
-  
-    
-  
-  Examples
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../server-api/" class="md-tabs__link">
+        <a href="../a2a-protocol/" class="md-tabs__link">
           
   
   
@@ -374,13 +367,35 @@
     
     
       <li class="md-tabs__item">
+        <a href="../examples/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Examples
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
         <a href="../infrastructure/" class="md-tabs__link">
           
   
   
     
   
-  Production Deployment
+  Deploy
 
         </a>
       </li>
@@ -402,29 +417,7 @@
   
     
   
-  API Reference
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../troubleshooting/" class="md-tabs__link">
-          
-  
-  
-    
-  
-  Advanced Topics
+  Reference
 
         </a>
       </li>
@@ -435,13 +428,7 @@
     </ul>
   </div>
 </nav>
-    
-  
-</header>
-    
-    <div class="md-container" data-md-component="container">
-      
-      
+          
         
       
       <main class="md-main" data-md-component="main">
@@ -458,9 +445,7 @@
   
 
 
-  
-
-<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
     <a href=".." title="JAF - Juspay Agent Framework (Python)" class="md-nav__button md-logo" aria-label="JAF - Juspay Agent Framework (Python)" data-md-component="logo">
       
@@ -512,64 +497,13 @@
   
   
   
-    
-    
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
-        
-          
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    Getting Started
-    
-  </span>
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2">
-            <span class="md-nav__icon md-icon"></span>
-            Getting Started
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
     <li class="md-nav__item">
       <a href="../getting-started/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Introduction
+    Get Started
     
   </span>
   
@@ -578,10 +512,9 @@
     </li>
   
 
-              
-            
-              
-                
+    
+      
+      
   
   
   
@@ -592,43 +525,12 @@
   
   
   <span class="md-ellipsis">
-    Core Concepts
+    Understand Concepts
     
   </span>
   
 
       </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../examples/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Examples
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
     </li>
   
 
@@ -663,15 +565,15 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
         
           
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
             
   
   
   <span class="md-ellipsis">
-    Agent Development
+    Build with JAF
     
   </span>
   
@@ -679,10 +581,10 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
-            Agent Development
+            Build with JAF
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
@@ -699,29 +601,6 @@
   
   <span class="md-ellipsis">
     Tools
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../function-composition/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Function Composition
     
   </span>
   
@@ -778,6 +657,29 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../function-composition/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Function Composition
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -806,6 +708,8 @@
       
         
       
+        
+      
     
     
     
@@ -822,15 +726,15 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
         
           
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
             
   
   
   <span class="md-ellipsis">
-    ADK Production Framework
+    Production Features
     
   </span>
   
@@ -838,10 +742,10 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_4">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
-            ADK Production Framework
+            Production Features
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
@@ -875,12 +779,12 @@
   
   
     <li class="md-nav__item">
-      <a href="../callback-system/" class="md-nav__link">
+      <a href="../adk-schema-validation/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Callback System
+    Schema Validation
     
   </span>
   
@@ -950,7 +854,7 @@
         <li class="md-nav__item">
   <a href="#security-architecture" class="md-nav__link">
     <span class="md-ellipsis">
-      🛡️ Security Architecture
+      Security Architecture
     </span>
   </a>
   
@@ -959,11 +863,11 @@
         <li class="md-nav__item">
   <a href="#input-sanitization" class="md-nav__link">
     <span class="md-ellipsis">
-      🔒 Input Sanitization
+      Input Sanitization
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="🔒 Input Sanitization">
+    <nav class="md-nav" aria-label="Input Sanitization">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1160,11 +1064,11 @@
         <li class="md-nav__item">
   <a href="#security-monitoring" class="md-nav__link">
     <span class="md-ellipsis">
-      📊 Security Monitoring
+      Security Monitoring
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="📊 Security Monitoring">
+    <nav class="md-nav" aria-label="Security Monitoring">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1193,11 +1097,11 @@
         <li class="md-nav__item">
   <a href="#configuration" class="md-nav__link">
     <span class="md-ellipsis">
-      🔧 Configuration
+      Configuration
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="🔧 Configuration">
+    <nav class="md-nav" aria-label="Configuration">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1226,11 +1130,11 @@
         <li class="md-nav__item">
   <a href="#security-testing" class="md-nav__link">
     <span class="md-ellipsis">
-      🧪 Security Testing
+      Security Testing
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="🧪 Security Testing">
+    <nav class="md-nav" aria-label="Security Testing">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1355,6 +1259,29 @@
   
   
     <li class="md-nav__item">
+      <a href="../callback-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Callback System
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../error-handling/" class="md-nav__link">
         
   
@@ -1389,80 +1316,11 @@
       
         
       
-    
-    
-    
-      
+        
       
         
       
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
-        
-          
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    Examples
-    
-  </span>
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5">
-            <span class="md-nav__icon md-icon"></span>
-            Examples
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../flight-booking-example/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Flight Booking System
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    
-    
       
         
       
@@ -1509,12 +1367,206 @@
   
   
     <li class="md-nav__item">
-      <a href="../server-api/" class="md-nav__link">
+      <a href="../a2a-protocol/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Overview
+    Protocol Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../a2a-api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    API Reference
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../a2a-deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Deployment Guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../a2a-specification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Technical Specification
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../a2a-examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Examples
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Examples
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Examples
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Basic Examples
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../flight-booking-example/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Flight Booking System
     
   </span>
   
@@ -1547,6 +1599,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1560,15 +1618,15 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
         
           
-          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
             
   
   
   <span class="md-ellipsis">
-    Production Deployment
+    Deploy
     
   </span>
   
@@ -1576,10 +1634,10 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_7">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
             <span class="md-nav__icon md-icon"></span>
-            Production Deployment
+            Deploy
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
@@ -1619,6 +1677,75 @@
   
   <span class="md-ellipsis">
     Deployment
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../monitoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Monitoring
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Security
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../server-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Server API
     
   </span>
   
@@ -1685,15 +1812,15 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
         
           
-          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
             
   
   
   <span class="md-ellipsis">
-    API Reference
+    Reference
     
   </span>
   
@@ -1701,10 +1828,10 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_8">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
             <span class="md-nav__icon md-icon"></span>
-            API Reference
+            Reference
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
@@ -1720,7 +1847,7 @@
   
   
   <span class="md-ellipsis">
-    API Overview
+    API Reference
     
   </span>
   
@@ -1730,83 +1857,6 @@
   
 
               
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../server-api/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Overview
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    
-    
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
-        
-          
-          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    Advanced Topics
-    
-  </span>
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_9">
-            <span class="md-nav__icon md-icon"></span>
-            Advanced Topics
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
             
               
                 
@@ -1845,6 +1895,401 @@
               </div>
             
             
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#security-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      Security Architecture
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#input-sanitization" class="md-nav__link">
+    <span class="md-ellipsis">
+      Input Sanitization
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Input Sanitization">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#multi-level-protection" class="md-nav__link">
+    <span class="md-ellipsis">
+      Multi-Level Protection
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#protection-categories" class="md-nav__link">
+    <span class="md-ellipsis">
+      Protection Categories
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Protection Categories">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-sql-injection-protection" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. SQL Injection Protection
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-xss-prevention" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. XSS Prevention
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-command-injection-blocking" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Command Injection Blocking
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-llm-prompt-injection-defense" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. LLM Prompt Injection Defense
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#custom-sanitization-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      Custom Sanitization Rules
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#safe-code-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      🔐 Safe Code Execution
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="🔐 Safe Code Execution">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ast-based-mathematical-evaluation" class="md-nav__link">
+    <span class="md-ellipsis">
+      AST-Based Mathematical Evaluation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#blocked-dangerous-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Blocked Dangerous Operations
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#custom-safe-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Custom Safe Functions
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#authentication-authorization" class="md-nav__link">
+    <span class="md-ellipsis">
+      🔑 Authentication &amp; Authorization
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="🔑 Authentication &amp; Authorization">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#api-key-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      API Key Validation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#session-token-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Session Token Validation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#role-based-access-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      Role-Based Access Control
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#llm-prompt-protection" class="md-nav__link">
+    <span class="md-ellipsis">
+      🛠️ LLM Prompt Protection
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="🛠️ LLM Prompt Protection">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prompt-sanitization" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prompt Sanitization
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#prompt-template-protection" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prompt Template Protection
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security-monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      Security Monitoring
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Security Monitoring">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#audit-logging" class="md-nav__link">
+    <span class="md-ellipsis">
+      Audit Logging
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#security-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      Security Metrics
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Configuration
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#environment-based-security" class="md-nav__link">
+    <span class="md-ellipsis">
+      Environment-Based Security
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#production-security-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      Production Security Settings
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Security Testing
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Security Testing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#validation-suite" class="md-nav__link">
+    <span class="md-ellipsis">
+      Validation Suite
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#penetration-testing-helpers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Penetration Testing Helpers
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security-best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      🚨 Security Best Practices
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="🚨 Security Best Practices">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-input-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Input Validation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-safe-code-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Safe Code Execution
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-authentication-authorization" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Authentication &amp; Authorization
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-monitoring-auditing" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Monitoring &amp; Auditing
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      🔗 Related Documentation
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
           
           
             <div class="md-content" data-md-component="content">
@@ -1860,14 +2305,6 @@
     </a>
   
   
-    
-      
-    
-    <a href="https://github.com/xynehq/jaf-py/raw/main/docs/security-framework.md" title="View source of this page" class="md-content__button md-icon">
-      
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 18c.56 0 1 .44 1 1s-.44 1-1 1-1-.44-1-1 .44-1 1-1m0-3c-2.73 0-5.06 1.66-6 4 .94 2.34 3.27 4 6 4s5.06-1.66 6-4c-.94-2.34-3.27-4-6-4m0 6.5a2.5 2.5 0 0 1-2.5-2.5 2.5 2.5 0 0 1 2.5-2.5 2.5 2.5 0 0 1 2.5 2.5 2.5 2.5 0 0 1-2.5 2.5M9.27 20H6V4h7v5h5v4.07c.7.08 1.36.25 2 .49V8l-6-6H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h4.5a8.2 8.2 0 0 1-1.23-2"/></svg>
-    </a>
-  
 
 
 <h1 id="security-framework">Security Framework<a class="headerlink" href="#security-framework" title="Anchor link to this section for reference">&para;</a></h1>
@@ -1875,7 +2312,7 @@
 <p class="admonition-title">Enterprise Security</p>
 <p>JAF's security framework provides multi-layered protection against injection attacks, unsafe code execution, and unauthorized access. All security measures have been thoroughly tested and validated.</p>
 </div>
-<h2 id="security-architecture">🛡️ Security Architecture<a class="headerlink" href="#security-architecture" title="Anchor link to this section for reference">&para;</a></h2>
+<h2 id="security-architecture">Security Architecture<a class="headerlink" href="#security-architecture" title="Anchor link to this section for reference">&para;</a></h2>
 <p>The JAF security framework implements defense-in-depth with multiple protection layers:</p>
 <pre class="mermaid"><code>graph TD
     A[User Input] --&gt; B[Input Sanitization]
@@ -1892,7 +2329,7 @@
     D --&gt; K[AST-Based Evaluation]
     D --&gt; L[Sandboxed Execution]
     D --&gt; M[Resource Limits]</code></pre>
-<h2 id="input-sanitization">🔒 Input Sanitization<a class="headerlink" href="#input-sanitization" title="Anchor link to this section for reference">&para;</a></h2>
+<h2 id="input-sanitization">Input Sanitization<a class="headerlink" href="#input-sanitization" title="Anchor link to this section for reference">&para;</a></h2>
 <h3 id="multi-level-protection">Multi-Level Protection<a class="headerlink" href="#multi-level-protection" title="Anchor link to this section for reference">&para;</a></h3>
 <p>The <code>AdkInputSanitizer</code> provides configurable protection levels:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">adk.security</span><span class="w"> </span><span class="kn">import</span> <span class="n">AdkInputSanitizer</span><span class="p">,</span> <span class="n">SanitizationLevel</span>
@@ -1959,11 +2396,11 @@
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="c1"># Safe mathematical expressions</span>
 </span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">safe_expressions</span> <span class="o">=</span> <span class="p">[</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="s2">&quot;2 + 3 * 4&quot;</span><span class="p">,</span>           <span class="c1"># ✅ Basic arithmetic</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="s2">&quot;abs(-42)&quot;</span><span class="p">,</span>            <span class="c1"># ✅ Built-in functions</span>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="s2">&quot;max(1, 2, 3)&quot;</span><span class="p">,</span>        <span class="c1"># ✅ Safe built-ins</span>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    <span class="s2">&quot;2 ** 10&quot;</span><span class="p">,</span>             <span class="c1"># ✅ Exponentiation</span>
-</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    <span class="s2">&quot;(5 + 3) * 2&quot;</span><span class="p">,</span>         <span class="c1"># ✅ Parentheses</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="s2">&quot;2 + 3 * 4&quot;</span><span class="p">,</span>           <span class="c1">#  Basic arithmetic</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="s2">&quot;abs(-42)&quot;</span><span class="p">,</span>            <span class="c1">#  Built-in functions</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="s2">&quot;max(1, 2, 3)&quot;</span><span class="p">,</span>        <span class="c1">#  Safe built-ins</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    <span class="s2">&quot;2 ** 10&quot;</span><span class="p">,</span>             <span class="c1">#  Exponentiation</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    <span class="s2">&quot;(5 + 3) * 2&quot;</span><span class="p">,</span>         <span class="c1">#  Parentheses</span>
 </span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="p">]</span>
 </span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>
 </span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="k">for</span> <span class="n">expr</span> <span class="ow">in</span> <span class="n">safe_expressions</span><span class="p">:</span>
@@ -1973,12 +2410,12 @@
 <h3 id="blocked-dangerous-operations">Blocked Dangerous Operations<a class="headerlink" href="#blocked-dangerous-operations" title="Anchor link to this section for reference">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># These are automatically blocked</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">dangerous_expressions</span> <span class="o">=</span> <span class="p">[</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="s2">&quot;import os&quot;</span><span class="p">,</span>                    <span class="c1"># ❌ Import statements</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="s2">&quot;__import__(&#39;os&#39;)&quot;</span><span class="p">,</span>            <span class="c1"># ❌ Dynamic imports</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="s2">&quot;eval(&#39;1+1&#39;)&quot;</span><span class="p">,</span>                 <span class="c1"># ❌ Nested evaluation</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="s2">&quot;exec(&#39;print(1)&#39;)&quot;</span><span class="p">,</span>            <span class="c1"># ❌ Code execution</span>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="s2">&quot;open(&#39;/etc/passwd&#39;)&quot;</span><span class="p">,</span>         <span class="c1"># ❌ File operations</span>
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>    <span class="s2">&quot;subprocess.call(&#39;ls&#39;)&quot;</span><span class="p">,</span>       <span class="c1"># ❌ System calls</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="s2">&quot;import os&quot;</span><span class="p">,</span>                    <span class="c1">#  Import statements</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="s2">&quot;__import__(&#39;os&#39;)&quot;</span><span class="p">,</span>            <span class="c1">#  Dynamic imports</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="s2">&quot;eval(&#39;1+1&#39;)&quot;</span><span class="p">,</span>                 <span class="c1">#  Nested evaluation</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="s2">&quot;exec(&#39;print(1)&#39;)&quot;</span><span class="p">,</span>            <span class="c1">#  Code execution</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="s2">&quot;open(&#39;/etc/passwd&#39;)&quot;</span><span class="p">,</span>         <span class="c1">#  File operations</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>    <span class="s2">&quot;subprocess.call(&#39;ls&#39;)&quot;</span><span class="p">,</span>       <span class="c1">#  System calls</span>
 </span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="p">]</span>
 </span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>
 </span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="k">for</span> <span class="n">expr</span> <span class="ow">in</span> <span class="n">dangerous_expressions</span><span class="p">:</span>
@@ -2089,7 +2526,7 @@
 </span><span id="__span-13-18"><a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a><span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
 </span><span id="__span-13-19"><a id="__codelineno-13-19" name="__codelineno-13-19" href="#__codelineno-13-19"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Template injection blocked: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<h2 id="security-monitoring">📊 Security Monitoring<a class="headerlink" href="#security-monitoring" title="Anchor link to this section for reference">&para;</a></h2>
+<h2 id="security-monitoring">Security Monitoring<a class="headerlink" href="#security-monitoring" title="Anchor link to this section for reference">&para;</a></h2>
 <h3 id="audit-logging">Audit Logging<a class="headerlink" href="#audit-logging" title="Anchor link to this section for reference">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">adk.security</span><span class="w"> </span><span class="kn">import</span> <span class="n">SecurityAuditLogger</span>
 </span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>
@@ -2129,7 +2566,7 @@
 </span><span id="__span-15-13"><a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Blocked requests: </span><span class="si">{</span><span class="n">stats</span><span class="p">[</span><span class="s1">&#39;blocked_requests&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span><span id="__span-15-14"><a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Average auth latency: </span><span class="si">{</span><span class="n">stats</span><span class="p">[</span><span class="s1">&#39;avg_auth_latency&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></code></pre></div>
-<h2 id="configuration">🔧 Configuration<a class="headerlink" href="#configuration" title="Anchor link to this section for reference">&para;</a></h2>
+<h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Anchor link to this section for reference">&para;</a></h2>
 <h3 id="environment-based-security">Environment-Based Security<a class="headerlink" href="#environment-based-security" title="Anchor link to this section for reference">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 </span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">adk.security</span><span class="w"> </span><span class="kn">import</span> <span class="n">AdkSecurityConfig</span>
@@ -2157,7 +2594,7 @@
 </span><span id="__span-17-12"><a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>    <span class="n">require_https</span><span class="o">=</span><span class="kc">True</span>
 </span><span id="__span-17-13"><a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a><span class="p">)</span>
 </span></code></pre></div>
-<h2 id="security-testing">🧪 Security Testing<a class="headerlink" href="#security-testing" title="Anchor link to this section for reference">&para;</a></h2>
+<h2 id="security-testing">Security Testing<a class="headerlink" href="#security-testing" title="Anchor link to this section for reference">&para;</a></h2>
 <h3 id="validation-suite">Validation Suite<a class="headerlink" href="#validation-suite" title="Anchor link to this section for reference">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="c1"># Run security validation tests</span>
 </span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">validation.tests.validate_production_improvements</span><span class="w"> </span><span class="kn">import</span> <span class="n">test_security_improvements</span>
@@ -2165,9 +2602,9 @@
 </span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">run_security_tests</span><span class="p">():</span>
 </span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>    <span class="n">passed</span> <span class="o">=</span> <span class="k">await</span> <span class="n">test_security_improvements</span><span class="p">()</span>
 </span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>    <span class="k">if</span> <span class="n">passed</span><span class="p">:</span>
-</span><span id="__span-18-7"><a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;✅ All security tests passed&quot;</span><span class="p">)</span>
+</span><span id="__span-18-7"><a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot; All security tests passed&quot;</span><span class="p">)</span>
 </span><span id="__span-18-8"><a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>    <span class="k">else</span><span class="p">:</span>
-</span><span id="__span-18-9"><a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;❌ Security tests failed - review required&quot;</span><span class="p">)</span>
+</span><span id="__span-18-9"><a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot; Security tests failed - review required&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="penetration-testing-helpers">Penetration Testing Helpers<a class="headerlink" href="#penetration-testing-helpers" title="Anchor link to this section for reference">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">adk.security.testing</span><span class="w"> </span><span class="kn">import</span> <span class="n">SecurityTestSuite</span>
@@ -2270,7 +2707,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../callback-system/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Callback System">
+          <a href="../adk-schema-validation/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Schema Validation">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2280,7 +2717,7 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                Callback System
+                Schema Validation
               </div>
             </div>
           </a>
@@ -2308,10 +2745,6 @@
   <div class="md-footer-meta md-typeset">
     <div class="md-footer-meta__inner md-grid">
       <div class="md-copyright">
-  
-    <div class="md-copyright__highlight">
-      Copyright &copy; 2024 JAF Contributors
-    </div>
   
   
     Made with
@@ -2348,7 +2781,7 @@
     
     
       
-      <script id="__config" type="application/json">{"base": "..", "features": ["announce.dismiss", "content.action.edit", "content.action.view", "content.code.annotate", "content.code.copy", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.sections", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.tracking", "search.highlight", "search.share", "search.suggest", "toc.follow", "toc.integrate"], "search": "../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"base": "..", "features": ["content.action.edit", "content.code.copy", "navigation.footer", "navigation.indexes", "navigation.sections", "navigation.tabs", "navigation.top", "navigation.tracking", "search.highlight", "search.suggest", "toc.follow"], "search": "../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
       <script src="../assets/javascripts/bundle.50899def.min.js"></script>

@@ -18,7 +18,7 @@
         <link rel="prev" href="../validation-suite/">
       
       
-        <link rel="next" href="../server-api/">
+        <link rel="next" href="../troubleshooting/">
       
       
       <link rel="icon" href="../assets/favicon.png">
@@ -26,7 +26,7 @@
     
     
       
-        <title>API Overview - JAF - Juspay Agent Framework (Python)</title>
+        <title>API Reference - JAF - Juspay Agent Framework (Python)</title>
       
     
     
@@ -47,8 +47,8 @@
         
         
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
-        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
       
     
     
@@ -81,7 +81,7 @@
     
     
     
-    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="black">
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="blue">
   
     
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
@@ -106,9 +106,7 @@
     
       
 
-  
-
-<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+<header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href=".." title="JAF - Juspay Agent Framework (Python)" class="md-header__button md-logo" aria-label="JAF - Juspay Agent Framework (Python)" data-md-component="logo">
       
@@ -129,7 +127,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              API Overview
+              API Reference
             
           </span>
         </div>
@@ -142,7 +140,7 @@
     
     
     
-    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="black"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
     
       <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
@@ -152,7 +150,7 @@
     
     
     
-    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="black"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
     
       <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
@@ -185,11 +183,6 @@
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
       </label>
       <nav class="md-search__options" aria-label="Search">
-        
-          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
-            
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
-          </a>
         
         <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
           
@@ -229,8 +222,14 @@
     
   </nav>
   
+</header>
     
+    <div class="md-container" data-md-component="container">
       
+      
+        
+          
+            
 <nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
   <div class="md-grid">
     <ul class="md-tabs__list">
@@ -259,20 +258,36 @@
   
   
   
-    
-    
-      <li class="md-tabs__item">
-        <a href="../getting-started/" class="md-tabs__link">
-          
+    <li class="md-tabs__item">
+      <a href="../getting-started/" class="md-tabs__link">
+        
   
   
     
   
-  Getting Started
+  Get Started
 
-        </a>
-      </li>
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../core-concepts/" class="md-tabs__link">
+        
+  
+  
     
+  
+  Understand Concepts
+
+      </a>
+    </li>
   
 
       
@@ -290,7 +305,7 @@
   
     
   
-  Agent Development
+  Build with JAF
 
         </a>
       </li>
@@ -312,7 +327,7 @@
   
     
   
-  ADK Production Framework
+  Production Features
 
         </a>
       </li>
@@ -328,29 +343,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../flight-booking-example/" class="md-tabs__link">
-          
-  
-  
-    
-  
-  Examples
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../server-api/" class="md-tabs__link">
+        <a href="../a2a-protocol/" class="md-tabs__link">
           
   
   
@@ -372,13 +365,35 @@
     
     
       <li class="md-tabs__item">
+        <a href="../examples/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Examples
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
         <a href="../infrastructure/" class="md-tabs__link">
           
   
   
     
   
-  Production Deployment
+  Deploy
 
         </a>
       </li>
@@ -402,29 +417,7 @@
   
     
   
-  API Reference
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
-    
-    
-      <li class="md-tabs__item">
-        <a href="../troubleshooting/" class="md-tabs__link">
-          
-  
-  
-    
-  
-  Advanced Topics
+  Reference
 
         </a>
       </li>
@@ -435,13 +428,7 @@
     </ul>
   </div>
 </nav>
-    
-  
-</header>
-    
-    <div class="md-container" data-md-component="container">
-      
-      
+          
         
       
       <main class="md-main" data-md-component="main">
@@ -458,9 +445,7 @@
   
 
 
-  
-
-<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
     <a href=".." title="JAF - Juspay Agent Framework (Python)" class="md-nav__button md-logo" aria-label="JAF - Juspay Agent Framework (Python)" data-md-component="logo">
       
@@ -512,64 +497,13 @@
   
   
   
-    
-    
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
-        
-          
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    Getting Started
-    
-  </span>
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2">
-            <span class="md-nav__icon md-icon"></span>
-            Getting Started
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
     <li class="md-nav__item">
       <a href="../getting-started/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Introduction
+    Get Started
     
   </span>
   
@@ -578,10 +512,9 @@
     </li>
   
 
-              
-            
-              
-                
+    
+      
+      
   
   
   
@@ -592,43 +525,12 @@
   
   
   <span class="md-ellipsis">
-    Core Concepts
+    Understand Concepts
     
   </span>
   
 
       </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../examples/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Examples
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
     </li>
   
 
@@ -663,15 +565,15 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
         
           
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
             
   
   
   <span class="md-ellipsis">
-    Agent Development
+    Build with JAF
     
   </span>
   
@@ -679,10 +581,10 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
-            Agent Development
+            Build with JAF
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
@@ -699,29 +601,6 @@
   
   <span class="md-ellipsis">
     Tools
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../function-composition/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Function Composition
     
   </span>
   
@@ -778,6 +657,29 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../function-composition/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Function Composition
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -804,6 +706,8 @@
       
         
       
+        
+      
     
     
     
@@ -817,15 +721,15 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
         
           
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
             
   
   
   <span class="md-ellipsis">
-    ADK Production Framework
+    Production Features
     
   </span>
   
@@ -833,10 +737,10 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
-            ADK Production Framework
+            Production Features
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
@@ -870,12 +774,12 @@
   
   
     <li class="md-nav__item">
-      <a href="../callback-system/" class="md-nav__link">
+      <a href="../adk-schema-validation/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Callback System
+    Schema Validation
     
   </span>
   
@@ -939,6 +843,29 @@
   
   
     <li class="md-nav__item">
+      <a href="../callback-system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Callback System
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../error-handling/" class="md-nav__link">
         
   
@@ -973,80 +900,11 @@
       
         
       
-    
-    
-    
-      
+        
       
         
       
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
-        
-          
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    Examples
-    
-  </span>
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5">
-            <span class="md-nav__icon md-icon"></span>
-            Examples
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../flight-booking-example/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Flight Booking System
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    
-    
       
         
       
@@ -1093,12 +951,206 @@
   
   
     <li class="md-nav__item">
-      <a href="../server-api/" class="md-nav__link">
+      <a href="../a2a-protocol/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Overview
+    Protocol Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../a2a-api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    API Reference
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../a2a-deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Deployment Guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../a2a-specification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Technical Specification
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../a2a-examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Examples
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Examples
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Examples
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Basic Examples
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../flight-booking-example/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Flight Booking System
     
   </span>
   
@@ -1131,6 +1183,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1144,15 +1202,15 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
         
           
-          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
             
   
   
   <span class="md-ellipsis">
-    Production Deployment
+    Deploy
     
   </span>
   
@@ -1160,10 +1218,10 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_7">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
             <span class="md-nav__icon md-icon"></span>
-            Production Deployment
+            Deploy
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
@@ -1203,6 +1261,75 @@
   
   <span class="md-ellipsis">
     Deployment
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../monitoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Monitoring
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Security
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../server-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Server API
     
   </span>
   
@@ -1274,15 +1401,15 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" checked>
         
           
-          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="">
             
   
   
   <span class="md-ellipsis">
-    API Reference
+    Reference
     
   </span>
   
@@ -1290,10 +1417,10 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_8">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_9">
             <span class="md-nav__icon md-icon"></span>
-            API Reference
+            Reference
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
@@ -1318,7 +1445,7 @@
   
   
   <span class="md-ellipsis">
-    API Overview
+    API Reference
     
   </span>
   
@@ -1331,7 +1458,7 @@
   
   
   <span class="md-ellipsis">
-    API Overview
+    API Reference
     
   </span>
   
@@ -2491,83 +2618,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../server-api/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Overview
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    
-    
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
-        
-          
-          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    Advanced Topics
-    
-  </span>
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_9">
-            <span class="md-nav__icon md-icon"></span>
-            Advanced Topics
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../troubleshooting/" class="md-nav__link">
         
   
@@ -2598,6 +2648,1154 @@
               </div>
             
             
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#enums" class="md-nav__link">
+    <span class="md-ellipsis">
+      Enums
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Enums">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#contentrole" class="md-nav__link">
+    <span class="md-ellipsis">
+      ContentRole
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#toolsource" class="md-nav__link">
+    <span class="md-ellipsis">
+      ToolSource
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#model" class="md-nav__link">
+    <span class="md-ellipsis">
+      Model
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#toolparametertype" class="md-nav__link">
+    <span class="md-ellipsis">
+      ToolParameterType
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parttype" class="md-nav__link">
+    <span class="md-ellipsis">
+      PartType
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tool-creation-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tool Creation Functions
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tool Creation Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#create_function_tool-recommended" class="md-nav__link">
+    <span class="md-ellipsis">
+      create_function_tool (Recommended)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create_function_tool_legacy-deprecated" class="md-nav__link">
+    <span class="md-ellipsis">
+      create_function_tool_legacy (Deprecated)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create_async_function_tool" class="md-nav__link">
+    <span class="md-ellipsis">
+      create_async_function_tool
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#functiontoolconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      FunctionToolConfig
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#core-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Core Functions
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Core Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#main-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      Main Execution
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Main Execution">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#runinitial_state-runstatectx-config-runconfigctx-runresultout" class="md-nav__link">
+    <span class="md-ellipsis">
+      run(initial_state: RunState[Ctx], config: RunConfig[Ctx]) -&gt; RunResult[Out]
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#id-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      ID Generation
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ID Generation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#generate_run_id-runid" class="md-nav__link">
+    <span class="md-ellipsis">
+      generate_run_id() -&gt; RunId
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#generate_trace_id-traceid" class="md-nav__link">
+    <span class="md-ellipsis">
+      generate_trace_id() -&gt; TraceId
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create_run_idid_str-str-runid" class="md-nav__link">
+    <span class="md-ellipsis">
+      create_run_id(id_str: str) -&gt; RunId
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create_trace_idid_str-str-traceid" class="md-nav__link">
+    <span class="md-ellipsis">
+      create_trace_id(id_str: str) -&gt; TraceId
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#core-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      Core Types
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Core Types">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#runstate" class="md-nav__link">
+    <span class="md-ellipsis">
+      RunState
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="RunState">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#runstatectx" class="md-nav__link">
+    <span class="md-ellipsis">
+      RunState[Ctx]
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      Agent
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Agent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#agentctx-out" class="md-nav__link">
+    <span class="md-ellipsis">
+      Agent[Ctx, Out]
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tool-protocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tool Protocol
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tool Protocol">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#toolargs-ctx" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tool[Args, Ctx]
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#message" class="md-nav__link">
+    <span class="md-ellipsis">
+      Message
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Message">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#message_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Message
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#runconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      RunConfig
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="RunConfig">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#runconfigctx" class="md-nav__link">
+    <span class="md-ellipsis">
+      RunConfig[Ctx]
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#runresult" class="md-nav__link">
+    <span class="md-ellipsis">
+      RunResult
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="RunResult">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#runresultout" class="md-nav__link">
+    <span class="md-ellipsis">
+      RunResult[Out]
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#validationresult" class="md-nav__link">
+    <span class="md-ellipsis">
+      ValidationResult
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ValidationResult">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#validationresult_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      ValidationResult
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modelconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      ModelConfig
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ModelConfig">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#modelconfig_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      ModelConfig
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#model-provider-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Model Provider Functions
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Model Provider Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#litellm-provider" class="md-nav__link">
+    <span class="md-ellipsis">
+      LiteLLM Provider
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="LiteLLM Provider">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#make_litellm_providerbase_url-str-api_key-str-anything-modelproviderctx" class="md-nav__link">
+    <span class="md-ellipsis">
+      make_litellm_provider(base_url: str, api_key: str = "anything") -&gt; ModelProvider[Ctx]
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modelprovider-protocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      ModelProvider Protocol
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ModelProvider Protocol">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#modelproviderctx" class="md-nav__link">
+    <span class="md-ellipsis">
+      ModelProvider[Ctx]
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#memory-provider-system" class="md-nav__link">
+    <span class="md-ellipsis">
+      Memory Provider System
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Memory Provider System">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#memory-provider-factory" class="md-nav__link">
+    <span class="md-ellipsis">
+      Memory Provider Factory
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Memory Provider Factory">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#create_memory_provider_from_envexternal_clients-optionaldictstr-any-none-memoryprovider" class="md-nav__link">
+    <span class="md-ellipsis">
+      create_memory_provider_from_env(external_clients: Optional[Dict[str, Any]] = None) -&gt; MemoryProvider
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specific-provider-creators" class="md-nav__link">
+    <span class="md-ellipsis">
+      Specific Provider Creators
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Specific Provider Creators">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#create_in_memory_providerconfig-inmemoryconfig-memoryprovider" class="md-nav__link">
+    <span class="md-ellipsis">
+      create_in_memory_provider(config: InMemoryConfig) -&gt; MemoryProvider
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create_redis_providerconfig-redisconfig-client-optionalany-none-memoryprovider" class="md-nav__link">
+    <span class="md-ellipsis">
+      create_redis_provider(config: RedisConfig, client: Optional[Any] = None) -&gt; MemoryProvider
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create_postgres_providerconfig-postgresconfig-client-optionalany-none-memoryprovider" class="md-nav__link">
+    <span class="md-ellipsis">
+      create_postgres_provider(config: PostgresConfig, client: Optional[Any] = None) -&gt; MemoryProvider
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#memory-provider-protocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      Memory Provider Protocol
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Memory Provider Protocol">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#memoryprovider" class="md-nav__link">
+    <span class="md-ellipsis">
+      MemoryProvider
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#memory-configuration-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      Memory Configuration Types
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Memory Configuration Types">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#memoryconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      MemoryConfig
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#conversationmemory" class="md-nav__link">
+    <span class="md-ellipsis">
+      ConversationMemory
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#validation-and-policy-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Validation and Policy Functions
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Validation and Policy Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#inputoutput-guardrails" class="md-nav__link">
+    <span class="md-ellipsis">
+      Input/Output Guardrails
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Input/Output Guardrails">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#create_length_guardrailmax_length-int-min_length-int-0-guardrail" class="md-nav__link">
+    <span class="md-ellipsis">
+      create_length_guardrail(max_length: int, min_length: int = 0) -&gt; Guardrail
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create_content_filter_guardrailblocked_patterns-liststr-case_sensitive-bool-false-guardrail" class="md-nav__link">
+    <span class="md-ellipsis">
+      create_content_filter_guardrail(blocked_patterns: List[str], case_sensitive: bool = False) -&gt; Guardrail
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create_json_validation_guardrailschema_class-typebasemodel-guardrail" class="md-nav__link">
+    <span class="md-ellipsis">
+      create_json_validation_guardrail(schema_class: type[BaseModel]) -&gt; Guardrail
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#combine_guardrailsguardrails-listguardrail-require_all-bool-true-guardrail" class="md-nav__link">
+    <span class="md-ellipsis">
+      combine_guardrails(guardrails: List[Guardrail], require_all: bool = True) -&gt; Guardrail
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#handoff-policies" class="md-nav__link">
+    <span class="md-ellipsis">
+      Handoff Policies
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Handoff Policies">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#create_handoff_guardrailpolicy-handoffpolicy-current_agent-str-guardrail" class="md-nav__link">
+    <span class="md-ellipsis">
+      create_handoff_guardrail(policy: HandoffPolicy, current_agent: str) -&gt; Guardrail
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create_role_based_handoff_policyagent_roles-dictstr-str-role_permissions-dictstr-liststr-handoffpolicy" class="md-nav__link">
+    <span class="md-ellipsis">
+      create_role_based_handoff_policy(agent_roles: Dict[str, str], role_permissions: Dict[str, List[str]]) -&gt; HandoffPolicy
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#server-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Server Functions
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Server Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#server-creation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Server Creation
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Server Creation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#run_serverconfig-serverconfig-none" class="md-nav__link">
+    <span class="md-ellipsis">
+      run_server(config: ServerConfig) -&gt; None
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create_simple_serveragents-listagent-model_provider-modelprovider-host-str-localhost-port-int-3000-jafserver" class="md-nav__link">
+    <span class="md-ellipsis">
+      create_simple_server(agents: List[Agent], model_provider: ModelProvider, host: str = 'localhost', port: int = 3000) -&gt; JAFServer
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tool-result-system" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tool Result System
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tool Result System">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#toolresult-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      ToolResult Type
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ToolResult Type">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#toolresultt" class="md-nav__link">
+    <span class="md-ellipsis">
+      ToolResult[T]
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#toolresponse-helper-class" class="md-nav__link">
+    <span class="md-ellipsis">
+      ToolResponse Helper Class
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ToolResponse Helper Class">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#toolresponse" class="md-nav__link">
+    <span class="md-ellipsis">
+      ToolResponse
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#utility-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Utility Functions
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Utility Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#with_error_handlingtool_name-str-executor-callable-callable" class="md-nav__link">
+    <span class="md-ellipsis">
+      with_error_handling(tool_name: str, executor: Callable) -&gt; Callable
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tool_result_to_stringresult-toolresultany-str" class="md-nav__link">
+    <span class="md-ellipsis">
+      tool_result_to_string(result: ToolResult[Any]) -&gt; str
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tracing-system" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tracing System
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tracing System">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tracecollector-protocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      TraceCollector Protocol
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="TraceCollector Protocol">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tracecollector" class="md-nav__link">
+    <span class="md-ellipsis">
+      TraceCollector
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#built-in-collectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      Built-in Collectors
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Built-in Collectors">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#consoletracecollector" class="md-nav__link">
+    <span class="md-ellipsis">
+      ConsoleTraceCollector
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#filetracecollectorfile_path-str" class="md-nav__link">
+    <span class="md-ellipsis">
+      FileTraceCollector(file_path: str)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adk-callback-system" class="md-nav__link">
+    <span class="md-ellipsis">
+      ADK Callback System
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ADK Callback System">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#runnercallbacks-protocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      RunnerCallbacks Protocol
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="RunnerCallbacks Protocol">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#runnercallbacks" class="md-nav__link">
+    <span class="md-ellipsis">
+      RunnerCallbacks
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#callback-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Callback Configuration
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Callback Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#runnerconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      RunnerConfig
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#callback-return-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      Callback Return Types
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Callback Return Types">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#llmcontrolresult" class="md-nav__link">
+    <span class="md-ellipsis">
+      LLMControlResult
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#toolselectioncontrolresult" class="md-nav__link">
+    <span class="md-ellipsis">
+      ToolSelectionControlResult
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#iterationcontrolresult" class="md-nav__link">
+    <span class="md-ellipsis">
+      IterationControlResult
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#synthesischeckresult" class="md-nav__link">
+    <span class="md-ellipsis">
+      SynthesisCheckResult
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#advanced-agent-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      Advanced Agent Execution
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Advanced Agent Execution">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#execute_agentconfig-runnerconfig-session_state-dictstr-any-message-message-context-runcontext-model_provider-modelprovider-agentresponse" class="md-nav__link">
+    <span class="md-ellipsis">
+      execute_agent(config: RunnerConfig, session_state: Dict[str, Any], message: Message, context: RunContext, model_provider: ModelProvider) -&gt; AgentResponse
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#common-callback-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      Common Callback Patterns
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common Callback Patterns">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#react-reasoning-acting-pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      ReAct (Reasoning + Acting) Pattern
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intelligent-caching-pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      Intelligent Caching Pattern
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#context-accumulation-pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      Context Accumulation Pattern
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loop-detection-pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      Loop Detection Pattern
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#complete-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      Complete Example
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
           
           
             <div class="md-content" data-md-component="content">
@@ -2612,14 +3810,6 @@
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
   
-  
-    
-      
-    
-    <a href="https://github.com/xynehq/jaf-py/raw/main/docs/api-reference.md" title="View source of this page" class="md-content__button md-icon">
-      
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 18c.56 0 1 .44 1 1s-.44 1-1 1-1-.44-1-1 .44-1 1-1m0-3c-2.73 0-5.06 1.66-6 4 .94 2.34 3.27 4 6 4s5.06-1.66 6-4c-.94-2.34-3.27-4-6-4m0 6.5a2.5 2.5 0 0 1-2.5-2.5 2.5 2.5 0 0 1 2.5-2.5 2.5 2.5 0 0 1 2.5 2.5 2.5 2.5 0 0 1-2.5 2.5M9.27 20H6V4h7v5h5v4.07c.7.08 1.36.25 2 .49V8l-6-6H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h4.5a8.2 8.2 0 0 1-1.23-2"/></svg>
-    </a>
   
 
 
@@ -3394,7 +4584,7 @@
 </span><span id="__span-32-6"><a id="__codelineno-32-6" name="__codelineno-32-6" href="#__codelineno-32-6"></a>
 </span><span id="__span-32-7"><a id="__codelineno-32-7" name="__codelineno-32-7" href="#__codelineno-32-7"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">on_before_tool_execution</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tool</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
 </span><span id="__span-32-8"><a id="__codelineno-32-8" name="__codelineno-32-8" href="#__codelineno-32-8"></a>        <span class="n">action</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Using </span><span class="si">{</span><span class="n">tool</span><span class="o">.</span><span class="n">schema</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> with </span><span class="si">{</span><span class="n">params</span><span class="si">}</span><span class="s2">&quot;</span>
-</span><span id="__span-32-9"><a id="__codelineno-32-9" name="__codelineno-32-9" href="#__codelineno-32-9"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;🎯 Action: </span><span class="si">{</span><span class="n">action</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-32-9"><a id="__codelineno-32-9" name="__codelineno-32-9" href="#__codelineno-32-9"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; Action: </span><span class="si">{</span><span class="n">action</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span><span id="__span-32-10"><a id="__codelineno-32-10" name="__codelineno-32-10" href="#__codelineno-32-10"></a>        <span class="k">return</span> <span class="kc">None</span>
 </span><span id="__span-32-11"><a id="__codelineno-32-11" name="__codelineno-32-11" href="#__codelineno-32-11"></a>
 </span><span id="__span-32-12"><a id="__codelineno-32-12" name="__codelineno-32-12" href="#__codelineno-32-12"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">on_after_tool_execution</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tool</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">error</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -3542,7 +4732,7 @@
 </span><span id="__span-36-67"><a id="__codelineno-36-67" name="__codelineno-36-67" href="#__codelineno-36-67"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
 </span><span id="__span-36-68"><a id="__codelineno-36-68" name="__codelineno-36-68" href="#__codelineno-36-68"></a>        <span class="n">user_id</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;user_id&#39;</span><span class="p">,</span> <span class="s1">&#39;unknown&#39;</span><span class="p">)</span>
 </span><span id="__span-36-69"><a id="__codelineno-36-69" name="__codelineno-36-69" href="#__codelineno-36-69"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;🧮 Math Assistant started for user: </span><span class="si">{</span><span class="n">user_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-36-70"><a id="__codelineno-36-70" name="__codelineno-36-70" href="#__codelineno-36-70"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;📝 Query: </span><span class="si">{</span><span class="n">message</span><span class="o">.</span><span class="n">content</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-36-70"><a id="__codelineno-36-70" name="__codelineno-36-70" href="#__codelineno-36-70"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; Query: </span><span class="si">{</span><span class="n">message</span><span class="o">.</span><span class="n">content</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span><span id="__span-36-71"><a id="__codelineno-36-71" name="__codelineno-36-71" href="#__codelineno-36-71"></a>
 </span><span id="__span-36-72"><a id="__codelineno-36-72" name="__codelineno-36-72" href="#__codelineno-36-72"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">on_before_llm_call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">agent</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">session_state</span><span class="p">):</span>
 </span><span id="__span-36-73"><a id="__codelineno-36-73" name="__codelineno-36-73" href="#__codelineno-36-73"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Implement intelligent caching and context enhancement.&quot;&quot;&quot;</span>
@@ -3585,12 +4775,12 @@
 </span><span id="__span-36-110"><a id="__codelineno-36-110" name="__codelineno-36-110" href="#__codelineno-36-110"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">on_after_tool_execution</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tool</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">error</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 </span><span id="__span-36-111"><a id="__codelineno-36-111" name="__codelineno-36-111" href="#__codelineno-36-111"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate and enhance calculation results.&quot;&quot;&quot;</span>
 </span><span id="__span-36-112"><a id="__codelineno-36-112" name="__codelineno-36-112" href="#__codelineno-36-112"></a>        <span class="k">if</span> <span class="n">error</span><span class="p">:</span>
-</span><span id="__span-36-113"><a id="__codelineno-36-113" name="__codelineno-36-113" href="#__codelineno-36-113"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;❌ Calculation error: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-36-113"><a id="__codelineno-36-113" name="__codelineno-36-113" href="#__codelineno-36-113"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; Calculation error: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span><span id="__span-36-114"><a id="__codelineno-36-114" name="__codelineno-36-114" href="#__codelineno-36-114"></a>            <span class="k">return</span> <span class="kc">None</span>
 </span><span id="__span-36-115"><a id="__codelineno-36-115" name="__codelineno-36-115" href="#__codelineno-36-115"></a>
 </span><span id="__span-36-116"><a id="__codelineno-36-116" name="__codelineno-36-116" href="#__codelineno-36-116"></a>        <span class="k">if</span> <span class="n">tool</span><span class="o">.</span><span class="n">schema</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s1">&#39;calculate&#39;</span> <span class="ow">and</span> <span class="s1">&#39;Result:&#39;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">result</span><span class="p">):</span>
 </span><span id="__span-36-117"><a id="__codelineno-36-117" name="__codelineno-36-117" href="#__codelineno-36-117"></a>            <span class="c1"># Extract and validate the calculation</span>
-</span><span id="__span-36-118"><a id="__codelineno-36-118" name="__codelineno-36-118" href="#__codelineno-36-118"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✅ Calculation completed: </span><span class="si">{</span><span class="n">result</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-36-118"><a id="__codelineno-36-118" name="__codelineno-36-118" href="#__codelineno-36-118"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; Calculation completed: </span><span class="si">{</span><span class="n">result</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span><span id="__span-36-119"><a id="__codelineno-36-119" name="__codelineno-36-119" href="#__codelineno-36-119"></a>
 </span><span id="__span-36-120"><a id="__codelineno-36-120" name="__codelineno-36-120" href="#__codelineno-36-120"></a>        <span class="k">return</span> <span class="kc">None</span>
 </span><span id="__span-36-121"><a id="__codelineno-36-121" name="__codelineno-36-121" href="#__codelineno-36-121"></a>
@@ -3598,7 +4788,7 @@
 </span><span id="__span-36-123"><a id="__codelineno-36-123" name="__codelineno-36-123" href="#__codelineno-36-123"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Log comprehensive execution metrics.&quot;&quot;&quot;</span>
 </span><span id="__span-36-124"><a id="__codelineno-36-124" name="__codelineno-36-124" href="#__codelineno-36-124"></a>        <span class="n">duration</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_time</span> <span class="k">else</span> <span class="mi">0</span>
 </span><span id="__span-36-125"><a id="__codelineno-36-125" name="__codelineno-36-125" href="#__codelineno-36-125"></a>
-</span><span id="__span-36-126"><a id="__codelineno-36-126" name="__codelineno-36-126" href="#__codelineno-36-126"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">📊 Execution Summary:&quot;</span><span class="p">)</span>
+</span><span id="__span-36-126"><a id="__codelineno-36-126" name="__codelineno-36-126" href="#__codelineno-36-126"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2"> Execution Summary:&quot;</span><span class="p">)</span>
 </span><span id="__span-36-127"><a id="__codelineno-36-127" name="__codelineno-36-127" href="#__codelineno-36-127"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;   Duration: </span><span class="si">{</span><span class="n">duration</span><span class="o">*</span><span class="mi">1000</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">ms&quot;</span><span class="p">)</span>
 </span><span id="__span-36-128"><a id="__codelineno-36-128" name="__codelineno-36-128" href="#__codelineno-36-128"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;   LLM Calls: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">performance_metrics</span><span class="p">[</span><span class="s1">&#39;llm_calls&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span><span id="__span-36-129"><a id="__codelineno-36-129" name="__codelineno-36-129" href="#__codelineno-36-129"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;   Tool Calls: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">performance_metrics</span><span class="p">[</span><span class="s1">&#39;tool_calls&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -3607,7 +4797,7 @@
 </span><span id="__span-36-132"><a id="__codelineno-36-132" name="__codelineno-36-132" href="#__codelineno-36-132"></a>
 </span><span id="__span-36-133"><a id="__codelineno-36-133" name="__codelineno-36-133" href="#__codelineno-36-133"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">on_error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">error</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
 </span><span id="__span-36-134"><a id="__codelineno-36-134" name="__codelineno-36-134" href="#__codelineno-36-134"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Handle mathematical errors gracefully.&quot;&quot;&quot;</span>
-</span><span id="__span-36-135"><a id="__codelineno-36-135" name="__codelineno-36-135" href="#__codelineno-36-135"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;❌ Math Assistant Error: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">error</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-36-135"><a id="__codelineno-36-135" name="__codelineno-36-135" href="#__codelineno-36-135"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; Math Assistant Error: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">error</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span><span id="__span-36-136"><a id="__codelineno-36-136" name="__codelineno-36-136" href="#__codelineno-36-136"></a>        <span class="c1"># In production, log to monitoring system</span>
 </span><span id="__span-36-137"><a id="__codelineno-36-137" name="__codelineno-36-137" href="#__codelineno-36-137"></a>
 </span><span id="__span-36-138"><a id="__codelineno-36-138" name="__codelineno-36-138" href="#__codelineno-36-138"></a><span class="k">def</span><span class="w"> </span><span class="nf">create_math_agent</span><span class="p">():</span>
@@ -3676,9 +4866,9 @@
 </span><span id="__span-36-201"><a id="__codelineno-36-201" name="__codelineno-36-201" href="#__codelineno-36-201"></a>
 </span><span id="__span-36-202"><a id="__codelineno-36-202" name="__codelineno-36-202" href="#__codelineno-36-202"></a>    <span class="c1"># Handle result</span>
 </span><span id="__span-36-203"><a id="__codelineno-36-203" name="__codelineno-36-203" href="#__codelineno-36-203"></a>    <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">outcome</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="s1">&#39;completed&#39;</span><span class="p">:</span>
-</span><span id="__span-36-204"><a id="__codelineno-36-204" name="__codelineno-36-204" href="#__codelineno-36-204"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✅ JAF Core Result: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">outcome</span><span class="o">.</span><span class="n">output</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-36-204"><a id="__codelineno-36-204" name="__codelineno-36-204" href="#__codelineno-36-204"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; JAF Core Result: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">outcome</span><span class="o">.</span><span class="n">output</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span><span id="__span-36-205"><a id="__codelineno-36-205" name="__codelineno-36-205" href="#__codelineno-36-205"></a>    <span class="k">else</span><span class="p">:</span>
-</span><span id="__span-36-206"><a id="__codelineno-36-206" name="__codelineno-36-206" href="#__codelineno-36-206"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;❌ JAF Core Error: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">outcome</span><span class="o">.</span><span class="n">error</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-36-206"><a id="__codelineno-36-206" name="__codelineno-36-206" href="#__codelineno-36-206"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; JAF Core Error: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">outcome</span><span class="o">.</span><span class="n">error</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span><span id="__span-36-207"><a id="__codelineno-36-207" name="__codelineno-36-207" href="#__codelineno-36-207"></a>
 </span><span id="__span-36-208"><a id="__codelineno-36-208" name="__codelineno-36-208" href="#__codelineno-36-208"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">demonstrate_callback_approach</span><span class="p">():</span>
 </span><span id="__span-36-209"><a id="__codelineno-36-209" name="__codelineno-36-209" href="#__codelineno-36-209"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Demonstrate ADK Callback approach with advanced features.&quot;&quot;&quot;</span>
@@ -3708,8 +4898,8 @@
 </span><span id="__span-36-233"><a id="__codelineno-36-233" name="__codelineno-36-233" href="#__codelineno-36-233"></a>        <span class="n">model_provider</span><span class="o">=</span><span class="n">model_provider</span>
 </span><span id="__span-36-234"><a id="__codelineno-36-234" name="__codelineno-36-234" href="#__codelineno-36-234"></a>    <span class="p">)</span>
 </span><span id="__span-36-235"><a id="__codelineno-36-235" name="__codelineno-36-235" href="#__codelineno-36-235"></a>
-</span><span id="__span-36-236"><a id="__codelineno-36-236" name="__codelineno-36-236" href="#__codelineno-36-236"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✅ Callback Result: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">content</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-36-237"><a id="__codelineno-36-237" name="__codelineno-36-237" href="#__codelineno-36-237"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;📈 Metadata: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">metadata</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-36-236"><a id="__codelineno-36-236" name="__codelineno-36-236" href="#__codelineno-36-236"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; Callback Result: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">content</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-36-237"><a id="__codelineno-36-237" name="__codelineno-36-237" href="#__codelineno-36-237"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; Metadata: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">metadata</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span><span id="__span-36-238"><a id="__codelineno-36-238" name="__codelineno-36-238" href="#__codelineno-36-238"></a>
 </span><span id="__span-36-239"><a id="__codelineno-36-239" name="__codelineno-36-239" href="#__codelineno-36-239"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
 </span><span id="__span-36-240"><a id="__codelineno-36-240" name="__codelineno-36-240" href="#__codelineno-36-240"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Complete demonstration of JAF APIs with both approaches.&quot;&quot;&quot;</span>
@@ -3723,14 +4913,14 @@
 </span><span id="__span-36-248"><a id="__codelineno-36-248" name="__codelineno-36-248" href="#__codelineno-36-248"></a>        <span class="c1"># Demonstrate advanced callback approach</span>
 </span><span id="__span-36-249"><a id="__codelineno-36-249" name="__codelineno-36-249" href="#__codelineno-36-249"></a>        <span class="k">await</span> <span class="n">demonstrate_callback_approach</span><span class="p">()</span>
 </span><span id="__span-36-250"><a id="__codelineno-36-250" name="__codelineno-36-250" href="#__codelineno-36-250"></a>
-</span><span id="__span-36-251"><a id="__codelineno-36-251" name="__codelineno-36-251" href="#__codelineno-36-251"></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">🎉 Both approaches completed successfully!&quot;</span><span class="p">)</span>
+</span><span id="__span-36-251"><a id="__codelineno-36-251" name="__codelineno-36-251" href="#__codelineno-36-251"></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2"> Both approaches completed successfully!&quot;</span><span class="p">)</span>
 </span><span id="__span-36-252"><a id="__codelineno-36-252" name="__codelineno-36-252" href="#__codelineno-36-252"></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Key Differences:&quot;</span><span class="p">)</span>
 </span><span id="__span-36-253"><a id="__codelineno-36-253" name="__codelineno-36-253" href="#__codelineno-36-253"></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;• JAF Core: Functional, immutable, production-ready&quot;</span><span class="p">)</span>
 </span><span id="__span-36-254"><a id="__codelineno-36-254" name="__codelineno-36-254" href="#__codelineno-36-254"></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;• ADK Callbacks: Enhanced with instrumentation, caching, monitoring&quot;</span><span class="p">)</span>
 </span><span id="__span-36-255"><a id="__codelineno-36-255" name="__codelineno-36-255" href="#__codelineno-36-255"></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;• Both: Type-safe, composable, enterprise-grade&quot;</span><span class="p">)</span>
 </span><span id="__span-36-256"><a id="__codelineno-36-256" name="__codelineno-36-256" href="#__codelineno-36-256"></a>
 </span><span id="__span-36-257"><a id="__codelineno-36-257" name="__codelineno-36-257" href="#__codelineno-36-257"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-</span><span id="__span-36-258"><a id="__codelineno-36-258" name="__codelineno-36-258" href="#__codelineno-36-258"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;❌ Demo Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-36-258"><a id="__codelineno-36-258" name="__codelineno-36-258" href="#__codelineno-36-258"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; Demo Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span><span id="__span-36-259"><a id="__codelineno-36-259" name="__codelineno-36-259" href="#__codelineno-36-259"></a>        <span class="c1"># In production, comprehensive error handling would be here</span>
 </span><span id="__span-36-260"><a id="__codelineno-36-260" name="__codelineno-36-260" href="#__codelineno-36-260"></a>
 </span><span id="__span-36-261"><a id="__codelineno-36-261" name="__codelineno-36-261" href="#__codelineno-36-261"></a><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
@@ -3791,13 +4981,13 @@
         
         
           
-          <a href="../server-api/" class="md-footer__link md-footer__link--next" aria-label="Next: Overview">
+          <a href="../troubleshooting/" class="md-footer__link md-footer__link--next" aria-label="Next: Troubleshooting">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Overview
+                Troubleshooting
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -3812,10 +5002,6 @@
   <div class="md-footer-meta md-typeset">
     <div class="md-footer-meta__inner md-grid">
       <div class="md-copyright">
-  
-    <div class="md-copyright__highlight">
-      Copyright &copy; 2024 JAF Contributors
-    </div>
   
   
     Made with
@@ -3852,7 +5038,7 @@
     
     
       
-      <script id="__config" type="application/json">{"base": "..", "features": ["announce.dismiss", "content.action.edit", "content.action.view", "content.code.annotate", "content.code.copy", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.sections", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.tracking", "search.highlight", "search.share", "search.suggest", "toc.follow", "toc.integrate"], "search": "../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"base": "..", "features": ["content.action.edit", "content.code.copy", "navigation.footer", "navigation.indexes", "navigation.sections", "navigation.tabs", "navigation.top", "navigation.tracking", "search.highlight", "search.suggest", "toc.follow"], "search": "../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
       <script src="../assets/javascripts/bundle.50899def.min.js"></script>
