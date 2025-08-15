@@ -158,7 +158,7 @@ class SSEMCPTransport(MCPTransport):
         """Connect to the SSE endpoint."""
         self.client = httpx.AsyncClient()
         print(f"Connecting to SSE endpoint at {self.uri}...")
-        self.sse_connection = await aconnect_sse(self.client, "GET", self.uri)
+        self.sse_connection = aconnect_sse(self.client, "GET", self.uri)
         asyncio.create_task(self._listen())
         print("SSE connection established.")
 
@@ -181,8 +181,9 @@ class SSEMCPTransport(MCPTransport):
         """Listen for and print incoming SSE events."""
         print("SSE transport listening for events...")
         try:
-            async for event in self.sse_connection.aiter_sse():
-                print(f"[SSE Event] type={event.event}, data={event.data}")
+            async with self.sse_connection as sse:
+                async for event in sse.aiter_sse():
+                    print(f"[SSE Event] type={event.event}, data={event.data}")
         except httpx.ConnectError as e:
             print(f"SSE connection error: {e}")
         except Exception as e:
@@ -224,10 +225,12 @@ class StreamableHttpMCPTransport(MCPTransport):
             response = await self.client.post(self.uri, json=request, timeout=30.0)
             response.raise_for_status()
             return response.json()
+        except httpx.HTTPStatusError as e:
+            raise RuntimeError(f"HTTP request failed: {e}") from e
         except httpx.RequestError as e:
-            raise RuntimeError(f"HTTP request failed: {e}")
+            raise RuntimeError(f"HTTP request failed: {e}") from e
         except json.JSONDecodeError as e:
-            raise RuntimeError(f"Failed to decode JSON response: {e}")
+            raise RuntimeError(f"Failed to decode JSON response: {e}") from e
 
     async def send_notification(self, method: str, params: Dict[str, Any]) -> None:
         """Send an HTTP notification (fire-and-forget)."""
