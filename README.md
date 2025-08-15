@@ -30,7 +30,7 @@ A purely functional agent framework with immutable state and composable tools, p
 
 ### 🔌 **Model Context Protocol (MCP)**
 - ✅ **MCP Client**: Full MCP specification support
-- ✅ **WebSocket & Stdio**: Multiple transport protocols
+- ✅ **WebSocket, Stdio, SSE & HTTP**: Multiple transport protocols
 - ✅ **Tool Integration**: Seamless MCP tool integration
 - ✅ **Auto Discovery**: Dynamic tool loading from MCP servers
 
@@ -516,6 +516,11 @@ def create_mcp_agent():
 # WebSocket MCP client is also supported
 from jaf.providers.mcp import create_mcp_websocket_client
 ws_client = create_mcp_websocket_client('ws://localhost:8080/mcp')
+
+# SSE and HTTP clients are also supported
+from jaf.providers.mcp import create_mcp_sse_client, create_mcp_http_client
+sse_client = create_mcp_sse_client('http://localhost:8080/sse')
+http_client = create_mcp_http_client('http://localhost:8080/mcp')
 ```
 
 ## 🚀 Development Server

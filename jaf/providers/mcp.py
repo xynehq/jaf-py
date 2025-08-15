@@ -11,7 +11,9 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, TypeVar
 
+import httpx
 import websockets
+from httpx_sse import aconnect_sse
 from pydantic import BaseModel
 
 from ..core.tool_results import ToolErrorCodes, ToolResult, ToolResultStatus
@@ -143,6 +145,105 @@ class WebSocketMCPTransport(MCPTransport):
                     continue
         except websockets.exceptions.ConnectionClosed:
             pass
+
+class SSEMCPTransport(MCPTransport):
+    """SSE-based MCP transport."""
+
+    def __init__(self, uri: str):
+        self.uri = uri
+        self.client: Optional[httpx.AsyncClient] = None
+        self.sse_connection = None
+
+    async def connect(self) -> None:
+        """Connect to the SSE endpoint."""
+        self.client = httpx.AsyncClient()
+        print(f"Connecting to SSE endpoint at {self.uri}...")
+        self.sse_connection = aconnect_sse(self.client, "GET", self.uri)
+        asyncio.create_task(self._listen())
+        print("SSE connection established.")
+
+    async def disconnect(self) -> None:
+        """Disconnect from the SSE endpoint."""
+        if self.client:
+            await self.client.aclose()
+            self.client = None
+        print("SSE connection closed.")
+
+    async def send_request(self, method: str, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Send a request over SSE (not supported for this transport)."""
+        raise NotImplementedError("SSE transport does not support client-to-server requests.")
+
+    async def send_notification(self, method: str, params: Dict[str, Any]) -> None:
+        """Send a notification over SSE (not supported for this transport)."""
+        raise NotImplementedError("SSE transport does not support client-to-server notifications.")
+
+    async def _listen(self) -> None:
+        """Listen for and print incoming SSE events."""
+        print("SSE transport listening for events...")
+        try:
+            async with self.sse_connection as sse:
+                async for event in sse.aiter_sse():
+                    print(f"[SSE Event] type={event.event}, data={event.data}")
+        except httpx.ConnectError as e:
+            print(f"SSE connection error: {e}")
+        except Exception as e:
+            print(f"An error occurred in the SSE listener: {e}")
+
+
+class StreamableHttpMCPTransport(MCPTransport):
+    """Streamable HTTP-based MCP transport."""
+
+    def __init__(self, uri: str):
+        self.uri = uri
+        self.client: Optional[httpx.AsyncClient] = None
+        self._request_id = 0
+
+    async def connect(self) -> None:
+        """Initialize the HTTP client."""
+        self.client = httpx.AsyncClient()
+
+    async def disconnect(self) -> None:
+        """Close the HTTP client."""
+        if self.client:
+            await self.client.aclose()
+            self.client = None
+
+    async def send_request(self, method: str, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Send an HTTP request and return the JSON response."""
+        if not self.client:
+            raise RuntimeError("Not connected to MCP server")
+
+        self._request_id += 1
+        request = {
+            "jsonrpc": "2.0",
+            "id": self._request_id,
+            "method": method,
+            "params": params
+        }
+
+        try:
+            response = await self.client.post(self.uri, json=request, timeout=30.0)
+            response.raise_for_status()
+            return response.json()
+        except httpx.HTTPStatusError as e:
+            raise RuntimeError(f"HTTP request failed: {e}") from e
+        except httpx.RequestError as e:
+            raise RuntimeError(f"HTTP request failed: {e}") from e
+        except json.JSONDecodeError as e:
+            raise RuntimeError(f"Failed to decode JSON response: {e}") from e
+
+    async def send_notification(self, method: str, params: Dict[str, Any]) -> None:
+        """Send an HTTP notification (fire-and-forget)."""
+        if not self.client:
+            raise RuntimeError("Not connected to MCP server")
+
+        notification = {
+            "jsonrpc": "2.0",
+            "method": method,
+            "params": params
+        }
+        await self.client.post(self.uri, json=notification, timeout=10.0)
+
 
 class StdioMCPTransport(MCPTransport):
     """Stdio-based MCP transport for local processes."""
@@ -417,6 +518,20 @@ def create_mcp_websocket_client(uri: str, client_name: str = "JAF", client_versi
 def create_mcp_stdio_client(command: List[str], client_name: str = "JAF", client_version: str = "2.0.0") -> MCPClient:
     """Create an MCP client using stdio transport."""
     transport = StdioMCPTransport(command)
+    client_info = MCPClientInfo(name=client_name, version=client_version)
+    return MCPClient(transport, client_info)
+
+
+def create_mcp_sse_client(uri: str, client_name: str = "JAF", client_version: str = "2.0.0") -> MCPClient:
+    """Create an MCP client using SSE transport."""
+    transport = SSEMCPTransport(uri)
+    client_info = MCPClientInfo(name=client_name, version=client_version)
+    return MCPClient(transport, client_info)
+
+
+def create_mcp_http_client(uri: str, client_name: str = "JAF", client_version: str = "2.0.0") -> MCPClient:
+    """Create an MCP client using streamable HTTP transport."""
+    transport = StreamableHttpMCPTransport(uri)
     client_info = MCPClientInfo(name=client_name, version=client_version)
     return MCPClient(transport, client_info)
 
