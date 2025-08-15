@@ -368,7 +368,7 @@ The object-based API leverages TypedDict configurations and functional programmi
 ```python
 from pydantic import BaseModel, Field, validator
 from jaf import create_function_tool, ToolSource
-from jaf.core.tool_results import ToolResponse, ToolResult
+from jaf import ToolResponse, ToolResult
 from typing import Union
 import re
 import ast
@@ -510,7 +510,7 @@ While the object-based API is recommended for new development, JAF maintains ful
 
     ```python
     from pydantic import BaseModel, Field
-    from jaf.core.tool_results import ToolResponse
+    from jaf import ToolResponse
 
     class CalculateArgs(BaseModel):
         """Arguments for the calculate tool."""
@@ -596,10 +596,9 @@ Rules:
 
 ```python
 import asyncio
-from jaf import run_agent
-from jaf.providers.model import make_litellm_provider
-from jaf.core.types import RunState, RunConfig, Message
-from jaf.core.engine import generate_run_id, generate_trace_id
+from adk.runners import run_agent
+from jaf import make_litellm_provider
+from jaf import RunState, RunConfig, Message, generate_run_id, generate_trace_id
 
 async def main():
     """Main function to run the calculator agent."""
@@ -637,9 +636,9 @@ async def main():
     
     # Handle the result
     if result.outcome.status == 'completed':
-        print(f"\n✅ Success! Final output:\n{result.outcome.output}")
+        print(f"\nSuccess! Final output:\n{result.outcome.output}")
     else:
-        print(f"\n❌ Error: {result.outcome.error}")
+        print(f"\nError: {result.outcome.error}")
     
     return result
 
@@ -663,7 +662,7 @@ Expected output:
 [tool_call] {'tool_name': 'calculate', 'args': {'expression': '15 * 8 + 32'}}
 [tool_result] {'success': True, 'result': 'Result: 15 * 8 + 32 = 152'}
 
-✅ Success! Final output:
+Success! Final output:
 The calculation is: 15 × 8 + 32 = 152
 
 First, I multiply 15 by 8 to get 120, then add 32 to get a final result of 152.

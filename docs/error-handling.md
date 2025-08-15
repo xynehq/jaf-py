@@ -3,17 +3,17 @@
 !!! warning "Production Resilience"
     JAF's error handling framework provides comprehensive resilience patterns including circuit breakers, exponential backoff retries, and graceful degradation to ensure production systems remain stable under failure conditions.
 
-## 🎯 Overview
+##  Overview
 
 The JAF error handling system implements enterprise-grade resilience patterns:
 
 - **🔄 Circuit Breaker Pattern**: Prevents cascade failures
-- **⚡ Retry Logic**: Exponential backoff with jitter
-- **🛡️ Graceful Degradation**: Fallback mechanisms
-- **📊 Error Monitoring**: Comprehensive error tracking
-- **🎯 Context-Aware Recovery**: Smart error classification
+- ** Retry Logic**: Exponential backoff with jitter
+- ** Graceful Degradation**: Fallback mechanisms
+- ** Error Monitoring**: Comprehensive error tracking
+- ** Context-Aware Recovery**: Smart error classification
 
-## 🏗️ Error Hierarchy
+##  Error Hierarchy
 
 ### ADK Error Types
 
@@ -140,7 +140,7 @@ async def llm_fallback_response(prompt: str) -> str:
     return "I'm currently experiencing technical difficulties. Please try again later."
 ```
 
-## ⚡ Retry Logic
+##  Retry Logic
 
 ### Exponential Backoff Retry
 
@@ -220,7 +220,7 @@ async def context_aware_operation(context: dict):
         raise enriched_error
 ```
 
-## 🛡️ Graceful Degradation
+##  Graceful Degradation
 
 ### Fallback Mechanisms
 
@@ -280,7 +280,7 @@ else:
     result = await fallback_operation()
 ```
 
-## 📊 Error Monitoring and Observability
+##  Error Monitoring and Observability
 
 ### Error Metrics Collection
 
@@ -364,7 +364,7 @@ async def critical_operation():
     return await important_service_call()
 ```
 
-## 🔧 Error Recovery Strategies
+##  Error Recovery Strategies
 
 ### Automatic Recovery
 
@@ -410,7 +410,7 @@ except AdkLLMError as e:
     result = await recovery_manager.recover(e, context)
 ```
 
-## 🧪 Testing Error Handling
+##  Testing Error Handling
 
 ### Error Injection for Testing
 
@@ -466,7 +466,7 @@ async def chaos_tested_operation():
     return await production_operation()
 ```
 
-## 📈 Best Practices
+##  Best Practices
 
 ### 1. Error Classification
 

@@ -3,7 +3,7 @@
 !!! info "Revolutionary Agent Control"
     The ADK Callback System transforms JAF from a simple agent executor into a sophisticated, observable state machine with complete control over every aspect of agent execution.
 
-## 🎯 Overview
+##  Overview
 
 The Callback System enables advanced agent patterns by providing **14+ hooks** that instrument every critical stage of agent execution. This allows developers to implement sophisticated behaviors like:
 
@@ -13,7 +13,7 @@ The Callback System enables advanced agent patterns by providing **14+ hooks** t
 - **Custom LLM Strategies** - Message modification and call skipping
 - **Context Accumulation** - Intelligent information gathering
 
-## 🔧 Core Concepts
+##  Core Concepts
 
 ### RunnerCallbacks Protocol
 
@@ -29,15 +29,15 @@ class MyCallbacks:
     # Lifecycle hooks
     async def on_start(self, context, message, session_state):
         """Called at agent execution start."""
-        print(f"🚀 Processing: {message.content}")
+        print(f" Processing: {message.content}")
     
     async def on_complete(self, response):
         """Called when execution completes successfully."""
-        print(f"✅ Completed in {response.execution_time_ms}ms")
+        print(f" Completed in {response.execution_time_ms}ms")
     
     async def on_error(self, error, context):
         """Called when execution encounters an error."""
-        print(f"❌ Error: {error}")
+        print(f" Error: {error}")
     
     # LLM interaction hooks
     async def on_before_llm_call(self, agent, message, session_state):
@@ -81,7 +81,7 @@ config = RunnerConfig(
 result = await execute_agent(config, session_state, message, context, model_provider)
 ```
 
-## 🎣 Available Hooks
+##  Available Hooks
 
 ### 1. Lifecycle Hooks
 
@@ -279,7 +279,7 @@ class LoopDetectionCallbacks:
         return False
 ```
 
-## 🚀 Advanced Patterns
+##  Advanced Patterns
 
 ### ReAct (Reasoning + Acting) Pattern
 
@@ -309,7 +309,7 @@ class ReActAgent:
         """Record planned action."""
         action = f"Using {tool.schema.name} with {params}"
         self.actions.append(action)
-        print(f"🎯 Action: {action}")
+        print(f" Action: {action}")
         return None
     
     async def on_after_tool_execution(self, tool, result, error=None):
@@ -367,7 +367,7 @@ class CachingCallbacks:
         self.cache[cache_key] = response
         
         hit_rate = self.cache_hits / (self.cache_hits + self.cache_misses) * 100
-        print(f"📊 Cache hit rate: {hit_rate:.1f}%")
+        print(f" Cache hit rate: {hit_rate:.1f}%")
         return None
 ```
 
@@ -404,7 +404,7 @@ class CoordinationCallbacks:
             })
 ```
 
-## 📊 Performance and Debugging
+##  Performance and Debugging
 
 ### Performance Monitoring
 
@@ -429,7 +429,7 @@ class PerformanceCallbacks:
         return None
     
     async def on_complete(self, response):
-        print(f"📊 Performance Metrics:")
+        print(f" Performance Metrics:")
         print(f"   LLM Calls: {self.metrics['llm_calls']}")
         print(f"   Tool Calls: {self.metrics['tool_calls']}")
         print(f"   Execution Time: {response.execution_time_ms}ms")
@@ -455,9 +455,9 @@ class DebugCallbacks:
     
     async def on_after_tool_execution(self, tool, result, error=None):
         if error:
-            self.log(f"❌ Tool {tool.schema.name} failed: {error}")
+            self.log(f" Tool {tool.schema.name} failed: {error}")
         else:
-            self.log(f"✅ Tool {tool.schema.name} succeeded")
+            self.log(f" Tool {tool.schema.name} succeeded")
         return None
     
     def log(self, message):
@@ -468,7 +468,7 @@ class DebugCallbacks:
             print(log_entry)
 ```
 
-## 🧪 Testing Callbacks
+##  Testing Callbacks
 
 ### Unit Testing
 
@@ -613,7 +613,7 @@ callbacks.memory_provider = memory_provider
 config = RunnerConfig(agent=agent, callbacks=callbacks)
 ```
 
-## 🎯 Best Practices
+##  Best Practices
 
 ### 1. Callback Design Principles
 
@@ -625,13 +625,13 @@ config = RunnerConfig(agent=agent, callbacks=callbacks)
 ### 2. Common Patterns
 
 ```python
-# ✅ Good: Clear, focused callback
+#  Good: Clear, focused callback
 async def on_start(self, context, message, session_state):
     """Initialize tracking for this execution."""
     self.start_time = time.time()
     self.execution_id = generate_unique_id()
 
-# ❌ Avoid: Callback doing too much
+#  Avoid: Callback doing too much
 async def on_start(self, context, message, session_state):
     """DON'T: Multiple responsibilities in one callback."""
     self.start_time = time.time()

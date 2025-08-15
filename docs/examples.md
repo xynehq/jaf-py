@@ -8,10 +8,9 @@ JAF includes several example applications that showcase different aspects of the
 
 1. **Server Demo** - Multi-agent HTTP server with tools and memory
 2. **RAG Example** - Retrieval-Augmented Generation with knowledge base
-3. **MCP Filesystem Demo** - Model Context Protocol integration with secure filesystem operations
-4. **Iterative Search Agent** - Advanced callback system showcase with ReAct patterns
-5. **Custom Tools** - Advanced tool implementation patterns
-6. **Memory Integration** - Persistent conversation examples
+3. **Iterative Search Agent** - Advanced callback system showcase with ReAct patterns
+4. **Custom Tools** - Advanced tool implementation patterns
+5. **Memory Integration** - Persistent conversation examples
 
 ## Server Demo Walkthrough
 
@@ -205,17 +204,17 @@ python examples/server_demo.py
 
 **Expected Output**:
 ```
-🚀 Starting JAF Development Server...
+ Starting JAF Development Server...
 
 📡 LiteLLM URL: http://localhost:4000
 🔑 API Key: Set
 ⚠️  Note: Chat endpoints will fail without a running LiteLLM server
 
-🧠 Memory Type: memory
-✅ Memory provider created: InMemoryMemoryProvider
-🔧 Creating server...
+ Memory Type: memory
+ Memory provider created: InMemoryMemoryProvider
+ Creating server...
 
-📚 Try these example requests:
+ Try these example requests:
 
 1. Health Check:
    curl http://localhost:3000/health
@@ -228,7 +227,7 @@ python examples/server_demo.py
      -H "Content-Type: application/json" \
      -d '{"messages":[{"role":"user","content":"What is 15 * 7?"}],"agent_name":"MathTutor","context":{"userId":"demo","permissions":["user"]}}'
 
-🚀 Starting server...
+ Starting server...
 ```
 
 #### 3. Test the Agents
@@ -446,7 +445,7 @@ Choose demo mode:
 2. Interactive chat
 Enter 1 or 2: 1
 
-🔍 Demo Question 1: What is Python and why is it popular for programming?
+ Demo Question 1: What is Python and why is it popular for programming?
 ------------------------------------------------------------
 🤖 Assistant: Based on the knowledge base information, Python is a high-level, interpreted programming language that has gained popularity for several key reasons:
 
@@ -474,7 +473,7 @@ Type your questions and get answers from the knowledge base!
 Type 'quit' or 'exit' to stop.
 
 👤 You: How do I use Python for machine learning?
-🔍 Searching knowledge base and generating response...
+ Searching knowledge base and generating response...
 🤖 Assistant: Python is the leading language for machine learning due to its rich ecosystem of specialized libraries. Here's how you can use Python for ML:
 
 **Key Libraries:**
@@ -926,11 +925,11 @@ The iterative search agent (`examples/iterative_search_agent.py`) demonstrates t
 This example showcases how the callback system enables complex agent behaviors:
 
 - **🔄 Iterative Information Gathering** - Agent searches across multiple iterations
-- **🧠 Synthesis Checking** - Automatically determines when enough information is gathered
-- **📝 Dynamic Query Refinement** - Refines search queries based on previous results
+- ** Synthesis Checking** - Automatically determines when enough information is gathered
+- ** Dynamic Query Refinement** - Refines search queries based on previous results
 - **🚫 Loop Detection** - Prevents repetitive searches
-- **📊 Context Management** - Intelligently accumulates and filters information
-- **⚡ Performance Monitoring** - Tracks metrics and execution statistics
+- ** Context Management** - Intelligently accumulates and filters information
+- ** Performance Monitoring** - Tracks metrics and execution statistics
 
 ### Architecture Overview
 
@@ -942,7 +941,7 @@ class IterativeSearchCallbacks:
     async def on_start(self, context, message, session_state):
         """Initialize tracking for iterative search."""
         self.original_query = message.content
-        print(f"🚀 Starting search for: '{self.original_query}'")
+        print(f" Starting search for: '{self.original_query}'")
     
     async def on_check_synthesis(self, session_state, context_data):
         """Determine if enough information has been gathered."""
@@ -985,19 +984,19 @@ result = await execute_agent(config, session_state, message, context, model_prov
 When you run the iterative search agent, you'll see output like this:
 
 ```
-🚀 ITERATIVE SEARCH AGENT DEMONSTRATION
+ ITERATIVE SEARCH AGENT DEMONSTRATION
 ============================================================
-🚀 Starting iterative search for: 'What are the applications of machine learning?'
+ Starting iterative search for: 'What are the applications of machine learning?'
 
 🔄 ITERATION 1/4
-🔍 Executing search: 'machine learning applications in different industries'
-📚 Adding 3 new context items...
+ Executing search: 'machine learning applications in different industries'
+ Adding 3 new context items...
    Total context items: 3
 
 🔄 ITERATION 2/4
-📝 Query refined: 'machine learning applications in finance and trading'
-🔍 Executing search: 'machine learning applications in finance and trading'
-📚 Adding 2 new context items...
+ Query refined: 'machine learning applications in finance and trading'
+ Executing search: 'machine learning applications in finance and trading'
+ Adding 2 new context items...
    Total context items: 5
 
 🧮 Evaluating synthesis readiness with 5 context items...
@@ -1006,9 +1005,9 @@ When you run the iterative search agent, you'll see output like this:
    Completeness: 0.50
    Overall confidence: 0.75
 
-✅ Synthesis complete! Confidence: 0.85
+ Synthesis complete! Confidence: 0.85
 
-🎉 ITERATIVE SEARCH COMPLETED
+ ITERATIVE SEARCH COMPLETED
    Total iterations: 2
    Context items gathered: 5
    Searches performed: 2
@@ -1132,7 +1131,7 @@ class AdaptiveCallbacks(IterativeSearchCallbacks):
 ```python
 async def on_complete(self, response):
     """Comprehensive execution analytics."""
-    print(f"📊 Performance Metrics:")
+    print(f" Performance Metrics:")
     print(f"   Iterations: {self.iteration_count}")
     print(f"   Context Quality: {self.final_quality_score:.2f}")
     print(f"   Search Efficiency: {len(self.context_accumulator)/self.iteration_count:.1f} items/iteration")

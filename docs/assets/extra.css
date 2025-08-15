@@ -1,17 +1,100 @@
-/* Custom CSS for JAF Python Documentation */
+/* Professional CSS for JAF Python Documentation */
 
-/* Brand colors and styling */
+/* Enhanced typography and spacing */
+.md-typeset {
+  line-height: 1.7;
+  font-size: 16px;
+  color: var(--jaf-text-primary);
+}
+
+/* Dark mode typography fixes */
+[data-md-color-scheme="slate"] .md-typeset {
+  color: var(--jaf-text-primary);
+}
+
+[data-md-color-scheme="slate"] .md-typeset h1,
+[data-md-color-scheme="slate"] .md-typeset h2,
+[data-md-color-scheme="slate"] .md-typeset h3 {
+  color: var(--jaf-text-primary);
+}
+
+[data-md-color-scheme="slate"] .md-typeset p {
+  color: var(--jaf-text-secondary);
+}
+
+[data-md-color-scheme="slate"] .md-typeset li {
+  color: var(--jaf-text-secondary);
+}
+
+[data-md-color-scheme="slate"] .md-typeset strong {
+  color: var(--jaf-text-primary);
+}
+
+.md-typeset h1 {
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  margin-bottom: 1.5rem;
+}
+
+.md-typeset h2 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-top: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.md-typeset h3 {
+  font-weight: 500;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+.md-typeset p {
+  margin-bottom: 1.25rem;
+}
+
+.md-typeset code {
+  padding: 0.2em 0.4em;
+  background-color: #f5f5f5;
+  border-radius: 3px;
+  font-size: 0.9em;
+  color: var(--jaf-accent);
+}
+
+.md-typeset pre code {
+  background-color: transparent;
+  padding: 0;
+}
+
+/* Clean black/white/blue color scheme */
 :root {
-  --jaf-primary: #1976d2;
-  --jaf-accent: #03a9f4;
+  --jaf-primary: #000000;
+  --jaf-accent: #2196f3;
   --jaf-success: #4caf50;
   --jaf-warning: #ff9800;
   --jaf-error: #f44336;
+  --jaf-text-primary: #000000;
+  --jaf-text-secondary: #666666;
+  --jaf-background: #ffffff;
+  --jaf-surface: #ffffff;
+}
+
+/* Dark mode overrides */
+[data-md-color-scheme="slate"] {
+  --jaf-text-primary: #ffffff;
+  --jaf-text-secondary: #cccccc;
+  --jaf-background: #1a1a1a;
+  --jaf-surface: #1a1a1a;
 }
 
 /* Custom styling for code blocks */
 .highlight .hll {
   background-color: #ffffcc;
+}
+
+/* Dark mode highlight fix */
+[data-md-color-scheme="slate"] .highlight .hll {
+  background-color: #404040;
 }
 
 /* Custom admonition styling */
@@ -27,27 +110,126 @@
   border-color: var(--jaf-error);
 }
 
-/* Hero section styling */
-.hero {
-  text-align: center;
-  padding: 2rem 0;
-  background: linear-gradient(135deg, var(--jaf-primary), var(--jaf-accent));
-  color: white;
-  margin-bottom: 2rem;
-  border-radius: 8px;
+/* Dark mode admonition text fixes */
+[data-md-color-scheme="slate"] .md-typeset .admonition p {
+  color: var(--jaf-text-secondary);
 }
 
-.hero h1 {
-  font-size: 2.5em;
+[data-md-color-scheme="slate"] .md-typeset .admonition .admonition-title {
+  color: var(--jaf-text-primary);
+}
+
+/* Clean button styling */
+.md-button {
+  border-radius: 4px !important;
+  font-weight: 500 !important;
+  padding: 0.6rem 1.5rem !important;
+  text-transform: none !important;
+}
+
+.md-button--primary {
+  background-color: var(--jaf-text-primary) !important;
+  border-color: var(--jaf-text-primary) !important;
+  color: var(--jaf-background) !important;
+}
+
+.md-button--primary:hover {
+  background-color: var(--jaf-accent) !important;
+  border-color: var(--jaf-accent) !important;
+  color: white !important;
+}
+
+/* Dark mode button fixes - force text visibility */
+[data-md-color-scheme="slate"] .md-button--primary,
+[data-md-color-scheme="slate"] .md-button--primary span,
+[data-md-color-scheme="slate"] .md-button--primary a {
+  background-color: var(--jaf-accent) !important;
+  border-color: var(--jaf-accent) !important;
+  color: #ffffff !important;
+  text-decoration: none !important;
+}
+
+[data-md-color-scheme="slate"] .md-button--primary:hover,
+[data-md-color-scheme="slate"] .md-button--primary:hover span,
+[data-md-color-scheme="slate"] .md-button--primary:hover a {
+  background-color: #1976d2 !important;
+  border-color: #1976d2 !important;
+  color: #ffffff !important;
+  text-decoration: none !important;
+}
+
+[data-md-color-scheme="slate"] .md-button {
+  color: var(--jaf-accent) !important;
+  border-color: var(--jaf-accent) !important;
+  background-color: transparent !important;
+}
+
+[data-md-color-scheme="slate"] .md-button:hover {
+  background-color: var(--jaf-accent) !important;
+  color: #ffffff !important;
+}
+
+/* Force button text visibility in dark mode */
+[data-md-color-scheme="slate"] a.md-button--primary {
+  color: #ffffff !important;
+}
+
+[data-md-color-scheme="slate"] .md-typeset a.md-button--primary {
+  color: #ffffff !important;
+}
+
+/* Clean homepage layout */
+.md-content__inner {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* Code block improvements */
+.md-typeset pre {
+  background-color: #f8f9fa !important;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+}
+
+/* Dark mode code blocks */
+[data-md-color-scheme="slate"] .md-typeset pre {
+  background-color: #2d2d2d !important;
+  border: 1px solid #404040;
+}
+
+[data-md-color-scheme="slate"] .md-typeset code {
+  background-color: #2d2d2d;
+  color: var(--jaf-accent);
+}
+
+/* Clean lists */
+.md-typeset ul li {
   margin-bottom: 0.5rem;
 }
 
-.hero p {
-  font-size: 1.2em;
-  opacity: 0.9;
+/* Minimal header styling */
+.md-typeset h1 {
+  border-bottom: 2px solid var(--jaf-accent);
+  padding-bottom: 0.5rem;
+  margin-bottom: 2rem;
 }
 
-/* Feature grid */
+.md-typeset h2 {
+  color: var(--jaf-text-primary);
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: 0.25rem;
+}
+
+/* Dark mode header borders */
+[data-md-color-scheme="slate"] .md-typeset h1 {
+  border-bottom: 2px solid var(--jaf-accent);
+}
+
+[data-md-color-scheme="slate"] .md-typeset h2 {
+  border-bottom: 1px solid #404040;
+}
+
+/* Clean feature styling */
 .feature-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -57,18 +239,96 @@
 
 .feature-card {
   padding: 1.5rem;
-  border: 1px solid var(--md-default-fg-color--lightest);
-  border-radius: 8px;
-  transition: box-shadow 0.2s;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  transition: border-color 0.2s;
+  background: white;
 }
 
 .feature-card:hover {
-  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  border-color: var(--jaf-accent);
 }
 
 .feature-card h3 {
-  color: var(--jaf-primary);
+  color: var(--jaf-text-primary);
   margin-bottom: 1rem;
+  font-weight: 500;
+}
+
+/* Dark mode feature cards */
+[data-md-color-scheme="slate"] .feature-card {
+  background: #2d2d2d;
+  border: 1px solid #404040;
+}
+
+[data-md-color-scheme="slate"] .feature-card h3 {
+  color: var(--jaf-text-primary);
+}
+
+[data-md-color-scheme="slate"] .feature-card p {
+  color: var(--jaf-text-secondary);
+}
+
+/* Dark mode links */
+[data-md-color-scheme="slate"] .md-typeset a {
+  color: var(--jaf-accent);
+}
+
+[data-md-color-scheme="slate"] .md-typeset a:hover {
+  color: #64b5f6;
+}
+
+/* Dark mode table fixes */
+[data-md-color-scheme="slate"] .md-typeset table:not([class]) th {
+  background-color: #2d2d2d;
+  color: var(--jaf-text-primary);
+}
+
+[data-md-color-scheme="slate"] .md-typeset table:not([class]) td {
+  color: var(--jaf-text-secondary);
+}
+
+/* Dark mode status badges */
+[data-md-color-scheme="slate"] .status-badge {
+  border: 1px solid #404040;
+}
+
+/* Fix search and navigation in dark mode */
+[data-md-color-scheme="slate"] .md-search-result__teaser {
+  color: var(--jaf-text-secondary);
+}
+
+[data-md-color-scheme="slate"] .md-nav__title {
+  color: var(--jaf-text-primary);
+}
+
+[data-md-color-scheme="slate"] .md-nav__link {
+  color: var(--jaf-text-secondary);
+}
+
+[data-md-color-scheme="slate"] .md-nav__link:hover {
+  color: var(--jaf-text-primary);
+}
+
+/* Dark mode API signature fixes */
+[data-md-color-scheme="slate"] .api-signature {
+  background-color: #2d2d2d;
+  border-left: 4px solid var(--jaf-accent);
+  color: var(--jaf-text-secondary);
+}
+
+/* Fix spacing between content and footer navigation */
+.md-content {
+  margin-bottom: 3rem;
+}
+
+/* Better spacing for the last section before footer */
+.md-typeset h2:last-of-type {
+  margin-bottom: 2rem;
+}
+
+.md-typeset ul:last-child {
+  margin-bottom: 3rem;
 }
 
 /* Navigation enhancements */

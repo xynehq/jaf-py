@@ -3,14 +3,14 @@
 !!! info "Production-Ready Framework"
     The ADK (Agent Development Kit) represents JAF's production-ready layer, providing enterprise-grade security, immutable data structures, and robust infrastructure for building AI agent systems.
 
-## 🎯 What is the ADK?
+##  What is the ADK?
 
 The Agent Development Kit (ADK) is JAF's production framework that transforms the core functional agent system into an enterprise-ready platform. It provides:
 
-- **🔒 Security-First Design**: Multi-level input sanitization and safe code execution
-- **🧠 Functional Programming**: Immutable data structures and pure functions
-- **🏭 Production Infrastructure**: Real database providers and LLM integrations
-- **⚡ Error Recovery**: Circuit breakers, retries, and comprehensive error handling
+- ** Security-First Design**: Multi-level input sanitization and safe code execution
+- ** Functional Programming**: Immutable data structures and pure functions
+- ** Production Infrastructure**: Real database providers and LLM integrations
+- ** Error Recovery**: Circuit breakers, retries, and comprehensive error handling
 
 ## 🔄 The Production Transformation
 
@@ -19,24 +19,24 @@ The ADK represents a complete transformation from prototype to production:
 ### Before: Sophisticated Mock-up
 ```python
 # Old approach - security vulnerabilities
-result = eval(user_input)  # ❌ Dangerous!
+result = eval(user_input)  #  Dangerous!
 
 # Old approach - mutable state
-session.messages.append(message)  # ❌ Not thread-safe
+session.messages.append(message)  #  Not thread-safe
 ```
 
 ### After: Production-Ready ADK
 ```python
 # New approach - secure evaluation
 from adk.utils.safe_evaluator import safe_calculate
-result = safe_calculate(user_input)  # ✅ AST-based, secure
+result = safe_calculate(user_input)  #  AST-based, secure
 
 # New approach - immutable operations
 from adk.types import create_immutable_session
-new_session = session.with_message(message)  # ✅ Thread-safe
+new_session = session.with_message(message)  #  Thread-safe
 ```
 
-## 🏗️ Core ADK Components
+##  Core ADK Components
 
 ### 1. Security Framework
 
@@ -141,7 +141,7 @@ from adk.runners import RunnerConfig, execute_agent
 # Create callback implementation for custom behavior
 class IterativeCallbacks:
     async def on_start(self, context, message, session_state):
-        print(f"🚀 Starting: {message.content}")
+        print(f" Starting: {message.content}")
     
     async def on_check_synthesis(self, session_state, context_data):
         if len(context_data) >= 5:
@@ -234,7 +234,7 @@ SanitizationLevel.MODERATE    # Balanced security/usability
 SanitizationLevel.STRICT      # Maximum security
 ```
 
-## 🧪 Validation & Testing
+##  Validation & Testing
 
 The ADK includes comprehensive validation tools:
 
@@ -243,8 +243,8 @@ The ADK includes comprehensive validation tools:
 python3 validation/tests/validate_production_improvements.py
 
 # Expected output:
-# 🎉 ALL TESTS PASSED - JAF ADK IS PRODUCTION READY!
-# 🚀 RECOMMENDATION: APPROVED for production deployment
+#  ALL TESTS PASSED - JAF ADK IS PRODUCTION READY!
+#  RECOMMENDATION: APPROVED for production deployment
 ```
 
 ### Validation Categories
@@ -254,7 +254,7 @@ python3 validation/tests/validate_production_improvements.py
 - **Infrastructure Tests**: Database providers, LLM integrations, error handling
 - **Integration Tests**: End-to-end workflows and real API testing
 
-## 📊 Performance Characteristics
+##  Performance Characteristics
 
 ### Before vs After Metrics
 
@@ -263,7 +263,7 @@ python3 validation/tests/validate_production_improvements.py
 | Security Score | 3/10 | 9/10 | +200% |
 | FP Compliance | 4/10 | 8/10 | +100% |
 | Production Readiness | 6/10 | 8/10 | +33% |
-| Code Safety | ❌ Critical Issues | ✅ Production Safe | Eliminated |
+| Code Safety |  Critical Issues |  Production Safe | Eliminated |
 
 ### Production Benefits
 
@@ -273,7 +273,7 @@ python3 validation/tests/validate_production_improvements.py
 - **Maintainability**: Functional composition reduces complexity
 - **Security**: Multiple layers of protection against attacks
 
-## 🚀 Getting Started with ADK
+##  Getting Started with ADK
 
 ### 1. Installation
 ```bash

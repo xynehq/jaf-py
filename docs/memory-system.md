@@ -102,12 +102,12 @@ JAF_MEMORY_MAX_MESSAGES=1000
 ```
 
 **Characteristics:**
-- ✅ No external dependencies
-- ✅ Instant setup
-- ✅ Perfect for development
-- ❌ Data lost on restart
-- ❌ No persistence
-- ❌ Limited by RAM
+-  No external dependencies
+-  Instant setup
+-  Perfect for development
+-  Data lost on restart
+-  No persistence
+-  Limited by RAM
 
 ### Redis Provider
 
@@ -156,11 +156,11 @@ pip install redis
 ```
 
 **Characteristics:**
-- ✅ High performance
-- ✅ Horizontal scaling
-- ✅ Optional persistence
-- ✅ TTL support
-- ✅ Production ready
+-  High performance
+-  Horizontal scaling
+-  Optional persistence
+-  TTL support
+-  Production ready
 - ⚠️ Requires Redis server
 
 ### PostgreSQL Provider
@@ -231,11 +231,11 @@ CREATE INDEX idx_conversations_created_at ON conversations(created_at);
 ```
 
 **Characteristics:**
-- ✅ ACID transactions
-- ✅ Complex queries
-- ✅ Strong consistency
-- ✅ Backup/restore
-- ✅ Enterprise ready
+-  ACID transactions
+-  Complex queries
+-  Strong consistency
+-  Backup/restore
+-  Enterprise ready
 - ⚠️ Requires PostgreSQL server
 
 ## Environment-Based Configuration
@@ -270,9 +270,9 @@ print(f"Persistence: {info['persistence']}")
 # Test connection before creating provider
 result = await test_memory_provider_connection()
 if result['healthy']:
-    print(f"✅ {result['message']}")
+    print(f" {result['message']}")
 else:
-    print(f"❌ {result['error']}")
+    print(f" {result['error']}")
 ```
 
 ## Integration with JAF Engine
@@ -503,7 +503,7 @@ async def monitor_memory_health():
     health = await provider.health_check()
     
     if health.get('healthy'):
-        print(f"✅ Memory provider healthy: {health.get('message')}")
+        print(f" Memory provider healthy: {health.get('message')}")
         
         # Log performance metrics
         metrics = health.get('metrics', {})
@@ -511,7 +511,7 @@ async def monitor_memory_health():
         print(f"   - Memory usage: {metrics.get('memory_usage', 'N/A')}")
         print(f"   - Response time: {metrics.get('avg_response_time', 'N/A')}ms")
     else:
-        print(f"❌ Memory provider unhealthy: {health.get('error')}")
+        print(f" Memory provider unhealthy: {health.get('error')}")
         
         # Alert operations team
         await send_alert(f"Memory provider failure: {health.get('error')}")

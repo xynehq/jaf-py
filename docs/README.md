@@ -14,22 +14,22 @@ New to JAF? Start here:
 
 ## Documentation Structure
 
-### 🏗️ Foundation
+###  Foundation
 - **[Getting Started](getting-started.md)** - Step-by-step setup guide
 - **[Core Concepts](core-concepts.md)** - JAF's philosophy and architecture
 - **[API Reference](api-reference.md)** - Complete Python API documentation
 
-### 🔧 Building with JAF
+###  Building with JAF
 - **[Tools](tools.md)** - Creating and using tools in Python
 - **[Memory System](memory-system.md)** - Conversation persistence and memory providers
 - **[Model Providers](model-providers.md)** - LiteLLM integration and configuration
 
-### 🚀 Production
+###  Production
 - **[Server API](server-api.md)** - FastAPI server endpoints and usage
 - **[Deployment](deployment.md)** - Docker, compose, and production setup
 - **[Troubleshooting](troubleshooting.md)** - Common issues and solutions
 
-### 📚 Learning
+###  Learning
 - **[Examples](examples.md)** - Detailed walkthrough of example applications
 
 ## Use Case Navigation
@@ -54,13 +54,13 @@ New to JAF? Start here:
 
 ## Framework Features
 
-### ✅ Complete Python Implementation
+###  Complete Python Implementation
 - Full feature parity with TypeScript version
 - Type-safe with Pydantic models
 - Immutable state management
 - Comprehensive test coverage
 
-### 🛡️ Production Ready
+###  Production Ready
 - FastAPI server with auto-documentation
 - Built-in security and validation
 - Error handling and recovery
@@ -69,10 +69,10 @@ New to JAF? Start here:
 ### 🔌 Extensive Integrations
 - **Memory Providers**: In-memory, Redis, PostgreSQL
 - **Model Providers**: LiteLLM (100+ models), OpenAI
-- **MCP Support**: Model Context Protocol integration
+- **MCP Support**: Model Context Protocol integration (WebSocket & Stdio transports)
 - **Tool Ecosystem**: Extensible tool system
 
-### 🎯 Developer Experience
+###  Developer Experience
 - CLI tools for project management
 - Hot reload development server
 - Rich examples and tutorials

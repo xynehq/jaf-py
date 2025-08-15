@@ -30,7 +30,7 @@ Higher-order functions are the foundation of tool composition. They take a funct
 
 ```python
 from jaf import create_function_tool, ToolSource
-from jaf.core.tool_results import ToolResponse
+from jaf import ToolResponse
 
 # Base tool function
 async def search_execute(args, context):
@@ -244,7 +244,7 @@ enhanced_search = create_function_tool({
 Build complex validation logic from simple, testable functions:
 
 ```python
-from jaf.core.types import ValidationResult, ValidValidationResult, InvalidValidationResult
+from jaf import ValidationResult, ValidValidationResult, InvalidValidationResult
 
 def compose_validators(*validators):
     """Compose multiple validation functions into one."""

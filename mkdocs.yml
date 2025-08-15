@@ -9,8 +9,6 @@ repo_url: https://github.com/xynehq/jaf-py
 repo_name: xynehq/jaf-py
 edit_uri: edit/main/docs/
 
-# Copyright
-copyright: Copyright &copy; 2024 JAF Contributors
 
 # Build directories
 docs_dir: docs
@@ -24,7 +22,7 @@ theme:
     - media: "(prefers-color-scheme: light)"
       scheme: default
       primary: black
-      accent: black
+      accent: blue
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
@@ -32,33 +30,26 @@ theme:
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
       primary: black
-      accent: black
+      accent: blue
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
   font:
-    text: Roboto
-    code: Roboto Mono
+    text: Inter
+    code: JetBrains Mono
 
   features:
-    - announce.dismiss
     - content.action.edit
-    - content.action.view
-    - content.code.annotate
     - content.code.copy
-    - content.tooltips
     - navigation.footer
     - navigation.indexes
     - navigation.sections
     - navigation.tabs
-    - navigation.tabs.sticky
     - navigation.top
     - navigation.tracking
     - search.highlight
-    - search.share
     - search.suggest
     - toc.follow
-    - toc.integrate
   icon:
     repo: fontawesome/brands/github
   favicon: assets/favicon.png
@@ -67,33 +58,38 @@ theme:
 # Page tree
 nav:
   - Home: index.md
-  - Getting Started:
-    - Introduction: getting-started.md
-    - Core Concepts: core-concepts.md
-    - Examples: examples.md
-  - Agent Development:
+  - Get Started: getting-started.md
+  - Understand Concepts: core-concepts.md
+  - Build with JAF:
     - Tools: tools.md
-    - Function Composition: function-composition.md
     - Memory System: memory-system.md
     - Model Providers: model-providers.md
-  - ADK Production Framework:
+    - Function Composition: function-composition.md
+  - Production Features:
     - ADK Overview: adk-overview.md
-    - Callback System: callback-system.md
+    - Schema Validation: adk-schema-validation.md
     - Security Framework: security-framework.md
     - Session Management: session-management.md
+    - Callback System: callback-system.md
     - Error Handling: error-handling.md
-  - Examples:
-    - Flight Booking System: flight-booking-example.md
   - A2A Protocol:
-    - Overview: server-api.md
-  - Production Deployment:
+    - Protocol Overview: a2a-protocol.md
+    - API Reference: a2a-api-reference.md
+    - Deployment Guide: a2a-deployment.md
+    - Technical Specification: a2a-specification.md
+    - Examples: a2a-examples.md
+  - Examples:
+    - Basic Examples: examples.md
+    - Flight Booking System: flight-booking-example.md
+  - Deploy:
     - Infrastructure: infrastructure.md
     - Deployment: deployment.md
-    - Validation Suite: validation-suite.md
-  - API Reference:
-    - API Overview: api-reference.md
+    - Monitoring: monitoring.md
+    - Security: security.md
     - Server API: server-api.md
-  - Advanced Topics:
+    - Validation Suite: validation-suite.md
+  - Reference:
+    - API Reference: api-reference.md
     - Troubleshooting: troubleshooting.md
 
 # Markdown extensions
@@ -116,9 +112,6 @@ markdown_extensions:
       smart_enable: all
   - pymdownx.caret
   - pymdownx.details
-  - pymdownx.emoji:
-      emoji_index: !!python/name:pymdownx.emoji.gemoji
-      emoji_generator: !!python/name:pymdownx.emoji.to_alt
   - pymdownx.highlight:
       anchor_linenums: true
       line_spans: __span

@@ -18,10 +18,10 @@ JAF treats agent execution as a pure function: given an initial state and config
 All core data structures in JAF are immutable. When state changes, new objects are created rather than modifying existing ones:
 
 ```python
-# ❌ Mutable approach (not JAF)
+# Mutable approach (not JAF)
 state.messages.append(new_message)  # Modifies existing state
 
-# ✅ Immutable approach (JAF way)
+# Immutable approach (JAF way)
 new_state = replace(state, messages=[*state.messages, new_message])
 ```
 
@@ -335,11 +335,11 @@ JAF provides comprehensive observability through event tracing:
 def trace_handler(event: TraceEvent) -> None:
     """Handle trace events for monitoring."""
     if event.type == "llm_call_start":
-        print(f"📤 LLM call: {event.data['model']}")
+        print(f"LLM call: {event.data['model']}")
     elif event.type == "tool_call_start":
-        print(f"🔧 Tool call: {event.data['tool_name']}")
+        print(f"Tool call: {event.data['tool_name']}")
     elif event.type == "error":
-        print(f"❌ Error: {event.data['error_type']}")
+        print(f"Error: {event.data['error_type']}")
 
 config = RunConfig(
     # ...
@@ -361,11 +361,11 @@ Events provide insights into:
 Instructions should be pure functions of state:
 
 ```python
-# ✅ Good: Pure function
+# Good: Pure function
 def instructions(state: RunState[Ctx]) -> str:
     return f"Help user with {len(state.messages)} previous messages"
 
-# ❌ Avoid: Side effects or external dependencies
+# Avoid: Side effects or external dependencies
 def instructions(state: RunState[Ctx]) -> str:
     current_time = datetime.now()  # External dependency
     log.info("Generating instructions")  # Side effect

@@ -3,16 +3,16 @@
 !!! info "Immutable Sessions"
     JAF implements immutable session management following functional programming principles. All session operations create new sessions rather than modifying existing ones, ensuring thread safety and predictable behavior.
 
-## 🎯 Overview
+##  Overview
 
 JAF's session management system provides:
 
-- **🔒 Immutable Data Structures**: Sessions never change after creation
-- **🧠 Pure Functions**: All operations are side-effect free
-- **⚡ Thread Safety**: Concurrent access is safe by design
+- ** Immutable Data Structures**: Sessions never change after creation
+- ** Pure Functions**: All operations are side-effect free
+- ** Thread Safety**: Concurrent access is safe by design
 - **🔄 Functional Composition**: Build complex workflows by composing simple operations
 
-## 🏗️ Core Concepts
+##  Core Concepts
 
 ### Immutable Session Architecture
 
@@ -35,7 +35,7 @@ graph TD
 
 #### Before: Mutable Sessions (Prototype)
 ```python
-# ❌ Old approach - mutable state, not thread-safe
+#  Old approach - mutable state, not thread-safe
 class OldSession:
     def __init__(self, session_id):
         self.messages = []  # Mutable list
@@ -48,7 +48,7 @@ class OldSession:
 
 #### After: Immutable Sessions (Production)
 ```python
-# ✅ New approach - immutable, thread-safe
+#  New approach - immutable, thread-safe
 @dataclass(frozen=True)
 class ImmutableAdkSession:
     messages: Tuple[AdkMessage, ...]  # Immutable tuple
@@ -62,7 +62,7 @@ class ImmutableAdkSession:
         )
 ```
 
-## 🔧 Creating Sessions
+##  Creating Sessions
 
 ### Basic Session Creation
 
@@ -162,7 +162,7 @@ full_session = (create_immutable_session("calc", "user", "app")
 )
 ```
 
-## 🔍 Querying Sessions
+##  Querying Sessions
 
 ### Retrieving Recent Messages
 
@@ -268,7 +268,7 @@ complete_session = transform_session(
 print(f"Pipeline result: {len(complete_session.messages)} messages")
 ```
 
-## 🔒 Thread Safety
+##  Thread Safety
 
 ### Concurrent Operations
 
@@ -387,7 +387,7 @@ assert restored_session.session_id == session_with_data.session_id
 assert len(restored_session.messages) == len(session_with_data.messages)
 ```
 
-## 🧪 Testing Session Management
+##  Testing Session Management
 
 ### Unit Tests for Immutability
 
@@ -447,7 +447,7 @@ def test_session_performance():
     assert duration < 1.0  # Should be fast
 ```
 
-## 📊 Best Practices
+##  Best Practices
 
 ### 1. Session Design Patterns
 

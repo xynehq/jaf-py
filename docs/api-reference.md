@@ -1023,7 +1023,7 @@ class ReActAgent:
     
     async def on_before_tool_execution(self, tool, params):
         action = f"Using {tool.schema.name} with {params}"
-        print(f"🎯 Action: {action}")
+        print(f" Action: {action}")
         return None
     
     async def on_after_tool_execution(self, tool, result, error=None):
@@ -1184,7 +1184,7 @@ class ProductionMathCallbacks:
         self.start_time = time.time()
         user_id = context.get('user_id', 'unknown')
         print(f"🧮 Math Assistant started for user: {user_id}")
-        print(f"📝 Query: {message.content}")
+        print(f" Query: {message.content}")
     
     async def on_before_llm_call(self, agent, message, session_state):
         """Implement intelligent caching and context enhancement."""
@@ -1227,12 +1227,12 @@ Please provide step-by-step explanations and use the calculator tool for all ari
     async def on_after_tool_execution(self, tool, result, error=None):
         """Validate and enhance calculation results."""
         if error:
-            print(f"❌ Calculation error: {error}")
+            print(f" Calculation error: {error}")
             return None
         
         if tool.schema.name == 'calculate' and 'Result:' in str(result):
             # Extract and validate the calculation
-            print(f"✅ Calculation completed: {result}")
+            print(f" Calculation completed: {result}")
         
         return None
     
@@ -1240,7 +1240,7 @@ Please provide step-by-step explanations and use the calculator tool for all ari
         """Log comprehensive execution metrics."""
         duration = time.time() - self.start_time if self.start_time else 0
         
-        print(f"\n📊 Execution Summary:")
+        print(f"\n Execution Summary:")
         print(f"   Duration: {duration*1000:.0f}ms")
         print(f"   LLM Calls: {self.performance_metrics['llm_calls']}")
         print(f"   Tool Calls: {self.performance_metrics['tool_calls']}")
@@ -1249,7 +1249,7 @@ Please provide step-by-step explanations and use the calculator tool for all ari
     
     async def on_error(self, error, context):
         """Handle mathematical errors gracefully."""
-        print(f"❌ Math Assistant Error: {str(error)}")
+        print(f" Math Assistant Error: {str(error)}")
         # In production, log to monitoring system
 
 def create_math_agent():
@@ -1318,9 +1318,9 @@ async def demonstrate_traditional_jaf():
     
     # Handle result
     if result.outcome.status == 'completed':
-        print(f"✅ JAF Core Result: {result.outcome.output}")
+        print(f" JAF Core Result: {result.outcome.output}")
     else:
-        print(f"❌ JAF Core Error: {result.outcome.error}")
+        print(f" JAF Core Error: {result.outcome.error}")
 
 async def demonstrate_callback_approach():
     """Demonstrate ADK Callback approach with advanced features."""
@@ -1350,8 +1350,8 @@ async def demonstrate_callback_approach():
         model_provider=model_provider
     )
     
-    print(f"✅ Callback Result: {result.content}")
-    print(f"📈 Metadata: {result.metadata}")
+    print(f" Callback Result: {result.content}")
+    print(f" Metadata: {result.metadata}")
 
 async def main():
     """Complete demonstration of JAF APIs with both approaches."""
@@ -1365,14 +1365,14 @@ async def main():
         # Demonstrate advanced callback approach
         await demonstrate_callback_approach()
         
-        print("\n🎉 Both approaches completed successfully!")
+        print("\n Both approaches completed successfully!")
         print("\nKey Differences:")
         print("• JAF Core: Functional, immutable, production-ready")
         print("• ADK Callbacks: Enhanced with instrumentation, caching, monitoring")
         print("• Both: Type-safe, composable, enterprise-grade")
         
     except Exception as e:
-        print(f"❌ Demo Error: {e}")
+        print(f" Demo Error: {e}")
         # In production, comprehensive error handling would be here
 
 if __name__ == "__main__":

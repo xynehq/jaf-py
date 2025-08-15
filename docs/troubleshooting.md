@@ -129,8 +129,8 @@ provider = make_openai_provider(
     ```python
     def instructions(state):
         # Make sure this returns a string
-        return "You are a helpful assistant."  # ✅ Good
-        # return None  # ❌ Bad - will cause issues
+        return "You are a helpful assistant."  #  Good
+        # return None  #  Bad - will cause issues
     ```
 
 === "Verify Tool Schema"
@@ -140,7 +140,7 @@ provider = make_openai_provider(
         def schema(self):
             return ToolSchema(
                 name='my_tool',
-                description='A helpful tool',  # ✅ Add description
+                description='A helpful tool',  #  Add description
                 parameters=MyArgs
             )
     ```
@@ -175,12 +175,12 @@ provider = make_openai_provider(
 === "Async/Await Issues"
     ```python
     class MyTool:
-        async def execute(self, args, context):  # ✅ Use async
+        async def execute(self, args, context):  #  Use async
             result = await some_async_operation()
             return result
         
         # Not this:
-        def execute(self, args, context):  # ❌ Missing async
+        def execute(self, args, context):  #  Missing async
             return "result"
     ```
 
@@ -193,7 +193,7 @@ provider = make_openai_provider(
     
     # Tool should expect the same type
     async def execute(self, args, context: MyContext):
-        user_id = context.user_id  # ✅ Correct type
+        user_id = context.user_id  #  Correct type
     ```
 
 ### Memory Provider Issues

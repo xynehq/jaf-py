@@ -3,15 +3,15 @@
 !!! info "Production Infrastructure"
     JAF provides production-ready infrastructure components including database providers, LLM integrations, and configuration management for enterprise deployment.
 
-## 🏗️ Overview
+##  Overview
 
 JAF's infrastructure layer provides:
 
 - **💾 Database Providers**: Redis, PostgreSQL, and in-memory session storage
 - **🤖 LLM Integrations**: Multi-provider support with real streaming
-- **⚙️ Configuration Management**: Environment-based configuration
+- ** Configuration Management**: Environment-based configuration
 - **🔄 Service Discovery**: Automatic provider detection and health checking
-- **📊 Monitoring**: Built-in metrics and observability
+- ** Monitoring**: Built-in metrics and observability
 
 ## 💾 Database Providers
 
@@ -126,7 +126,7 @@ async for text_chunk in stream_llm_response("Explain quantum computing"):
     print(text_chunk, end="", flush=True)
 ```
 
-## ⚙️ Configuration Management
+##  Configuration Management
 
 ### Environment-Based Configuration
 
@@ -211,7 +211,7 @@ for service_name, status in health_status.service_statuses.items():
     print(f"{service_name}: {status.status} ({status.latency_ms}ms)")
 ```
 
-## 📊 Monitoring and Observability
+##  Monitoring and Observability
 
 ### Metrics Collection
 
@@ -253,7 +253,7 @@ async def traced_llm_call(prompt: str):
     return await llm_service.complete(prompt)
 ```
 
-## 🚀 Container Deployment
+##  Container Deployment
 
 ### Docker Configuration
 
@@ -409,7 +409,7 @@ spec:
   type: LoadBalancer
 ```
 
-## 🔒 Security Infrastructure
+##  Security Infrastructure
 
 ### TLS/SSL Configuration
 
@@ -442,7 +442,7 @@ network_config = NetworkSecurityConfig(
 )
 ```
 
-## 📈 Performance Optimization
+##  Performance Optimization
 
 ### Connection Pooling
 
@@ -486,7 +486,7 @@ cache_config = CacheConfig(
 setup_caching(cache_config)
 ```
 
-## 🔧 Infrastructure Management
+##  Infrastructure Management
 
 ### Automated Deployment
 

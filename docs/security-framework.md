@@ -3,7 +3,7 @@
 !!! warning "Enterprise Security"
     JAF's security framework provides multi-layered protection against injection attacks, unsafe code execution, and unauthorized access. All security measures have been thoroughly tested and validated.
 
-## 🛡️ Security Architecture
+##  Security Architecture
 
 The JAF security framework implements defense-in-depth with multiple protection layers:
 
@@ -25,7 +25,7 @@ graph TD
     D --> M[Resource Limits]
 ```
 
-## 🔒 Input Sanitization
+##  Input Sanitization
 
 ### Multi-Level Protection
 
@@ -113,11 +113,11 @@ from adk.utils.safe_evaluator import SafeMathEvaluator, safe_calculate
 
 # Safe mathematical expressions
 safe_expressions = [
-    "2 + 3 * 4",           # ✅ Basic arithmetic
-    "abs(-42)",            # ✅ Built-in functions
-    "max(1, 2, 3)",        # ✅ Safe built-ins
-    "2 ** 10",             # ✅ Exponentiation
-    "(5 + 3) * 2",         # ✅ Parentheses
+    "2 + 3 * 4",           #  Basic arithmetic
+    "abs(-42)",            #  Built-in functions
+    "max(1, 2, 3)",        #  Safe built-ins
+    "2 ** 10",             #  Exponentiation
+    "(5 + 3) * 2",         #  Parentheses
 ]
 
 for expr in safe_expressions:
@@ -130,12 +130,12 @@ for expr in safe_expressions:
 ```python
 # These are automatically blocked
 dangerous_expressions = [
-    "import os",                    # ❌ Import statements
-    "__import__('os')",            # ❌ Dynamic imports
-    "eval('1+1')",                 # ❌ Nested evaluation
-    "exec('print(1)')",            # ❌ Code execution
-    "open('/etc/passwd')",         # ❌ File operations
-    "subprocess.call('ls')",       # ❌ System calls
+    "import os",                    #  Import statements
+    "__import__('os')",            #  Dynamic imports
+    "eval('1+1')",                 #  Nested evaluation
+    "exec('print(1)')",            #  Code execution
+    "open('/etc/passwd')",         #  File operations
+    "subprocess.call('ls')",       #  System calls
 ]
 
 for expr in dangerous_expressions:
@@ -267,7 +267,7 @@ except ValueError as e:
     print(f"Template injection blocked: {e}")
 ```
 
-## 📊 Security Monitoring
+##  Security Monitoring
 
 ### Audit Logging
 
@@ -314,7 +314,7 @@ print(f"Blocked requests: {stats['blocked_requests']}")
 print(f"Average auth latency: {stats['avg_auth_latency']}")
 ```
 
-## 🔧 Configuration
+##  Configuration
 
 ### Environment-Based Security
 
@@ -349,7 +349,7 @@ production_config = AdkSecurityConfig(
 )
 ```
 
-## 🧪 Security Testing
+##  Security Testing
 
 ### Validation Suite
 
@@ -360,9 +360,9 @@ from validation.tests.validate_production_improvements import test_security_impr
 async def run_security_tests():
     passed = await test_security_improvements()
     if passed:
-        print("✅ All security tests passed")
+        print(" All security tests passed")
     else:
-        print("❌ Security tests failed - review required")
+        print(" Security tests failed - review required")
 ```
 
 ### Penetration Testing Helpers
