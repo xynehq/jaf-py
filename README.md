@@ -476,6 +476,29 @@ if result.outcome.status == 'error':
 
 ## 🔌 Provider Integrations
 
+### A2A (Agent-to-Agent) Communication
+
+JAF provides a robust A2A communication layer that allows agents to interact with each other. This is useful for building multi-agent systems where different agents have specialized skills.
+
+```python
+from jaf.a2a import create_a2a_agent, create_a2a_client, create_a2a_server
+
+# Create agents
+echo_agent = create_a2a_agent("EchoBot", "Echoes messages", "You are an echo bot.", [])
+ping_agent = create_a2a_agent("PingBot", "Responds to pings", "You are a ping bot.", [])
+
+# Create a server
+server_config = {
+    "agents": {"EchoBot": echo_agent, "PingBot": ping_agent},
+    "agentCard": {"name": "Test Server"},
+    "port": 8080,
+}
+server = create_a2a_server(server_config)
+
+# Create a client
+client = create_a2a_client("http://localhost:8080")
+```
+
 ### LiteLLM Provider
 
 ```python
