@@ -72,6 +72,11 @@ nav:
     - Session Management: session-management.md
     - Callback System: callback-system.md
     - Error Handling: error-handling.md
+    - Analytics System: analytics-system.md
+    - Performance Monitoring: performance-monitoring.md
+    - Streaming Responses: streaming-responses.md
+    - Workflow Orchestration: workflow-orchestration.md
+    - Plugin System: plugin-system.md
   - A2A Protocol:
     - Protocol Overview: a2a-protocol.md
     - API Reference: a2a-api-reference.md
@@ -91,6 +96,7 @@ nav:
   - Reference:
     - API Reference: api-reference.md
     - Troubleshooting: troubleshooting.md
+    - Style Guide: STYLE_GUIDE.md
 
 # Markdown extensions
 markdown_extensions:
@@ -161,6 +167,3 @@ extra:
     property: !ENV GOOGLE_ANALYTICS_KEY
   version:
     provider: mike
-
-# Documentation directory  
-docs_dir: docs
