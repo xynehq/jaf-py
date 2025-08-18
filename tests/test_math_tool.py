@@ -3,8 +3,10 @@ import os
 import sys
 import operator as op
 import ast
+import socket
 from typing import Any, Dict, Union, List
 from pydantic import BaseModel, Field
+import pytest
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -55,8 +57,6 @@ class SafeEvaluator(ast.NodeVisitor):
             return SAFE_OPERATORS[type(node.op)](self.visit(node.left), self.visit(node.right))
         elif isinstance(node, ast.UnaryOp):
             return SAFE_OPERATORS[type(node.op)](self.visit(node.operand))
-        elif isinstance(node, ast.Num):
-            return node.n
         elif isinstance(node, ast.Constant):
             if isinstance(node.value, (int, float)):
                 return node.value
@@ -124,6 +124,35 @@ math_tool_jaf = create_function_tool({
 def math_agent_instructions(state):
     return 'You are a math assistant with a calculator tool.'
 
+def check_litellm_available():
+    """Check if LiteLLM server is available."""
+    try:
+        litellm_url = os.getenv("LITELLM_URL", "http://0.0.0.0:4000/")
+        # Parse URL to get host and port
+        from urllib.parse import urlparse
+        parsed = urlparse(litellm_url)
+        host = parsed.hostname or "0.0.0.0"
+        port = parsed.port or 4000
+        
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(2)
+            result = sock.connect_ex((host, port))
+            return result == 0
+    except Exception:
+        return False
+
+def check_env_available():
+    """Check if required environment variables are available."""
+    litellm_url = os.getenv("LITELLM_URL")
+    # Either LITELLM_URL should be set, or we should have some API key
+    return litellm_url is not None or os.getenv("LITELLM_API_KEY") is not None
+
+skip_if_no_litellm = pytest.mark.skipif(
+    not check_litellm_available() or not check_env_available(),
+    reason="Skipping math tool test: LiteLLM server not available or environment variables (LITELLM_URL/LITELLM_API_KEY) not set. Please start LiteLLM server and configure .env file to run this test."
+)
+
+@skip_if_no_litellm
 async def test_math_tool_integration():
     """Test that the math_tool_jaf works with the JAF engine using real LiteLLM."""
     

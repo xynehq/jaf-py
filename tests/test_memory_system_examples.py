@@ -26,7 +26,7 @@ except ImportError as e:
     print(f"❌ Import error: {e}")
     sys.exit(1)
 
-class TestResults:
+class MemorySystemTestTracker:
     def __init__(self):
         self.passed = 0
         self.failed = 0
@@ -49,7 +49,7 @@ class TestResults:
             for error in self.errors:
                 print(f"   - {error}")
 
-results = TestResults()
+results = MemorySystemTestTracker()
 
 def test_conversation_memory():
     """Test ConversationMemory creation from memory system docs."""

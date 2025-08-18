@@ -6,7 +6,7 @@ Tests the Python code snippets that can be validated.
 import pytest
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import Mock, AsyncMock, patch
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
@@ -186,7 +186,7 @@ async def test_health_check_structure():
         """Comprehensive health check."""
         health_data = {
             "status": "healthy",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "version": "2.0.0",
             "checks": {}
         }
@@ -253,7 +253,7 @@ async def test_health_check_with_failures():
         """Health check with error handling."""
         health_data = {
             "status": "healthy",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "version": "2.0.0",
             "checks": {}
         }

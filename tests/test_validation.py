@@ -18,7 +18,7 @@ from jaf.policies.validation import (
 )
 
 
-class TestOutput(BaseModel):
+class ValidationTestOutput(BaseModel):
     """Test output format for validation."""
     message: str
     priority: int
@@ -66,11 +66,11 @@ async def test_length_limiter_guardrail():
 @pytest.mark.asyncio
 async def test_format_validator_guardrail():
     """Test format validation guardrail."""
-    # Create format validator for TestOutput
-    format_guardrail = create_format_validator(TestOutput)
+    # Create format validator for ValidationTestOutput
+    format_guardrail = create_format_validator(ValidationTestOutput)
 
     # Test valid format
-    valid_output = TestOutput(message="Hello", priority=1)
+    valid_output = ValidationTestOutput(message="Hello", priority=1)
     result = await format_guardrail(valid_output)
     assert result.is_valid
 

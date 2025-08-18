@@ -30,7 +30,7 @@ except ImportError as e:
     print(f"❌ Import error: {e}")
     sys.exit(1)
 
-class TestResults:
+class DocumentationResultTracker:
     def __init__(self):
         self.passed = 0
         self.failed = 0
@@ -53,7 +53,7 @@ class TestResults:
             for error in self.errors:
                 print(f"   - {error}")
 
-results = TestResults()
+results = DocumentationResultTracker()
 
 # Test core-concepts.md examples
 def test_core_concepts_examples():
@@ -273,7 +273,7 @@ async def test_getting_started_examples():
                 if self.user_permissions is None:
                     object.__setattr__(self, 'user_permissions', ['basic_math'])
                 if self.created_at is None:
-                    object.__setattr__(self, 'created_at', datetime.utcnow())
+                    object.__setattr__(self, 'created_at', datetime.now(datetime.UTC))
             
             def has_permission(self, operation: str) -> bool:
                 return operation in self.user_permissions

@@ -46,7 +46,6 @@ def check_postgres_available():
     
     # Test asyncpg connection
     try:
-        import asyncio
         async def test_connection():
             pg_user = os.getenv('JAF_POSTGRES_USER', 'postgres')
             pg_password = os.getenv('JAF_POSTGRES_PASSWORD', 'postgres')
@@ -65,13 +64,19 @@ def check_postgres_available():
             except Exception as e:
                 return False, f"Connection failed: {e}"
         
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
         try:
-            result = loop.run_until_complete(test_connection())
+            # Check if we're already in an event loop
+            loop = asyncio.get_running_loop()
+            # If we're in a loop, create a task
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, test_connection())
+                result = future.result(timeout=10)
+                return result
+        except RuntimeError:
+            # No running loop, safe to create new one
+            result = asyncio.run(test_connection())
             return result
-        finally:
-            loop.close()
     except Exception as e:
         return False, f"Connection test error: {e}"
 

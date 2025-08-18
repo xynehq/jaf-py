@@ -289,7 +289,18 @@ def check_postgres_available():
             except:
                 return False
         
-        return asyncio.run(test_connection())
+        try:
+            # Check if we're already in an event loop
+            loop = asyncio.get_running_loop()
+            # If we're in a loop, create a task
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, test_connection())
+                result = future.result(timeout=10)
+                return result
+        except RuntimeError:
+            # No running loop, safe to create new one
+            return asyncio.run(test_connection())
         
     except ImportError:
         return False

@@ -9,7 +9,7 @@ import asyncio
 import sys
 from dataclasses import dataclass
 from typing import List, Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Test imports from the documentation examples
 from pydantic import BaseModel, Field, field_validator
@@ -39,7 +39,7 @@ class CalculatorContext:
         if self.user_permissions is None:
             object.__setattr__(self, 'user_permissions', ['basic_math'])
         if self.created_at is None:
-            object.__setattr__(self, 'created_at', datetime.utcnow())
+            object.__setattr__(self, 'created_at', datetime.now(timezone.utc))
     
     def has_permission(self, operation: str) -> bool:
         """Check if user has permission for specific operation."""
