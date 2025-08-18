@@ -207,7 +207,7 @@ class RedisProvider(MemoryProvider):
 
     async def close(self) -> Result[None, MemoryConnectionError]:
         try:
-            await self.redis_client.close()
+            await self.redis_client.aclose()
             return Success(None)
         except Exception as e:
             return Failure(MemoryConnectionError(provider="Redis", message="Failed to close Redis connection", cause=e))
