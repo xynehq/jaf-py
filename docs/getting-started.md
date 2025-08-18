@@ -38,7 +38,7 @@ For production environments, install JAF with all dependencies:
 
 ```bash
 # Complete installation with all features
-pip install "git+https://github.com/xynehq/jaf-py.git[all]"
+pip install "jaf-py[all] @ git+https://github.com/xynehq/jaf-py.git"
 
 # Verify installation
 python -c "import jaf; print('JAF installed successfully')"
@@ -53,19 +53,19 @@ Install only the components you need for optimized deployments:
 pip install git+https://github.com/xynehq/jaf-py.git
 
 # Server capabilities (FastAPI, uvicorn)
-pip install "git+https://github.com/xynehq/jaf-py.git[server]"
+pip install "jaf-py[server] @ git+https://github.com/xynehq/jaf-py.git"
 
 # Memory providers (Redis, PostgreSQL)
-pip install "git+https://github.com/xynehq/jaf-py.git[memory]"
+pip install "jaf-py[memory] @ git+https://github.com/xynehq/jaf-py.git"
 
 # Visualization tools (Graphviz, diagrams)
-pip install "git+https://github.com/xynehq/jaf-py.git[visualization]"
+pip install "jaf-py[visualization] @ git+https://github.com/xynehq/jaf-py.git"
 
 # Development tools (testing, linting, type checking)
-pip install "git+https://github.com/xynehq/jaf-py.git[dev]"
+pip install "jaf-py[dev] @ git+https://github.com/xynehq/jaf-py.git"
 
 # Combine multiple feature sets
-pip install "git+https://github.com/xynehq/jaf-py.git[server,memory,visualization]"
+pip install "jaf-py[server,memory,visualization] @ git+https://github.com/xynehq/jaf-py.git"
 ```
 
 ### Development Environment Setup
@@ -77,14 +77,22 @@ For contributors and advanced development:
 git clone https://github.com/xynehq/jaf-py.git
 cd jaf-py
 
+# Make virtual environment
+python -m venv .venv
+source .venv/bin/activate
+
+# Rename .env.default to .env and update the file with your api's.
+
 # Install in development mode with all dependencies
 pip install -e ".[dev,server,memory,visualization]"
 
-# Install pre-commit hooks
-pre-commit install
-
 # Verify development setup
 python -m pytest tests/ --tb=short
+
+# Note: Some tests require external services:
+# - Redis tests will be automatically skipped if Redis is not running locally
+# - To run Redis tests, install and start Redis: brew install redis && brew services start redis
+# - To manually skip Redis tests: python -m pytest tests/ -k "not redis" --tb=short
 ```
 
 ### Container Deployment
@@ -215,16 +223,14 @@ litellm_settings:
 Create a `.env` file for local development:
 
 ```bash
-# Core Configuration
-JAF_ENV=development
-JAF_LOG_LEVEL=DEBUG
-JAF_DEBUG=true
-
-# LiteLLM Integration
-LITELLM_BASE_URL=http://localhost:4000
-LITELLM_API_KEY=your-proxy-master-key
-LITELLM_TIMEOUT=60
-LITELLM_MAX_RETRIES=3
+# LiteLLM Provider Configuration (Required)
+LITELLM_URL=http://localhost:4000/
+LITELLM_API_KEY=your-litellm-api-key
+LITELLM_MODEL=gpt-4
+PORT=3000
+HOST=127.0.0.1
+DEMO_MODE=development
+VERBOSE_LOGGING=true
 
 # Model Provider API Keys
 OPENAI_API_KEY=your-openai-api-key
@@ -232,30 +238,38 @@ ANTHROPIC_API_KEY=your-anthropic-api-key
 GOOGLE_API_KEY=your-google-api-key
 
 # Memory Provider Configuration
-JAF_MEMORY_TYPE=in_memory
+# Options: memory, redis, postgres
+JAF_MEMORY_TYPE=memory
+
+# In-Memory Provider Configuration (default)
 JAF_MEMORY_MAX_CONVERSATIONS=1000
-JAF_MEMORY_MAX_MESSAGES=10000
+JAF_MEMORY_MAX_MESSAGES=1000
 
-# Optional: Redis for distributed memory
-REDIS_URL=redis://localhost:6379/0
-REDIS_PASSWORD=your-redis-password
-REDIS_MAX_CONNECTIONS=20
+# Redis Provider Configuration
+# Uncomment and configure when using JAF_MEMORY_TYPE=redis
+JAF_REDIS_HOST=localhost
+JAF_REDIS_PORT=6379
+JAF_REDIS_PASSWORD=your-redis-password
+JAF_REDIS_DB=0
+JAF_REDIS_PREFIX=JAF:memory:
+JAF_REDIS_TTL=86400
 
-# Optional: PostgreSQL for persistent memory
-DATABASE_URL=postgresql://user:password@localhost:5432/jaf_dev
-DATABASE_POOL_SIZE=20
-DATABASE_MAX_OVERFLOW=30
+# Alternative Redis URL (overrides individual settings)
+JAF_REDIS_URL=redis://localhost:6379/0
 
-# Observability and Monitoring
-JAF_TRACE_ENABLED=true
-JAF_TRACE_LEVEL=INFO
-JAF_METRICS_ENABLED=true
-PROMETHEUS_PORT=9090
+# PostgreSQL Provider Configuration  
+# Uncomment and configure when using JAF_MEMORY_TYPE=postgres
+JAF_POSTGRES_HOST=localhost
+JAF_POSTGRES_PORT=5432
+JAF_POSTGRES_DB=jaf_test
+JAF_POSTGRES_USER=postgres
+JAF_POSTGRES_PASSWORD=your-postgres-password
+JAF_POSTGRES_SSL=false
+JAF_POSTGRES_TABLE=conversations
+JAF_POSTGRES_MAX_CONNECTIONS=10
 
-# Security Configuration
-JAF_CORS_ENABLED=true
-JAF_CORS_ORIGINS=["http://localhost:3000", "http://localhost:8080"]
-JAF_API_KEY_REQUIRED=false  # Set to true in production
+# Alternative PostgreSQL connection string (overrides individual settings)
+# JAF_POSTGRES_CONNECTION_STRING=postgresql://postgres:your-postgres-password@localhost:5432/jaf_test
 ```
 
 #### Production Environment
@@ -263,52 +277,46 @@ JAF_API_KEY_REQUIRED=false  # Set to true in production
 For production deployments:
 
 ```bash
-# Core Configuration
-JAF_ENV=production
-JAF_LOG_LEVEL=INFO
-JAF_DEBUG=false
-
-# LiteLLM Configuration
-LITELLM_BASE_URL=https://api.your-company.com/llm
+# LiteLLM Provider Configuration
+LITELLM_URL=https://api.your-company.com/llm/
 LITELLM_API_KEY=${LITELLM_MASTER_KEY}
-LITELLM_TIMEOUT=120
-LITELLM_MAX_RETRIES=5
+LITELLM_MODEL=gpt-4o
+PORT=8000
+HOST=0.0.0.0
+DEMO_MODE=production
+VERBOSE_LOGGING=false
 
 # Memory Provider (Production Redis)
 JAF_MEMORY_TYPE=redis
-REDIS_URL=redis://redis-cluster.internal:6379/0
-REDIS_PASSWORD=${REDIS_PASSWORD}
-REDIS_MAX_CONNECTIONS=100
-REDIS_SSL=true
+JAF_REDIS_URL=redis://redis-cluster.internal:6379/0
+JAF_REDIS_PASSWORD=${REDIS_PASSWORD}
+JAF_REDIS_PREFIX=JAF:memory:prod:
+JAF_REDIS_TTL=604800  # 7 days
 
-# Database Configuration
-DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}
-DATABASE_POOL_SIZE=50
-DATABASE_MAX_OVERFLOW=100
-DATABASE_SSL_MODE=require
+# Alternative: Individual Redis settings
+# JAF_REDIS_HOST=redis-cluster.internal
+# JAF_REDIS_PORT=6379
+# JAF_REDIS_DB=0
 
-# Security Configuration
-JAF_API_KEY_REQUIRED=true
-JAF_API_KEYS=${ALLOWED_API_KEYS}  # Comma-separated list
-JAF_CORS_ENABLED=true
-JAF_CORS_ORIGINS=${ALLOWED_ORIGINS}  # JSON array string
-JAF_RATE_LIMIT_ENABLED=true
-JAF_RATE_LIMIT_REQUESTS=1000
-JAF_RATE_LIMIT_WINDOW=3600
+# Alternative: PostgreSQL for persistent memory
+# JAF_MEMORY_TYPE=postgres
+# JAF_POSTGRES_CONNECTION_STRING=postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}
+# JAF_POSTGRES_SSL=true
+# JAF_POSTGRES_MAX_CONNECTIONS=50
 
-# Monitoring and Observability
-JAF_TRACE_ENABLED=true
-JAF_TRACE_LEVEL=WARN
-JAF_METRICS_ENABLED=true
-PROMETHEUS_PORT=9090
-JAEGER_ENDPOINT=${JAEGER_COLLECTOR_ENDPOINT}
-SENTRY_DSN=${SENTRY_DSN}
+# A2A (Agent-to-Agent) Configuration (if using multi-agent systems)
+JAF_A2A_MEMORY_TYPE=redis
+JAF_A2A_KEY_PREFIX=JAF:a2a:prod:
+JAF_A2A_DEFAULT_TTL=86400
+JAF_A2A_CLEANUP_ENABLED=true
+JAF_A2A_CLEANUP_INTERVAL=3600
+JAF_A2A_MAX_TASKS=10000
 
-# Performance Tuning
-JAF_WORKER_PROCESSES=4
-JAF_MAX_CONCURRENT_REQUESTS=1000
-JAF_REQUEST_TIMEOUT=300
-JAF_MEMORY_LIMIT=2048  # MB
+# Performance and Cleanup Settings
+JAF_A2A_CLEANUP_MAX_AGE=604800  # 7 days
+JAF_A2A_CLEANUP_MAX_COMPLETED=1000
+JAF_A2A_CLEANUP_MAX_FAILED=500
+JAF_A2A_CLEANUP_BATCH_SIZE=100
 ```
 
 ## Building Your First Production Agent
@@ -605,7 +613,10 @@ async def main():
     """Main function to run the calculator agent."""
     
     # Set up model provider
-    model_provider = make_litellm_provider('http://localhost:4000')
+    import os
+    litellm_url = os.getenv('LITELLM_URL', 'http://localhost:4000/')
+    litellm_api_key = os.getenv('LITELLM_API_KEY', 'anything')
+    model_provider = make_litellm_provider(litellm_url, litellm_api_key)
     
     # Create the agent
     calculator_agent = create_calculator_agent()
@@ -676,7 +687,10 @@ For a more interactive experience, let's create a chat loop:
 ```python
 async def interactive_calculator():
     """Interactive calculator chat session."""
-    model_provider = make_litellm_provider('http://localhost:4000')
+    import os
+    litellm_url = os.getenv('LITELLM_URL', 'http://localhost:4000/')
+    litellm_api_key = os.getenv('LITELLM_API_KEY', 'anything')
+    model_provider = make_litellm_provider(litellm_url, litellm_api_key)
     calculator_agent = create_calculator_agent()
     
     config = RunConfig(

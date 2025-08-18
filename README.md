@@ -70,13 +70,13 @@ A purely functional agent framework with immutable state and composable tools, p
 pip install git+https://github.com/xynehq/jaf-py.git
 
 # Or install with all optional dependencies
-pip install "git+https://github.com/xynehq/jaf-py.git[all]"
+pip install "jaf-py[all] @ git+https://github.com/xynehq/jaf-py.git"
 
 # Install specific feature sets
-pip install "git+https://github.com/xynehq/jaf-py.git[server]"        # FastAPI server support
-pip install "git+https://github.com/xynehq/jaf-py.git[memory]"        # Redis/PostgreSQL memory providers
-pip install "git+https://github.com/xynehq/jaf-py.git[visualization]" # Graphviz visualization tools
-pip install "git+https://github.com/xynehq/jaf-py.git[dev]"           # Development tools
+pip install "jaf-py[server] @ git+https://github.com/xynehq/jaf-py.git"        # FastAPI server support
+pip install "jaf-py[memory] @ git+https://github.com/xynehq/jaf-py.git"        # Redis/PostgreSQL memory providers
+pip install "jaf-py[visualization] @ git+https://github.com/xynehq/jaf-py.git" # Graphviz visualization tools
+pip install "jaf-py[dev] @ git+https://github.com/xynehq/jaf-py.git"           # Development tools
 ```
 
 ### CLI Usage
