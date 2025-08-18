@@ -96,8 +96,8 @@ def make_litellm_provider(
 
             if tools:
                 request_params["tools"] = tools
-                if is_after_tool_call:
-                    request_params["tool_choice"] = "auto"
+                # Always set tool_choice to auto when tools are available
+                request_params["tool_choice"] = "auto"
 
             if agent.output_codec:
                 request_params["response_format"] = {"type": "json_object"}

@@ -5,6 +5,10 @@ import operator as op
 import ast
 from typing import Any, Dict, Union, List
 from pydantic import BaseModel, Field
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Add the project root to Python path
 sys.path.insert(0, '.')
@@ -121,9 +125,9 @@ def test_instructions(state):
     return 'You are a math assistant with a calculator tool.'
 
 async def test_math_tool_integration():
-    """Test that the math_tool_jaf works with the JAF engine."""
+    """Test that the math_tool_jaf works with the JAF engine using real LiteLLM."""
     
-    print("🧪 Testing math_tool_jaf integration with JAF engine...")
+    print("🧪 Testing math_tool_jaf integration with JAF engine using real LiteLLM...")
     print("=" * 65)
     
     agent = Agent(
@@ -135,6 +139,17 @@ async def test_math_tool_integration():
     
     print(f"✅ Agent created with tool: {agent.tools[0].schema.name}")
     
+    # Use real LiteLLM provider
+    litellm_url = os.getenv("LITELLM_URL", "http://0.0.0.0:4000/")
+    litellm_api_key = os.getenv("LITELLM_API_KEY", "")
+    
+    model_provider = make_litellm_provider(
+        base_url=litellm_url,
+        api_key=litellm_api_key
+    )
+    
+    print(f"✅ Using real LiteLLM provider: {litellm_url}")
+    
     initial_state = RunState(
         run_id='run-math-123',
         trace_id='trace-math-456',
@@ -144,12 +159,9 @@ async def test_math_tool_integration():
         turn_count=0
     )
     
-    litellm_url = os.environ.get("LITELLM_URL", "http://0.0.0.0:4000")
-    litellm_api_key = os.environ.get("LITELLM_API_KEY", "anything")
-    
     config = RunConfig(
         agent_registry={'AdvancedMathAgent': agent},
-        model_provider=make_litellm_provider(base_url=litellm_url, api_key=litellm_api_key),
+        model_provider=model_provider,
         max_turns=3
     )
     
