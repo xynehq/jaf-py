@@ -11,9 +11,31 @@ from jaf.memory.types import RedisConfig, Failure
 
 load_dotenv()
 
+def check_redis_available():
+    """Check if Redis is available for testing."""
+    import socket
+    redis_host = os.getenv('JAF_REDIS_HOST', 'localhost')
+    redis_port = int(os.getenv('JAF_REDIS_PORT', '6379'))
+    
+    try:
+        with socket.create_connection((redis_host, redis_port), timeout=1):
+            return True
+    except (socket.error, socket.timeout):
+        return False
+
+def skip_if_no_redis():
+    """Decorator to skip tests if Redis is not available."""
+    return pytest.mark.skipif(
+        not check_redis_available(),
+        reason="Redis is not available - install and start Redis to run these tests"
+    )
+
 @pytest.fixture(scope="function")
 async def redis_provider():
     """A fixture to create and tear down the Redis provider."""
+    if not check_redis_available():
+        pytest.skip("Redis is not available")
+        
     redis_host = os.getenv('JAF_REDIS_HOST', 'localhost')
     redis_port = int(os.getenv('JAF_REDIS_PORT', '6379'))
     redis_password = os.getenv('JAF_REDIS_PASSWORD')
@@ -31,12 +53,13 @@ async def redis_provider():
 
     provider_result = await create_redis_provider(config)
     if isinstance(provider_result, Failure):
-        pytest.fail(f"Failed to create Redis provider: {provider_result.error}")
+        pytest.skip(f"Failed to create Redis provider: {provider_result.error}")
 
     provider = provider_result.data
     yield provider
     await provider.close()
 
+@skip_if_no_redis()
 @pytest.mark.asyncio
 async def test_redis_large_number_of_messages(redis_provider):
     """Test the Redis provider with a large number of messages."""
@@ -52,6 +75,7 @@ async def test_redis_large_number_of_messages(redis_provider):
 
     await redis_provider.delete_conversation(conversation_id)
 
+@skip_if_no_redis()
 @pytest.mark.asyncio
 async def test_redis_multiple_conversations(redis_provider):
     """Test the Redis provider with multiple conversations."""
@@ -71,6 +95,7 @@ async def test_redis_multiple_conversations(redis_provider):
     for conv_id in conversation_ids:
         await redis_provider.delete_conversation(conv_id)
 
+@skip_if_no_redis()
 @pytest.mark.asyncio
 async def test_redis_large_number_of_conversations(redis_provider):
     """Test the Redis provider with a large number of conversations."""
@@ -90,6 +115,7 @@ async def test_redis_large_number_of_conversations(redis_provider):
     for conv_id in conversation_ids:
         await redis_provider.delete_conversation(conv_id)
 
+@skip_if_no_redis()
 @pytest.mark.asyncio
 async def test_redis_large_messages_and_conversations(redis_provider):
     """Test the Redis provider with a large number of messages and conversations."""

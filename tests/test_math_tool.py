@@ -121,7 +121,7 @@ math_tool_jaf = create_function_tool({
     'metadata': {'category': 'computation', 'priority': 'medium'}
 })
 
-def test_instructions(state):
+def math_agent_instructions(state):
     return 'You are a math assistant with a calculator tool.'
 
 async def test_math_tool_integration():
@@ -132,7 +132,7 @@ async def test_math_tool_integration():
     
     agent = Agent(
         name='AdvancedMathAgent',
-        instructions=test_instructions,
+        instructions=math_agent_instructions,
         tools=[math_tool_jaf],
         model_config=ModelConfig(name="gemini-2.5-pro")
     )

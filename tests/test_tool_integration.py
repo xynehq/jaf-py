@@ -22,7 +22,7 @@ async def calculator_function(args: MathArgs, context) -> str:
     # Return a unique string to prove this function was called
     return f"MAGIC_TOOL_RESULT: {result}"
 
-def test_instructions(state):
+def tool_agent_instructions(state):
     return 'You are a math assistant with a calculator tool.'
 
 async def test_tool_integration():
@@ -44,7 +44,7 @@ async def test_tool_integration():
     # Create agent with the tool
     agent = Agent(
         name='MathAgent',
-        instructions=test_instructions,
+        instructions=tool_agent_instructions,
         tools=[calculator_tool],
         model_config=ModelConfig(name="gemini-2.5-pro")
     )

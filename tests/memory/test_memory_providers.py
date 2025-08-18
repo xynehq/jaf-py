@@ -261,8 +261,51 @@ async def test_redis_provider():
         print("   Make sure Redis server is running on localhost:6379")
         return False
 
+def check_postgres_available():
+    """Check if PostgreSQL is available for testing."""
+    try:
+        import asyncpg
+        import asyncio
+        import socket
+        
+        # Get PostgreSQL configuration from environment
+        pg_host = os.getenv('JAF_POSTGRES_HOST', 'localhost')
+        pg_port = int(os.getenv('JAF_POSTGRES_PORT', '5432'))
+        
+        # Quick socket check first
+        try:
+            with socket.create_connection((pg_host, pg_port), timeout=1):
+                pass
+        except (socket.error, socket.timeout):
+            return False
+            
+        # Try to connect to PostgreSQL
+        async def test_connection():
+            try:
+                connection_string = os.getenv('JAF_POSTGRES_CONNECTION_STRING', 'postgresql://postgres:postgres@localhost:5432/jaf_test')
+                conn = await asyncpg.connect(dsn=connection_string)
+                await conn.close()
+                return True
+            except:
+                return False
+        
+        return asyncio.run(test_connection())
+        
+    except ImportError:
+        return False
+    except:
+        return False
+
 async def test_postgres_provider():
     """Test the PostgreSQL provider."""
+    if not check_postgres_available():
+        print("⏭️  PostgreSQL is not available - skipping PostgreSQL tests")
+        print("   To run PostgreSQL tests:")
+        print("   1. Install PostgreSQL dependencies: pip install asyncpg")
+        print("   2. Start PostgreSQL server")
+        print("   3. Create test database: jaf_test")
+        return True  # Return True to indicate "skipped, not failed"
+        
     try:
         # Check if PostgreSQL dependencies are available
         import asyncpg
@@ -308,11 +351,11 @@ async def test_postgres_provider():
         return result
 
     except ImportError:
-        print("❌ PostgreSQL dependencies not installed. Run: pip install psycopg2-binary")
+        print("❌ PostgreSQL dependencies not installed. Run: pip install asyncpg")
         return False
     except Exception as e:
         print(f"❌ PostgreSQL provider test setup failed: {e}")
-        print("   Make sure PostgreSQL server is running with database 'jaf_memory'")
+        print("   Make sure PostgreSQL server is running with database 'jaf_test'")
         return False
 
 async def run_all_tests():
