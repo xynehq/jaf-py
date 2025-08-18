@@ -1,7 +1,9 @@
 import asyncio
 import os
 import sys
+import socket
 from pydantic import BaseModel
+import pytest
 
 # Add the project root to Python path
 sys.path.insert(0, '.')
@@ -22,9 +24,38 @@ async def calculator_function(args: MathArgs, context) -> str:
     # Return a unique string to prove this function was called
     return f"MAGIC_TOOL_RESULT: {result}"
 
-def test_instructions(state):
+def tool_agent_instructions(state):
     return 'You are a math assistant with a calculator tool.'
 
+def check_litellm_available():
+    """Check if LiteLLM server is available."""
+    try:
+        litellm_url = os.environ.get("LITELLM_URL", "http://0.0.0.0:4000")
+        # Parse URL to get host and port
+        from urllib.parse import urlparse
+        parsed = urlparse(litellm_url)
+        host = parsed.hostname or "0.0.0.0"
+        port = parsed.port or 4000
+        
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(2)
+            result = sock.connect_ex((host, port))
+            return result == 0
+    except Exception:
+        return False
+
+def check_env_available():
+    """Check if required environment variables are available."""
+    litellm_url = os.environ.get("LITELLM_URL")
+    # Either LITELLM_URL should be set, or we should have some API key
+    return litellm_url is not None or os.environ.get("LITELLM_API_KEY") is not None
+
+skip_if_no_litellm = pytest.mark.skipif(
+    not check_litellm_available() or not check_env_available(),
+    reason="Skipping tool integration test: LiteLLM server not available or environment variables (LITELLM_URL/LITELLM_API_KEY) not set. Please start LiteLLM server and configure .env file to run this test."
+)
+
+@skip_if_no_litellm
 async def test_tool_integration():
     """Test that the create_function_tool works with the JAF engine."""
     
@@ -44,7 +75,7 @@ async def test_tool_integration():
     # Create agent with the tool
     agent = Agent(
         name='MathAgent',
-        instructions=test_instructions,
+        instructions=tool_agent_instructions,
         tools=[calculator_tool],
         model_config=ModelConfig(name="gemini-2.5-pro")
     )

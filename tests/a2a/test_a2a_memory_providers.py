@@ -8,6 +8,7 @@ to ensure they work correctly with the JAF A2A framework.
 
 import asyncio
 import os
+import socket
 import sys
 from datetime import datetime
 
@@ -20,6 +21,65 @@ from jaf.memory.types import Failure
 
 # Load environment variables
 load_dotenv()
+
+
+def check_postgres_available():
+    """Check if PostgreSQL is available by testing socket connection and asyncpg import."""
+    try:
+        import asyncpg
+    except ImportError:
+        return False, "asyncpg not installed"
+    
+    # Test socket connection
+    pg_host = os.getenv('JAF_POSTGRES_HOST', 'localhost')
+    pg_port = int(os.getenv('JAF_POSTGRES_PORT', '5432'))
+    
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(2)
+        result = sock.connect_ex((pg_host, pg_port))
+        sock.close()
+        if result != 0:
+            return False, f"Cannot connect to PostgreSQL at {pg_host}:{pg_port}"
+    except Exception as e:
+        return False, f"Socket connection error: {e}"
+    
+    # Test asyncpg connection
+    try:
+        async def test_connection():
+            pg_user = os.getenv('JAF_POSTGRES_USER', 'postgres')
+            pg_password = os.getenv('JAF_POSTGRES_PASSWORD', 'postgres')
+            pg_db = os.getenv('JAF_POSTGRES_DB', 'jaf_test')
+            
+            try:
+                conn = await asyncpg.connect(
+                    user=pg_user, 
+                    password=pg_password, 
+                    host=pg_host, 
+                    database=pg_db,
+                    timeout=5
+                )
+                await conn.close()
+                return True, "Available"
+            except Exception as e:
+                return False, f"Connection failed: {e}"
+        
+        try:
+            # Check if we're already in an event loop
+            loop = asyncio.get_running_loop()
+            # If we're in a loop, create a task
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, test_connection())
+                result = future.result(timeout=10)
+                return result
+        except RuntimeError:
+            # No running loop, safe to create new one
+            result = asyncio.run(test_connection())
+            return result
+    except Exception as e:
+        return False, f"Connection test error: {e}"
+
 
 class A2AMemoryProviderTester:
     """Test runner for A2A memory providers."""
@@ -226,6 +286,14 @@ async def test_redis_provider():
 
 async def test_postgres_provider():
     """Test the PostgreSQL A2A provider."""
+    # Check if PostgreSQL is available
+    is_available, message = check_postgres_available()
+    if not is_available:
+        print(f"⚠️  Skipping PostgreSQL A2A tests: {message}")
+        print("   Set up PostgreSQL or install dependencies to run these tests")
+        print("   Example: docker run -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=jaf_test -p 5432:5432 postgres")
+        return True  # Return True to indicate "success" (graceful skip)
+    
     try:
         import asyncpg
         from jaf.a2a.memory.providers.postgres import create_a2a_postgres_task_provider
