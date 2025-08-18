@@ -5,6 +5,10 @@ import operator as op
 import ast
 from typing import Any, Dict, Union, List
 from pydantic import BaseModel, Field
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Add the project root to Python path
 sys.path.insert(0, '.')
@@ -120,42 +124,10 @@ math_tool_jaf = create_function_tool({
 def test_instructions(state):
     return 'You are a math assistant with a calculator tool.'
 
-# Mock model provider that simulates tool calling behavior
-class MockModelProvider:
-    async def get_completion(self, state, agent, config):
-        # Check if we've already called the tool
-        tool_messages = [m for m in state.messages if m.role == 'tool']
-        
-        if len(tool_messages) > 0:
-            # Tool has been called, return final response
-            return {
-                'message': {
-                    'content': 'The answer to (100 / 5) + 2 is 22.0',
-                    'tool_calls': None
-                }
-            }
-        else:
-            # First call, simulate a model that calls the math tool
-            return {
-                'message': {
-                    'content': None,
-                    'tool_calls': [
-                        {
-                            'id': 'call_test_123',
-                            'type': 'function',
-                            'function': {
-                                'name': 'math',
-                                'arguments': '{"expression": "(100 / 5) + 2"}'
-                            }
-                        }
-                    ]
-                }
-            }
-
 async def test_math_tool_integration():
-    """Test that the math_tool_jaf works with the JAF engine."""
+    """Test that the math_tool_jaf works with the JAF engine using real LiteLLM."""
     
-    print("🧪 Testing math_tool_jaf integration with JAF engine...")
+    print("🧪 Testing math_tool_jaf integration with JAF engine using real LiteLLM...")
     print("=" * 65)
     
     agent = Agent(
@@ -166,6 +138,17 @@ async def test_math_tool_integration():
     )
     
     print(f"✅ Agent created with tool: {agent.tools[0].schema.name}")
+    
+    # Use real LiteLLM provider
+    litellm_url = os.getenv("LITELLM_URL", "http://0.0.0.0:4000/")
+    litellm_api_key = os.getenv("LITELLM_API_KEY", "")
+    
+    model_provider = make_litellm_provider(
+        base_url=litellm_url,
+        api_key=litellm_api_key
+    )
+    
+    print(f"✅ Using real LiteLLM provider: {litellm_url}")
     
     initial_state = RunState(
         run_id='run-math-123',
@@ -178,7 +161,7 @@ async def test_math_tool_integration():
     
     config = RunConfig(
         agent_registry={'AdvancedMathAgent': agent},
-        model_provider=MockModelProvider(),
+        model_provider=model_provider,
         max_turns=3
     )
     
