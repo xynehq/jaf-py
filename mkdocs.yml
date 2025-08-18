@@ -65,6 +65,10 @@ nav:
     - Memory System: memory-system.md
     - Model Providers: model-providers.md
     - Function Composition: function-composition.md
+    - MCP Integration:
+      - Overview: mcp.md
+      - Examples: mcp-examples.md
+      - Transport Configuration: mcp-transports.md
   - Production Features:
     - ADK Overview: adk-overview.md
     - Schema Validation: adk-schema-validation.md
