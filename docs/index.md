@@ -3,7 +3,7 @@
 A production-ready, purely functional framework for building robust and type-safe AI agents in Python.
 
 <div style="margin: 2rem 0;">
-  <a href="getting-started.md" class="md-button md-button--primary" style="margin-right: 1rem;">Get Started</a>
+  <a href="getting-started/" class="md-button md-button--primary" style="margin-right: 1rem;">Get Started</a>
   <a href="https://github.com/xynehq/jaf-py" class="md-button">GitHub</a>
 </div>
 
