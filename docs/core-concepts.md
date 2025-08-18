@@ -57,6 +57,8 @@ class RunState(Generic[Ctx]):
 **State Transitions:**
 ```python
 # Every operation creates a new state
+from dataclasses import replace
+
 async def add_message(state: RunState[Ctx], message: Message) -> RunState[Ctx]:
     return replace(state, 
         messages=[*state.messages, message],

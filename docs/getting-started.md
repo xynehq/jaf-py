@@ -366,7 +366,7 @@ JAF's modern tool creation API prioritizes type safety, functional composition, 
 The object-based API leverages TypedDict configurations and functional programming principles for superior maintainability and extensibility:
 
 ```python
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from jaf import create_function_tool, ToolSource
 from jaf import ToolResponse, ToolResult
 from typing import Union
@@ -387,7 +387,8 @@ class CalculateArgs(BaseModel):
         regex=r'^[0-9+\-*/.() ]+$'
     )
     
-    @validator('expression')
+    @field_validator('expression')
+    @classmethod
     def validate_expression_safety(cls, v):
         """Ensure expression contains only safe mathematical operations."""
         # Remove whitespace for validation
@@ -588,7 +589,7 @@ Rules:
     return Agent(
         name='Calculator',
         instructions=instructions,
-        tools=[CalculatorTool()]
+        tools=[calculator_tool]
     )
 ```
 
