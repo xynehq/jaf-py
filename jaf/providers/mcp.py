@@ -471,11 +471,14 @@ class MCPTool:
 
             # Check for errors in response
             if "error" in response:
+                from ..core.tool_results import ToolErrorInfo
                 return ToolResult(
                     status=ToolResultStatus.ERROR,
-                    error_code=ToolErrorCodes.EXECUTION_FAILED,
-                    error_message=response["error"].get("message", "MCP tool execution failed"),
-                    data=response
+                    error=ToolErrorInfo(
+                        code=ToolErrorCodes.EXECUTION_FAILED,
+                        message=response["error"].get("message", "MCP tool execution failed"),
+                        details=response
+                    )
                 )
 
             # Extract content from response
@@ -502,11 +505,14 @@ class MCPTool:
             )
 
         except Exception as e:
+            from ..core.tool_results import ToolErrorInfo
             return ToolResult(
                 status=ToolResultStatus.ERROR,
-                error_code=ToolErrorCodes.EXECUTION_FAILED,
-                error_message=f"MCP tool execution failed: {e!s}",
-                data={"error": str(e)}
+                error=ToolErrorInfo(
+                    code=ToolErrorCodes.EXECUTION_FAILED,
+                    message=f"MCP tool execution failed: {e!s}",
+                    details={"error": str(e)}
+                )
             )
 
 def create_mcp_websocket_client(uri: str, client_name: str = "JAF", client_version: str = "2.0.0") -> MCPClient:
