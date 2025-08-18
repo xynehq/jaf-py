@@ -349,7 +349,18 @@ def function_tool(
         # Add execute method that calls the original function
         async def execute(args: Any, context: Any) -> Union[str, ToolResult]:
             """Execute the tool with given arguments and context."""
-            result = original_func(args, context)
+            # Check if args is a Pydantic model (from JAF engine) or individual parameters (manual call)
+            if hasattr(args, 'model_dump'):  # Pydantic v2
+                # Unpack Pydantic model to individual parameters
+                kwargs = args.model_dump()
+                result = original_func(**kwargs, context=context)
+            elif hasattr(args, 'dict'):  # Pydantic v1
+                # Unpack Pydantic model to individual parameters
+                kwargs = args.dict()
+                result = original_func(**kwargs, context=context)
+            else:
+                # Assume it's already unpacked parameters (backward compatibility)
+                result = original_func(args, context)
             
             # Handle both sync and async execute functions
             if hasattr(result, '__await__'):
@@ -358,10 +369,14 @@ def function_tool(
         
         func.execute = execute
         
-        # Add __call__ method for direct execution
-        async def call_method(args: Any, context: Any) -> Union[str, ToolResult]:
-            """Execute the tool with given arguments and context."""
-            return await func.execute(args, context)
+        # Add __call__ method that provides helpful error message
+        def call_method(*args, **kwargs):
+            """Provide helpful error for incorrect tool usage."""
+            raise TypeError(
+                f"Tool '{func_name}' should be called using 'await {func_name}.execute(args, context)' "
+                f"from JAF engine, or directly as 'await {func_name}(param1, param2, ..., context)' "
+                f"for manual execution. Direct tool object calls are not supported."
+            )
         
         func.__call__ = call_method
         
