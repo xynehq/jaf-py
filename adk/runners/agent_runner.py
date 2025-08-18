@@ -18,6 +18,7 @@ Key Features:
 """
 
 import asyncio
+import json
 import time
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime
@@ -75,9 +76,24 @@ def create_tool_context(agent: Agent, session_state: Dict[str, Any], message: Me
 
 def get_function_calls(message: Message) -> List[Dict[str, Any]]:
     """Extract function calls from LLM response."""
-    # This would integrate with the LLM response parsing
-    # For now, return empty list as placeholder
-    return []
+    if not message.tool_calls:
+        return []
+    
+    function_calls = []
+    for tool_call in message.tool_calls:
+        # Parse arguments from JSON string
+        try:
+            args = json.loads(tool_call.function.arguments) if tool_call.function.arguments else {}
+        except (json.JSONDecodeError, TypeError):
+            args = {}
+        
+        function_calls.append({
+            'id': tool_call.id,
+            'name': tool_call.function.name,
+            'args': args
+        })
+    
+    return function_calls
 
 
 def generate_request_id() -> str:
@@ -103,17 +119,37 @@ async def execute_tool(tool: Tool, params: Any, context: Dict[str, Any]) -> Dict
         }
 
 
-async def call_real_llm(
+async def call_real_llm_with_tools(
     agent: Agent, 
     message: Message, 
     session_state: Dict[str, Any],
-    model_provider: Any
-) -> Message:
+    model_provider: Any,
+    callbacks: Optional[RunnerCallbacks] = None
+) -> Tuple[Message, List[Dict[str, Any]]]:
     """
-    Call the real LLM service using JAF's engine.
+    Call the real LLM service using JAF's engine with full tool execution support.
     
-    This integrates with the JAF core engine to make actual LLM calls.
+    This integrates with the JAF core engine to make actual LLM calls and handle
+    tool execution, while bridging JAF events to ADK callbacks.
     """
+    tool_execution_events = []
+    
+    def on_jaf_event(event):
+        """Bridge JAF events to ADK callbacks."""
+        nonlocal tool_execution_events
+        
+        if hasattr(event, 'data'):
+            event_data = event.data
+            event_type = type(event).__name__
+            
+            # Store tool execution events for later processing
+            if event_type in ['ToolCallStartEvent', 'ToolCallEndEvent']:
+                tool_execution_events.append({
+                    'type': event_type,
+                    'data': event_data,
+                    'timestamp': time.time()
+                })
+    
     try:
         # Create a minimal run state for the LLM call
         run_state = RunState(
@@ -125,24 +161,81 @@ async def call_real_llm(
             turn_count=0
         )
         
-        # Create run config with the model provider
+        # Create run config with the model provider and event handler
         run_config = RunConfig(
             agent_registry={agent.name: agent},
             model_provider=model_provider,
-            max_turns=1  # Single LLM call
+            max_turns=1,  # Single execution cycle
+            on_event=on_jaf_event  # Bridge JAF events to ADK
         )
         
         # Execute through JAF
         result = await jaf_run(run_state, run_config)
         
+        # Process tool execution events and trigger ADK callbacks
+        if callbacks:
+            for event in tool_execution_events:
+                try:
+                    if event['type'] == 'ToolCallStartEvent':
+                        if hasattr(callbacks, 'on_tool_selected'):
+                            await callbacks.on_tool_selected(
+                                event['data']['tool_name'], 
+                                event['data']['args']
+                            )
+                        if hasattr(callbacks, 'on_before_tool_execution'):
+                            # Find the tool object
+                            tool = None
+                            if agent.tools:
+                                for t in agent.tools:
+                                    if t.schema.name == event['data']['tool_name']:
+                                        tool = t
+                                        break
+                            if tool:
+                                await callbacks.on_before_tool_execution(tool, event['data']['args'])
+                    
+                    elif event['type'] == 'ToolCallEndEvent':
+                        if hasattr(callbacks, 'on_after_tool_execution'):
+                            # Find the tool object
+                            tool = None
+                            if agent.tools:
+                                for t in agent.tools:
+                                    if t.schema.name == event['data']['tool_name']:
+                                        tool = t
+                                        break
+                            if tool:
+                                tool_result = {
+                                    'success': event['data'].get('status', 'success') == 'success',
+                                    'data': event['data']['result'],
+                                    'error': None if event['data'].get('status', 'success') == 'success' else event['data']['result']
+                                }
+                                await callbacks.on_after_tool_execution(tool, tool_result)
+                
+                except Exception as callback_error:
+                    if hasattr(callbacks, 'on_error'):
+                        await callbacks.on_error(callback_error, {})
+        
         # Extract the response from the result
         if result.final_state.messages:
-            return result.final_state.messages[-1]
+            final_message = result.final_state.messages[-1]
+            return final_message, tool_execution_events
         else:
-            return create_assistant_message("I couldn't generate a response.")
+            return create_assistant_message("I couldn't generate a response."), tool_execution_events
             
     except Exception as e:
-        return create_assistant_message(f"Error calling LLM: {str(e)}")
+        return create_assistant_message(f"Error calling LLM: {str(e)}"), tool_execution_events
+
+
+async def call_real_llm(
+    agent: Agent, 
+    message: Message, 
+    session_state: Dict[str, Any],
+    model_provider: Any
+) -> Message:
+    """
+    Backward compatibility wrapper for call_real_llm_with_tools.
+    """
+    result, _ = await call_real_llm_with_tools(agent, message, session_state, model_provider)
+    return result
 
 
 async def execute_agent(
@@ -270,8 +363,9 @@ async def execute_agent(
                         await callbacks.on_error(e, context)
                     # Continue with original message
             
-            # ========== LLM Call with Callbacks ==========
+            # ========== LLM Call with Callbacks and Tool Execution ==========
             llm_response_temp: Optional[Message] = None
+            tool_execution_events: List[Dict[str, Any]] = []
             
             if callbacks and hasattr(callbacks, 'on_before_llm_call'):
                 try:
@@ -286,15 +380,27 @@ async def execute_agent(
                         else:
                             if llm_control.get('message'):
                                 current_message = llm_control['message']
-                            llm_response_temp = await call_real_llm(agent, current_message, current_session_state, model_provider)
+                            # Use the new integrated function that handles tool execution
+                            llm_response_temp, tool_execution_events = await call_real_llm_with_tools(
+                                agent, current_message, current_session_state, model_provider, callbacks
+                            )
                     else:
-                        llm_response_temp = await call_real_llm(agent, current_message, current_session_state, model_provider)
+                        # Use the new integrated function that handles tool execution
+                        llm_response_temp, tool_execution_events = await call_real_llm_with_tools(
+                            agent, current_message, current_session_state, model_provider, callbacks
+                        )
                 except Exception as e:
                     if callbacks and hasattr(callbacks, 'on_error'):
                         await callbacks.on_error(e, context)
-                    llm_response_temp = await call_real_llm(agent, current_message, current_session_state, model_provider)
+                    # Fallback to basic LLM call
+                    llm_response_temp, tool_execution_events = await call_real_llm_with_tools(
+                        agent, current_message, current_session_state, model_provider, callbacks
+                    )
             else:
-                llm_response_temp = await call_real_llm(agent, current_message, current_session_state, model_provider)
+                # Use the new integrated function that handles tool execution
+                llm_response_temp, tool_execution_events = await call_real_llm_with_tools(
+                    agent, current_message, current_session_state, model_provider, callbacks
+                )
             
             if callbacks and hasattr(callbacks, 'on_after_llm_call'):
                 try:
@@ -308,35 +414,11 @@ async def execute_agent(
             
             llm_response = llm_response_temp
             
-            # ========== Check for Function Calls ==========
+            # ========== Check for Function Calls and Update Context ==========
             function_calls = get_function_calls(llm_response)
             
+            # Update tool calls and responses from JAF execution
             if function_calls:
-                # ========== Tool Selection Callbacks ==========
-                available_tools = agent.tools if agent.tools else []
-                
-                if callbacks and hasattr(callbacks, 'on_before_tool_selection'):
-                    try:
-                        tool_selection_control = await callbacks.on_before_tool_selection(available_tools, context_data)
-                        if tool_selection_control:
-                            if tool_selection_control.get('tools'):
-                                available_tools = tool_selection_control['tools']
-                            if tool_selection_control.get('custom_selection'):
-                                # Force a specific tool selection
-                                custom_sel = tool_selection_control['custom_selection']
-                                function_calls = [{
-                                    'id': generate_request_id(),
-                                    'name': custom_sel['tool'],
-                                    'args': custom_sel['params']
-                                }]
-                    except Exception as e:
-                        if callbacks and hasattr(callbacks, 'on_error'):
-                            await callbacks.on_error(e, context)
-                        # Continue with original tools
-                
-                # ========== Execute Tools ==========
-                tool_context = create_tool_context(agent, current_session_state, current_message)
-                
                 for function_call in function_calls:
                     # ========== Loop Detection ==========
                     if (config.enable_loop_detection and callbacks and 
@@ -350,125 +432,63 @@ async def execute_agent(
                                 await callbacks.on_error(e, context)
                             # Continue without skipping
                     
-                    # Track tool in history
+                    tool_calls.append(function_call)
+                    
+                    # Track tool in history for loop detection
                     tool_history.append({
                         'tool': function_call['name'],
                         'params': function_call.get('args', {}),
                         'timestamp': time.time()
                     })
                     
-                    if callbacks and hasattr(callbacks, 'on_tool_selected'):
-                        try:
-                            await callbacks.on_tool_selected(function_call['name'], function_call.get('args'))
-                        except Exception as e:
-                            if callbacks and hasattr(callbacks, 'on_error'):
-                                await callbacks.on_error(e, context)
-                            # Continue execution
+                    # Create function response based on tool execution events
+                    matching_end_event = None
+                    for event in tool_execution_events:
+                        if (event['type'] == 'ToolCallEndEvent' and 
+                            event['data']['tool_name'] == function_call['name']):
+                            matching_end_event = event
+                            break
                     
-                    # Find the tool
-                    tool = next((t for t in available_tools if t.schema.name == function_call['name']), None)
-                    
-                    if tool:
-                        try:
-                            tool_params = function_call.get('args', {})
-                            skip_execution = False
-                            custom_result = None
+                    if matching_end_event:
+                        function_response = {
+                            'id': function_call['id'],
+                            'name': function_call['name'],
+                            'response': matching_end_event['data']['result'],
+                            'success': matching_end_event['data'].get('status', 'success') == 'success',
+                            'error': None if matching_end_event['data'].get('status', 'success') == 'success' else matching_end_event['data']['result']
+                        }
+                        tool_responses.append(function_response)
+                        
+                        # ========== Update Context Data ==========
+                        if (config.enable_context_accumulation and 
+                            function_response.get('response')):
                             
-                            # ========== Before Tool Execution Callback ==========
-                            if callbacks and hasattr(callbacks, 'on_before_tool_execution'):
-                                try:
-                                    tool_control = await callbacks.on_before_tool_execution(tool, tool_params)
-                                    if tool_control:
-                                        if tool_control.get('params'):
-                                            tool_params = tool_control['params']
-                                        if tool_control.get('skip'):
-                                            skip_execution = True
-                                        if tool_control.get('result'):
-                                            custom_result = tool_control['result']
-                                except Exception as e:
-                                    if callbacks and hasattr(callbacks, 'on_error'):
-                                        await callbacks.on_error(e, context)
-                                    # Continue with original parameters
-                            
-                            # Execute tool or use custom result
-                            if skip_execution:
-                                tool_result = custom_result or {'success': False, 'data': None}
-                            else:
-                                tool_result = await execute_tool(tool, tool_params, tool_context)
-                            
-                            # ========== After Tool Execution Callback ==========
-                            if callbacks and hasattr(callbacks, 'on_after_tool_execution'):
-                                try:
-                                    modified_result = await callbacks.on_after_tool_execution(tool, tool_result)
-                                    if modified_result:
-                                        tool_result = modified_result
-                                except Exception as e:
-                                    if callbacks and hasattr(callbacks, 'on_error'):
-                                        await callbacks.on_error(e, context)
-                                    # Continue with original result
-                            
-                            # ========== Update Context Data ==========
-                            if (config.enable_context_accumulation and 
-                                tool_result.get('data') and 
-                                isinstance(tool_result['data'], dict) and 
-                                'contexts' in tool_result['data']):
-                                
-                                new_context_items = tool_result['data']['contexts']
-                                
-                                if callbacks and hasattr(callbacks, 'on_context_update'):
-                                    try:
-                                        updated_context = await callbacks.on_context_update(context_data, new_context_items)
-                                        if updated_context is not None:
-                                            context_data = updated_context
-                                        else:
+                            # Try to parse the response to extract context
+                            try:
+                                response_data = json.loads(function_response['response']) if isinstance(function_response['response'], str) else function_response['response']
+                                if isinstance(response_data, dict) and 'contexts' in response_data:
+                                    new_context_items = response_data['contexts']
+                                    
+                                    if callbacks and hasattr(callbacks, 'on_context_update'):
+                                        try:
+                                            updated_context = await callbacks.on_context_update(context_data, new_context_items)
+                                            if updated_context is not None:
+                                                context_data = updated_context
+                                            else:
+                                                context_data.extend(new_context_items)
+                                        except Exception as e:
+                                            if callbacks and hasattr(callbacks, 'on_error'):
+                                                await callbacks.on_error(e, context)
                                             context_data.extend(new_context_items)
-                                    except Exception as e:
-                                        if callbacks and hasattr(callbacks, 'on_error'):
-                                            await callbacks.on_error(e, context)
+                                    else:
                                         context_data.extend(new_context_items)
-                                else:
-                                    context_data.extend(new_context_items)
-                                
-                                # Limit context size
-                                if len(context_data) > config.max_context_items:
-                                    context_data = context_data[-config.max_context_items:]
-                            
-                            # Create function response
-                            function_response = {
-                                'id': function_call['id'],
-                                'name': function_call['name'],
-                                'response': tool_result.get('data'),
-                                'success': tool_result.get('success', False),
-                                'error': tool_result.get('error')
-                            }
-                            
-                            tool_responses.append(function_response)
-                            
-                            # Handle tool actions (agent transfer, etc.)
-                            if tool_context['actions'].get('transfer_to_agent'):
-                                # Handle agent transfer - would need to implement this
+                                    
+                                    # Limit context size
+                                    if len(context_data) > config.max_context_items:
+                                        context_data = context_data[-config.max_context_items:]
+                            except (json.JSONDecodeError, TypeError):
+                                # Response is not JSON or doesn't have contexts
                                 pass
-                            
-                        except Exception as error:
-                            function_response = {
-                                'id': function_call['id'],
-                                'name': function_call['name'],
-                                'response': None,
-                                'success': False,
-                                'error': str(error)
-                            }
-                            
-                            tool_responses.append(function_response)
-                            
-                            # Callback for tool error
-                            if callbacks and hasattr(callbacks, 'on_after_tool_execution'):
-                                try:
-                                    await callbacks.on_after_tool_execution(tool, None, error)
-                                except Exception as callback_error:
-                                    if callbacks and hasattr(callbacks, 'on_error'):
-                                        await callbacks.on_error(callback_error, context)
-                    
-                    tool_calls.append(function_call)
             
             # ========== Iteration Complete Callback ==========
             if callbacks and hasattr(callbacks, 'on_iteration_complete'):
@@ -488,7 +508,11 @@ async def execute_agent(
             current_session_state['messages'] = current_session_state.get('messages', []) + [llm_response]
             
             # Check if we should continue iterating
-            if not should_continue or (config.enable_context_accumulation and not context_data):
+            # If no tool calls and no forced continuation, stop
+            if not should_continue:
+                break
+            elif not function_calls and not (callbacks and hasattr(callbacks, 'on_iteration_complete')):
+                # No tool calls and no iteration control callback, stop naturally
                 break
         
         # ========== Fallback Check ==========
