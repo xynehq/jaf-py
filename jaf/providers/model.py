@@ -79,7 +79,7 @@ def make_litellm_provider(
 
             # Determine tool choice behavior
             last_message = state.messages[-1] if state.messages else None
-            is_after_tool_call = last_message and last_message.role == ContentRole.TOOL
+            is_after_tool_call = last_message and (last_message.role == ContentRole.TOOL or last_message.role == 'tool')
 
             # Prepare request parameters
             request_params = {
