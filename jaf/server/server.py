@@ -91,10 +91,25 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
 
     @app.post("/chat", response_model=ChatResponse)
     async def chat_completion(request: ChatRequest):
+        request_start_time = time.time()  # Track request start time, not server start time
+        
         if request.agent_name not in config.agent_registry:
             raise HTTPException(status_code=404, detail=f"Agent '{request.agent_name}' not found")
 
         conversation_id = request.conversation_id or str(uuid.uuid4())
+
+        # Load conversation history to get correct turn count
+        initial_turn_count = 0
+        if config.default_memory_provider and conversation_id:
+            try:
+                conversation_result = await config.default_memory_provider.get_conversation(conversation_id)
+                if hasattr(conversation_result, 'data') and conversation_result.data:
+                    conversation_data = conversation_result.data
+                    if conversation_data.metadata and "turn_count" in conversation_data.metadata:
+                        initial_turn_count = conversation_data.metadata["turn_count"]
+                        print(f"[JAF:SERVER] Loaded initial turn_count: {initial_turn_count}")
+            except Exception as e:
+                print(f"[JAF:SERVER] Warning: Failed to load conversation history: {e}")
 
         initial_state = RunState(
             run_id=create_run_id(str(uuid.uuid4())),
@@ -102,7 +117,7 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
             messages=[Message(**msg.model_dump()) for msg in request.messages],
             current_agent_name=request.agent_name,
             context=request.context or {},
-            turn_count=0
+            turn_count=initial_turn_count  # Use loaded turn count instead of always 0
         )
 
         run_config_with_memory = config.run_config
@@ -144,7 +159,7 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
                 messages=http_messages,
                 outcome=outcome_dict,
                 turn_count=result.final_state.turn_count,
-                execution_time_ms=int((time.time() - start_time) * 1000),
+                execution_time_ms=int((time.time() - request_start_time) * 1000),  # Use request start time
                 conversation_id=conversation_id
             )
         )
