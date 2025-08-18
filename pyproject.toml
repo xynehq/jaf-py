@@ -7,7 +7,7 @@ name = "jaf-py"
 version = "2.0.0"
 description = "A purely functional agent framework with immutable state and composable tools - Python implementation"
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
 authors = [
     {name = "JAF Contributors"},
 ]
