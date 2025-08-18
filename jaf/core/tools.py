@@ -20,54 +20,6 @@ from .types import (
 from .tool_results import ToolResult
 
 
-class FunctionTool:
-    """A tool implementation created from a function and configuration."""
-    
-    def __init__(self, config: FunctionToolConfig):
-        """Initialize a function tool from configuration."""
-        self._name = config['name']
-        self._description = config['description']
-        self._execute_func = config['execute']
-        self._parameters = config['parameters']
-        self._metadata = config.get('metadata', {})
-        self._source = config.get('source', ToolSource.NATIVE)
-        
-        # Create schema
-        self._schema = ToolSchema(
-            name=self._name,
-            description=self._description,
-            parameters=self._parameters
-        )
-    
-    @property
-    def schema(self) -> ToolSchema:
-        """Tool schema including name, description, and parameter validation."""
-        return self._schema
-    
-    async def execute(self, args: Any, context: Any) -> Union[str, ToolResult]:
-        """Execute the tool with given arguments and context."""
-        result = self._execute_func(args, context)
-        
-        # Handle both sync and async execute functions
-        if hasattr(result, '__await__'):
-            return await result
-        return result
-
-    async def __call__(self, args: Any, context: Any) -> Union[str, ToolResult]:
-        """Execute the tool with given arguments and context."""
-        return await self.execute(args, context)
-
-    @property
-    def metadata(self) -> Dict[str, Any]:
-        """Tool metadata."""
-        return self._metadata.copy()
-    
-    @property
-    def source(self) -> ToolSource:
-        """Tool source."""
-        return self._source
-
-
 def create_function_tool(config: FunctionToolConfig) -> Tool:
     """
     Create a function-based tool using object configuration.
@@ -103,7 +55,46 @@ def create_function_tool(config: FunctionToolConfig) -> Tool:
         })
         ```
     """
-    return FunctionTool(config)
+    # Get the function from config
+    func = config['execute']
+    
+    # Create schema
+    tool_schema = ToolSchema(
+        name=config['name'],
+        description=config['description'],
+        parameters=config['parameters']
+    )
+    
+    # Add tool properties and methods to the function
+    func.schema = tool_schema
+    func.metadata = config.get('metadata', {})
+    func.source = config.get('source', ToolSource.NATIVE)
+    
+    # Store original function for execution
+    original_func = func
+    
+    # Add execute method that calls the original function
+    async def execute(args: Any, context: Any) -> Union[str, ToolResult]:
+        """Execute the tool with given arguments and context."""
+        result = original_func(args, context)
+        
+        # Handle both sync and async execute functions
+        if hasattr(result, '__await__'):
+            return await result
+        return result
+    
+    func.execute = execute
+    
+    # Add __call__ method for direct execution
+    async def call_method(args: Any, context: Any) -> Union[str, ToolResult]:
+        """Execute the tool with given arguments and context."""
+        return await func.execute(args, context)
+    
+    func.__call__ = call_method
+    
+    return func
+
+
 
 
 def create_function_tool_legacy(
@@ -297,7 +288,8 @@ def function_tool(
     Decorator to automatically create a tool from a function.
     
     This decorator extracts type information from function annotations and
-    docstrings to automatically create a properly configured tool.
+    docstrings to automatically create a properly configured tool by adding
+    tool properties and methods directly to the function.
     
     Can be used with or without parameters:
     - @function_tool
@@ -339,18 +331,41 @@ def function_tool(
         # Create parameter schema
         parameters = _create_parameter_schema_from_signature(func)
         
-        # Create tool configuration
-        config: FunctionToolConfig = {
-            'name': func_name,
-            'description': func_description,
-            'execute': func,
-            'parameters': parameters,
-            'metadata': metadata or {},
-            'source': source or ToolSource.NATIVE
-        }
+        # Store the original function
+        original_func = func
         
-        # Create and return the tool
-        return create_function_tool(config)
+        # Create schema
+        tool_schema = ToolSchema(
+            name=func_name,
+            description=func_description,
+            parameters=parameters
+        )
+        
+        # Add tool properties and methods to the function
+        func.schema = tool_schema
+        func.metadata = metadata or {}
+        func.source = source or ToolSource.NATIVE
+        
+        # Add execute method that calls the original function
+        async def execute(args: Any, context: Any) -> Union[str, ToolResult]:
+            """Execute the tool with given arguments and context."""
+            result = original_func(args, context)
+            
+            # Handle both sync and async execute functions
+            if hasattr(result, '__await__'):
+                return await result
+            return result
+        
+        func.execute = execute
+        
+        # Add __call__ method for direct execution
+        async def call_method(args: Any, context: Any) -> Union[str, ToolResult]:
+            """Execute the tool with given arguments and context."""
+            return await func.execute(args, context)
+        
+        func.__call__ = call_method
+        
+        return func
     
     # If func_or_name is a callable, this means the decorator was used without parentheses: @function_tool
     if callable(func_or_name):
