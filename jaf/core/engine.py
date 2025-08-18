@@ -90,11 +90,20 @@ async def _load_conversation_history(state: RunState[Ctx], config: RunConfig[Ctx
 
         print(f"[JAF:ENGINE] Loaded {len(memory_messages)} messages from memory for conversation {config.conversation_id}")
 
-        turn_count = 0
-        if conversation_data.metadata and "turn_count" in conversation_data.metadata:
-            turn_count = conversation_data.metadata["turn_count"]
+        # Calculate turn count based on assistant messages in memory + current state
+        memory_assistant_count = len([msg for msg in memory_messages if msg.role == ContentRole.ASSISTANT or msg.role == 'assistant'])
+        current_assistant_count = len([msg for msg in state.messages if msg.role == ContentRole.ASSISTANT or msg.role == 'assistant'])
+        calculated_turn_count = memory_assistant_count + current_assistant_count
 
-        print(f"[JAF:ENGINE] Loaded turn_count: {turn_count}")
+        # Use metadata turn_count if available, otherwise calculate from messages
+        turn_count = calculated_turn_count
+        if conversation_data.metadata and "turn_count" in conversation_data.metadata:
+            metadata_turn_count = conversation_data.metadata["turn_count"]
+            # Use the higher of the two to handle edge cases
+            turn_count = max(metadata_turn_count, calculated_turn_count)
+            print(f"[JAF:ENGINE] Metadata turn_count: {metadata_turn_count}, calculated: {calculated_turn_count}, using: {turn_count}")
+        else:
+            print(f"[JAF:ENGINE] No metadata turn_count, calculated from messages: {turn_count}")
 
         return replace(
             state,
@@ -136,7 +145,7 @@ async def _run_internal(
     """Internal run function with recursive execution logic."""
     # Check initial input guardrails on first turn
     if state.turn_count == 0:
-        first_user_message = next((m for m in state.messages if m.role == ContentRole.USER), None)
+        first_user_message = next((m for m in state.messages if m.role == ContentRole.USER or m.role == 'user'), None)
         if first_user_message and config.initial_input_guardrails:
             for guardrail in config.initial_input_guardrails:
                 if asyncio.iscoroutinefunction(guardrail):
