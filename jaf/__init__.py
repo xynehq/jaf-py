@@ -13,6 +13,7 @@ from .core.tools import (
     create_async_function_tool,
     create_async_function_tool_legacy,
     FunctionTool,
+    function_tool,
 )
 from .core.tracing import ConsoleTraceCollector, TraceCollector
 from .core.types import *
@@ -103,7 +104,7 @@ __all__ = [
     # Tool factory functions
     "create_function_tool", "create_function_tool_legacy",
     "create_async_function_tool", "create_async_function_tool_legacy",
-    "FunctionTool", "FunctionToolConfig", "ToolExecuteFunction",
+    "FunctionTool", "FunctionToolConfig", "ToolExecuteFunction", "function_tool",
 
     # Exception classes
     "JAFException", "AgentException", "AgentNotFoundError", "HandoffError",

@@ -6,7 +6,9 @@ that is more type-safe, extensible, and self-documenting than positional argumen
 """
 
 import warnings
-from typing import Any, Dict, Optional, Union, Awaitable
+import inspect
+import json
+from typing import Any, Dict, Optional, Union, Awaitable, get_type_hints, get_origin, get_args
 
 from .types import (
     FunctionToolConfig,
@@ -181,3 +183,187 @@ def create_async_function_tool_legacy(
         stacklevel=2
     )
     return create_function_tool_legacy(name, description, execute, parameters, metadata, source)
+
+
+def _extract_docstring_info(func):
+    """Extract description and parameter info from function docstring."""
+    doc = inspect.getdoc(func)
+    if not doc:
+        return func.__name__.replace('_', ' ').title(), {}
+    
+    lines = doc.strip().split('\n')
+    if not lines:
+        return func.__name__.replace('_', ' ').title(), {}
+    
+    # First non-empty line is the description
+    description = lines[0].strip()
+    
+    # Look for Args section to extract parameter descriptions
+    param_descriptions = {}
+    in_args_section = False
+    
+    for line in lines[1:]:
+        line = line.strip()
+        if line.lower().startswith('args:'):
+            in_args_section = True
+            continue
+        elif line.lower().startswith(('returns:', 'return:', 'raises:', 'raise:', 'examples:', 'example:')):
+            in_args_section = False
+            continue
+        elif in_args_section and line and ':' in line:
+            # Parse parameter description like "location: The location to fetch the weather for."
+            param_name, param_desc = line.split(':', 1)
+            param_descriptions[param_name.strip()] = param_desc.strip()
+    
+    return description, param_descriptions
+
+
+def _create_parameter_schema_from_signature(func):
+    """Create a parameter schema from function signature and type hints."""
+    try:
+        # Try to use Pydantic if available
+        from pydantic import BaseModel, create_model
+        
+        signature = inspect.signature(func)
+        type_hints = get_type_hints(func)
+        
+        # Extract parameter info, excluding 'context' parameter
+        fields = {}
+        for param_name, param in signature.parameters.items():
+            if param_name == 'context':
+                continue
+                
+            param_type = type_hints.get(param_name, str)
+            
+            # Handle default values
+            if param.default != inspect.Parameter.empty:
+                fields[param_name] = (param_type, param.default)
+            else:
+                fields[param_name] = (param_type, ...)
+        
+        # Create dynamic Pydantic model
+        if fields:
+            return create_model(f"{func.__name__}Args", **fields)
+        else:
+            # Return a simple BaseModel if no parameters
+            return create_model(f"{func.__name__}Args")
+            
+    except ImportError:
+        # Fallback to simple dict-based schema if Pydantic not available
+        signature = inspect.signature(func)
+        type_hints = get_type_hints(func)
+        
+        properties = {}
+        required = []
+        
+        for param_name, param in signature.parameters.items():
+            if param_name == 'context':
+                continue
+                
+            param_type = type_hints.get(param_name, str)
+            
+            # Convert Python types to JSON schema types
+            if param_type == str:
+                properties[param_name] = {"type": "string"}
+            elif param_type == int:
+                properties[param_name] = {"type": "integer"}
+            elif param_type == float:
+                properties[param_name] = {"type": "number"}
+            elif param_type == bool:
+                properties[param_name] = {"type": "boolean"}
+            else:
+                properties[param_name] = {"type": "string"}  # Default fallback
+            
+            # Check if parameter is required
+            if param.default == inspect.Parameter.empty:
+                required.append(param_name)
+        
+        return {
+            "type": "object",
+            "properties": properties,
+            "required": required
+        }
+
+
+def function_tool(
+    func_or_name=None,
+    *,
+    name: Optional[str] = None,
+    description: Optional[str] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+    source: Optional[ToolSource] = None
+):
+    """
+    Decorator to automatically create a tool from a function.
+    
+    This decorator extracts type information from function annotations and
+    docstrings to automatically create a properly configured tool.
+    
+    Can be used with or without parameters:
+    - @function_tool
+    - @function_tool(name="custom", description="Custom tool")
+    
+    Args:
+        func_or_name: When used as @function_tool, this is the function being decorated.
+                     When used as @function_tool(...), this should be None.
+        name: Optional custom name for the tool (defaults to function name)
+        description: Optional custom description (defaults to docstring)
+        metadata: Optional metadata for the tool
+        source: Optional source tracking for the tool
+    
+    Returns:
+        A Tool implementation that can be used with agents.
+    
+    Example:
+        ```python
+        from jaf import function_tool
+        
+        @function_tool
+        async def fetch_weather(location: str, context) -> str:
+            '''Fetch the weather for a given location.
+            
+            Args:
+                location: The location to fetch the weather for.
+            '''
+            # In real life, we'd fetch the weather from a weather API
+            return "sunny"
+        ```
+    """
+    def create_tool_from_func(func):
+        # Extract function information
+        func_name = name or func.__name__
+        func_description, param_descriptions = _extract_docstring_info(func)
+        if description:
+            func_description = description
+        
+        # Create parameter schema
+        parameters = _create_parameter_schema_from_signature(func)
+        
+        # Create tool configuration
+        config: FunctionToolConfig = {
+            'name': func_name,
+            'description': func_description,
+            'execute': func,
+            'parameters': parameters,
+            'metadata': metadata or {},
+            'source': source or ToolSource.NATIVE
+        }
+        
+        # Create and return the tool
+        return create_function_tool(config)
+    
+    # If func_or_name is a callable, this means the decorator was used without parentheses: @function_tool
+    if callable(func_or_name):
+        return create_tool_from_func(func_or_name)
+    
+    # Otherwise, this means the decorator was used with parentheses: @function_tool(...)
+    # In this case, func_or_name might be None or the name parameter
+    if func_or_name is not None and name is None:
+        # Handle the case where the first parameter was meant to be the name
+        name = func_or_name
+    
+    # Return the decorator function
+    def decorator(func):
+        return create_tool_from_func(func)
+    
+    return decorator
