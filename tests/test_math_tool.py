@@ -120,6 +120,38 @@ math_tool_jaf = create_function_tool({
 def test_instructions(state):
     return 'You are a math assistant with a calculator tool.'
 
+# Mock model provider that simulates tool calling behavior
+class MockModelProvider:
+    async def get_completion(self, state, agent, config):
+        # Check if we've already called the tool
+        tool_messages = [m for m in state.messages if m.role == 'tool']
+        
+        if len(tool_messages) > 0:
+            # Tool has been called, return final response
+            return {
+                'message': {
+                    'content': 'The answer to (100 / 5) + 2 is 22.0',
+                    'tool_calls': None
+                }
+            }
+        else:
+            # First call, simulate a model that calls the math tool
+            return {
+                'message': {
+                    'content': None,
+                    'tool_calls': [
+                        {
+                            'id': 'call_test_123',
+                            'type': 'function',
+                            'function': {
+                                'name': 'math',
+                                'arguments': '{"expression": "(100 / 5) + 2"}'
+                            }
+                        }
+                    ]
+                }
+            }
+
 async def test_math_tool_integration():
     """Test that the math_tool_jaf works with the JAF engine."""
     
@@ -144,12 +176,9 @@ async def test_math_tool_integration():
         turn_count=0
     )
     
-    litellm_url = os.environ.get("LITELLM_URL", "http://0.0.0.0:4000")
-    litellm_api_key = os.environ.get("LITELLM_API_KEY", "anything")
-    
     config = RunConfig(
         agent_registry={'AdvancedMathAgent': agent},
-        model_provider=make_litellm_provider(base_url=litellm_url, api_key=litellm_api_key),
+        model_provider=MockModelProvider(),
         max_turns=3
     )
     
