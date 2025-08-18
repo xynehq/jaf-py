@@ -370,7 +370,7 @@ config = RunConfig(
 ## 🔗 Agent Handoffs
 
 ```python
-from jaf.policies.handoff import handoff_tool
+from jaf.policies.handoff import create_handoff_guardrail, HandoffPolicy
 from pydantic import BaseModel
 from enum import Enum
 
@@ -388,7 +388,7 @@ def create_triage_agent():
     return Agent(
         name='TriageAgent',
         instructions=instructions,
-        tools=[handoff_tool],
+        tools=[],  # Regular tools would go here
         handoffs=['MathTutor', 'FileManager'],  # Allowed handoff targets
         output_schema=HandoffOutput,
     )
@@ -422,7 +422,7 @@ config = RunConfig(
 from jaf.core.errors import JAFErrorHandler
 
 if result.outcome.status == 'error':
-    formatted_error = JAFErrorHandler.format(result.outcome.error)
+    formatted_error = JAFErrorHandler.format_error(result.outcome.error)
     is_retryable = JAFErrorHandler.is_retryable(result.outcome.error)
     severity = JAFErrorHandler.get_severity(result.outcome.error)
     
