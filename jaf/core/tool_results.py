@@ -310,6 +310,16 @@ def tool_result_to_string(result: ToolResult[Any]) -> str:
         String representation of the result
     """
     if result.status == 'success':
+        # For successful results, include metadata if available
+        if result.metadata:
+            success_obj = {
+                'status': 'success',
+                'data': result.data,
+                'metadata': result.metadata.to_dict()
+            }
+            return json.dumps(success_obj, default=str)
+        
+        # If no metadata, return just the data for backward compatibility
         if isinstance(result.data, str):
             return result.data
         return json.dumps(result.data, default=str)
