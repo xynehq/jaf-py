@@ -537,13 +537,21 @@ def create_mcp_http_client(uri: str, client_name: str = "JAF", client_version: s
 
 async def create_mcp_tools_from_client(mcp_client: MCPClient) -> List[MCPTool]:
     """Create JAF tools from all available MCP tools."""
-    await mcp_client.initialize()
+    # Client should already be initialized
+    if not mcp_client.server_info:
+        await mcp_client.initialize()
 
     tools = []
     for tool_name in mcp_client.get_available_tools():
         # Create a generic args model for this tool
         class GenericMCPArgs(MCPToolArgs):
-            pass
+            class Config:
+                extra = "allow"
+            
+            def __init__(self, **data):
+                super().__init__()
+                for key, value in data.items():
+                    setattr(self, key, value)
 
         tool = MCPTool(mcp_client, tool_name, GenericMCPArgs)
         tools.append(tool)
