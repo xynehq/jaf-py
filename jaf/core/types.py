@@ -255,6 +255,41 @@ class AgentNotFound:
     _tag: Literal["AgentNotFound"] = "AgentNotFound"
     agent_name: str = ""
 
+@dataclass(frozen=True)
+class RecoverableError:
+    """Error that can be recovered from with retry strategies."""
+    _tag: Literal["RecoverableError"] = "RecoverableError"
+    detail: str = ""
+    retry_strategy: Optional[str] = None
+    max_retries: int = 3
+    current_attempt: int = 1
+    backoff_seconds: float = 1.0
+
+@dataclass(frozen=True)
+class RateLimitError:
+    """Error indicating rate limit has been exceeded."""
+    _tag: Literal["RateLimitError"] = "RateLimitError"
+    detail: str = ""
+    retry_after_seconds: Optional[float] = None
+    limit_type: str = "requests"  # "requests", "tokens", "concurrent"
+
+@dataclass(frozen=True)
+class ValidationError:
+    """Enhanced validation error with detailed context."""
+    _tag: Literal["ValidationError"] = "ValidationError"
+    detail: str = ""
+    field_errors: List[Dict[str, Any]] = field(default_factory=list)
+    error_code: str = "validation_failed"
+
+@dataclass(frozen=True)
+class NetworkError:
+    """Network-related errors with retry information."""
+    _tag: Literal["NetworkError"] = "NetworkError"
+    detail: str = ""
+    status_code: Optional[int] = None
+    is_retryable: bool = True
+    endpoint: Optional[str] = None
+
 # Union type for all possible errors
 JAFError = Union[
     MaxTurnsExceeded,
@@ -264,7 +299,11 @@ JAFError = Union[
     OutputGuardrailTripwire,
     ToolCallError,
     HandoffError,
-    AgentNotFound
+    AgentNotFound,
+    RecoverableError,
+    RateLimitError,
+    ValidationError,
+    NetworkError
 ]
 
 @dataclass(frozen=True)

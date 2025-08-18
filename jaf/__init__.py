@@ -61,6 +61,94 @@ from .providers.mcp import (
 from .providers.model import make_litellm_provider
 from .server import run_server
 
+# New features (conditional imports)
+try:
+    from .core.performance import (
+        PerformanceMonitor,
+        PerformanceMetrics,
+        monitor_performance,
+        get_performance_summary,
+    )
+    _PERFORMANCE_AVAILABLE = True
+except ImportError:
+    _PERFORMANCE_AVAILABLE = False
+
+try:
+    from .core.streaming import (
+        run_streaming,
+        StreamingEvent,
+        StreamingEventType,
+        StreamingCollector,
+        create_sse_response,
+        stream_to_websocket,
+    )
+    _STREAMING_AVAILABLE = True
+except ImportError:
+    _STREAMING_AVAILABLE = False
+
+try:
+    from .core.composition import (
+        create_tool_pipeline,
+        create_parallel_tools,
+        create_conditional_tool,
+        with_retry,
+        with_cache,
+        with_timeout,
+        compose,
+    )
+    _COMPOSITION_AVAILABLE = True
+except ImportError:
+    _COMPOSITION_AVAILABLE = False
+
+try:
+    from .plugins import (
+        JAFPlugin,
+        PluginMetadata,
+        PluginStatus,
+        PluginRegistry,
+        get_plugin_registry,
+    )
+    _PLUGINS_AVAILABLE = True
+except ImportError:
+    _PLUGINS_AVAILABLE = False
+
+try:
+    from .core.analytics import (
+        ConversationAnalytics,
+        AgentAnalytics,
+        SystemAnalytics,
+        AnalyticsEngine,
+        get_analytics_report,
+        analyze_conversation_quality,
+    )
+    _ANALYTICS_AVAILABLE = True
+except ImportError:
+    _ANALYTICS_AVAILABLE = False
+
+try:
+    from .core.workflows import (
+        Workflow,
+        WorkflowStep,
+        WorkflowContext,
+        WorkflowResult,
+        StepResult,
+        WorkflowStatus,
+        StepStatus,
+        AgentStep,
+        ToolStep,
+        ConditionalStep,
+        ParallelStep,
+        LoopStep,
+        WorkflowBuilder,
+        create_workflow,
+        create_sequential_workflow,
+        create_parallel_workflow,
+        execute_workflow_stream,
+    )
+    _WORKFLOWS_AVAILABLE = True
+except ImportError:
+    _WORKFLOWS_AVAILABLE = False
+
 # Visualization (optional import)
 try:
     from .visualization import (
@@ -142,6 +230,30 @@ __all__ = [
 
     # Server
     "run_server",
+    
+    # Performance monitoring (NEW)
+    "PerformanceMonitor", "PerformanceMetrics", "monitor_performance", "get_performance_summary",
+    
+    # Streaming support (NEW)
+    "run_streaming", "StreamingEvent", "StreamingEventType", "StreamingCollector",
+    "create_sse_response", "stream_to_websocket",
+    
+    # Tool composition (NEW)
+    "create_tool_pipeline", "create_parallel_tools", "create_conditional_tool",
+    "with_retry", "with_cache", "with_timeout", "compose",
+    
+    # Plugin system (NEW)
+    "JAFPlugin", "PluginMetadata", "PluginStatus", "PluginRegistry", "get_plugin_registry",
+    
+    # Analytics system (NEW)
+    "ConversationAnalytics", "AgentAnalytics", "SystemAnalytics", "AnalyticsEngine",
+    "get_analytics_report", "analyze_conversation_quality",
+    
+    # Workflow orchestration (NEW)
+    "Workflow", "WorkflowStep", "WorkflowContext", "WorkflowResult", "StepResult",
+    "WorkflowStatus", "StepStatus", "AgentStep", "ToolStep", "ConditionalStep",
+    "ParallelStep", "LoopStep", "WorkflowBuilder", "create_workflow",
+    "create_sequential_workflow", "create_parallel_workflow", "execute_workflow_stream",
 ] + (
     # Visualization (conditional)
     [
