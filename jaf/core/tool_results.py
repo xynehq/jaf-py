@@ -20,6 +20,14 @@ TContext = TypeVar('TContext')
 # Type aliases matching TypeScript
 ToolResultStatus = Literal['success', 'error', 'validation_error', 'permission_denied', 'not_found']
 
+class ToolResultStatus:
+    """Tool result status constants."""
+    SUCCESS = 'success'
+    ERROR = 'error'
+    VALIDATION_ERROR = 'validation_error'
+    PERMISSION_DENIED = 'permission_denied'
+    NOT_FOUND = 'not_found'
+
 @dataclass(frozen=True)
 class ToolErrorInfo:
     """Error information for tool results."""
