@@ -161,3 +161,4 @@ target/
 
 # pyenv
 .python-version
+.hypothesis/*

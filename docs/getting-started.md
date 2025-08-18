@@ -357,60 +357,102 @@ class CalculatorContext:
         return operation in self.allowed_operations
 ```
 
-### Step 2: Tool Implementation with @function_tool Decorator
+### Step 2: Tool Implementation with Modern Object-Based API
 
-JAF's modern tool creation uses the `@function_tool` decorator for clean, type-safe tool definitions. This approach automatically extracts type information and docstrings to create properly configured tools.
+JAF's modern tool creation API prioritizes type safety, functional composition, and developer experience. This section demonstrates both the recommended object-based approach and the traditional class-based approach for comparison.
 
-#### @function_tool Decorator (Production Recommended)
+#### Object-Based API (Production Recommended)
 
-The `@function_tool` decorator provides the cleanest way to create tools with automatic schema generation:
+The object-based API leverages TypedDict configurations and functional programming principles for superior maintainability and extensibility:
 
 ```python
-from jaf import function_tool
+from pydantic import BaseModel, Field, field_validator
+from jaf import create_function_tool, ToolSource
+from jaf import ToolResponse, ToolResult
+from typing import Union
 import re
 import ast
 import operator
 
-@function_tool
-async def calculate(expression: str, context) -> str:
+class CalculateArgs(BaseModel):
+    """
+    Arguments for mathematical calculation tool.
+    
+    Supports basic arithmetic operations with safety validations.
+    """
+    expression: str = Field(
+        description="Mathematical expression to evaluate (e.g., '2 + 2', '(10 * 5) / 2')",
+        min_length=1,
+        max_length=200,
+        regex=r'^[0-9+\-*/.() ]+$'
+    )
+    
+    @field_validator('expression')
+    @classmethod
+    def validate_expression_safety(cls, v):
+        """Ensure expression contains only safe mathematical operations."""
+        # Remove whitespace for validation
+        cleaned = v.replace(' ', '')
+        
+        # Check for potentially dangerous patterns
+        dangerous_patterns = [
+            '__', 'import', 'exec', 'eval', 'open', 'file',
+            'input', 'raw_input', 'compile', 'globals', 'locals'
+        ]
+        
+        for pattern in dangerous_patterns:
+            if pattern in cleaned.lower():
+                raise ValueError(f"Expression contains prohibited pattern: {pattern}")
+        
+        return v
+
+async def calculate_execute(args: CalculateArgs, context: CalculatorContext) -> ToolResult[str]:
     """
     Execute mathematical calculation with comprehensive safety checks.
-    
-    Args:
-        expression: Mathematical expression to evaluate (e.g., '2 + 2', '(10 * 5) / 2')
     
     This function implements secure expression evaluation using AST parsing
     instead of direct eval() to prevent code injection attacks.
     """
     try:
-        # Input validation
-        if not expression or len(expression.strip()) == 0:
-            return "Error: Expression cannot be empty"
-        
-        if len(expression) > 200:
-            return "Error: Expression too long (max 200 characters)"
-        
-        # Check for dangerous patterns
-        dangerous_patterns = ['__', 'import', 'exec', 'eval', 'open', 'file']
-        for pattern in dangerous_patterns:
-            if pattern in expression.lower():
-                return f"Error: Expression contains prohibited pattern: {pattern}"
+        # Permission check
+        if not context.has_permission('basic_math'):
+            return ToolResponse.permission_denied(
+                "Mathematical operations require basic_math permission",
+                required_permissions=['basic_math']
+            )
         
         # Parse expression safely using AST
         try:
-            tree = ast.parse(expression, mode='eval')
+            tree = ast.parse(args.expression, mode='eval')
             result = _safe_eval(tree.body, context)
         except (SyntaxError, ValueError) as e:
-            return f"Error: Invalid mathematical expression: {str(e)}"
+            return ToolResponse.validation_error(f"Invalid mathematical expression: {str(e)}")
         
-        # Format result
+        # Apply context limits
+        if abs(result) > context.max_result:
+            return ToolResponse.validation_error(
+                f"Result {result} exceeds maximum allowed value ({context.max_result})"
+            )
+        
+        # Format result with context precision
         if isinstance(result, float):
-            result = round(result, 2)
+            result = round(result, context.precision)
         
-        return f"Result: {expression} = {result}"
+        return ToolResponse.success(
+            data=f"Result: {args.expression} = {result}",
+            metadata={
+                'operation_count': _count_operations(args.expression),
+                'result_type': type(result).__name__,
+                'precision_used': context.precision
+            }
+        )
         
     except Exception as e:
-        return f"Error: Failed to evaluate expression: {str(e)}"
+        return ToolResponse.error(
+            code='calculation_error',
+            message=f"Failed to evaluate expression: {str(e)}",
+            details={'expression': args.expression, 'error_type': type(e).__name__}
+        )
 
 def _safe_eval(node, context: CalculatorContext):
     """Safely evaluate AST node with limited operations."""
@@ -441,31 +483,26 @@ def _safe_eval(node, context: CalculatorContext):
     else:
         raise ValueError(f"Unsupported AST node type: {type(node).__name__}")
 
-# The decorator automatically creates the tool with these properties:
-# - Tool name: 'calculate' (from function name)
-# - Description: extracted from docstring
-# - Parameters: auto-generated from function signature
-# - Source: defaults to ToolSource.NATIVE
+def _count_operations(expression: str) -> int:
+    """Count the number of mathematical operations in expression."""
+    operators = ['+', '-', '*', '/']
+    return sum(expression.count(op) for op in operators)
 
-# For advanced configuration, you can use decorator parameters:
-@function_tool(
-    name="advanced_calculate",
-    description="Enhanced calculator with metadata",
-    metadata={
+# Create tool with comprehensive object-based configuration
+calculator_tool = create_function_tool({
+    'name': 'calculate',
+    'description': 'Safely evaluate mathematical expressions using AST parsing',
+    'execute': calculate_execute,
+    'parameters': CalculateArgs,
+    'metadata': {
         'category': 'mathematical_operations',
         'safety_level': 'high',
+        'supported_operations': ['addition', 'subtraction', 'multiplication', 'division'],
+        'security_features': ['ast_parsing', 'operation_whitelisting', 'result_validation'],
         'version': '1.0.0'
-    }
-)
-async def advanced_calculate(expression: str, precision: int = 2, context=None) -> str:
-    """Advanced calculator with configurable precision.
-    
-    Args:
-        expression: Mathematical expression to evaluate
-        precision: Number of decimal places for results
-    """
-    # Implementation would be similar to above
-    return f"Advanced calculation: {expression}"
+    },
+    'source': ToolSource.NATIVE
+})
 ```
 
 #### Class-Based API (Legacy Support)
@@ -552,7 +589,7 @@ Rules:
     return Agent(
         name='Calculator',
         instructions=instructions,
-        tools=[CalculatorTool()]
+        tools=[calculator_tool]
     )
 ```
 

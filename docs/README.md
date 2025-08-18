@@ -21,16 +21,27 @@ New to JAF? Start here:
 
 ###  Building with JAF
 - **[Tools](tools.md)** - Creating and using tools in Python
+- **[Function Composition](function-composition.md)** - Advanced composition patterns
 - **[Memory System](memory-system.md)** - Conversation persistence and memory providers
 - **[Model Providers](model-providers.md)** - LiteLLM integration and configuration
 
-###  Production
+###  Advanced Features
+- **[Analytics System](analytics-system.md)** - Real-time monitoring and insights
+- **[Workflow Orchestration](workflow-orchestration.md)** - Complex automation workflows
+- **[Streaming Responses](streaming-responses.md)** - Real-time content delivery
+- **[Performance Monitoring](performance-monitoring.md)** - System optimization and profiling
+
+###  Production & Enterprise
+- **[ADK Overview](adk-overview.md)** - Agent Development Kit for production
+- **[A2A Deployment](a2a-deployment.md)** - Agent-to-Agent communication
 - **[Server API](server-api.md)** - FastAPI server endpoints and usage
 - **[Deployment](deployment.md)** - Docker, compose, and production setup
-- **[Troubleshooting](troubleshooting.md)** - Common issues and solutions
+- **[Security Framework](security-framework.md)** - Enterprise security features
 
-###  Learning
+###  Learning & Examples
 - **[Examples](examples.md)** - Detailed walkthrough of example applications
+- **[Callback System](callback-system.md)** - Advanced agent instrumentation
+- **[Troubleshooting](troubleshooting.md)** - Common issues and solutions
 
 ## Use Case Navigation
 

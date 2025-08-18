@@ -41,6 +41,7 @@ For existing codebases, the class-based approach is still supported:
 
 ```python
 from pydantic import BaseModel, Field
+from jaf import create_function_tool, ToolSource, ToolResponse, ToolResult
 from typing import Any
 
 class MyToolArgs(BaseModel):
@@ -48,6 +49,27 @@ class MyToolArgs(BaseModel):
     param1: str = Field(description="Description of parameter")
     param2: int = Field(default=0, description="Optional parameter with default")
 
+async def my_tool_execute(args: MyToolArgs, context: Any) -> ToolResult[str]:
+    """Execute the tool with given arguments and context."""
+    # Tool implementation here
+    return ToolResponse.success(f"Processed {args.param1} with {args.param2}")
+
+# Create tool using modern object-based API
+my_tool = create_function_tool({
+    'name': 'my_tool',
+    'description': 'What this tool does',
+    'execute': my_tool_execute,
+    'parameters': MyToolArgs,
+    'metadata': {'category': 'utility'},
+    'source': ToolSource.NATIVE
+})
+```
+
+### Legacy Class-Based API (Backward Compatibility)
+
+For backward compatibility, JAF also supports the traditional class-based approach:
+
+```python
 class MyTool:
     """Tool description for agents."""
     
