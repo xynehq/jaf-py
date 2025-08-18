@@ -2,7 +2,7 @@
 
 <!-- ![JAF Banner](docs/cover.png) -->
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://pypi.org/project/jaf-py/)
+[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/xynehq/jaf-py)
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
 [![Docs](https://img.shields.io/badge/Docs-Live-brightgreen)](https://xynehq.github.io/jaf-py/)
 
@@ -30,7 +30,7 @@ A purely functional agent framework with immutable state and composable tools, p
 
 ### 🔌 **Model Context Protocol (MCP)**
 - ✅ **MCP Client**: Full MCP specification support
-- ✅ **WebSocket, Stdio, SSE & HTTP**: Multiple transport protocols
+- ✅ **Stdio & SSE**: Multiple transport protocols
 - ✅ **Tool Integration**: Seamless MCP tool integration
 - ✅ **Auto Discovery**: Dynamic tool loading from MCP servers
 
@@ -66,17 +66,17 @@ A purely functional agent framework with immutable state and composable tools, p
 ### Installation
 
 ```bash
-# Install from PyPI (recommended for production)
-pip install jaf-py
+# Install from GitHub (development version)
+pip install git+https://github.com/xynehq/jaf-py.git
 
 # Or install with all optional dependencies
-pip install "jaf-py[all]"
+pip install "git+https://github.com/xynehq/jaf-py.git[all]"
 
 # Install specific feature sets
-pip install "jaf-py[server]"        # FastAPI server support
-pip install "jaf-py[memory]"        # Redis/PostgreSQL memory providers
-pip install "jaf-py[visualization]" # Graphviz visualization tools
-pip install "jaf-py[dev]"           # Development tools
+pip install "git+https://github.com/xynehq/jaf-py.git[server]"        # FastAPI server support
+pip install "git+https://github.com/xynehq/jaf-py.git[memory]"        # Redis/PostgreSQL memory providers
+pip install "git+https://github.com/xynehq/jaf-py.git[visualization]" # Graphviz visualization tools
+pip install "git+https://github.com/xynehq/jaf-py.git[dev]"           # Development tools
 ```
 
 ### CLI Usage
@@ -149,61 +149,16 @@ For offline access, documentation is also available in the [`docs/`](docs/) dire
 
 ```
 jaf-py/
-├── docs/                    # 📚 Complete documentation suite
-│   ├── README.md           # Documentation hub and navigation
-│   ├── cover.png          # Project banner/logo
-│   ├── getting-started.md  # Installation and first steps
-│   ├── core-concepts.md    # Architecture and philosophy
-│   ├── api-reference.md    # Complete API documentation
-│   ├── tools.md            # Tool creation and usage
-│   ├── memory-system.md    # Memory providers and persistence
-│   ├── model-providers.md  # LLM integration guide
-│   ├── server-api.md       # FastAPI server reference
-│   ├── examples.md         # Example walkthroughs
-│   ├── deployment.md       # Production deployment
-│   └── troubleshooting.md  # FAQ and common issues
-├── jaf/                    # 🏗️ Core framework package
-│   ├── core/              # Core framework types and engine
-│   │   ├── __init__.py    # Core exports
-│   │   ├── engine.py      # Main execution engine (run_agent)
-│   │   ├── types.py       # Type definitions and Pydantic schemas
-│   │   ├── errors.py      # Error handling and custom exceptions
-│   │   ├── tool_results.py # Tool result handling utilities
-│   │   └── tracing.py     # Observability and event tracing
-│   ├── memory/            # 💾 Conversation persistence system
-│   │   ├── __init__.py    # Memory exports
-│   │   ├── factory.py     # Memory provider factory
-│   │   ├── types.py       # Memory provider protocol
-│   │   └── providers/     # Memory provider implementations
-│   │       ├── __init__.py
-│   │       ├── in_memory.py   # In-memory provider
-│   │       ├── redis.py       # Redis provider
-│   │       └── postgres.py    # PostgreSQL provider
-│   ├── providers/         # 🔌 External integrations
-│   │   ├── __init__.py    # Provider exports
-│   │   ├── model.py       # LiteLLM and OpenAI model providers
-│   │   └── mcp.py         # Model Context Protocol client
-│   ├── policies/          # 🛡️ Validation and security policies
-│   │   ├── __init__.py    # Policy exports
-│   │   ├── validation.py  # Input/output guardrails
-│   │   └── handoff.py     # Agent handoff policies
-│   ├── server/            # 🌐 Production-ready FastAPI server
-│   │   ├── __init__.py    # Server exports
-│   │   ├── server.py      # Main server implementation
-│   │   ├── types.py       # Server-specific request/response types
-│   │   └── main.py        # Server entry point and configuration
-│   ├── cli.py             # 💻 Command-line interface
-│   └── __init__.py        # Main package exports
-├── examples/              # 🎮 Example applications and demos
-│   ├── server_demo.py     # Multi-agent server demo
-│   └── rag_demo.py        # RAG implementation with embeddings
-├── tests/                 # 🧪 Test suite
-│   ├── test_engine.py     # Core engine tests
-│   ├── test_validation.py # Validation policy tests
-│   └── ...                # Additional test files
-├── pyproject.toml         # 📦 Package configuration and dependencies
-├── README.md              # 📄 This file - project overview
-└── .gitignore             # Git ignore patterns
+├── docs/                    # Complete documentation
+├── jaf/                     # Core framework package
+│   ├── core/               # Core types and engine
+│   ├── memory/             # Conversation persistence
+│   ├── providers/          # External integrations (LiteLLM, MCP)
+│   ├── policies/           # Validation and security
+│   ├── server/             # FastAPI server
+│   └── cli.py              # Command-line interface
+├── examples/               # Example applications
+└── tests/                  # Test suite
 ```
 
 ## 🎨 Architectural Visualization
@@ -398,16 +353,16 @@ secure_file_tool = with_validation(base_file_tool, combined_validator)
 ### Guardrails
 
 ```python
-from jaf.policies.validation import create_content_filter, create_rate_limiter
+from jaf.policies.validation import create_content_filter, create_length_guardrail
 
 config = RunConfig(
     # ... other config
     initial_input_guardrails=[
-        create_content_filter(),
-        create_rate_limiter(10, 60000, lambda input: 'global')
+        create_content_filter(['spam', 'inappropriate']),  # Requires blocked patterns
+        create_length_guardrail(max_length=1000, min_length=1)
     ],
     final_output_guardrails=[
-        create_content_filter()
+        create_content_filter(['harmful', 'unsafe'])
     ],
 )
 ```
@@ -536,14 +491,9 @@ def create_mcp_agent():
         tools=mcp_tools  # Automatically converted JAF tools
     )
 
-# WebSocket MCP client is also supported
-from jaf.providers.mcp import create_mcp_websocket_client
-ws_client = create_mcp_websocket_client('ws://localhost:8080/mcp')
-
-# SSE and HTTP clients are also supported
-from jaf.providers.mcp import create_mcp_sse_client, create_mcp_http_client
+# SSE client is also supported
+from jaf.providers.mcp import create_mcp_sse_client
 sse_client = create_mcp_sse_client('http://localhost:8080/sse')
-http_client = create_mcp_http_client('http://localhost:8080/mcp')
 ```
 
 ## 🚀 Development Server
@@ -582,28 +532,12 @@ Server provides RESTful endpoints:
 
 ## 🔧 Function Composition
 
-JAF supports powerful functional composition patterns that allow you to build complex behaviors from simple, reusable functions. The new object-based API makes composition even more elegant and type-safe.
-
-### Tool Composition
-
-Higher-order functions that enhance tool behavior:
+JAF supports functional composition patterns for building complex behaviors from simple, reusable functions:
 
 ```python
 from jaf import create_function_tool, ToolSource
 
-# Base tool
-async def search_execute(args, context):
-    return await perform_search(args.query)
-
-base_tool = create_function_tool({
-    'name': 'search',
-    'description': 'Search for information',
-    'execute': search_execute,
-    'parameters': SearchArgs,
-    'source': ToolSource.NATIVE
-})
-
-# Composing Tools with Higher-Order Functions
+# Enhanced tool with caching and retry
 def with_cache(tool_func):
     cache = {}
     async def cached_execute(args, context):
@@ -616,198 +550,21 @@ def with_cache(tool_func):
         return result
     return cached_execute
 
-def with_retry(tool_func, max_retries=3):
-    async def retry_execute(args, context):
-        for attempt in range(max_retries):
-            try:
-                result = await tool_func(args, context)
-                if result.status == "success":
-                    return result
-            except Exception:
-                if attempt == max_retries - 1:
-                    raise
-        return result
-    return retry_execute
-
-# Compose enhancements
-enhanced_search = create_function_tool({
+# Create enhanced tools by composition
+enhanced_tool = create_function_tool({
     'name': 'enhanced_search',
-    'description': 'Search with caching and retry',
-    'execute': with_cache(with_retry(search_execute)),
+    'description': 'Search with caching',
+    'execute': with_cache(base_search_function),
     'parameters': SearchArgs,
-    'metadata': {'enhanced': True},
     'source': ToolSource.NATIVE
 })
 ```
 
-### Validator Composition
-
-Build complex validation from simple functions:
-
-```python
-def compose_validators(*validators):
-    """Compose multiple validation functions into one."""
-    def composed_validator(data):
-        for validator in validators:
-            result = validator(data)
-            if not result.is_valid:
-                return result
-        return ValidationResult(is_valid=True)
-    return composed_validator
-
-def validate_required_fields(data):
-    required = ['name', 'email']
-    for field in required:
-        if not hasattr(data, field) or not getattr(data, field):
-            return ValidationResult(is_valid=False, error_message=f"Missing {field}")
-    return ValidationResult(is_valid=True)
-
-def validate_email_format(data):
-    if not hasattr(data, 'email'):
-        return ValidationResult(is_valid=True)  # Skip if no email field
-    email = data.email
-    if '@' not in email or '.' not in email:
-        return ValidationResult(is_valid=False, error_message="Invalid email format")
-    return ValidationResult(is_valid=True)
-
-# Compose validators
-user_validator = compose_validators(
-    validate_required_fields,
-    validate_email_format
-)
-
-# Use in tool
-async def create_user_execute(args, context):
-    validation = user_validator(args)
-    if not validation.is_valid:
-        return ToolResponse.validation_error(validation.error_message)
-    # Proceed with user creation...
-```
-
-### Agent Behavior Composition
-
-Layer agent functionality using middleware-style functions:
-
-```python
-def with_logging(agent_func):
-    """Add logging to agent behavior."""
-    def logged_agent(state):
-        print(f"Agent {state.current_agent_name} processing message")
-        return agent_func(state)
-    return logged_agent
-
-def with_rate_limiting(agent_func, max_requests=10):
-    """Add rate limiting to agent behavior."""
-    request_counts = {}
-    def rate_limited_agent(state):
-        user_id = state.context.get('user_id', 'anonymous')
-        count = request_counts.get(user_id, 0)
-        if count >= max_requests:
-            return "Rate limit exceeded. Please try again later."
-        request_counts[user_id] = count + 1
-        return agent_func(state)
-    return rate_limited_agent
-
-# Compose agent behaviors
-def enhanced_instructions(state):
-    base_instructions = "You are a helpful assistant."
-    return with_logging(
-        with_rate_limiting(lambda s: base_instructions)
-    )(state)
-```
-
-### Memory Provider Composition
-
-Create layered caching strategies:
-
-```python
-def create_layered_memory(l1_provider, l2_provider):
-    """Create a two-tier memory system."""
-    class LayeredMemoryProvider:
-        async def get_conversation(self, conversation_id):
-            # Try L1 cache first
-            result = await l1_provider.get_conversation(conversation_id)
-            if result.data:
-                return result
-            
-            # Fall back to L2
-            result = await l2_provider.get_conversation(conversation_id)
-            if result.data:
-                # Populate L1 cache
-                await l1_provider.store_messages(
-                    conversation_id, 
-                    result.data.messages
-                )
-            return result
-        
-        async def store_messages(self, conversation_id, messages, metadata=None):
-            # Store in both layers
-            await l1_provider.store_messages(conversation_id, messages, metadata)
-            await l2_provider.store_messages(conversation_id, messages, metadata)
-    
-    return LayeredMemoryProvider()
-
-# Use composed memory
-from jaf.memory import create_in_memory_provider, create_redis_provider
-
-fast_cache = create_in_memory_provider(InMemoryConfig(max_conversations=100))
-persistent_store = create_redis_provider(RedisConfig(host="localhost"))
-layered_memory = create_layered_memory(fast_cache, persistent_store)
-```
-
-### Pipeline Composition
-
-Build processing pipelines:
-
-```python
-def create_pipeline(*steps):
-    """Create a processing pipeline from multiple steps."""
-    async def pipeline_execute(args, context):
-        data = args
-        for step in steps:
-            result = await step(data, context)
-            if hasattr(result, 'status') and result.status != 'success':
-                return result  # Short-circuit on error
-            data = result.data if hasattr(result, 'data') else result
-        return ToolResponse.success(data)
-    return pipeline_execute
-
-# Pipeline steps
-async def extract_entities(text, context):
-    # Extract named entities from text
-    entities = await nlp_service.extract_entities(text)
-    return ToolResponse.success(entities)
-
-async def classify_intent(entities, context):
-    # Classify user intent based on entities
-    intent = await classifier.predict(entities)
-    return ToolResponse.success(intent)
-
-async def generate_response(intent, context):
-    # Generate appropriate response
-    response = await response_generator.generate(intent)
-    return ToolResponse.success(response)
-
-# Create NLP pipeline
-nlp_pipeline = create_function_tool({
-    'name': 'nlp_pipeline',
-    'description': 'Process text through NLP pipeline',
-    'execute': create_pipeline(extract_entities, classify_intent, generate_response),
-    'parameters': TextArgs,
-    'source': ToolSource.NATIVE
-})
-```
-
-### Benefits of Functional Composition
-
-1. **Reusability**: Write once, compose everywhere
-2. **Testability**: Each function can be tested in isolation  
-3. **Maintainability**: Clear separation of concerns
-4. **Flexibility**: Mix and match behaviors as needed
-5. **Type Safety**: Compose with full type checking
-6. **Performance**: Optimize individual pieces independently
-
-The object-based tool API makes these patterns even more powerful by providing explicit configuration points for metadata, source tracking, and behavior composition.
+**Key Benefits:**
+- **Reusability**: Write once, compose everywhere
+- **Testability**: Each function can be tested in isolation  
+- **Type Safety**: Full type checking support
+- **Performance**: Optimize individual pieces independently
 
 ## 🎮 Example Applications
 
@@ -834,22 +591,18 @@ python server_example.py
 - `POST /chat` - Chat with any agent
 - `GET /docs` - Interactive API documentation
 
-### 2. RAG (Retrieval-Augmented Generation) Demo
+### 2. MCP Integration Demo
 
 ```bash
-cd examples  
-python rag_example.py
+cd examples/mcp_demo  
+python main.py
 ```
 
 **Features demonstrated:**
-- ✅ Knowledge base integration with semantic search
-- ✅ Google Generative AI integration (optional)
-- ✅ Document retrieval and context preparation
-- ✅ Source citation and attribution
-- ✅ Interactive and automated demo modes
-- ✅ Fallback strategies for offline operation
-
-**Interactive mode:** Ask questions about programming, ML, web development, and AI frameworks.
+- ✅ Model Context Protocol integration
+- ✅ Dynamic tool loading from MCP servers
+- ✅ Secure filesystem operations
+- ✅ MCP client configuration and management
 
 ## 🧪 Testing
 
