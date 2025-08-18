@@ -4,7 +4,7 @@ Tools are the primary way agents interact with the external world in JAF. This g
 
 ## Overview
 
-JAF tools are Python classes that implement a standard interface allowing agents to perform actions beyond text generation. Tools can:
+JAF tools are Python functions decorated with `@function_tool` that implement capabilities for agents to perform actions beyond text generation. Tools can:
 
 - Perform calculations
 - Make API calls
@@ -15,9 +15,29 @@ JAF tools are Python classes that implement a standard interface allowing agents
 
 ## Tool Architecture
 
-### Modern Object-Based API (Recommended)
+### Modern Tool Creation with @function_tool
 
-JAF provides a modern object-based API for creating tools that is more type-safe and extensible:
+The recommended way to create tools uses the `@function_tool` decorator for clean, type-safe definitions:
+
+```python
+from jaf import function_tool
+from typing import Optional
+
+@function_tool
+async def my_tool(param1: str, param2: int = 0, context=None) -> str:
+    """Tool description for agents.
+    
+    Args:
+        param1: Description of parameter
+        param2: Optional parameter with default
+    """
+    # Tool implementation here
+    return f"Processed {param1} with value {param2}"
+```
+
+### Legacy Class-Based Tools (Backward Compatibility)
+
+For existing codebases, the class-based approach is still supported:
 
 ```python
 from pydantic import BaseModel, Field
@@ -144,119 +164,75 @@ class ValidatedToolArgs(BaseModel):
 ### Simple Tool Example
 
 ```python
-from jaf import ToolResponse, ToolErrorCodes
-from pydantic import BaseModel, Field
+from jaf import function_tool
 
-class GreetArgs(BaseModel):
-    name: str = Field(description="Name to greet")
-    style: str = Field(default="friendly", description="Greeting style")
-
-class GreetingTool:
-    """Generate personalized greetings."""
+@function_tool
+async def greet(name: str, style: str = "friendly", context=None) -> str:
+    """Generate a personalized greeting.
     
-    @property
-    def schema(self):
-        return type('ToolSchema', (), {
-            'name': 'greet',
-            'description': 'Generate a personalized greeting',
-            'parameters': GreetArgs
-        })()
+    Args:
+        name: Name to greet
+        style: Greeting style (friendly, formal, casual)
+    """
+    # Input validation
+    if not name.strip():
+        return "Error: Name cannot be empty"
     
-    async def execute(self, args: GreetArgs, context) -> ToolResponse:
-        # Input validation
-        if not args.name.strip():
-            return ToolResponse.validation_error(
-                "Name cannot be empty",
-                {'provided_name': args.name}
-            )
-        
-        # Generate greeting based on style
-        if args.style == "formal":
-            greeting = f"Good day, {args.name}. How may I assist you?"
-        elif args.style == "casual":
-            greeting = f"Hey {args.name}! What's up?"
-        else:  # friendly (default)
-            greeting = f"Hello, {args.name}! Nice to meet you."
-        
-        return ToolResponse.success(
-            greeting,
-            {
-                'name': args.name,
-                'style': args.style,
-                'greeting_length': len(greeting)
-            }
-        )
+    # Generate greeting based on style
+    if style == "formal":
+        greeting = f"Good day, {name}. How may I assist you?"
+    elif style == "casual":
+        greeting = f"Hey {name}! What's up?"
+    else:  # friendly (default)
+        greeting = f"Hello, {name}! Nice to meet you."
+    
+    return greeting
 ```
 
 ### Tool with External API
 
 ```python
 import httpx
-from jaf import ToolResponse, ToolErrorCodes
+from jaf import function_tool
+import os
 
-class WeatherArgs(BaseModel):
-    city: str = Field(description="City name")
-    units: str = Field(default="metric", description="Temperature units")
-
-class WeatherTool:
-    """Get current weather information."""
+@function_tool
+async def get_weather(city: str, units: str = "metric", context=None) -> str:
+    """Get current weather for a city.
     
-    def __init__(self, api_key: str):
-        self.api_key = api_key
-        self.base_url = "https://api.openweathermap.org/data/2.5/weather"
+    Args:
+        city: City name
+        units: Temperature units (metric/imperial)
+    """
+    api_key = os.getenv("WEATHER_API_KEY")
+    if not api_key:
+        return "Error: Weather API key not configured"
     
-    @property
-    def schema(self):
-        return type('ToolSchema', (), {
-            'name': 'get_weather',
-            'description': 'Get current weather for a city',
-            'parameters': WeatherArgs
-        })()
+    base_url = "https://api.openweathermap.org/data/2.5/weather"
+    params = {
+        'q': city,
+        'appid': api_key,
+        'units': units
+    }
     
-    async def execute(self, args: WeatherArgs, context) -> ToolResponse:
-        params = {
-            'q': args.city,
-            'appid': self.api_key,
-            'units': args.units
-        }
-        
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(self.base_url, params=params)
-                response.raise_for_status()
-                
-                data = response.json()
-                
-                weather_info = {
-                    'city': data['name'],
-                    'temperature': data['main']['temp'],
-                    'description': data['weather'][0]['description'],
-                    'humidity': data['main']['humidity'],
-                    'units': args.units
-                }
-                
-                summary = f"Weather in {weather_info['city']}: {weather_info['temperature']}° ({weather_info['description']})"
-                
-                return ToolResponse.success(summary, weather_info)
-                
-        except httpx.TimeoutException:
-            return ToolResponse.error(
-                ToolErrorCodes.EXECUTION_FAILED,
-                "Weather API request timed out",
-                {'city': args.city, 'timeout': 10.0}
-            )
-        except httpx.HTTPStatusError as e:
-            return ToolResponse.error(
-                ToolErrorCodes.EXECUTION_FAILED,
-                f"Weather API error: {e.response.status_code}",
-                {'city': args.city, 'status_code': e.response.status_code}
-            )
-        except Exception as e:
-            return ToolResponse.error(
-                ToolErrorCodes.EXECUTION_FAILED,
-                f"Unexpected error: {str(e)}",
-                {'city': args.city, 'error': str(e)}
-            )
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(base_url, params=params)
+            response.raise_for_status()
+            
+            data = response.json()
+            
+            temp = data['main']['temp']
+            description = data['weather'][0]['description']
+            
+            return f"Weather in {city}: {temp}°{'C' if units == 'metric' else 'F'}, {description}"
+            
+    except httpx.TimeoutException:
+        return f"Error: Weather API request timed out for {city}"
+    except httpx.HTTPStatusError as e:
+        return f"Error: Weather API error {e.response.status_code} for {city}"
+    except Exception as e:
+        return f"Error: Failed to get weather for {city}: {str(e)}"
 ```
 
 ### Tool with Database Access

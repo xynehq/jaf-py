@@ -103,22 +103,19 @@ def math_tutor_instructions(state: RunState[StudentContext]) -> str:
 Tools encapsulate external capabilities that agents can use:
 
 ```python
-class WeatherTool:
-    """Tool for fetching weather information."""
+from jaf import function_tool
+
+@function_tool
+async def get_weather(location: str, units: str = "metric", context=None) -> str:
+    """Get current weather for a location.
     
-    @property
-    def schema(self):
-        """Schema for LLM integration."""
-        return type('ToolSchema', (), {
-            'name': 'get_weather',
-            'description': 'Get current weather for a location',
-            'parameters': WeatherArgs  # Pydantic model
-        })()
-    
-    async def execute(self, args: WeatherArgs, context: Ctx) -> str:
-        """Execute the tool with type-safe arguments."""
-        # Implementation here
-        return f"Weather in {args.location}: {weather_data}"
+    Args:
+        location: The location to get weather for
+        units: Temperature units (metric/imperial)
+    """
+    # Implementation here
+    weather_data = await fetch_weather_api(location, units)
+    return f"Weather in {location}: {weather_data['temperature']}°"
 ```
 
 **Tool Properties:**
