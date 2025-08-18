@@ -2119,9 +2119,9 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#create_content_filter_guardrailblocked_patterns-liststr-case_sensitive-bool-false-guardrail" class="md-nav__link">
+  <a href="#create_content_filterblocked_patterns-liststr-guardrail" class="md-nav__link">
     <span class="md-ellipsis">
-      create_content_filter_guardrail(blocked_patterns: List[str], case_sensitive: bool = False) -&gt; Guardrail
+      create_content_filter(blocked_patterns: List[str]) -&gt; Guardrail
     </span>
   </a>
   
@@ -3306,9 +3306,9 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#create_content_filter_guardrailblocked_patterns-liststr-case_sensitive-bool-false-guardrail" class="md-nav__link">
+  <a href="#create_content_filterblocked_patterns-liststr-guardrail" class="md-nav__link">
     <span class="md-ellipsis">
-      create_content_filter_guardrail(blocked_patterns: List[str], case_sensitive: bool = False) -&gt; Guardrail
+      create_content_filter(blocked_patterns: List[str]) -&gt; Guardrail
     </span>
   </a>
   
@@ -4222,18 +4222,15 @@
 </span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>    <span class="n">initial_input_guardrails</span><span class="o">=</span><span class="p">[</span><span class="n">length_guard</span><span class="p">]</span>
 </span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="p">)</span>
 </span></code></pre></div></p>
-<h4 id="create_content_filter_guardrailblocked_patterns-liststr-case_sensitive-bool-false-guardrail"><code>create_content_filter_guardrail(blocked_patterns: List[str], case_sensitive: bool = False) -&gt; Guardrail</code><a class="headerlink" href="#create_content_filter_guardrailblocked_patterns-liststr-case_sensitive-bool-false-guardrail" title="Anchor link to this section for reference">&para;</a></h4>
-<p>Create a guardrail that filters content based on regex patterns.</p>
+<h4 id="create_content_filterblocked_patterns-liststr-guardrail"><code>create_content_filter(blocked_patterns: List[str]) -&gt; Guardrail</code><a class="headerlink" href="#create_content_filterblocked_patterns-liststr-guardrail" title="Anchor link to this section for reference">&para;</a></h4>
+<p>Create a guardrail that filters content based on blocked patterns.</p>
 <p><strong>Example:</strong>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="n">content_filter</span> <span class="o">=</span> <span class="n">jaf</span><span class="o">.</span><span class="n">create_content_filter_guardrail</span><span class="p">([</span>
-</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>    <span class="sa">r</span><span class="s1">&#39;\b(password|secret|api_key)\b&#39;</span><span class="p">,</span>
-</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>    <span class="sa">r</span><span class="s1">&#39;\d</span><span class="si">{16}</span><span class="s1">&#39;</span><span class="p">,</span>  <span class="c1"># Credit card patterns</span>
-</span><span id="__span-20-4"><a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="p">])</span>
-</span><span id="__span-20-5"><a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>
-</span><span id="__span-20-6"><a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="n">config</span> <span class="o">=</span> <span class="n">RunConfig</span><span class="p">(</span>
-</span><span id="__span-20-7"><a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a>    <span class="c1"># ... other config</span>
-</span><span id="__span-20-8"><a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a>    <span class="n">initial_input_guardrails</span><span class="o">=</span><span class="p">[</span><span class="n">content_filter</span><span class="p">]</span>
-</span><span id="__span-20-9"><a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="n">content_filter</span> <span class="o">=</span> <span class="n">jaf</span><span class="o">.</span><span class="n">create_content_filter</span><span class="p">([</span><span class="s1">&#39;spam&#39;</span><span class="p">,</span> <span class="s1">&#39;inappropriate&#39;</span><span class="p">])</span>
+</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>
+</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="n">config</span> <span class="o">=</span> <span class="n">RunConfig</span><span class="p">(</span>
+</span><span id="__span-20-4"><a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>    <span class="c1"># ... other config</span>
+</span><span id="__span-20-5"><a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>    <span class="n">initial_input_guardrails</span><span class="o">=</span><span class="p">[</span><span class="n">content_filter</span><span class="p">]</span>
+</span><span id="__span-20-6"><a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="p">)</span>
 </span></code></pre></div></p>
 <h4 id="create_json_validation_guardrailschema_class-typebasemodel-guardrail"><code>create_json_validation_guardrail(schema_class: type[BaseModel]) -&gt; Guardrail</code><a class="headerlink" href="#create_json_validation_guardrailschema_class-typebasemodel-guardrail" title="Anchor link to this section for reference">&para;</a></h4>
 <p>Create a guardrail that validates JSON against a Pydantic schema.</p>
