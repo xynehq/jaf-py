@@ -566,16 +566,13 @@ config = RunConfig(
 )
 ```
 
-#### `create_content_filter_guardrail(blocked_patterns: List[str], case_sensitive: bool = False) -> Guardrail`
+#### `create_content_filter(blocked_patterns: List[str]) -> Guardrail`
 
-Create a guardrail that filters content based on regex patterns.
+Create a guardrail that filters content based on blocked patterns.
 
 **Example:**
 ```python
-content_filter = jaf.create_content_filter_guardrail([
-    r'\b(password|secret|api_key)\b',
-    r'\d{16}',  # Credit card patterns
-])
+content_filter = jaf.create_content_filter(['spam', 'inappropriate'])
 
 config = RunConfig(
     # ... other config

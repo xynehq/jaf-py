@@ -38,10 +38,10 @@ For production environments, install JAF with all dependencies:
 
 ```bash
 # Complete installation with all features
-pip install "jaf-py[all]"
+pip install "git+https://github.com/xynehq/jaf-py.git[all]"
 
 # Verify installation
-python -c "import jaf; print(f'JAF {jaf.__version__} installed successfully')"
+python -c "import jaf; print('JAF installed successfully')"
 ```
 
 ### Feature-Specific Installation
@@ -50,22 +50,22 @@ Install only the components you need for optimized deployments:
 
 ```bash
 # Core framework only
-pip install jaf-py
+pip install git+https://github.com/xynehq/jaf-py.git
 
 # Server capabilities (FastAPI, uvicorn)
-pip install "jaf-py[server]"
+pip install "git+https://github.com/xynehq/jaf-py.git[server]"
 
 # Memory providers (Redis, PostgreSQL)
-pip install "jaf-py[memory]"
+pip install "git+https://github.com/xynehq/jaf-py.git[memory]"
 
 # Visualization tools (Graphviz, diagrams)
-pip install "jaf-py[visualization]"
+pip install "git+https://github.com/xynehq/jaf-py.git[visualization]"
 
 # Development tools (testing, linting, type checking)
-pip install "jaf-py[dev]"
+pip install "git+https://github.com/xynehq/jaf-py.git[dev]"
 
 # Combine multiple feature sets
-pip install "jaf-py[server,memory,visualization]"
+pip install "git+https://github.com/xynehq/jaf-py.git[server,memory,visualization]"
 ```
 
 ### Development Environment Setup
@@ -748,7 +748,7 @@ Now that you have a working agent, explore these topics:
 
 **Import Error**: If you get `ModuleNotFoundError: No module named 'jaf'`:
 ```bash
-pip install jaf-py
+pip install git+https://github.com/xynehq/jaf-py.git
 # Or for development:
 pip install -e .
 ```

@@ -289,14 +289,14 @@ Multiple validation policies can be composed:
 from jaf.policies.validation import compose_validations
 
 # Individual validators
-content_filter = create_content_filter()
-rate_limiter = create_rate_limiter(10, 60000, key_fn=lambda ctx: ctx.user_id)
+content_filter = create_content_filter(['spam', 'inappropriate'])
+length_guardrail = create_length_guardrail(max_length=1000, min_length=1)
 permission_check = create_permission_validator("file_access", lambda ctx: ctx.permissions)
 
 # Compose them
 combined_validator = compose_validations(
     content_filter,
-    rate_limiter, 
+    length_guardrail, 
     permission_check
 )
 

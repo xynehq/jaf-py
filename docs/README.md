@@ -69,7 +69,7 @@ New to JAF? Start here:
 ### 🔌 Extensive Integrations
 - **Memory Providers**: In-memory, Redis, PostgreSQL
 - **Model Providers**: LiteLLM (100+ models), OpenAI
-- **MCP Support**: Model Context Protocol integration (WebSocket & Stdio transports)
+- **MCP Support**: Model Context Protocol integration (Stdio & SSE transports)
 - **Tool Ecosystem**: Extensible tool system
 
 ###  Developer Experience
