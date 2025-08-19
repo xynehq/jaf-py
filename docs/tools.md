@@ -41,7 +41,7 @@ For existing codebases, the class-based approach is still supported:
 
 ```python
 from pydantic import BaseModel, Field
-from jaf import create_function_tool, ToolSource, ToolResponse, ToolResult
+from jaf import create_function_tool, ToolSource
 from typing import Any
 
 class MyToolArgs(BaseModel):
@@ -49,10 +49,10 @@ class MyToolArgs(BaseModel):
     param1: str = Field(description="Description of parameter")
     param2: int = Field(default=0, description="Optional parameter with default")
 
-async def my_tool_execute(args: MyToolArgs, context: Any) -> ToolResult[str]:
+async def my_tool_execute(args: MyToolArgs, context: Any) -> str:
     """Execute the tool with given arguments and context."""
     # Tool implementation here
-    return ToolResponse.success(f"Processed {args.param1} with {args.param2}")
+    return f"Processed {args.param1} with {args.param2}"
 
 # Create tool using modern object-based API
 my_tool = create_function_tool({
@@ -114,7 +114,7 @@ class AdvancedToolArgs(BaseModel):
     
     # Constrained parameters
     rating: int = Field(ge=1, le=10, description="Rating from 1 to 10")
-    email: str = Field(pattern=r'^[^@]+@[^@]+\.[^@]+$', description="Valid email address")
+    email: str = Field(pattern=r'^[^@]+@[^@]+\\.[^@]+$', description="Valid email address")
     
     # Collections
     tags: List[str] = Field(default=[], description="List of tags")
@@ -239,137 +239,73 @@ async def get_weather(city: str, units: str = "metric", context=None) -> str:
 
 ```python
 import asyncpg
-from jaf import ToolResponse, ToolErrorCodes
+from jaf import function_tool
+from typing import Dict, Any
 
-class QueryArgs(BaseModel):
-    table: str = Field(description="Table to query")
-    filters: Dict[str, Any] = Field(default={}, description="Query filters")
-    limit: int = Field(default=10, ge=1, le=100, description="Result limit")
-
-class DatabaseTool:
-    """Query database tables."""
+@function_tool
+async def query_database(
+    table: str,
+    filters: Dict[str, Any] = None,
+    limit: int = 10,
+    context=None
+) -> str:
+    """Query database tables with filters.
     
-    def __init__(self, connection_pool):
-        self.pool = connection_pool
+    Args:
+        table: Table to query  
+        filters: Query filters (default: {})
+        limit: Result limit (1-100, default: 10)
+    """
+    if filters is None:
+        filters = {}
     
-    @property
-    def schema(self):
-        return type('ToolSchema', (), {
-            'name': 'query_database',
-            'description': 'Query database tables with filters',
-            'parameters': QueryArgs
-        })()
+    # Validate limit
+    if not (1 <= limit <= 100):
+        return "Error: Limit must be between 1 and 100"
     
-    async def execute(self, args: QueryArgs, context) -> ToolResponse:
-        # Security: Validate table name (whitelist approach)
-        allowed_tables = {'users', 'products', 'orders'}
-        if args.table not in allowed_tables:
-            return ToolResponse.validation_error(
-                f"Table '{args.table}' is not allowed",
-                {'allowed_tables': list(allowed_tables)}
-            )
+    # Security: Validate table name (whitelist approach)
+    allowed_tables = {'users', 'products', 'orders'}
+    if table not in allowed_tables:
+        return f"Error: Table '{table}' is not allowed. Allowed tables: {', '.join(allowed_tables)}"
+    
+    try:
+        # Get connection pool from context (in real implementation)
+        # This would be passed through the agent context
+        if not hasattr(context, 'db_pool'):
+            return "Error: Database connection not available"
         
-        try:
-            async with self.pool.acquire() as conn:
-                # Build safe query with parameterized conditions
-                where_conditions = []
-                params = []
+        async with context.db_pool.acquire() as conn:
+            # Build safe query with parameterized conditions
+            where_conditions = []
+            params = []
+            
+            for i, (key, value) in enumerate(filters.items(), 1):
+                # Validate column names (basic safety)
+                if not key.replace('_', '').isalnum():
+                    return f"Error: Invalid column name: {key}"
                 
-                for i, (key, value) in enumerate(args.filters.items(), 1):
-                    # Validate column names (basic safety)
-                    if not key.isalnum():
-                        return ToolResponse.validation_error(
-                            f"Invalid column name: {key}",
-                            {'column': key}
-                        )
-                    
-                    where_conditions.append(f"{key} = ${i}")
-                    params.append(value)
-                
-                where_clause = ""
-                if where_conditions:
-                    where_clause = f" WHERE {' AND '.join(where_conditions)}"
-                
-                query = f"SELECT * FROM {args.table}{where_clause} LIMIT ${len(params) + 1}"
-                params.append(args.limit)
-                
-                rows = await conn.fetch(query, *params)
-                
-                results = [dict(row) for row in rows]
-                
-                return ToolResponse.success(
-                    f"Found {len(results)} records",
-                    {
-                        'table': args.table,
-                        'count': len(results),
-                        'results': results,
-                        'filters': args.filters
-                    }
-                )
-                
-        except Exception as e:
-            return ToolResponse.error(
-                ToolErrorCodes.EXECUTION_FAILED,
-                f"Database query failed: {str(e)}",
-                {'table': args.table, 'error': str(e)}
-            )
+                where_conditions.append(f"{key} = ${i}")
+                params.append(value)
+            
+            where_clause = ""
+            if where_conditions:
+                where_clause = f" WHERE {' AND '.join(where_conditions)}"
+            
+            query = f"SELECT * FROM {table}{where_clause} LIMIT ${len(params) + 1}"
+            params.append(limit)
+            
+            rows = await conn.fetch(query, *params)
+            results = [dict(row) for row in rows]
+            
+            return f"Found {len(results)} records in {table}: {results}"
+            
+    except Exception as e:
+        return f"Database query failed: {str(e)}"
 ```
 
 ## Tool Response Handling
 
-JAF provides a standardized `ToolResponse` system for consistent error handling and result formatting.
-
-### Response Types
-
-```python
-from jaf import ToolResponse, ToolErrorCodes
-
-# Success response
-return ToolResponse.success(
-    message="Operation completed successfully",
-    data={"result": "value", "metadata": "info"}
-)
-
-# Validation error (user input issue)
-return ToolResponse.validation_error(
-    message="Invalid input provided",
-    details={"field": "value", "reason": "explanation"}
-)
-
-# Execution error (tool failure)
-return ToolResponse.error(
-    code=ToolErrorCodes.EXECUTION_FAILED,
-    message="Tool execution failed",
-    details={"error": "description", "context": "info"}
-)
-
-# Authentication error
-return ToolResponse.error(
-    code=ToolErrorCodes.AUTHENTICATION_FAILED,
-    message="Authentication required",
-    details={"required_permissions": ["read", "write"]}
-)
-
-# Rate limit error
-return ToolResponse.error(
-    code=ToolErrorCodes.RATE_LIMITED,
-    message="Too many requests",
-    details={"retry_after": 60, "limit": 100}
-)
-```
-
-### Error Codes
-
-Available error codes in `ToolErrorCodes`:
-
-- `VALIDATION_ERROR`: Input validation failed
-- `AUTHENTICATION_FAILED`: Authentication required
-- `PERMISSION_DENIED`: Insufficient permissions
-- `NOT_FOUND`: Resource not found
-- `RATE_LIMITED`: Rate limit exceeded
-- `EXECUTION_FAILED`: General execution failure
-- `TIMEOUT`: Operation timed out
-- `EXTERNAL_SERVICE_ERROR`: External service unavailable
+With the `@function_tool` decorator, tools return simple strings that are automatically handled by the framework. Error handling is done through return values and exceptions.
 
 ## Error Handling and Security
 
@@ -378,72 +314,102 @@ Available error codes in `ToolErrorCodes`:
 Always validate and sanitize inputs:
 
 ```python
-async def execute(self, args: MyArgs, context) -> ToolResponse:
+@function_tool
+async def validate_input_example(
+    required_field: str,
+    identifier: str,
+    count: int,
+    context=None
+) -> str:
+    """Example of input validation in function tools.
+    
+    Args:
+        required_field: Required field that cannot be empty
+        identifier: Alphanumeric identifier with underscores
+        count: Count value between 1 and 1000
+    """
+    import re
+    
     # Validate required fields
-    if not args.required_field:
-        return ToolResponse.validation_error(
-            "Required field missing",
-            {"field": "required_field"}
-        )
+    if not required_field or not required_field.strip():
+        return "Error: Required field is missing or empty"
     
     # Validate format
-    if not re.match(r'^[a-zA-Z0-9_]+$', args.identifier):
-        return ToolResponse.validation_error(
-            "Invalid identifier format",
-            {"pattern": "alphanumeric and underscore only"}
-        )
+    if not re.match(r'^[a-zA-Z0-9_]+$', identifier):
+        return "Error: Invalid identifier format (alphanumeric and underscore only)"
     
     # Validate ranges
-    if args.count < 1 or args.count > 1000:
-        return ToolResponse.validation_error(
-            "Count must be between 1 and 1000",
-            {"provided": args.count, "range": [1, 1000]}
-        )
+    if count < 1 or count > 1000:
+        return f"Error: Count must be between 1 and 1000, got {count}"
+    
+    return f"Validation passed: field={required_field}, id={identifier}, count={count}"
 ```
 
 ### Security Best Practices
 
 ```python
-class SecureCalculatorTool:
-    """Calculator with security safeguards."""
+@function_tool
+async def secure_calculator(expression: str, context=None) -> str:
+    """Calculator with comprehensive security safeguards.
     
-    async def execute(self, args: CalculateArgs, context) -> ToolResponse:
-        # 1. Input sanitization
-        expression = args.expression.strip()
+    Args:
+        expression: Mathematical expression to evaluate safely
+    """
+    import ast
+    import operator
+    
+    # 1. Input sanitization
+    expression = expression.strip()
+    
+    # 2. Character whitelist
+    allowed_chars = set('0123456789+-*/(). ')
+    if not all(c in allowed_chars for c in expression):
+        return f"Error: Expression contains forbidden characters. Allowed: {', '.join(sorted(allowed_chars))}"
+    
+    # 3. Length limits
+    if len(expression) > 200:
+        return f"Error: Expression too long (max 200 characters, got {len(expression)})"
+    
+    # 4. Pattern detection
+    dangerous_patterns = ['import', 'exec', 'eval', '__']
+    if any(pattern in expression.lower() for pattern in dangerous_patterns):
+        return f"Error: Expression contains forbidden patterns: {dangerous_patterns}"
+    
+    # 5. Safe evaluation using AST parsing
+    try:
+        def safe_eval(node):
+            """Safely evaluate AST node with limited operations."""
+            safe_operators = {
+                ast.Add: operator.add,
+                ast.Sub: operator.sub,
+                ast.Mult: operator.mul,
+                ast.Div: operator.truediv,
+                ast.USub: operator.neg,
+                ast.UAdd: operator.pos,
+            }
+            
+            if isinstance(node, ast.Constant):
+                return node.value
+            elif isinstance(node, ast.BinOp):
+                if type(node.op) not in safe_operators:
+                    raise ValueError(f"Unsupported operation: {type(node.op).__name__}")
+                left = safe_eval(node.left)
+                right = safe_eval(node.right)
+                return safe_operators[type(node.op)](left, right)
+            elif isinstance(node, ast.UnaryOp):
+                if type(node.op) not in safe_operators:
+                    raise ValueError(f"Unsupported unary operation: {type(node.op).__name__}")
+                operand = safe_eval(node.operand)
+                return safe_operators[type(node.op)](operand)
+            else:
+                raise ValueError(f"Unsupported AST node type: {type(node).__name__}")
         
-        # 2. Character whitelist
-        allowed_chars = set('0123456789+-*/(). ')
-        if not all(c in allowed_chars for c in expression):
-            return ToolResponse.validation_error(
-                "Expression contains forbidden characters",
-                {"allowed": list(allowed_chars)}
-            )
+        tree = ast.parse(expression, mode='eval')
+        result = safe_eval(tree.body)
+        return f"{expression} = {result}"
         
-        # 3. Length limits
-        if len(expression) > 200:
-            return ToolResponse.validation_error(
-                "Expression too long",
-                {"max_length": 200, "provided_length": len(expression)}
-            )
-        
-        # 4. Pattern detection
-        dangerous_patterns = ['import', 'exec', 'eval', '__']
-        if any(pattern in expression.lower() for pattern in dangerous_patterns):
-            return ToolResponse.validation_error(
-                "Expression contains forbidden patterns",
-                {"forbidden_patterns": dangerous_patterns}
-            )
-        
-        # 5. Safe evaluation (use ast.literal_eval or a math library)
-        try:
-            # Use a safe math evaluator instead of eval()
-            result = safe_math_eval(expression)
-            return ToolResponse.success(f"{expression} = {result}")
-        except Exception as e:
-            return ToolResponse.error(
-                ToolErrorCodes.EXECUTION_FAILED,
-                f"Calculation failed: {str(e)}"
-            )
+    except Exception as e:
+        return f"Calculation failed: {str(e)}"
 ```
 
 ### Context-Based Security
@@ -451,25 +417,27 @@ class SecureCalculatorTool:
 Use the context parameter for authorization:
 
 ```python
-async def execute(self, args: MyArgs, context) -> ToolResponse:
-    # Check user permissions
-    if 'admin' not in context.permissions:
-        return ToolResponse.error(
-            ToolErrorCodes.PERMISSION_DENIED,
-            "Admin permission required",
-            {"required": "admin", "provided": context.permissions}
-        )
+@function_tool
+async def admin_operation(operation: str, data: str, context=None) -> str:
+    """Example of context-based security in function tools.
     
-    # Check user-specific limits
-    if context.user_id in self.rate_limited_users:
-        return ToolResponse.error(
-            ToolErrorCodes.RATE_LIMITED,
-            "User rate limited",
-            {"retry_after": 300}
-        )
+    Args:
+        operation: Administrative operation to perform
+        data: Data for the operation
+    """
+    # Check user permissions
+    if not hasattr(context, 'permissions') or 'admin' not in context.permissions:
+        required_perms = 'admin'
+        provided_perms = getattr(context, 'permissions', [])
+        return f"Error: Admin permission required. Required: {required_perms}, Provided: {provided_perms}"
+    
+    # Check user-specific limits (example rate limiting)
+    rate_limited_users = {'user123', 'user456'}  # This would come from a real rate limiter
+    if hasattr(context, 'user_id') and context.user_id in rate_limited_users:
+        return "Error: User rate limited. Please try again in 5 minutes."
     
     # Proceed with execution
-    return await self._execute_with_permissions(args, context)
+    return f"Admin operation '{operation}' executed with data: {data}"
 ```
 
 ## Tool Registration and Usage
@@ -477,21 +445,35 @@ async def execute(self, args: MyArgs, context) -> ToolResponse:
 ### Registering Tools with Agents
 
 ```python
-from jaf import Agent
+from jaf import Agent, function_tool
 
-# Create tool instances
-calculator = CalculatorTool()
-weather = WeatherTool(api_key="your-api-key")
-greeter = GreetingTool()
+# Create function tools using decorators
+@function_tool
+async def calculate(expression: str, context=None) -> str:
+    """Perform safe mathematical calculations."""
+    # Implementation here (see examples above)
+    return f"Calculated: {expression}"
 
-# Create agent with tools
+@function_tool 
+async def get_weather(city: str, units: str = "metric", context=None) -> str:
+    """Get current weather for a city."""
+    # Implementation here (see examples above)
+    return f"Weather in {city}: sunny"
+
+@function_tool
+async def greet(name: str, style: str = "friendly", context=None) -> str:
+    """Generate a personalized greeting."""
+    # Implementation here (see examples above)
+    return f"Hello, {name}!"
+
+# Create agent with function tools
 def instructions(state):
     return "You are a helpful assistant with access to calculation, weather, and greeting tools."
 
 agent = Agent(
     name="UtilityAgent",
     instructions=instructions,
-    tools=[calculator, weather, greeter]
+    tools=[calculate, get_weather, greet]
 )
 ```
 
@@ -517,12 +499,13 @@ class UserContext:
         return 'admin' in self.permissions
 
 # Use in tools
-async def execute(self, args: MyArgs, context: UserContext) -> ToolResponse:
+@function_tool
+async def context_aware_tool(data: str, context: UserContext) -> str:
+    """Example tool that uses strongly-typed context."""
     if not context.has_permission('read'):
-        return ToolResponse.error(
-            ToolErrorCodes.PERMISSION_DENIED,
-            "Read permission required"
-        )
+        return "Error: Read permission required"
+    
+    return f"Processed data for user {context.user_id}: {data}"
 ```
 
 ## Testing Tools
@@ -531,55 +514,79 @@ async def execute(self, args: MyArgs, context: UserContext) -> ToolResponse:
 
 ```python
 import pytest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
+
+@function_tool
+async def greet(name: str, style: str = "friendly", context=None) -> str:
+    """Generate a personalized greeting."""
+    if not name.strip():
+        return "Error: Name cannot be empty"
+    
+    if style == "formal":
+        return f"Good day, {name}. How may I assist you?"
+    elif style == "casual":
+        return f"Hey {name}! What's up?"
+    else:  # friendly (default)
+        return f"Hello, {name}! Nice to meet you."
 
 @pytest.mark.asyncio
 async def test_greeting_tool():
-    tool = GreetingTool()
+    from dataclasses import dataclass
     
-    # Test successful execution
-    args = GreetArgs(name="Alice", style="friendly")
+    @dataclass
+    class UserContext:
+        user_id: str
+        permissions: list
+    
     context = UserContext(user_id="test", permissions=["user"])
     
-    result = await tool.execute(args, context)
+    # Test successful execution
+    result = await greet("Alice", "friendly", context)
     
-    assert result.status == "success"
-    assert "Alice" in result.message
-    assert result.data["name"] == "Alice"
+    assert "Alice" in result
+    assert "Hello" in result
 
 @pytest.mark.asyncio
 async def test_greeting_tool_validation():
-    tool = GreetingTool()
+    from dataclasses import dataclass
     
-    # Test validation error
-    args = GreetArgs(name="", style="friendly")
+    @dataclass
+    class UserContext:
+        user_id: str
+        permissions: list
+    
     context = UserContext(user_id="test", permissions=["user"])
     
-    result = await tool.execute(args, context)
+    # Test validation error
+    result = await greet("", "friendly", context)
     
-    assert result.status == "validation_error"
-    assert "empty" in result.message.lower()
+    assert "Error" in result
+    assert "empty" in result.lower()
 
 @pytest.mark.asyncio
 async def test_weather_tool_with_mock():
+    import httpx
+    
+    @function_tool
+    async def get_weather(city: str, context=None) -> str:
+        """Get weather with mocked HTTP client."""
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"http://api.weather.com/weather?city={city}")
+            data = response.json()
+            return f"Weather in {city}: {data['weather'][0]['description']}"
+    
     # Mock the HTTP client
     with patch('httpx.AsyncClient') as mock_client:
         mock_response = AsyncMock()
         mock_response.json.return_value = {
-            'name': 'Test City',
-            'main': {'temp': 20, 'humidity': 60},
             'weather': [{'description': 'sunny'}]
         }
         mock_client.return_value.__aenter__.return_value.get.return_value = mock_response
         
-        tool = WeatherTool(api_key="test-key")
-        args = WeatherArgs(city="Test City")
-        context = UserContext(user_id="test", permissions=["user"])
+        result = await get_weather("Test City")
         
-        result = await tool.execute(args, context)
-        
-        assert result.status == "success"
-        assert "Test City" in result.message
+        assert "Test City" in result
+        assert "sunny" in result
 ```
 
 ### Integration Testing
@@ -587,13 +594,27 @@ async def test_weather_tool_with_mock():
 ```python
 @pytest.mark.asyncio
 async def test_tool_with_agent():
-    from jaf import run, RunState, RunConfig, Message
+    from jaf import run, RunState, RunConfig, Message, Agent, function_tool
     
-    # Create agent with tools
+    # Create a greeting tool using the modern decorator
+    @function_tool
+    async def greet(name: str, style: str = "friendly", context=None) -> str:
+        """Generate a personalized greeting."""
+        if not name.strip():
+            return "Error: Name cannot be empty"
+        
+        if style == "formal":
+            return f"Good day, {name}. How may I assist you?"
+        elif style == "casual":
+            return f"Hey {name}! What's up?"
+        else:  # friendly (default)
+            return f"Hello, {name}! Nice to meet you."
+    
+    # Create agent with function tool
     agent = Agent(
         name="TestAgent",
         instructions=lambda state: "Use the greeting tool to greet users.",
-        tools=[GreetingTool()]
+        tools=[greet]
     )
     
     # Mock model provider
@@ -638,76 +659,157 @@ async def test_tool_with_agent():
 Tools can call other tools or return instructions for follow-up:
 
 ```python
-class OrchestratorTool:
-    def __init__(self, sub_tools: Dict[str, Any]):
-        self.sub_tools = sub_tools
+from jaf import function_tool
+from typing import List, Dict, Any
+
+@function_tool
+async def orchestrate_workflow(
+    steps: List[Dict[str, Any]], 
+    context=None
+) -> str:
+    """Orchestrate multiple tool calls in sequence.
     
-    async def execute(self, args: OrchestratorArgs, context) -> ToolResponse:
-        results = []
+    Args:
+        steps: List of steps, each containing 'tool_name' and 'args'
+    """
+    # Available sub-tools registry (would be configured elsewhere)
+    available_tools = {
+        'calculate': calculate,
+        'get_weather': get_weather,
+        'greet': greet
+    }
+    
+    results = []
+    
+    for i, step in enumerate(steps):
+        tool_name = step.get('tool_name')
+        tool_args = step.get('args', {})
         
-        for step in args.steps:
-            if step.tool_name not in self.sub_tools:
-                return ToolResponse.validation_error(
-                    f"Unknown tool: {step.tool_name}",
-                    {"available_tools": list(self.sub_tools.keys())}
-                )
-            
-            tool = self.sub_tools[step.tool_name]
-            result = await tool.execute(step.args, context)
-            
-            if result.status != "success":
-                return ToolResponse.error(
-                    ToolErrorCodes.EXECUTION_FAILED,
-                    f"Step {step.tool_name} failed: {result.message}",
-                    {"failed_step": step.tool_name, "error": result.message}
-                )
-            
-            results.append(result)
+        if not tool_name:
+            return f"Error: Step {i+1} missing 'tool_name'"
         
-        return ToolResponse.success(
-            "All steps completed successfully",
-            {"step_results": [r.data for r in results]}
-        )
+        if tool_name not in available_tools:
+            available = ', '.join(available_tools.keys())
+            return f"Error: Unknown tool '{tool_name}'. Available: {available}"
+        
+        try:
+            # Call the sub-tool
+            tool_func = available_tools[tool_name]
+            
+            # Extract individual parameters for function call
+            if tool_name == 'calculate':
+                result = await tool_func(tool_args.get('expression', ''), context)
+            elif tool_name == 'get_weather':
+                result = await tool_func(
+                    tool_args.get('city', ''), 
+                    tool_args.get('units', 'metric'), 
+                    context
+                )
+            elif tool_name == 'greet':
+                result = await tool_func(
+                    tool_args.get('name', ''), 
+                    tool_args.get('style', 'friendly'), 
+                    context
+                )
+            else:
+                result = f"Tool {tool_name} executed"
+            
+            # Check for errors in result
+            if result.startswith('Error:'):
+                return f"Step {i+1} ({tool_name}) failed: {result}"
+            
+            results.append(f"Step {i+1}: {result}")
+            
+        except Exception as e:
+            return f"Step {i+1} ({tool_name}) failed with exception: {str(e)}"
+    
+    return f"Workflow completed successfully:\n" + "\n".join(results)
 ```
 
 ### Dynamic Tool Configuration
 
 ```python
-class ConfigurableTool:
-    def __init__(self, config: Dict[str, Any]):
-        self.config = config
-        self.enabled_features = set(config.get('features', []))
+from jaf import function_tool
+from typing import Dict, Any, Optional
+
+@function_tool
+async def configurable_processor(
+    data: str,
+    operation: str = "basic",
+    advanced_options: Optional[Dict[str, Any]] = None,
+    context=None
+) -> str:
+    """Configurable tool that adapts behavior based on parameters.
     
-    @property
-    def schema(self):
-        # Dynamic schema based on configuration
-        parameters = {}
+    Args:
+        data: Data to process
+        operation: Type of operation (basic, advanced, custom)
+        advanced_options: Additional options for advanced operations
+    """
+    if advanced_options is None:
+        advanced_options = {}
+    
+    # Basic operations
+    if operation == "basic":
+        return f"Basic processing of: {data}"
+    
+    # Advanced operations
+    elif operation == "advanced":
+        multiplier = advanced_options.get('multiplier', 1)
+        format_style = advanced_options.get('format', 'standard')
         
-        if 'basic' in self.enabled_features:
-            parameters.update({
-                'basic_param': (str, Field(description="Basic parameter"))
-            })
+        processed = data * multiplier if isinstance(data, str) else str(data)
         
-        if 'advanced' in self.enabled_features:
-            parameters.update({
-                'advanced_param': (int, Field(description="Advanced parameter"))
-            })
+        if format_style == 'uppercase':
+            processed = processed.upper()
+        elif format_style == 'lowercase':
+            processed = processed.lower()
         
-        DynamicArgs = type('DynamicArgs', (BaseModel,), {
-            '__annotations__': parameters
-        })
+        return f"Advanced processing: {processed}"
+    
+    # Custom operations
+    elif operation == "custom":
+        custom_logic = advanced_options.get('custom_logic', 'default')
         
-        return type('ToolSchema', (), {
-            'name': self.config['name'],
-            'description': self.config['description'],
-            'parameters': DynamicArgs
-        })()
+        if custom_logic == 'reverse':
+            return f"Custom reverse: {data[::-1]}"
+        elif custom_logic == 'count':
+            return f"Custom count: {len(data)} characters"
+        else:
+            return f"Custom default: {data}"
+    
+    else:
+        return f"Error: Unknown operation '{operation}'. Available: basic, advanced, custom"
+
+# Factory function for creating configured tools
+def create_configured_tool(enabled_features: List[str]):
+    """Create a tool with specific features enabled."""
+    
+    @function_tool
+    async def configured_tool(
+        input_data: str,
+        feature_option: str = "default",
+        context=None
+    ) -> str:
+        """Tool configured with specific features."""
+        
+        if feature_option == "feature1" and "feature1" in enabled_features:
+            return f"Feature 1 processing: {input_data.upper()}"
+        elif feature_option == "feature2" and "feature2" in enabled_features:
+            return f"Feature 2 processing: {input_data.lower()}"
+        elif feature_option == "default":
+            return f"Default processing: {input_data}"
+        else:
+            available = [f for f in enabled_features] + ["default"]
+            return f"Error: Feature '{feature_option}' not available. Available: {', '.join(available)}"
+    
+    return configured_tool
 ```
 
 ## Best Practices
 
 1. **Always validate inputs** - Use Pydantic models and custom validators
-2. **Handle errors gracefully** - Return appropriate ToolResponse objects
+2. **Handle errors gracefully** - Return clear error messages as strings
 3. **Implement security checks** - Validate permissions and sanitize inputs
 4. **Use type hints** - Leverage Python's type system for better code quality
 5. **Write comprehensive tests** - Test both success and failure scenarios
