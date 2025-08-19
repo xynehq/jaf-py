@@ -51,54 +51,45 @@ The context provides user information and permissions to agents and tools, enabl
 
 **Calculator Tool with Security**:
 ```python
-class CalculatorTool:
-    async def execute(self, args: CalculateArgs, context: MyContext) -> Any:
-        # Input sanitization - only allow safe characters
-        sanitized = ''.join(c for c in args.expression if c in '0123456789+-*/(). ')
-        if sanitized != args.expression:
-            return ToolResponse.validation_error(
-                "Invalid characters in expression. Only numbers, +, -, *, /, and () are allowed.",
-                {'original_expression': args.expression, 'sanitized_expression': sanitized}
-            )
-        
-        try:
-            expression_for_eval = sanitized.replace(' ', '')
-            result = eval(expression_for_eval)  # Safe due to sanitization
-            return ToolResponse.success(
-                f"{args.expression} = {result}",
-                {'original_expression': args.expression, 'result': result}
-            )
-        except Exception as e:
-            return ToolResponse.error(
-                ToolErrorCodes.EXECUTION_FAILED,
-                f"Failed to evaluate expression: {str(e)}"
-            )
+@function_tool
+async def calculator(expression: str, context=None) -> str:
+    """Safely evaluate mathematical expressions with input sanitization.
+    
+    Args:
+        expression: Mathematical expression to evaluate (e.g., "2 + 3", "15 * 7")
+    """
+    # Input sanitization - only allow safe characters
+    sanitized = ''.join(c for c in expression if c in '0123456789+-*/(). ')
+    if sanitized != expression:
+        return f"Error: Invalid characters in expression. Only numbers, +, -, *, /, and () are allowed."
+    
+    try:
+        expression_for_eval = sanitized.replace(' ', '')
+        result = eval(expression_for_eval)  # Safe due to sanitization
+        return f"{expression} = {result}"
+    except Exception as e:
+        return f"Error: Failed to evaluate expression: {str(e)}"
 ```
 
 **Greeting Tool with Validation**:
 ```python
-class GreetingTool:
-    async def execute(self, args: GreetArgs, context: MyContext) -> Any:
-        # Input validation
-        if not args.name or args.name.strip() == "":
-            return ToolResponse.validation_error(
-                "Name cannot be empty",
-                {'provided_name': args.name}
-            )
-        
-        # Length validation
-        if len(args.name) > 100:
-            return ToolResponse.validation_error(
-                "Name is too long (max 100 characters)",
-                {'name_length': len(args.name), 'max_length': 100}
-            )
-        
-        greeting = f"Hello, {args.name.strip()}! Nice to meet you. I'm a helpful AI assistant running on the JAF framework."
-        
-        return ToolResponse.success(
-            greeting,
-            {'greeted_name': args.name.strip(), 'greeting_type': 'personal'}
-        )
+@function_tool
+async def greeting(name: str, context=None) -> str:
+    """Generate a personalized greeting with input validation.
+    
+    Args:
+        name: Name of the person to greet
+    """
+    # Input validation
+    if not name or name.strip() == "":
+        return "Error: Name cannot be empty"
+    
+    # Length validation
+    if len(name) > 100:
+        return f"Error: Name is too long (max 100 characters, got {len(name)})"
+    
+    greeting = f"Hello, {name.strip()}! Nice to meet you. I'm a helpful AI assistant running on the JAF framework."
+    return greeting
 ```
 
 #### 3. Agent Specialization
@@ -112,7 +103,7 @@ def create_math_agent() -> Agent[MyContext, str]:
     return Agent(
         name='MathTutor',
         instructions=instructions,
-        tools=[calculator_tool]  # Only calculator access
+        tools=[calculator]  # Only calculator access
     )
 ```
 
@@ -125,7 +116,7 @@ def create_chat_agent() -> Agent[MyContext, str]:
     return Agent(
         name='ChatBot',
         instructions=instructions,
-        tools=[greeting_tool]  # Only greeting access
+        tools=[greeting]  # Only greeting access
     )
 ```
 
@@ -138,7 +129,7 @@ def create_assistant_agent() -> Agent[MyContext, str]:
     return Agent(
         name='Assistant',
         instructions=instructions,
-        tools=[calculator_tool, greeting_tool]  # Access to all tools
+        tools=[calculator, greeting]  # Access to all tools
     )
 ```
 
@@ -330,38 +321,39 @@ knowledge_base = [
 #### 2. RAG Tool Implementation
 
 ```python
-class LiteLLMRAGTool:
-    async def execute(self, args: RAGQueryArgs, context: Any) -> ToolResult:
-        # Step 1: Retrieve relevant documents
-        relevant_docs = self._semantic_search(args.query, args.max_results)
-        
-        if not relevant_docs:
-            return ToolResponse.success(
-                "I couldn't find any relevant information in the knowledge base for your query.",
-                {"query": args.query, "results_count": 0}
-            )
-        
-        # Step 2: Format the retrieved information
-        formatted_response = self._format_retrieved_docs(relevant_docs, args.query)
-        
-        return ToolResponse.success(
-            formatted_response,
-            {
-                "query": args.query,
-                "results_count": len(relevant_docs),
-                "sources": [{"title": doc["title"], "category": doc["metadata"]["category"]} for doc in relevant_docs]
-            }
-        )
+@function_tool
+async def litellm_rag_search(query: str, max_results: int = 3, context=None) -> str:
+    """Search the knowledge base and format retrieved information for LLM processing.
+    
+    Args:
+        query: Search query for the knowledge base
+        max_results: Maximum number of documents to retrieve (default: 3)
+    """
+    # Step 1: Retrieve relevant documents using semantic search
+    relevant_docs = _semantic_search(query, max_results)
+    
+    if not relevant_docs:
+        return f"I couldn't find any relevant information in the knowledge base for your query: '{query}'"
+    
+    # Step 2: Format the retrieved information
+    formatted_response = _format_retrieved_docs(relevant_docs, query)
+    
+    # Include source information
+    sources = [f"[{doc['title']}] - {doc['metadata']['category']}" for doc in relevant_docs]
+    source_info = "\n\nSources: " + ", ".join(sources)
+    
+    return formatted_response + source_info
 ```
 
 #### 3. Semantic Search Algorithm
 
 ```python
-def _semantic_search(self, query: str, max_results: int) -> List[Dict[str, Any]]:
+def _semantic_search(query: str, max_results: int) -> List[Dict[str, Any]]:
+    """Perform semantic search on the knowledge base using keyword matching and scoring."""
     query_lower = query.lower()
     scored_docs = []
     
-    for doc in self.knowledge_base:
+    for doc in knowledge_base:  # Access global knowledge_base
         score = 0
         
         # Title and content matching
@@ -389,6 +381,20 @@ def _semantic_search(self, query: str, max_results: int) -> List[Dict[str, Any]]
     # Sort by relevance score
     scored_docs.sort(key=lambda x: x[0], reverse=True)
     return [doc for score, doc in scored_docs[:max_results]]
+
+def _format_retrieved_docs(docs: List[Dict[str, Any]], query: str) -> str:
+    """Format retrieved documents for presentation."""
+    if not docs:
+        return "No relevant documents found."
+    
+    formatted_sections = []
+    for i, doc in enumerate(docs, 1):
+        section = f"**{i}. {doc['title']}**\n{doc['content'][:300]}..."
+        if doc['metadata']:
+            section += f"\n*Category: {doc['metadata']['category']}*"
+        formatted_sections.append(section)
+    
+    return "\n\n".join(formatted_sections)
 ```
 
 #### 4. RAG Agent Configuration
@@ -399,7 +405,7 @@ def create_litellm_rag_agent() -> Agent:
         return """You are a knowledgeable AI assistant with access to a specialized knowledge base through the LiteLLM proxy.
 
 When users ask questions, you should:
-1. Use the litellm_rag tool to search for relevant information in the knowledge base
+1. Use the litellm_rag_search tool to search for relevant information in the knowledge base
 2. Provide comprehensive answers based on the retrieved information
 3. Always cite your sources when providing information from the knowledge base
 4. Be specific and detailed in your responses
@@ -407,12 +413,10 @@ When users ask questions, you should:
 
 You have access to information about programming, machine learning, web development, data science, AI frameworks, and LiteLLM proxy configuration."""
     
-    rag_tool = LiteLLMRAGTool()
-    
     return Agent(
         name="litellm_rag_assistant",
         instructions=rag_instructions,
-        tools=[rag_tool]
+        tools=[litellm_rag_search]
     )
 ```
 
@@ -492,198 +496,502 @@ Category: ml | Level: intermediate
 ### Advanced Calculator Tool
 
 ```python
-class AdvancedCalculatorTool:
-    """Calculator with advanced mathematical functions."""
+import math
+import re
+import ast
+import operator
+
+# Safe mathematical functions registry
+SAFE_MATH_FUNCTIONS = {
+    'sin': math.sin, 'cos': math.cos, 'tan': math.tan,
+    'sqrt': math.sqrt, 'log': math.log, 'exp': math.exp,
+    'abs': abs, 'round': round, 'max': max, 'min': min,
+    'pi': math.pi, 'e': math.e
+}
+
+@function_tool
+async def advanced_calculator(expression: str, precision: int = 6, context=None) -> str:
+    """Perform advanced mathematical calculations including trigonometry and scientific functions.
     
-    def __init__(self):
-        self.safe_functions = {
-            'sin': math.sin, 'cos': math.cos, 'tan': math.tan,
-            'sqrt': math.sqrt, 'log': math.log, 'exp': math.exp,
-            'abs': abs, 'round': round, 'max': max, 'min': min
-        }
-    
-    @property
-    def schema(self):
-        return type('ToolSchema', (), {
-            'name': 'advanced_calculate',
-            'description': 'Perform advanced mathematical calculations including trigonometry',
-            'parameters': AdvancedCalculateArgs
-        })()
-    
-    async def execute(self, args: AdvancedCalculateArgs, context) -> ToolResponse:
+    Args:
+        expression: Mathematical expression with functions like sin(x), sqrt(x), log(x)
+        precision: Number of decimal places for result formatting (default: 6)
+    """
+    try:
+        # Input validation
+        if not expression or len(expression.strip()) == 0:
+            return "Error: Expression cannot be empty"
+        
+        if len(expression) > 500:
+            return f"Error: Expression too long (max 500 characters, got {len(expression)})"
+        
+        # Security validation - only allow safe mathematical characters and functions
+        allowed_pattern = r'^[0-9+\-*/().a-z_\s]+$'
+        if not re.match(allowed_pattern, expression.lower()):
+            return "Error: Expression contains invalid characters. Only numbers, operators, parentheses, and mathematical functions are allowed."
+        
+        # Parse expression safely using AST
         try:
-            # Parse and validate expression
-            parsed_expr = self._parse_expression(args.expression)
-            
-            # Evaluate with safe functions
-            result = self._safe_evaluate(parsed_expr)
-            
-            # Format result based on precision
-            if args.precision:
-                result = round(result, args.precision)
-            
-            return ToolResponse.success(
-                f"{args.expression} = {result}",
-                {
-                    'expression': args.expression,
-                    'result': result,
-                    'precision': args.precision,
-                    'functions_used': self._extract_functions(parsed_expr)
-                }
-            )
-            
-        except Exception as e:
-            return ToolResponse.error(
-                ToolErrorCodes.EXECUTION_FAILED,
-                f"Advanced calculation failed: {str(e)}"
-            )
+            tree = ast.parse(expression, mode='eval')
+            result = _safe_eval_advanced(tree.body, precision)
+        except SyntaxError:
+            return f"Error: Invalid mathematical syntax in expression: {expression}"
+        except ValueError as e:
+            return f"Error: {str(e)}"
+        
+        # Format result with specified precision
+        if isinstance(result, float):
+            result = round(result, precision)
+            # Remove trailing zeros for cleaner display
+            if result == int(result):
+                result = int(result)
+        
+        # Extract used functions for informational purposes
+        used_functions = _extract_functions_from_expression(expression)
+        function_info = f" (using: {', '.join(used_functions)})" if used_functions else ""
+        
+        return f"Result: {expression} = {result}{function_info}"
+        
+    except Exception as e:
+        return f"Error: Advanced calculation failed: {str(e)}"
+
+def _safe_eval_advanced(node, precision: int):
+    """Safely evaluate AST node with advanced mathematical functions."""
+    safe_operators = {
+        ast.Add: operator.add,
+        ast.Sub: operator.sub,
+        ast.Mult: operator.mul,
+        ast.Div: operator.truediv,
+        ast.Pow: operator.pow,
+        ast.USub: operator.neg,
+        ast.UAdd: operator.pos,
+    }
     
-    def _parse_expression(self, expression: str) -> str:
-        """Parse and validate mathematical expression."""
-        # Remove spaces and validate characters
-        expr = expression.replace(' ', '')
-        
-        # Allow mathematical operators, numbers, and safe functions
-        allowed_pattern = r'^[0-9+\-*/().a-z_]+$'
-        if not re.match(allowed_pattern, expr):
-            raise ValueError("Expression contains invalid characters")
-        
-        # Replace function names with safe implementations
-        for func_name in self.safe_functions:
-            expr = expr.replace(func_name, f'self.safe_functions["{func_name}"]')
-        
-        return expr
+    if isinstance(node, ast.Constant):
+        return node.value
+    elif isinstance(node, ast.Num):  # Python < 3.8 compatibility
+        return node.n
+    elif isinstance(node, ast.Name):
+        # Handle mathematical constants
+        if node.id in SAFE_MATH_FUNCTIONS:
+            return SAFE_MATH_FUNCTIONS[node.id]
+        else:
+            raise ValueError(f"Undefined variable: {node.id}")
+    elif isinstance(node, ast.BinOp):
+        if type(node.op) not in safe_operators:
+            raise ValueError(f"Unsupported operation: {type(node.op).__name__}")
+        left = _safe_eval_advanced(node.left, precision)
+        right = _safe_eval_advanced(node.right, precision)
+        return safe_operators[type(node.op)](left, right)
+    elif isinstance(node, ast.UnaryOp):
+        if type(node.op) not in safe_operators:
+            raise ValueError(f"Unsupported unary operation: {type(node.op).__name__}")
+        operand = _safe_eval_advanced(node.operand, precision)
+        return safe_operators[type(node.op)](operand)
+    elif isinstance(node, ast.Call):
+        # Handle function calls
+        if isinstance(node.func, ast.Name):
+            func_name = node.func.id
+            if func_name in SAFE_MATH_FUNCTIONS:
+                func = SAFE_MATH_FUNCTIONS[func_name]
+                args = [_safe_eval_advanced(arg, precision) for arg in node.args]
+                try:
+                    return func(*args)
+                except Exception as e:
+                    raise ValueError(f"Error in function {func_name}: {str(e)}")
+            else:
+                raise ValueError(f"Unknown function: {func_name}")
+        else:
+            raise ValueError("Complex function calls not supported")
+    else:
+        raise ValueError(f"Unsupported AST node type: {type(node).__name__}")
+
+def _extract_functions_from_expression(expression: str) -> list:
+    """Extract mathematical function names from expression."""
+    functions_used = []
+    for func_name in SAFE_MATH_FUNCTIONS:
+        if isinstance(SAFE_MATH_FUNCTIONS[func_name], type(math.sin)):  # Callable functions only
+            if func_name + '(' in expression:
+                functions_used.append(func_name)
+    return functions_used
 ```
 
 ### Database Query Tool
 
 ```python
-class DatabaseQueryTool:
-    """Safe database query tool with prepared statements."""
+import asyncpg
+from typing import Dict, List, Any, Optional
+
+# Global configuration for database security
+ALLOWED_TABLES = {'users', 'products', 'orders', 'analytics'}
+ALLOWED_COLUMNS = {
+    'users': ['id', 'name', 'email', 'created_at'],
+    'products': ['id', 'name', 'price', 'category'],
+    'orders': ['id', 'user_id', 'product_id', 'quantity', 'total'],
+    'analytics': ['id', 'metric_name', 'value', 'timestamp']
+}
+
+@function_tool
+async def database_query(
+    table: str,
+    columns: str = "*",
+    where_clause: str = "",
+    limit: int = 100,
+    context=None
+) -> str:
+    """Execute safe database queries with prepared statements and access control.
     
-    def __init__(self, connection_pool):
-        self.pool = connection_pool
-        self.allowed_tables = {'users', 'products', 'orders', 'analytics'}
-        self.allowed_columns = {
-            'users': ['id', 'name', 'email', 'created_at'],
-            'products': ['id', 'name', 'price', 'category'],
-            'orders': ['id', 'user_id', 'product_id', 'quantity', 'total']
-        }
-    
-    async def execute(self, args: DatabaseQueryArgs, context) -> ToolResponse:
-        # Validate permissions
+    Args:
+        table: Table name to query (must be in allowed list)
+        columns: Comma-separated column names or "*" for all (default: "*")
+        where_clause: SQL WHERE conditions using safe syntax (optional)
+        limit: Maximum number of rows to return (default: 100, max: 1000)
+    """
+    try:
+        # Permission validation
+        if not context or not hasattr(context, 'permissions'):
+            return "Error: Context with permissions required"
+        
         if 'database_read' not in context.permissions:
-            return ToolResponse.error(
-                ToolErrorCodes.PERMISSION_DENIED,
-                "Database read permission required"
-            )
+            return "Error: Database read permission required"
         
-        # Validate table access
-        if args.table not in self.allowed_tables:
-            return ToolResponse.validation_error(
-                f"Table '{args.table}' not accessible",
-                {'allowed_tables': list(self.allowed_tables)}
-            )
+        # Table validation
+        if table not in ALLOWED_TABLES:
+            available_tables = ', '.join(sorted(ALLOWED_TABLES))
+            return f"Error: Table '{table}' not accessible. Available tables: {available_tables}"
         
-        try:
-            async with self.pool.acquire() as conn:
-                # Build safe parameterized query
-                query, params = self._build_safe_query(args)
+        # Limit validation
+        if limit > 1000:
+            return "Error: Limit cannot exceed 1000 rows"
+        if limit < 1:
+            return "Error: Limit must be at least 1"
+        
+        # Column validation
+        if columns != "*":
+            requested_columns = [col.strip() for col in columns.split(',')]
+            allowed_for_table = ALLOWED_COLUMNS.get(table, [])
+            invalid_columns = [col for col in requested_columns if col not in allowed_for_table]
+            if invalid_columns:
+                available_cols = ', '.join(sorted(allowed_for_table))
+                return f"Error: Invalid columns {invalid_columns} for table '{table}'. Available: {available_cols}"
+            columns_sql = ', '.join(requested_columns)
+        else:
+            columns_sql = ', '.join(ALLOWED_COLUMNS.get(table, ['*']))
+        
+        # Build safe query with parameterized statements
+        query_parts = [f"SELECT {columns_sql} FROM {table}"]
+        params = []
+        
+        if where_clause:
+            # Basic WHERE clause validation (prevent SQL injection)
+            if _validate_where_clause(where_clause):
+                query_parts.append(f"WHERE {where_clause}")
+            else:
+                return "Error: Invalid WHERE clause. Use simple conditions like 'column = value' or 'column > value'"
+        
+        query_parts.append(f"LIMIT ${len(params) + 1}")
+        params.append(limit)
+        
+        final_query = ' '.join(query_parts)
+        
+        # Get database connection (in real implementation, this would come from context)
+        connection_pool = getattr(context, 'db_pool', None)
+        if not connection_pool:
+            return "Error: Database connection not available in context"
+        
+        # Execute query safely
+        async with connection_pool.acquire() as conn:
+            rows = await conn.fetch(final_query, *params)
+            results = [dict(row) for row in rows]
+            
+            # Format response
+            if not results:
+                return f"No records found in table '{table}'"
+            
+            # Create formatted response
+            response_lines = [
+                f"Database Query Results:",
+                f"Table: {table}",
+                f"Columns: {columns}",
+                f"Records found: {len(results)}",
+                f"Limit applied: {limit}",
+                ""
+            ]
+            
+            # Add sample of results (first 5 rows)
+            if results:
+                response_lines.append("Sample Results:")
+                for i, row in enumerate(results[:5], 1):
+                    row_str = ', '.join([f"{k}: {v}" for k, v in row.items()])
+                    response_lines.append(f"  {i}. {row_str}")
                 
-                # Execute query
-                rows = await conn.fetch(query, *params)
-                results = [dict(row) for row in rows]
-                
-                return ToolResponse.success(
-                    f"Found {len(results)} records from {args.table}",
-                    {
-                        'table': args.table,
-                        'count': len(results),
-                        'results': results[:args.limit],  # Respect limit
-                        'query_info': {
-                            'filters': args.filters,
-                            'limit': args.limit
-                        }
-                    }
-                )
-                
-        except Exception as e:
-            return ToolResponse.error(
-                ToolErrorCodes.EXECUTION_FAILED,
-                f"Database query failed: {str(e)}"
-            )
+                if len(results) > 5:
+                    response_lines.append(f"  ... and {len(results) - 5} more records")
+            
+            return '\n'.join(response_lines)
+            
+    except asyncpg.PostgresError as e:
+        return f"Error: Database error: {str(e)}"
+    except Exception as e:
+        return f"Error: Query execution failed: {str(e)}"
+
+def _validate_where_clause(where_clause: str) -> bool:
+    """Validate WHERE clause for basic SQL injection protection."""
+    if not where_clause:
+        return True
+    
+    # Convert to lowercase for analysis
+    clause_lower = where_clause.lower()
+    
+    # Block dangerous SQL keywords
+    dangerous_keywords = [
+        'drop', 'delete', 'insert', 'update', 'create', 'alter',
+        'exec', 'execute', 'union', 'select', 'script', '--', ';'
+    ]
+    
+    for keyword in dangerous_keywords:
+        if keyword in clause_lower:
+            return False
+    
+    # Only allow basic comparison operators and logical operators
+    allowed_operators = ['=', '>', '<', '>=', '<=', '!=', 'and', 'or', 'like', 'in', 'between']
+    
+    # Simple validation - this is basic and should be enhanced for production
+    # In production, use proper SQL parsing or ORM query builders
+    return True
+
+# Usage example for creating database-enabled agent
+def create_database_agent(db_pool) -> Agent:
+    """Create an agent with database query capabilities."""
+    def instructions(state):
+        return """You are a data analyst assistant with access to a company database.
+        
+You can query the following tables:
+- users: Customer information (id, name, email, created_at)
+- products: Product catalog (id, name, price, category)  
+- orders: Order history (id, user_id, product_id, quantity, total)
+- analytics: Business metrics (id, metric_name, value, timestamp)
+
+Always use the database_query tool to retrieve information. Be specific about which columns you need and apply appropriate filters and limits."""
+    
+    return Agent(
+        name="DatabaseAnalyst",
+        instructions=instructions,
+        tools=[database_query]
+    )
 ```
 
 ### HTTP API Tool
 
 ```python
-class APIClientTool:
-    """Tool for making HTTP API requests with rate limiting."""
+import httpx
+import time
+from urllib.parse import urlparse
+from collections import defaultdict
+from typing import Dict, List, Optional, Any
+
+# Global configuration for API security
+ALLOWED_DOMAINS = [
+    'api.github.com',
+    'jsonplaceholder.typicode.com',
+    'httpbin.org',
+    'api.openweathermap.org'
+]
+
+# Simple rate limiter implementation
+class SimpleRateLimiter:
+    def __init__(self, max_requests: int = 10, time_window: int = 60):
+        self.max_requests = max_requests
+        self.time_window = time_window
+        self.requests = defaultdict(list)
     
-    def __init__(self, rate_limiter=None):
-        self.rate_limiter = rate_limiter or TokenBucket(rate=10, capacity=50)
-        self.session = httpx.AsyncClient(timeout=30.0)
+    def is_allowed(self, identifier: str = "default") -> bool:
+        now = time.time()
+        # Clean old requests
+        cutoff = now - self.time_window
+        self.requests[identifier] = [req_time for req_time in self.requests[identifier] if req_time > cutoff]
+        
+        # Check if under limit
+        if len(self.requests[identifier]) >= self.max_requests:
+            return False
+        
+        # Record this request
+        self.requests[identifier].append(now)
+        return True
+
+# Global rate limiter instance
+_rate_limiter = SimpleRateLimiter(max_requests=10, time_window=60)
+
+@function_tool
+async def http_api_request(
+    url: str,
+    method: str = "GET",
+    headers: Optional[str] = None,
+    data: Optional[str] = None,
+    timeout: int = 30,
+    context=None
+) -> str:
+    """Make HTTP API requests with security controls and rate limiting.
     
-    async def execute(self, args: APIRequestArgs, context) -> ToolResponse:
-        # Check rate limit
-        if not self.rate_limiter.consume():
-            return ToolResponse.error(
-                ToolErrorCodes.RATE_LIMITED,
-                "API rate limit exceeded",
-                {'retry_after': 60}
-            )
+    Args:
+        url: Target URL (must be from allowed domains)
+        method: HTTP method (GET, POST, PUT, DELETE)
+        headers: JSON string of headers (optional)
+        data: JSON string of request body data (optional)
+        timeout: Request timeout in seconds (default: 30, max: 60)
+    """
+    try:
+        # Input validation
+        if not url or not url.startswith(('http://', 'https://')):
+            return "Error: Invalid URL. Must start with http:// or https://"
         
-        # Validate URL
-        if not self._is_allowed_url(args.url):
-            return ToolResponse.validation_error(
-                "URL not in allowed list",
-                {'allowed_domains': self.allowed_domains}
-            )
+        # Rate limiting
+        user_id = getattr(context, 'user_id', 'anonymous') if context else 'anonymous'
+        if not _rate_limiter.is_allowed(user_id):
+            return "Error: Rate limit exceeded. Please wait before making another request."
         
-        try:
-            # Prepare request
+        # Domain validation
+        parsed_url = urlparse(url)
+        if parsed_url.hostname not in ALLOWED_DOMAINS:
+            allowed_list = ', '.join(ALLOWED_DOMAINS)
+            return f"Error: Domain '{parsed_url.hostname}' not in allowed list. Allowed domains: {allowed_list}"
+        
+        # Method validation
+        allowed_methods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH']
+        method = method.upper()
+        if method not in allowed_methods:
+            return f"Error: HTTP method '{method}' not allowed. Use: {', '.join(allowed_methods)}"
+        
+        # Timeout validation
+        if timeout > 60:
+            timeout = 60
+        if timeout < 1:
+            timeout = 1
+        
+        # Parse headers
+        parsed_headers = {}
+        if headers:
+            try:
+                import json
+                parsed_headers = json.loads(headers)
+                if not isinstance(parsed_headers, dict):
+                    return "Error: Headers must be a JSON object"
+            except json.JSONDecodeError:
+                return "Error: Invalid JSON format for headers"
+        
+        # Parse data
+        parsed_data = None
+        if data:
+            try:
+                import json
+                parsed_data = json.loads(data)
+            except json.JSONDecodeError:
+                return "Error: Invalid JSON format for request data"
+        
+        # Add default headers
+        final_headers = {
+            'User-Agent': 'JAF-HTTP-Tool/1.0',
+            **parsed_headers
+        }
+        
+        # Make HTTP request
+        async with httpx.AsyncClient(timeout=timeout) as client:
             request_kwargs = {
-                'method': args.method,
-                'url': args.url,
-                'headers': args.headers or {},
-                'timeout': args.timeout or 30.0
+                'method': method,
+                'url': url,
+                'headers': final_headers
             }
             
-            if args.data:
-                request_kwargs['json'] = args.data
+            if parsed_data and method in ['POST', 'PUT', 'PATCH']:
+                request_kwargs['json'] = parsed_data
             
-            # Make request
-            response = await self.session.request(**request_kwargs)
+            response = await client.request(**request_kwargs)
             
             # Process response
-            result_data = {
-                'status_code': response.status_code,
-                'headers': dict(response.headers),
-                'url': str(response.url)
-            }
+            response_info = [
+                f"HTTP {method} Request to {url}",
+                f"Status: {response.status_code} {response.reason_phrase}",
+                f"Response Time: {response.elapsed.total_seconds():.2f}s" if hasattr(response, 'elapsed') else "",
+                ""
+            ]
             
-            # Parse response body
-            content_type = response.headers.get('content-type', '')
+            # Add response headers (filtered)
+            important_headers = ['content-type', 'content-length', 'server', 'date']
+            response_info.append("Response Headers:")
+            for header in important_headers:
+                if header in response.headers:
+                    response_info.append(f"  {header}: {response.headers[header]}")
+            response_info.append("")
+            
+            # Process response body
+            content_type = response.headers.get('content-type', '').lower()
+            
             if 'application/json' in content_type:
-                result_data['data'] = response.json()
+                try:
+                    json_data = response.json()
+                    # Limit JSON response size for readability
+                    json_str = str(json_data)
+                    if len(json_str) > 2000:
+                        response_info.append("JSON Response (truncated):")
+                        response_info.append(json_str[:2000] + "...")
+                    else:
+                        response_info.append("JSON Response:")
+                        response_info.append(json_str)
+                except Exception:
+                    response_info.append("Response Body (invalid JSON):")
+                    response_info.append(response.text[:1000])
+            elif 'text/' in content_type:
+                response_info.append("Text Response:")
+                text_content = response.text
+                if len(text_content) > 1500:
+                    response_info.append(text_content[:1500] + "...")
+                else:
+                    response_info.append(text_content)
             else:
-                result_data['text'] = response.text[:1000]  # Limit response size
+                response_info.append(f"Binary Response ({len(response.content)} bytes)")
+                response_info.append("Content type: " + content_type)
             
-            return ToolResponse.success(
-                f"API request completed with status {response.status_code}",
-                result_data
-            )
+            # Add status assessment
+            if 200 <= response.status_code < 300:
+                response_info.insert(1, "✅ Request successful")
+            elif 400 <= response.status_code < 500:
+                response_info.insert(1, "⚠️ Client error")
+            elif 500 <= response.status_code < 600:
+                response_info.insert(1, "❌ Server error")
             
-        except httpx.TimeoutException:
-            return ToolResponse.error(
-                ToolErrorCodes.TIMEOUT,
-                "API request timed out"
-            )
-        except Exception as e:
-            return ToolResponse.error(
-                ToolErrorCodes.EXECUTION_FAILED,
-                f"API request failed: {str(e)}"
-            )
+            return '\n'.join(response_info)
+            
+    except httpx.TimeoutException:
+        return f"Error: Request to {url} timed out after {timeout} seconds"
+    except httpx.ConnectError:
+        return f"Error: Could not connect to {url}. Check if the server is running."
+    except httpx.HTTPError as e:
+        return f"Error: HTTP error occurred: {str(e)}"
+    except Exception as e:
+        return f"Error: Request failed: {str(e)}"
+
+# Usage example for creating API-enabled agent
+def create_api_agent() -> Agent:
+    """Create an agent with HTTP API capabilities."""
+    def instructions(state):
+        return f"""You are an API integration assistant that can make HTTP requests to external services.
+        
+Available domains for API calls:
+{chr(10).join([f'- {domain}' for domain in ALLOWED_DOMAINS])}
+
+You can use GET requests to fetch data and POST/PUT requests to send data.
+Always explain what API you're calling and what data you're requesting or sending.
+
+Rate limit: 10 requests per minute per user.
+Timeout: Maximum 60 seconds per request.
+
+Use the http_api_request tool for all external API calls."""
+    
+    return Agent(
+        name="APIAssistant",
+        instructions=instructions,
+        tools=[http_api_request]
+    )
 ```
 
 ## Memory Integration Examples
