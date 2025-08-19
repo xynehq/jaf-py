@@ -97,24 +97,49 @@ python -m pytest tests/ --tb=short
 
 ### Container Deployment
 
-For containerized deployments:
+For containerized deployments, create your own Docker image:
+
+```dockerfile
+# Dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install JAF
+RUN pip install git+https://github.com/xynehq/jaf-py.git
+
+# Copy your agent code
+COPY . .
+
+# Install additional dependencies if needed
+RUN pip install -r requirements.txt
+
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV JAF_LOG_LEVEL=INFO
+
+# Expose port for server applications
+EXPOSE 8000
+
+# Run your agent
+CMD ["python", "your_agent.py"]
+```
 
 ```bash
-# Use official image
-docker pull xynehq/jaf-py:latest
+# Build and run your containerized agent
+docker build -t my-jaf-agent .
 
-# Run with configuration
 docker run -d \
   --name jaf-agent \
   -p 8000:8000 \
-  -e LITELLM_BASE_URL=http://your-llm-server:4000 \
-  -e JAF_LOG_LEVEL=INFO \
-  xynehq/jaf-py:latest
-
-# Custom build with your agents
-FROM xynehq/jaf-py:latest
-COPY your_agents/ /app/agents/
-CMD ["python", "-m", "your_agents.main"]
+  -e LITELLM_URL=http://your-llm-server:4000 \
+  -e LITELLM_API_KEY=your-api-key \
+  my-jaf-agent
 ```
 
 ## Model Provider Configuration
@@ -374,95 +399,11 @@ JAF's modern tool creation API prioritizes type safety, functional composition, 
 The object-based API leverages TypedDict configurations and functional programming principles for superior maintainability and extensibility:
 
 ```python
-from pydantic import BaseModel, Field, field_validator
-from jaf import create_function_tool, ToolSource
-from jaf import ToolResponse, ToolResult
-from typing import Union
-import re
+from jaf import function_tool
 import ast
 import operator
 
-class CalculateArgs(BaseModel):
-    """
-    Arguments for mathematical calculation tool.
-    
-    Supports basic arithmetic operations with safety validations.
-    """
-    expression: str = Field(
-        description="Mathematical expression to evaluate (e.g., '2 + 2', '(10 * 5) / 2')",
-        min_length=1,
-        max_length=200,
-        regex=r'^[0-9+\-*/.() ]+$'
-    )
-    
-    @field_validator('expression')
-    @classmethod
-    def validate_expression_safety(cls, v):
-        """Ensure expression contains only safe mathematical operations."""
-        # Remove whitespace for validation
-        cleaned = v.replace(' ', '')
-        
-        # Check for potentially dangerous patterns
-        dangerous_patterns = [
-            '__', 'import', 'exec', 'eval', 'open', 'file',
-            'input', 'raw_input', 'compile', 'globals', 'locals'
-        ]
-        
-        for pattern in dangerous_patterns:
-            if pattern in cleaned.lower():
-                raise ValueError(f"Expression contains prohibited pattern: {pattern}")
-        
-        return v
-
-async def calculate_execute(args: CalculateArgs, context: CalculatorContext) -> ToolResult[str]:
-    """
-    Execute mathematical calculation with comprehensive safety checks.
-    
-    This function implements secure expression evaluation using AST parsing
-    instead of direct eval() to prevent code injection attacks.
-    """
-    try:
-        # Permission check
-        if not context.has_permission('basic_math'):
-            return ToolResponse.permission_denied(
-                "Mathematical operations require basic_math permission",
-                required_permissions=['basic_math']
-            )
-        
-        # Parse expression safely using AST
-        try:
-            tree = ast.parse(args.expression, mode='eval')
-            result = _safe_eval(tree.body, context)
-        except (SyntaxError, ValueError) as e:
-            return ToolResponse.validation_error(f"Invalid mathematical expression: {str(e)}")
-        
-        # Apply context limits
-        if abs(result) > context.max_result:
-            return ToolResponse.validation_error(
-                f"Result {result} exceeds maximum allowed value ({context.max_result})"
-            )
-        
-        # Format result with context precision
-        if isinstance(result, float):
-            result = round(result, context.precision)
-        
-        return ToolResponse.success(
-            data=f"Result: {args.expression} = {result}",
-            metadata={
-                'operation_count': _count_operations(args.expression),
-                'result_type': type(result).__name__,
-                'precision_used': context.precision
-            }
-        )
-        
-    except Exception as e:
-        return ToolResponse.error(
-            code='calculation_error',
-            message=f"Failed to evaluate expression: {str(e)}",
-            details={'expression': args.expression, 'error_type': type(e).__name__}
-        )
-
-def _safe_eval(node, context: CalculatorContext):
+def _safe_eval(node, context):
     """Safely evaluate AST node with limited operations."""
     safe_operators = {
         ast.Add: operator.add,
@@ -491,74 +432,104 @@ def _safe_eval(node, context: CalculatorContext):
     else:
         raise ValueError(f"Unsupported AST node type: {type(node).__name__}")
 
-def _count_operations(expression: str) -> int:
-    """Count the number of mathematical operations in expression."""
-    operators = ['+', '-', '*', '/']
-    return sum(expression.count(op) for op in operators)
-
-# Create tool with comprehensive object-based configuration
-calculator_tool = create_function_tool({
-    'name': 'calculate',
-    'description': 'Safely evaluate mathematical expressions using AST parsing',
-    'execute': calculate_execute,
-    'parameters': CalculateArgs,
-    'metadata': {
-        'category': 'mathematical_operations',
-        'safety_level': 'high',
-        'supported_operations': ['addition', 'subtraction', 'multiplication', 'division'],
-        'security_features': ['ast_parsing', 'operation_whitelisting', 'result_validation'],
-        'version': '1.0.0'
-    },
-    'source': ToolSource.NATIVE
-})
+@function_tool
+async def calculate(expression: str, context: 'CalculatorContext') -> str:
+    """Safely evaluate mathematical expressions using AST parsing.
+    
+    This function implements secure expression evaluation using AST parsing
+    instead of direct eval() to prevent code injection attacks.
+    
+    Args:
+        expression: Mathematical expression to evaluate (e.g., '2 + 2', '(10 * 5) / 2')
+    """
+    try:
+        # Input validation
+        if not expression or len(expression.strip()) == 0:
+            return "Error: Expression cannot be empty"
+        
+        if len(expression) > 200:
+            return "Error: Expression too long (max 200 characters)"
+        
+        # Check for potentially dangerous patterns
+        dangerous_patterns = [
+            '__', 'import', 'exec', 'eval', 'open', 'file',
+            'input', 'raw_input', 'compile', 'globals', 'locals'
+        ]
+        
+        cleaned = expression.replace(' ', '')
+        for pattern in dangerous_patterns:
+            if pattern in cleaned.lower():
+                return f"Error: Expression contains prohibited pattern: {pattern}"
+        
+        # Only allow safe mathematical characters
+        allowed_chars = set('0123456789+-*/.() ')
+        if not all(c in allowed_chars for c in expression):
+            return "Error: Expression contains invalid characters"
+        
+        # Permission check
+        if not context.has_permission('basic_math'):
+            return "Error: Mathematical operations require basic_math permission"
+        
+        # Parse expression safely using AST
+        try:
+            tree = ast.parse(expression, mode='eval')
+            result = _safe_eval(tree.body, context)
+        except (SyntaxError, ValueError) as e:
+            return f"Error: Invalid mathematical expression: {str(e)}"
+        
+        # Apply context limits
+        if abs(result) > context.max_result:
+            return f"Error: Result {result} exceeds maximum allowed value ({context.max_result})"
+        
+        # Format result with context precision
+        if isinstance(result, float):
+            result = round(result, context.precision)
+        
+        return f"Result: {expression} = {result}"
+        
+    except Exception as e:
+        return f"Error: Failed to evaluate expression: {str(e)}"
 ```
 
 #### Class-Based API (Legacy Support)
 
-While the object-based API is recommended for new development, JAF maintains full backward compatibility with the traditional class-based approach:
+While the modern `@function_tool` decorator is recommended for new development, JAF maintains full backward compatibility with the traditional class-based approach for existing codebases:
 
-    ```python
-    from pydantic import BaseModel, Field
-    from jaf import ToolResponse
+```python
+from jaf import function_tool
 
-    class CalculateArgs(BaseModel):
-        """Arguments for the calculate tool."""
-        expression: str = Field(description="Mathematical expression to evaluate (e.g., '2 + 2', '10 * 5')")
-
-    class CalculatorTool:
-        """A safe calculator tool with validation."""
-        
-        @property
-        def schema(self):
-            """Tool schema for LLM integration."""
-            return type('ToolSchema', (), {
-                'name': 'calculate',
-                'description': 'Safely evaluate mathematical expressions',
-                'parameters': CalculateArgs
-            })()
-        
-        async def execute(self, args: CalculateArgs, context: CalculatorContext) -> str:
-            """Execute the calculation with safety checks."""
-            try:
-                # Simple whitelist validation
-                allowed_chars = set('0123456789+-*/.() ')
-                if not all(char in allowed_chars for char in args.expression):
-                    return ToolResponse.validation_error("Expression contains invalid characters")
-                
-                # Evaluate safely (in production, use a proper math parser)
-                result = eval(args.expression)
-                
-                # Check context limits
-                if abs(result) > context.max_result:
-                    return ToolResponse.validation_error(f"Result {result} exceeds maximum allowed value")
-                
-                return ToolResponse.success(f"Result: {args.expression} = {result}")
-                
-            except Exception as e:
-                return ToolResponse.error(f"Calculation error: {str(e)}")
+@function_tool
+async def calculate_legacy(expression: str, context: 'CalculatorContext') -> str:
+    """Execute calculation with safety checks (legacy API pattern).
     
-    calculator_tool = CalculatorTool()
-    ```
+    This demonstrates the same functionality using the modern decorator
+    while maintaining backward compatibility for existing systems.
+    
+    Args:
+        expression: Mathematical expression to evaluate (e.g., '2 + 2', '10 * 5')
+    """
+    try:
+        # Simple whitelist validation
+        allowed_chars = set('0123456789+-*/.() ')
+        if not all(char in allowed_chars for char in expression):
+            return "Error: Expression contains invalid characters"
+        
+        # Check context limits (demonstration of context usage)
+        if not context.can_perform_operation('multiply') and '*' in expression:
+            return "Error: Multiplication not allowed in current context"
+        
+        # Evaluate safely (in production, use a proper math parser)
+        result = eval(expression)
+        
+        # Check context limits
+        if abs(result) > context.max_result:
+            return f"Error: Result {result} exceeds maximum allowed value"
+        
+        return f"Result: {expression} = {result}"
+        
+    except Exception as e:
+        return f"Error: Calculation error: {str(e)}"
+```
 
 **Key Advantages of Object-Based API:**
 
@@ -573,7 +544,7 @@ While the object-based API is recommended for new development, JAF maintains ful
 ```python
 from jaf import Agent
 
-def create_calculator_agent() -> Agent[CalculatorContext]:
+def create_calculator_agent() -> Agent:
     """Create a calculator agent with mathematical capabilities."""
     
     def instructions(state):
@@ -597,7 +568,7 @@ Rules:
     return Agent(
         name='Calculator',
         instructions=instructions,
-        tools=[calculator_tool]
+        tools=[calculate]
     )
 ```
 
@@ -605,8 +576,7 @@ Rules:
 
 ```python
 import asyncio
-from adk.runners import run_agent
-from jaf import make_litellm_provider
+from jaf import run, make_litellm_provider
 from jaf import RunState, RunConfig, Message, generate_run_id, generate_trace_id
 
 async def main():
@@ -637,6 +607,7 @@ async def main():
         current_agent_name='Calculator',
         context=CalculatorContext(
             user_id='demo_user',
+            session_id='demo_session',
             allowed_operations=['add', 'subtract', 'multiply', 'divide']
         ),
         turn_count=0,
@@ -644,7 +615,7 @@ async def main():
     
     # Run the agent
     print("🤖 Running Calculator Agent...")
-    result = await run_agent(initial_state, config)
+    result = await run(initial_state, config)
     
     # Handle the result
     if result.outcome.status == 'completed':
@@ -715,11 +686,15 @@ async def interactive_calculator():
             trace_id=generate_trace_id(),
             messages=[Message(role='user', content=user_input)],
             current_agent_name='Calculator',
-            context=CalculatorContext(user_id='interactive_user', allowed_operations=['*']),
+            context=CalculatorContext(
+                user_id='interactive_user', 
+                session_id='interactive_session',
+                allowed_operations=['add', 'subtract', 'multiply', 'divide']
+            ),
             turn_count=0,
         )
         
-        result = await run_agent(state, config)
+        result = await run(state, config)
         
         if result.outcome.status == 'completed':
             print(f"Agent: {result.outcome.output}\n")
