@@ -172,27 +172,54 @@ MemoryProviderConfig = Union[InMemoryConfig, RedisConfig, PostgresConfig]
 
 # Functional error types for memory providers
 
-@dataclass(frozen=True, kw_only=True)
 class MemoryError:
     """Base class for memory-related errors."""
-    message: str
-    provider: str
-    cause: Optional[Exception] = None
+    def __init__(self, message: str, provider: str, cause: Optional[Exception] = None):
+        self.message = message
+        self.provider = provider
+        self.cause = cause
 
-@dataclass(frozen=True, kw_only=True)
+    def __eq__(self, other):
+        if not isinstance(other, MemoryError):
+            return False
+        return (self.message == other.message and 
+                self.provider == other.provider and 
+                self.cause == other.cause)
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(message={self.message!r}, provider={self.provider!r}, cause={self.cause!r})"
+
 class MemoryConnectionError(MemoryError):
     """Error for connection failures."""
     pass
 
-@dataclass(frozen=True, kw_only=True)
 class MemoryNotFoundError(MemoryError):
     """Error when a conversation is not found."""
-    conversation_id: str
+    def __init__(self, message: str, provider: str, conversation_id: str, cause: Optional[Exception] = None):
+        super().__init__(message, provider, cause)
+        self.conversation_id = conversation_id
 
-@dataclass(frozen=True, kw_only=True)
+    def __eq__(self, other):
+        if not isinstance(other, MemoryNotFoundError):
+            return False
+        return super().__eq__(other) and self.conversation_id == other.conversation_id
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(message={self.message!r}, provider={self.provider!r}, conversation_id={self.conversation_id!r}, cause={self.cause!r})"
+
 class MemoryStorageError(MemoryError):
     """Error for storage operation failures."""
-    operation: str
+    def __init__(self, message: str, provider: str, operation: str, cause: Optional[Exception] = None):
+        super().__init__(message, provider, cause)
+        self.operation = operation
+
+    def __eq__(self, other):
+        if not isinstance(other, MemoryStorageError):
+            return False
+        return super().__eq__(other) and self.operation == other.operation
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(message={self.message!r}, provider={self.provider!r}, operation={self.operation!r}, cause={self.cause!r})"
 
 # Union of all possible memory errors
 MemoryErrorUnion = Union[MemoryConnectionError, MemoryNotFoundError, MemoryStorageError]

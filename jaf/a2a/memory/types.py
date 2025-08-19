@@ -177,24 +177,45 @@ A2ATaskProviderConfig = Union[A2AInMemoryTaskConfig, A2ARedisTaskConfig, A2APost
 
 # Error types specific to A2A task storage
 
-@dataclass(frozen=True, kw_only=True)
 class A2ATaskError:
     """Base class for A2A task-related errors"""
-    message: str
-    code: str
-    provider: str
-    task_id: Optional[str] = None
-    cause: Optional[Exception] = None
+    def __init__(self, message: str, code: str, provider: str, task_id: Optional[str] = None, cause: Optional[Exception] = None):
+        self.message = message
+        self.code = code
+        self.provider = provider
+        self.task_id = task_id
+        self.cause = cause
 
-@dataclass(frozen=True, kw_only=True)
+    def __eq__(self, other):
+        if not isinstance(other, A2ATaskError):
+            return False
+        return (self.message == other.message and 
+                self.code == other.code and
+                self.provider == other.provider and
+                self.task_id == other.task_id and
+                self.cause == other.cause)
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(message={self.message!r}, code={self.code!r}, provider={self.provider!r}, task_id={self.task_id!r}, cause={self.cause!r})"
+
 class A2ATaskNotFoundError(A2ATaskError):
     """Error when an A2A task is not found"""
-    task_id: str
+    def __init__(self, message: str, code: str, provider: str, task_id: str, cause: Optional[Exception] = None):
+        super().__init__(message, code, provider, task_id, cause)
 
-@dataclass(frozen=True, kw_only=True)
 class A2ATaskStorageError(A2ATaskError):
     """Error for A2A task storage operation failures"""
-    operation: str
+    def __init__(self, message: str, code: str, provider: str, operation: str, task_id: Optional[str] = None, cause: Optional[Exception] = None):
+        super().__init__(message, code, provider, task_id, cause)
+        self.operation = operation
+
+    def __eq__(self, other):
+        if not isinstance(other, A2ATaskStorageError):
+            return False
+        return super().__eq__(other) and self.operation == other.operation
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(message={self.message!r}, code={self.code!r}, provider={self.provider!r}, operation={self.operation!r}, task_id={self.task_id!r}, cause={self.cause!r})"
 
 # Union of all possible A2A task errors
 A2ATaskErrorUnion = Union[A2ATaskError, A2ATaskNotFoundError, A2ATaskStorageError]
