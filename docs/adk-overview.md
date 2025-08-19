@@ -29,11 +29,27 @@ session.messages.append(message)  #  Not thread-safe
 ```python
 # New approach - secure evaluation
 from adk.utils.safe_evaluator import safe_calculate
-result = safe_calculate(user_input)  #  AST-based, secure
+result = safe_calculate(user_input)  # AST-based, secure
 
-# New approach - immutable operations
+# New approach - immutable operations  
 from adk.types import create_immutable_session
-new_session = session.with_message(message)  #  Thread-safe
+new_session = session.with_message(message)  # Thread-safe
+
+# Modern tool creation with @function_tool
+from jaf import function_tool
+
+@function_tool
+async def secure_calculator(expression: str, context=None) -> str:
+    """Secure calculator using ADK safe evaluation.
+    
+    Args:
+        expression: Mathematical expression to evaluate safely
+    """
+    result = safe_calculate(expression)
+    if result['success']:
+        return f"Result: {expression} = {result['result']}"
+    else:
+        return f"Error: {result['error']}"
 ```
 
 ##  Core ADK Components
@@ -55,13 +71,40 @@ else:
     log_security_violation(result.detected_issues)
 ```
 
-**Safe Math Evaluation**
+**Safe Math Evaluation with Function Tools**
 ```python
-from adk.utils.safe_evaluator import SafeMathEvaluator
+from adk.utils.safe_evaluator import safe_calculate
+from jaf import function_tool
 
-evaluator = SafeMathEvaluator()
-result = evaluator.safe_eval("2 + 3 * 4")  # Returns 14
-# Blocks dangerous code like "import os" automatically
+@function_tool
+async def advanced_calculator(
+    expression: str, 
+    precision: int = 2,
+    context=None
+) -> str:
+    """Advanced calculator with configurable precision.
+    
+    Args:
+        expression: Mathematical expression to evaluate safely
+        precision: Number of decimal places for results (0-10)
+    """
+    # Validate precision
+    if not (0 <= precision <= 10):
+        return "Error: Precision must be between 0 and 10"
+    
+    # Use ADK safe evaluation
+    result = safe_calculate(expression)
+    
+    if result['success']:
+        value = result['result']
+        if isinstance(value, float):
+            value = round(value, precision)
+        return f"Result: {expression} = {value}"
+    else:
+        return f"Error: {result['error']}"
+
+# Usage example
+# result = await advanced_calculator("2 + 3 * 4", 2)  # Returns "Result: 2 + 3 * 4 = 14"
 ```
 
 ### 2. Immutable Session Management
@@ -86,13 +129,46 @@ assert len(session.messages) == 0
 assert len(session_with_message.messages) == 1
 ```
 
-**Pure Function Operations**
+**Pure Function Operations with Tools**
 ```python
-from adk.types import add_message_to_session, get_recent_messages
+from adk.types import add_message_to_session, get_recent_messages, create_assistant_message
+from jaf import function_tool
 
-# Pure functions - no side effects
-new_session = add_message_to_session(session, message)
-recent = get_recent_messages(session, count=5)
+@function_tool
+async def session_analytics(
+    operation: str,
+    count: int = 5,
+    context=None
+) -> str:
+    """Analyze session data using immutable operations.
+    
+    Args:
+        operation: Type of analysis ('recent', 'summary', 'stats')
+        count: Number of recent messages to analyze
+    """
+    # Access session from context (ADK pattern)
+    session = getattr(context, 'session', None)
+    if not session:
+        return "Error: No session data available"
+    
+    if operation == "recent":
+        # Pure function - no side effects
+        recent = get_recent_messages(session, count=count)
+        return f"Recent {count} messages: {len(recent)} found"
+    
+    elif operation == "summary":
+        messages = session.messages
+        user_msgs = [m for m in messages if m.role == 'user']
+        assistant_msgs = [m for m in messages if m.role == 'assistant']
+        return f"Session summary: {len(user_msgs)} user, {len(assistant_msgs)} assistant messages"
+    
+    elif operation == "stats":
+        total_length = sum(len(m.content) for m in session.messages)
+        avg_length = total_length / len(session.messages) if session.messages else 0
+        return f"Stats: {len(session.messages)} total messages, avg length: {avg_length:.1f} chars"
+    
+    else:
+        return f"Error: Unknown operation '{operation}'. Use: recent, summary, stats"
 
 # Thread-safe by design - immutable data structures
 ```
@@ -116,9 +192,10 @@ postgres_provider = create_postgres_session_provider({
 })
 ```
 
-**LLM Service Integration**
+**LLM Service Integration with Tools**
 ```python
 from adk.llm import create_openai_llm_service, create_anthropic_llm_service
+from jaf import function_tool
 
 # Multi-provider support
 openai_service = create_openai_llm_service({
@@ -130,18 +207,49 @@ anthropic_service = create_anthropic_llm_service({
     "api_key": "your-anthropic-key", 
     "model": "claude-3-sonnet"
 })
+
+@function_tool
+async def intelligent_routing(
+    query: str,
+    complexity: str = "auto",
+    context=None
+) -> str:
+    """Route queries to appropriate LLM based on complexity and cost.
+    
+    Args:
+        query: User query to process
+        complexity: Query complexity ('simple', 'complex', 'auto')
+    """
+    # Auto-detect complexity if not specified
+    if complexity == "auto":
+        word_count = len(query.split())
+        has_code = 'def ' in query or 'class ' in query or 'import ' in query
+        complexity = "complex" if word_count > 50 or has_code else "simple"
+    
+    # Route to appropriate service
+    if complexity == "simple":
+        # Use faster, cheaper model for simple queries
+        service = anthropic_service  # Claude Haiku for speed
+        response = await service.complete(query, model="claude-3-haiku")
+        return f"Quick response: {response['content']}"
+    else:
+        # Use more powerful model for complex queries
+        service = openai_service  # GPT-4 for complex reasoning
+        response = await service.complete(query, model="gpt-4")
+        return f"Detailed response: {response['content']}"
 ```
 
 ### 4. Advanced Runner with Callback System
 
-**Comprehensive Agent Instrumentation**
+**Comprehensive Agent Instrumentation with Function Tools**
 ```python
 from adk.runners import RunnerConfig, execute_agent
+from jaf import function_tool
 
 # Create callback implementation for custom behavior
 class IterativeCallbacks:
     async def on_start(self, context, message, session_state):
-        print(f" Starting: {message.content}")
+        print(f"🚀 Starting: {message.content}")
     
     async def on_check_synthesis(self, session_state, context_data):
         if len(context_data) >= 5:
@@ -150,7 +258,51 @@ class IterativeCallbacks:
     async def on_query_rewrite(self, original_query, context_data):
         return f"Refined: {original_query} with context"
 
-# Configure advanced runner
+@function_tool
+async def adaptive_reasoning(
+    query: str,
+    complexity_level: str = "auto",
+    max_iterations: int = 5,
+    context=None
+) -> str:
+    """Adaptive reasoning tool that integrates with ADK callback system.
+    
+    Args:
+        query: Query to process with iterative reasoning
+        complexity_level: Reasoning complexity (simple, complex, auto)
+        max_iterations: Maximum reasoning iterations
+    """
+    # Auto-detect complexity based on query characteristics
+    if complexity_level == "auto":
+        word_count = len(query.split())
+        has_logic = any(term in query.lower() for term in ['if', 'then', 'because', 'therefore'])
+        complexity_level = "complex" if word_count > 30 or has_logic else "simple"
+    
+    # Use ADK callback system for iteration control
+    iteration_count = 0
+    reasoning_steps = []
+    
+    while iteration_count < max_iterations:
+        if complexity_level == "simple":
+            step = f"Step {iteration_count + 1}: Direct analysis of '{query}'"
+            reasoning_steps.append(step)
+            break
+        else:
+            step = f"Step {iteration_count + 1}: Analyzing component '{query[:50]}...' with ADK callbacks"
+            reasoning_steps.append(step)
+            iteration_count += 1
+            
+            # ADK callback integration point
+            if hasattr(context, 'iteration_callback'):
+                should_continue = await context.iteration_callback(iteration_count)
+                if not should_continue:
+                    break
+    
+    result = f"Adaptive reasoning completed in {len(reasoning_steps)} steps:\n"
+    result += "\n".join(reasoning_steps)
+    return result
+
+# Configure advanced runner with function tools
 config = RunnerConfig(
     agent=my_agent,
     callbacks=IterativeCallbacks(),
@@ -161,9 +313,64 @@ config = RunnerConfig(
 result = await execute_agent(config, session_state, message, context, model_provider)
 ```
 
-**Sophisticated Agent Patterns**
+**Sophisticated Agent Patterns with Tool Integration**
 ```python
-# ReAct-style iterative agents
+from jaf import function_tool
+
+@function_tool
+async def react_style_processor(
+    task: str,
+    max_iterations: int = 5,
+    loop_detection_threshold: int = 3,
+    context=None
+) -> str:
+    """ReAct-style iterative processing with ADK integration.
+    
+    Args:
+        task: Task to process iteratively
+        max_iterations: Maximum number of processing iterations
+        loop_detection_threshold: Number of similar actions before loop detection
+    """
+    # Track tool usage for loop detection (ADK pattern)
+    tool_history = getattr(context, 'tool_history', [])
+    current_iteration = 0
+    
+    # ReAct loop: Reason -> Act -> Observe
+    reasoning_log = []
+    
+    while current_iteration < max_iterations:
+        # Reason
+        reasoning = f"Iteration {current_iteration + 1}: Analyzing task '{task}'"
+        reasoning_log.append(f"REASON: {reasoning}")
+        
+        # Act (simulate action based on task type)
+        if "calculate" in task.lower():
+            action = "Using calculation tools"
+        elif "search" in task.lower():
+            action = "Performing search operation"
+        else:
+            action = "General task processing"
+        
+        reasoning_log.append(f"ACT: {action}")
+        
+        # Loop detection using ADK pattern
+        recent_actions = [entry for entry in reasoning_log[-6:] if entry.startswith("ACT:")]
+        if len(recent_actions) >= loop_detection_threshold:
+            if recent_actions[-1] == recent_actions[-loop_detection_threshold]:
+                reasoning_log.append("OBSERVE: Loop detected, breaking iteration")
+                break
+        
+        # Observe (determine if task is complete)
+        if current_iteration >= 2:  # Simple completion condition
+            reasoning_log.append("OBSERVE: Task processing complete")
+            break
+        
+        reasoning_log.append(f"OBSERVE: Continuing iteration {current_iteration + 1}")
+        current_iteration += 1
+    
+    return f"ReAct processing completed:\n" + "\n".join(reasoning_log)
+
+# Enable complex reasoning patterns with function tools
 class ReActCallbacks:
     async def on_iteration_start(self, iteration):
         if iteration > 5:
@@ -174,44 +381,183 @@ class ReActCallbacks:
         recent_tools = [t['tool'] for t in tool_history[-3:]]
         return recent_tools.count(current_tool) > 2
 
-# Enable complex reasoning patterns
 config = RunnerConfig(agent=research_agent, callbacks=ReActCallbacks())
 ```
 
 ### 5. Error Handling & Recovery
 
-**Circuit Breaker Pattern**
+**Circuit Breaker Pattern with Function Tools**
 ```python
-from adk.errors import create_circuit_breaker
+from adk.errors import create_circuit_breaker, CircuitBreakerError
+from jaf import function_tool
 
-# Protect against cascading failures
-circuit_breaker = create_circuit_breaker(
+# Global circuit breaker for LLM service
+llm_circuit_breaker = create_circuit_breaker(
     name="llm-service",
     failure_threshold=3,
     recovery_timeout=60
 )
 
-@circuit_breaker
-async def call_llm_service():
-    # LLM service call
-    return await llm_service.complete(prompt)
+@function_tool
+async def resilient_llm_query(
+    query: str,
+    model: str = "gpt-4",
+    fallback_model: str = "gpt-3.5-turbo",
+    context=None
+) -> str:
+    """LLM query with circuit breaker and fallback logic.
+    
+    Args:
+        query: Query to send to LLM
+        model: Primary model to use
+        fallback_model: Fallback model if primary fails
+    """
+    try:
+        # Try primary model with circuit breaker
+        @llm_circuit_breaker
+        async def call_primary_llm():
+            return await llm_service.complete(query, model=model)
+        
+        result = await call_primary_llm()
+        return f"Primary model response: {result['content']}"
+        
+    except CircuitBreakerError:
+        # Circuit breaker is open, use fallback
+        try:
+            fallback_result = await llm_service.complete(query, model=fallback_model)
+            return f"Fallback model response: {fallback_result['content']}"
+        except Exception as e:
+            return f"Error: Both primary and fallback models failed: {str(e)}"
+    
+    except Exception as e:
+        return f"Error: LLM query failed: {str(e)}"
 ```
 
-**Retry Logic**
+**Retry Logic with Exponential Backoff**
 ```python
-from adk.errors import create_retry_handler
+from adk.errors import create_retry_handler, RetryableError
+from jaf import function_tool
+import asyncio
 
-# Exponential backoff retry
-retry_handler = create_retry_handler(
-    max_attempts=3,
-    base_delay=1.0,
-    exponential_base=2.0
-)
+@function_tool
+async def reliable_api_call(
+    endpoint: str,
+    data: str,
+    max_retries: int = 3,
+    base_delay: float = 1.0,
+    context=None
+) -> str:
+    """API call with sophisticated retry logic and exponential backoff.
+    
+    Args:
+        endpoint: API endpoint to call
+        data: Data to send
+        max_retries: Maximum number of retry attempts
+        base_delay: Base delay in seconds between retries
+    """
+    import random
+    
+    for attempt in range(max_retries + 1):
+        try:
+            # Simulate API call
+            response = await external_api.call(endpoint, data)
+            
+            if response.status_code == 200:
+                return f"API call successful: {response.data}"
+            elif response.status_code in [429, 502, 503, 504]:
+                # Retryable errors
+                if attempt < max_retries:
+                    # Exponential backoff with jitter
+                    delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
+                    await asyncio.sleep(delay)
+                    continue
+                else:
+                    return f"Error: API call failed after {max_retries} retries (status: {response.status_code})"
+            else:
+                # Non-retryable error
+                return f"Error: API call failed with non-retryable status: {response.status_code}"
+                
+        except ConnectionError as e:
+            # Network-level retryable error
+            if attempt < max_retries:
+                delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
+                await asyncio.sleep(delay)
+                continue
+            else:
+                return f"Error: Connection failed after {max_retries} retries: {str(e)}"
+        
+        except Exception as e:
+            # Unexpected error - don't retry
+            return f"Error: Unexpected failure: {str(e)}"
+    
+    return "Error: Maximum retries exceeded"
 
-@retry_handler
-async def unreliable_operation():
-    # Operation that might fail
-    return await external_api_call()
+@function_tool
+async def fault_tolerant_processor(
+    task_type: str,
+    task_data: str,
+    enable_fallback: bool = True,
+    context=None
+) -> str:
+    """Fault-tolerant task processor with multiple recovery strategies.
+    
+    Args:
+        task_type: Type of task to process (compute, storage, network)
+        task_data: Data for the task
+        enable_fallback: Whether to use fallback strategies
+    """
+    # ADK error handling patterns
+    error_context = {
+        "task_type": task_type,
+        "timestamp": datetime.utcnow().isoformat(),
+        "attempt_count": 0
+    }
+    
+    try:
+        # Primary processing strategy
+        if task_type == "compute":
+            result = await compute_intensive_task(task_data)
+            return f"Compute task completed: {result}"
+            
+        elif task_type == "storage":
+            result = await storage_operation(task_data)
+            return f"Storage task completed: {result}"
+            
+        elif task_type == "network":
+            result = await network_operation(task_data)
+            return f"Network task completed: {result}"
+        
+        else:
+            return f"Error: Unknown task type '{task_type}'"
+    
+    except Exception as primary_error:
+        error_context["primary_error"] = str(primary_error)
+        
+        if not enable_fallback:
+            return f"Error: Task failed and fallback disabled: {primary_error}"
+        
+        # Fallback strategies
+        try:
+            if task_type == "compute":
+                # Use simpler computation
+                result = await simple_compute_fallback(task_data)
+                return f"Compute task completed via fallback: {result}"
+                
+            elif task_type == "storage":
+                # Use in-memory storage
+                result = await memory_storage_fallback(task_data)
+                return f"Storage task completed via fallback: {result}"
+                
+            elif task_type == "network":
+                # Use cached response if available
+                result = await cached_response_fallback(task_data)
+                return f"Network task completed via cache: {result}"
+            
+        except Exception as fallback_error:
+            error_context["fallback_error"] = str(fallback_error)
+            
+            # Final recovery attempt
+            return f"Error: Both primary and fallback strategies failed. Primary: {primary_error}, Fallback: {fallback_error}"
 ```
 
 ## 🔐 Security Features
