@@ -19,38 +19,35 @@ JAF follows functional programming principles for predictable, testable AI syste
 ## Quick Example
 
 ```python
-from jaf import Agent, create_function_tool
-from pydantic import BaseModel
+from jaf import Agent, function_tool
 
-class CalculateArgs(BaseModel):
-    expression: str
-
-async def calculate(args: CalculateArgs, context) -> str:
+@function_tool
+async def calculate(expression: str, context) -> str:
+    """Perform safe arithmetic calculations.
+    
+    Args:
+        expression: Math expression to evaluate (e.g., '2 + 3', '10 * 5')
+    """
     allowed_chars = set('0123456789+-*/(). ')
-    if not all(c in allowed_chars for c in args.expression):
+    if not all(c in allowed_chars for c in expression):
         return 'Error: Invalid characters'
     try:
-        result = eval(args.expression)
-        return f'{args.expression} = {result}'
+        result = eval(expression)
+        return f'{expression} = {result}'
     except Exception:
         return 'Error: Invalid expression'
 
 agent = Agent(
     name='MathAgent',
     instructions=lambda state: 'You are a helpful math assistant.',
-    tools=[create_function_tool({
-        'name': 'calculate',
-        'description': 'Perform calculations',
-        'execute': calculate,
-        'parameters': CalculateArgs
-    })]
+    tools=[calculate]
 )
 ```
 
 ## Installation
 
 ```bash
-pip install jaf-py
+pip install git+https://github.com/xynehq/jaf-py.git
 ```
 
 ## Documentation
