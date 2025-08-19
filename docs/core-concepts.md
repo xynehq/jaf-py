@@ -78,7 +78,7 @@ class Agent(Generic[Ctx]):
     instructions: Callable[[RunState[Ctx]], str]  # Dynamic instructions
     tools: List[Tool[Ctx]] = field(default_factory=list)
     handoffs: Optional[List[str]] = None         # Allowed handoff targets
-    output_schema: Optional[type] = None         # Expected output schema
+    output_codec: Optional[type] = None         # Expected output codec
 ```
 
 **Dynamic Instructions:**
@@ -145,10 +145,10 @@ class RunConfig(Generic[Ctx]):
 
 ### Pure Function at the Core
 
-The main `run_agent` function is a pure function that transforms state:
+The main `run` function is a pure function that transforms state:
 
 ```python
-async def run_agent(
+async def run(
     initial_state: RunState[Ctx], 
     config: RunConfig[Ctx]
 ) -> RunResult[Out]:
@@ -185,7 +185,7 @@ class RunResult(Generic[Out]):
     outcome: Union[CompletedOutcome[Out], ErrorOutcome]
 
 # Usage
-result = await run_agent(state, config)
+result = await run(state, config)
 if result.outcome.status == 'completed':
     print(f"Success: {result.outcome.output}")
 else:
@@ -247,18 +247,44 @@ class CreateOrderArgs(BaseModel):
 Tools can be composed to create more complex behaviors:
 
 ```python
+from jaf import function_tool
+
+@function_tool
+async def read_file(filepath: str, context=None) -> str:
+    """Read contents of a file."""
+    with open(filepath, 'r') as f:
+        return f.read()
+
+@function_tool
+async def write_file(filepath: str, content: str, context=None) -> str:
+    """Write content to a file."""
+    with open(filepath, 'w') as f:
+        f.write(content)
+    return f"File written: {filepath}"
+
+@function_tool
+async def list_directory(path: str = ".", context=None) -> str:
+    """List files in a directory."""
+    import os
+    files = os.listdir(path)
+    return f"Files in {path}: {', '.join(files)}"
+
+@function_tool
+async def search_files(pattern: str, directory: str = ".", context=None) -> str:
+    """Search for files matching a pattern."""
+    import os
+    import fnmatch
+    matches = []
+    for root, dirs, files in os.walk(directory):
+        for filename in fnmatch.filter(files, pattern):
+            matches.append(os.path.join(root, filename))
+    return f"Found files: {', '.join(matches)}"
+
 def create_file_manager_agent() -> Agent[FileContext]:
     return Agent(
         name="FileManager",
         instructions=file_manager_instructions,
-        tools=[
-            ReadFileTool(),
-            WriteFileTool(), 
-            ListDirectoryTool(),
-            SearchFilesTool(),
-            # Composed tool that uses multiple base tools
-            CodeAnalysisTool(ReadFileTool(), SearchFilesTool())
-        ]
+        tools=[read_file, write_file, list_directory, search_files]
     )
 ```
 
@@ -267,17 +293,27 @@ def create_file_manager_agent() -> Agent[FileContext]:
 Agents can transfer control to other specialized agents:
 
 ```python
+from jaf import function_tool
+
+@function_tool
+async def route_customer(query: str, context=None) -> str:
+    """Route customer to appropriate specialist based on query analysis."""
+    if "technical" in query.lower() or "bug" in query.lower():
+        return handoff_to_agent("TechnicalSupport", context=context)
+    elif "billing" in query.lower() or "payment" in query.lower():
+        return handoff_to_agent("Billing", context=context)
+    elif "sales" in query.lower() or "purchase" in query.lower():
+        return handoff_to_agent("Sales", context=context)
+    else:
+        return "I'll help you with your general inquiry."
+
 def create_triage_agent() -> Agent[CustomerContext]:
     return Agent(
         name="TriageAgent",
         instructions=lambda state: "Route customers to appropriate specialists",
-        tools=[handoff_tool],  # Built-in handoff capability
+        tools=[route_customer],  # Modern handoff capability
         handoffs=["TechnicalSupport", "Billing", "Sales"]  # Allowed targets
     )
-
-# In tool execution
-if requires_technical_expertise(query):
-    return handoff_to_agent("TechnicalSupport", context=state.context)
 ```
 
 ### Validation Composition
@@ -311,7 +347,7 @@ JAF separates the pure execution logic from persistence concerns using the Provi
 
 ```python
 # Core execution remains pure
-result = await run_agent(initial_state, config)
+result = await run(initial_state, config)
 
 # Memory provider handles persistence as a side effect
 if config.memory_provider:
@@ -420,7 +456,7 @@ def create_agent[T](
 math_agent: Agent[StudentContext] = create_agent(
     "MathTutor",
     math_instructions,
-    [calculator_tool, graph_tool]
+    [calculator, graph_plotter]
 )
 ```
 
