@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional, TypeVar
 
 import httpx
 from httpx_sse import aconnect_sse
-from pydantic import BaseModel
+from pydantic import BaseModel, create_model
 
 from ..core.tool_results import ToolErrorCodes, ToolResult, ToolResultStatus
 from ..core.types import ToolSchema
@@ -552,6 +552,30 @@ def create_mcp_http_client(uri: str, client_name: str = "JAF", client_version: s
     client_info = MCPClientInfo(name=client_name, version=client_version)
     return MCPClient(transport, client_info)
 
+def _json_schema_to_python_type(schema: Dict[str, Any]) -> type:
+    """Maps JSON schema types to Python types for Pydantic model creation."""
+    type_str = schema.get("type")
+    if type_str == "string":
+        return str
+    elif type_str == "integer":
+        return int
+    elif type_str == "number":
+        return float
+    elif type_str == "boolean":
+        return bool
+    elif type_str == "array":
+        items_schema = schema.get("items", {})
+        # Recursive call for nested types
+        item_type = _json_schema_to_python_type(items_schema)
+        return List[item_type]
+    elif type_str == "object":
+        # For nested objects, we can use Dict or create another dynamic model
+        # For simplicity, we'll use Dict[str, Any]
+        return Dict[str, Any]
+    else:
+        # Fallback for any other types
+        return Any
+
 async def create_mcp_tools_from_client(mcp_client: MCPClient) -> List[MCPTool]:
     """Create JAF tools from all available MCP tools."""
     # Client should already be initialized
@@ -560,17 +584,34 @@ async def create_mcp_tools_from_client(mcp_client: MCPClient) -> List[MCPTool]:
 
     tools = []
     for tool_name in mcp_client.get_available_tools():
-        # Create a generic args model for this tool
-        class GenericMCPArgs(MCPToolArgs):
-            class Config:
-                extra = "allow"
-            
-            def __init__(self, **data):
-                super().__init__()
-                for key, value in data.items():
-                    setattr(self, key, value)
+        tool_info = mcp_client.get_tool_info(tool_name)
+        if not tool_info:
+            continue
 
-        tool = MCPTool(mcp_client, tool_name, GenericMCPArgs)
+        params_schema = tool_info.get("inputSchema", {})
+        properties = params_schema.get("properties", {})
+        required_params = params_schema.get("required", [])
+
+        fields = {}
+        for param_name, param_schema in properties.items():
+            param_type = _json_schema_to_python_type(param_schema)
+            
+            if param_name in required_params:
+                # Required field
+                fields[param_name] = (param_type, ...)
+            else:
+                # Optional field with a default value of None
+                default_value = param_schema.get("default")
+                fields[param_name] = (Optional[param_type], default_value)
+
+        # Create a dynamic Pydantic model for the arguments
+        ArgsModel = create_model(
+            f"{tool_name.replace('_', ' ').title().replace(' ', '')}Args",
+            **fields,
+            __base__=MCPToolArgs,
+        )
+
+        tool = MCPTool(mcp_client, tool_name, ArgsModel)
         tools.append(tool)
 
     return tools
