@@ -6,7 +6,7 @@ from .mcp import (
     MCPToolArgs,
     create_mcp_stdio_client,
     create_mcp_tools_from_client,
-    create_mcp_websocket_client,
+    create_mcp_sse_client,
 )
 from .model import make_litellm_provider
 
@@ -16,6 +16,6 @@ __all__ = [
     "MCPToolArgs",
     "create_mcp_stdio_client",
     "create_mcp_tools_from_client",
-    "create_mcp_websocket_client",
+    "create_mcp_sse_client",
     "make_litellm_provider",
 ]

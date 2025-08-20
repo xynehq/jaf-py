@@ -56,7 +56,6 @@ from .providers.mcp import (
     MCPToolArgs,
     create_mcp_stdio_client,
     create_mcp_tools_from_client,
-    create_mcp_websocket_client,
 )
 from .providers.model import make_litellm_provider
 from .server import run_server
@@ -217,7 +216,7 @@ __all__ = [
     # Providers
     "make_litellm_provider",
     "MCPClient", "MCPTool", "MCPToolArgs",
-    "create_mcp_websocket_client", "create_mcp_stdio_client",
+    "create_mcp_stdio_client",
     "create_mcp_tools_from_client",
 
     # Memory system
