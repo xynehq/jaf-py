@@ -12,7 +12,6 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, TypeVar
 
 import httpx
-import websockets
 from httpx_sse import aconnect_sse
 from pydantic import BaseModel
 
@@ -28,6 +27,7 @@ class MCPCapabilities:
     prompts: Optional[Dict[str, Any]] = None
     resources: Optional[Dict[str, Any]] = None
     logging: Optional[Dict[str, Any]] = None
+    experimental: Optional[Dict[str, Any]] = None
 
 @dataclass(frozen=True)
 class MCPClientInfo:
@@ -65,59 +65,89 @@ class MCPTransport(ABC):
         """Send a notification (no response expected)."""
         pass
 
-class WebSocketMCPTransport(MCPTransport):
-    """WebSocket-based MCP transport."""
+
+class SSEMCPTransport(MCPTransport):
+    """SSE-based MCP transport."""
 
     def __init__(self, uri: str):
         self.uri = uri
-        self.websocket: Optional[websockets.WebSocketServerProtocol] = None
+        self.client: Optional[httpx.AsyncClient] = None
         self._request_id = 0
         self._pending_requests: Dict[int, asyncio.Future] = {}
+        self._listen_task: Optional[asyncio.Task] = None
+        self._session_id: Optional[str] = None
 
     async def connect(self) -> None:
-        """Connect to the WebSocket server."""
-        self.websocket = await websockets.connect(self.uri)
-        # Start listening for responses
-        asyncio.create_task(self._listen())
+        """Connect to the SSE endpoint and start listening."""
+        self.client = httpx.AsyncClient()
+        self._listen_task = asyncio.create_task(self._listen())
 
     async def disconnect(self) -> None:
-        """Disconnect from the WebSocket server."""
-        if self.websocket:
-            await self.websocket.close()
-            self.websocket = None
+        """Disconnect from the SSE endpoint."""
+        if self._listen_task:
+            self._listen_task.cancel()
+            try:
+                await self._listen_task
+            except asyncio.CancelledError:
+                pass
+        if self.client:
+            await self.client.aclose()
+            self.client = None
 
     async def send_request(self, method: str, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Send a JSON-RPC request and wait for response."""
-        if not self.websocket:
+        """Send a request over SSE using HTTP POST."""
+        if not self.client:
             raise RuntimeError("Not connected to MCP server")
 
-        request_id = self._request_id
         self._request_id += 1
-
         request = {
             "jsonrpc": "2.0",
-            "id": request_id,
+            "id": self._request_id,
             "method": method,
             "params": params
         }
 
         # Create future for response
         future = asyncio.Future()
-        self._pending_requests[request_id] = future
+        self._pending_requests[self._request_id] = future
 
-        # Send request
-        await self.websocket.send(json.dumps(request))
-
-        # Wait for response
         try:
-            response = await asyncio.wait_for(future, timeout=30.0)
-            return response
-        finally:
-            self._pending_requests.pop(request_id, None)
+            # Wait a bit for session ID to be extracted if not available yet
+            if not self._session_id:
+                await asyncio.sleep(1.0)
+            
+            # Determine the correct endpoint for sending requests
+            if self._session_id:
+                # Extract base server URL (remove path) and add messages endpoint
+                from urllib.parse import urlparse
+                parsed = urlparse(self.uri)
+                base_url = f"{parsed.scheme}://{parsed.netloc}"
+                messages_url = f"{base_url}/messages/?session_id={self._session_id}"
+            else:
+                # Fallback to the base endpoint
+                messages_url = self.uri
+            
+            # Send request via HTTP POST
+            response = await self.client.post(messages_url, json=request, timeout=30.0)
+            response.raise_for_status()
+            
+            # For SSE, we expect the response to come through the SSE stream
+            # Wait for the response
+            result = await asyncio.wait_for(future, timeout=30.0)
+            return result
+        except httpx.HTTPStatusError as e:
+            self._pending_requests.pop(self._request_id, None)
+            raise RuntimeError(f"HTTP request failed: {e}") from e
+        except httpx.RequestError as e:
+            self._pending_requests.pop(self._request_id, None)
+            raise RuntimeError(f"HTTP request failed: {e}") from e
+        except asyncio.TimeoutError:
+            self._pending_requests.pop(self._request_id, None)
+            raise RuntimeError("Request timed out") from None
 
     async def send_notification(self, method: str, params: Dict[str, Any]) -> None:
-        """Send a JSON-RPC notification."""
-        if not self.websocket:
+        """Send a notification over SSE using HTTP POST."""
+        if not self.client:
             raise RuntimeError("Not connected to MCP server")
 
         notification = {
@@ -126,64 +156,50 @@ class WebSocketMCPTransport(MCPTransport):
             "params": params
         }
 
-        await self.websocket.send(json.dumps(notification))
+        try:
+            # Determine the correct endpoint for sending notifications
+            if self._session_id:
+                # Extract base server URL (remove path) and add messages endpoint
+                from urllib.parse import urlparse
+                parsed = urlparse(self.uri)
+                base_url = f"{parsed.scheme}://{parsed.netloc}"
+                messages_url = f"{base_url}/messages/?session_id={self._session_id}"
+            else:
+                # Fallback to the base endpoint
+                messages_url = self.uri
+                
+            # Send notification via HTTP POST
+            await self.client.post(messages_url, json=notification, timeout=10.0)
+        except httpx.HTTPError as e:
+            print(f"Failed to send notification: {e}")
 
     async def _listen(self) -> None:
-        """Listen for incoming messages."""
+        """Listen for incoming SSE events."""
+        if not self.client:
+            return
         try:
-            async for message in self.websocket:
-                try:
-                    data = json.loads(message)
-                    if "id" in data and data["id"] in self._pending_requests:
-                        # It's a response to a request
-                        future = self._pending_requests[data["id"]]
-                        if "error" in data:
-                            future.set_exception(Exception(f"MCP Error: {data['error']}"))
-                        else:
-                            future.set_result(data.get("result", {}))
-                except json.JSONDecodeError:
-                    continue
-        except websockets.exceptions.ConnectionClosed:
-            pass
-
-class SSEMCPTransport(MCPTransport):
-    """SSE-based MCP transport."""
-
-    def __init__(self, uri: str):
-        self.uri = uri
-        self.client: Optional[httpx.AsyncClient] = None
-        self.sse_connection = None
-
-    async def connect(self) -> None:
-        """Connect to the SSE endpoint."""
-        self.client = httpx.AsyncClient()
-        print(f"Connecting to SSE endpoint at {self.uri}...")
-        self.sse_connection = aconnect_sse(self.client, "GET", self.uri)
-        asyncio.create_task(self._listen())
-        print("SSE connection established.")
-
-    async def disconnect(self) -> None:
-        """Disconnect from the SSE endpoint."""
-        if self.client:
-            await self.client.aclose()
-            self.client = None
-        print("SSE connection closed.")
-
-    async def send_request(self, method: str, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Send a request over SSE (not supported for this transport)."""
-        raise NotImplementedError("SSE transport does not support client-to-server requests.")
-
-    async def send_notification(self, method: str, params: Dict[str, Any]) -> None:
-        """Send a notification over SSE (not supported for this transport)."""
-        raise NotImplementedError("SSE transport does not support client-to-server notifications.")
-
-    async def _listen(self) -> None:
-        """Listen for and print incoming SSE events."""
-        print("SSE transport listening for events...")
-        try:
-            async with self.sse_connection as sse:
+            async with aconnect_sse(self.client, "GET", self.uri) as sse:
                 async for event in sse.aiter_sse():
-                    print(f"[SSE Event] type={event.event}, data={event.data}")
+                    try:
+                        # Try to parse as JSON first
+                        data = json.loads(event.data)
+                        if "id" in data and data["id"] in self._pending_requests:
+                            future = self._pending_requests.pop(data["id"])
+                            if "error" in data:
+                                future.set_exception(Exception(f"MCP Error: {data['error']}"))
+                            else:
+                                future.set_result(data.get("result", {}))
+                        else:
+                            # This is a server-initiated notification, we can just print it for now
+                            print(f"[SSE Notification] Event: {event.event}, Data: {event.data}")
+                    except json.JSONDecodeError:
+                        # Handle non-JSON data, extract session ID if present
+                        if event.data.startswith("/messages/?session_id="):
+                            self._session_id = event.data.split("session_id=")[1]
+                            print(f"[SSE] Extracted session ID: {self._session_id}")
+                        else:
+                            print(f"[SSE Warning] Received non-JSON data: {event.data}")
+                        continue
         except httpx.ConnectError as e:
             print(f"SSE connection error: {e}")
         except Exception as e:
@@ -515,11 +531,6 @@ class MCPTool:
                 )
             )
 
-def create_mcp_websocket_client(uri: str, client_name: str = "JAF", client_version: str = "2.0.0") -> MCPClient:
-    """Create an MCP client using WebSocket transport."""
-    transport = WebSocketMCPTransport(uri)
-    client_info = MCPClientInfo(name=client_name, version=client_version)
-    return MCPClient(transport, client_info)
 
 def create_mcp_stdio_client(command: List[str], client_name: str = "JAF", client_version: str = "2.0.0") -> MCPClient:
     """Create an MCP client using stdio transport."""
