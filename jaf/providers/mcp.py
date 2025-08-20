@@ -69,8 +69,9 @@ class MCPTransport(ABC):
 class SSEMCPTransport(MCPTransport):
     """SSE-based MCP transport."""
 
-    def __init__(self, uri: str):
+    def __init__(self, uri: str, timeout: float = 30.0):
         self.uri = uri
+        self.timeout = timeout
         self.client: Optional[httpx.AsyncClient] = None
         self._request_id = 0
         self._pending_requests: Dict[int, asyncio.Future] = {}
@@ -128,12 +129,12 @@ class SSEMCPTransport(MCPTransport):
                 messages_url = self.uri
             
             # Send request via HTTP POST
-            response = await self.client.post(messages_url, json=request, timeout=30.0)
+            response = await self.client.post(messages_url, json=request, timeout=self.timeout)
             response.raise_for_status()
             
             # For SSE, we expect the response to come through the SSE stream
             # Wait for the response
-            result = await asyncio.wait_for(future, timeout=30.0)
+            result = await asyncio.wait_for(future, timeout=self.timeout)
             return result
         except httpx.HTTPStatusError as e:
             self._pending_requests.pop(self._request_id, None)
@@ -209,8 +210,9 @@ class SSEMCPTransport(MCPTransport):
 class StreamableHttpMCPTransport(MCPTransport):
     """Streamable HTTP-based MCP transport."""
 
-    def __init__(self, uri: str):
+    def __init__(self, uri: str, timeout: float = 30.0):
         self.uri = uri
+        self.timeout = timeout
         self.client: Optional[httpx.AsyncClient] = None
         self._request_id = 0
 
@@ -238,7 +240,7 @@ class StreamableHttpMCPTransport(MCPTransport):
         }
 
         try:
-            response = await self.client.post(self.uri, json=request, timeout=30.0)
+            response = await self.client.post(self.uri, json=request, timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except httpx.HTTPStatusError as e:
@@ -264,8 +266,9 @@ class StreamableHttpMCPTransport(MCPTransport):
 class StdioMCPTransport(MCPTransport):
     """Stdio-based MCP transport for local processes."""
 
-    def __init__(self, command: List[str]):
+    def __init__(self, command: List[str], timeout: float = 30.0):
         self.command = command
+        self.timeout = timeout
         self.process: Optional[asyncio.subprocess.Process] = None
         self._request_id = 0
         self._pending_requests: Dict[int, asyncio.Future] = {}
@@ -326,7 +329,7 @@ class StdioMCPTransport(MCPTransport):
 
         # Wait for response
         try:
-            response = await asyncio.wait_for(future, timeout=30.0)
+            response = await asyncio.wait_for(future, timeout=self.timeout)
             return response
         finally:
             self._pending_requests.pop(request_id, None)
@@ -370,11 +373,15 @@ class StdioMCPTransport(MCPTransport):
 class MCPClient:
     """MCP client for interacting with MCP servers."""
 
-    def __init__(self, transport: MCPTransport, client_info: MCPClientInfo):
+    def __init__(self, transport: MCPTransport, client_info: MCPClientInfo, timeout: float = 30.0):
         self.transport = transport
         self.client_info = client_info
         self.server_info: Optional[MCPServerInfo] = None
         self._tools: Dict[str, Dict[str, Any]] = {}
+        self.timeout = timeout
+        # Pass timeout to transport if it supports it
+        if hasattr(self.transport, 'timeout'):
+            self.transport.timeout = timeout
 
     async def initialize(self) -> None:
         """Initialize the MCP connection."""
@@ -532,25 +539,25 @@ class MCPTool:
             )
 
 
-def create_mcp_stdio_client(command: List[str], client_name: str = "JAF", client_version: str = "2.0.0") -> MCPClient:
+def create_mcp_stdio_client(command: List[str], client_name: str = "JAF", client_version: str = "2.0.0", timeout: float = 30.0) -> MCPClient:
     """Create an MCP client using stdio transport."""
-    transport = StdioMCPTransport(command)
+    transport = StdioMCPTransport(command, timeout=timeout)
     client_info = MCPClientInfo(name=client_name, version=client_version)
-    return MCPClient(transport, client_info)
+    return MCPClient(transport, client_info, timeout=timeout)
 
 
-def create_mcp_sse_client(uri: str, client_name: str = "JAF", client_version: str = "2.0.0") -> MCPClient:
+def create_mcp_sse_client(uri: str, client_name: str = "JAF", client_version: str = "2.0.0", timeout: float = 30.0) -> MCPClient:
     """Create an MCP client using SSE transport."""
-    transport = SSEMCPTransport(uri)
+    transport = SSEMCPTransport(uri, timeout=timeout)
     client_info = MCPClientInfo(name=client_name, version=client_version)
-    return MCPClient(transport, client_info)
+    return MCPClient(transport, client_info, timeout=timeout)
 
 
-def create_mcp_http_client(uri: str, client_name: str = "JAF", client_version: str = "2.0.0") -> MCPClient:
+def create_mcp_http_client(uri: str, client_name: str = "JAF", client_version: str = "2.0.0", timeout: float = 30.0) -> MCPClient:
     """Create an MCP client using streamable HTTP transport."""
-    transport = StreamableHttpMCPTransport(uri)
+    transport = StreamableHttpMCPTransport(uri, timeout=timeout)
     client_info = MCPClientInfo(name=client_name, version=client_version)
-    return MCPClient(transport, client_info)
+    return MCPClient(transport, client_info, timeout=timeout)
 
 def _json_schema_to_python_type(schema: Dict[str, Any]) -> type:
     """Maps JSON schema types to Python types for Pydantic model creation."""
