@@ -8,7 +8,7 @@ fastmcp library for efficient communication.
 
 import asyncio
 import logging
-from typing import Any, Dict, List, Optional, TypeVar
+from typing import Any, Dict, List, Optional, TypeVar, Union
 
 import mcp.types
 from pydantic import BaseModel, create_model
@@ -59,7 +59,7 @@ class MCPToolArgs(BaseModel):
 class FastMCPTool:
     """A tool that proxies to a FastMCP server, managing its own session."""
 
-    def __init__(self, transport: Any, tool_info: mcp.types.Tool, args_model: type[BaseModel], client_info: mcp.types.Implementation):
+    def __init__(self, transport: Union[StdioTransport, SSETransport, StreamableHttpTransport], tool_info: mcp.types.Tool, args_model: type[BaseModel], client_info: mcp.types.Implementation):
         self.transport = transport
         self.tool_name = tool_info.name
         self.args_model = args_model
@@ -75,7 +75,34 @@ class FastMCPTool:
         return self._schema
 
     def _convert_simple_filters_to_flat_filter(self, simple_filters: dict) -> dict:
-        """Convert simple key-value filters to FlatFilter format for tools that expect it."""
+        """
+        Converts a "simple filter" dictionary to the "FlatFilter" format required by some tools.
+        
+        Simple filters are dictionaries mapping field names to values, e.g.:
+            {"status": "active", "category": ["A", "B"]}
+        Each key is a field name, and each value is either a single value or a list of values to match.
+        
+        Flat filters are a more structured format with two keys:
+            - "clauses": a list of filter conditions, each specifying a field, a condition (e.g., "In"), and a list of values.
+            - "logic": a string expressing how to combine the clauses (e.g., "0 AND 1").
+        
+        Example output:
+            {
+                "clauses": [
+                    {"field": "status", "condition": "In", "val": ["active"]},
+                    {"field": "category", "condition": "In", "val": ["A", "B"]}
+                ],
+                "logic": "0 AND 1"
+            }
+        
+        This conversion is needed for tools that expect filters in FlatFilter format rather than as simple key-value pairs.
+        
+        Args:
+            simple_filters (dict): A dictionary of field names to values (simple filter).
+            
+        Returns:
+            dict: The filter in FlatFilter format.
+        """
         if not simple_filters:
             return simple_filters
             
@@ -161,7 +188,7 @@ class FastMCPTool:
                 )
             )
 
-async def create_tools_from_transport(transport: Any, client_info: mcp.types.Implementation) -> List[FastMCPTool]:
+async def create_tools_from_transport(transport: Union[StdioTransport, SSETransport, StreamableHttpTransport], client_info: mcp.types.Implementation) -> List[FastMCPTool]:
     """Create JAF tools from an MCP transport."""
     client = Client(transport, client_info=client_info)
     tools = []
@@ -169,8 +196,17 @@ async def create_tools_from_transport(transport: Any, client_info: mcp.types.Imp
         async with client:
             tools_list = await client.list_tools()
             for tool_info in tools_list:
-                # Try both inputSchema (camelCase) and input_schema (snake_case)
-                params_schema = getattr(tool_info, "inputSchema", None) or getattr(tool_info, "input_schema", {}) or {}
+                # Support both inputSchema (camelCase) and input_schema (snake_case) for compatibility with different MCP implementations.
+                has_camel = hasattr(tool_info, "inputSchema")
+                has_snake = hasattr(tool_info, "input_schema")
+                if has_camel and has_snake:
+                    logging.warning("Both 'inputSchema' and 'input_schema' are present in tool_info; using 'inputSchema'.")
+                if has_camel:
+                    params_schema = getattr(tool_info, "inputSchema")
+                elif has_snake:
+                    params_schema = getattr(tool_info, "input_schema")
+                else:
+                    params_schema = {}
                 properties = params_schema.get("properties", {})
                 required_params = params_schema.get("required", [])
 
