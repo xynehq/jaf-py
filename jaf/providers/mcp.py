@@ -482,13 +482,13 @@ class MCPTool:
     async def execute(self, args: MCPToolArgs, context: Ctx) -> ToolResult:
         """Execute the MCP tool."""
         try:
-            # Convert Pydantic model to dict
+            # Convert Pydantic model to dict, excluding None values to avoid issues with some servers
             if hasattr(args, 'model_dump'):
-                args_dict = args.model_dump()
+                args_dict = args.model_dump(exclude_none=True)
             elif hasattr(args, 'dict'):
-                args_dict = args.dict()
+                args_dict = args.dict(exclude_none=True)
             else:
-                args_dict = dict(args)
+                args_dict = {k: v for k, v in dict(args).items() if v is not None}
 
             # Call the MCP tool
             response = await self.mcp_client.call_tool(self.tool_name, args_dict)
@@ -618,28 +618,45 @@ def _validate_default_value(default_value: Any, param_type: type) -> Any:
 def _json_schema_to_python_type(schema: Dict[str, Any], depth: int = 0, max_depth: int = 10) -> type:
     """
     Maps JSON schema types to Python types for Pydantic model creation.
-    
+
     This function is recursive: it calls itself to handle nested objects and arrays.
     - For arrays, it recurses into the "items" schema to determine the item type.
-    - For objects, it returns Dict[str, Any] (does not create nested models).
+    - For objects, it creates a nested Pydantic model.
     - For deeply nested schemas, recursion depth is limited by `max_depth`.
     If the 'type' field is missing from the schema, the function returns `Any`.
-    
+
     Args:
         schema: JSON schema dictionary
         depth: Current recursion depth
         max_depth: Maximum allowed recursion depth
-        
+
     Returns:
         Python type corresponding to the JSON schema
-        
+
     Raises:
         ValueError: For unsupported schema types or excessive recursion
     """
-    # Prevent infinite recursion
     if depth > max_depth:
         raise ValueError(f"Maximum recursion depth ({max_depth}) exceeded in JSON schema conversion")
-    
+
+    if "anyOf" in schema:
+        types = []
+        is_nullable = False
+        for sub_schema in schema["anyOf"]:
+            if sub_schema.get("type") == "null":
+                is_nullable = True
+                continue
+            types.append(_json_schema_to_python_type(sub_schema, depth=depth + 1, max_depth=max_depth))
+
+        unique_types = tuple(dict.fromkeys(t for t in types if t is not type(None)))
+
+        if not unique_types:
+            return type(None) if is_nullable else Any
+
+        final_type = Union[unique_types] if len(unique_types) > 1 else unique_types[0]
+
+        return Optional[final_type] if is_nullable else final_type
+
     type_str = schema.get("type")
     if type_str == "string":
         return str
@@ -651,21 +668,33 @@ def _json_schema_to_python_type(schema: Dict[str, Any], depth: int = 0, max_dept
         return bool
     elif type_str == "array":
         items_schema = schema.get("items", {})
-        # Recursive call for nested types, incrementing depth
-        item_type = _json_schema_to_python_type(items_schema, depth=depth+1, max_depth=max_depth)
-        return List[item_type]  # Works with imported List from typing
+        item_type = _json_schema_to_python_type(items_schema, depth=depth + 1, max_depth=max_depth)
+        return List[item_type]
     elif type_str == "object":
-        # For nested objects, we can use Dict or create another dynamic model
-        # For simplicity, we'll use Dict[str, Any]
-        return Dict[str, Any]  # Works with imported Dict from typing
+        properties = schema.get("properties", {})
+        if not properties:
+            return Dict[str, Any]
+
+        model_name = f"NestedModel{hash(json.dumps(schema, sort_keys=True))}"
+
+        fields = {}
+        required_params = schema.get("required", [])
+        for param_name, param_schema in properties.items():
+            param_type = _json_schema_to_python_type(param_schema, depth=depth + 1, max_depth=max_depth)
+            if param_name in required_params:
+                fields[param_name] = (param_type, ...)
+            else:
+                if "default" in param_schema:
+                    fields[param_name] = (Optional[param_type], param_schema["default"])
+                else:
+                    fields[param_name] = (Optional[param_type], None)
+
+        return create_model(model_name, **fields, __base__=BaseModel)
     elif type_str is None:
-        # Handle case where type is not specified
-        # Log a warning when type is not specified, as this may indicate a malformed schema
         logger = logging.getLogger(__name__)
         logger.warning(f"JSON schema missing 'type' field: {schema!r}. Falling back to 'Any'.")
         return Any
     else:
-        # Raise an error for unsupported or unknown schema types
         raise ValueError(f"Unsupported or unknown JSON schema type: {type_str!r} in schema: {schema}")
 
 async def create_mcp_tools_from_client(mcp_client: MCPClient) -> List[MCPTool]:
