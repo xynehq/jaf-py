@@ -7,6 +7,7 @@ tools and services following the MCP specification.
 
 import asyncio
 import json
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, TypeVar, Union
@@ -678,7 +679,6 @@ async def create_mcp_tools_from_client(mcp_client: MCPClient) -> List[MCPTool]:
                         fields[param_name] = (Optional[param_type], validated_default)
                     except ValueError as e:
                         # Log warning but use original value - let Pydantic handle final validation
-                        import logging
                         logger = logging.getLogger(__name__)
                         logger.warning(f"⚠️ Default value validation failed for {param_name}: {e}")
                         fields[param_name] = (Optional[param_type], param_schema["default"])
