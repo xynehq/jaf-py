@@ -559,6 +559,50 @@ def create_mcp_http_client(uri: str, client_name: str = "JAF", client_version: s
     client_info = MCPClientInfo(name=client_name, version=client_version)
     return MCPClient(transport, client_info, timeout=timeout)
 
+def _validate_default_value(default_value: Any, param_type: type) -> Any:
+    """
+    Validate that a default value is compatible with the parameter type.
+    
+    Args:
+        default_value: The default value from the schema
+        param_type: The expected Python type
+        
+    Returns:
+        The validated default value
+        
+    Raises:
+        ValueError: If the default value is incompatible with the type
+    """
+    if default_value is None:
+        return None
+    
+    # Basic type checking
+    if param_type == str and not isinstance(default_value, str):
+        try:
+            return str(default_value)
+        except Exception:
+            raise ValueError(f"Cannot convert default value {default_value!r} to string")
+    elif param_type == int and not isinstance(default_value, int):
+        try:
+            return int(default_value)
+        except Exception:
+            raise ValueError(f"Cannot convert default value {default_value!r} to integer")
+    elif param_type == float and not isinstance(default_value, (int, float)):
+        try:
+            return float(default_value)
+        except Exception:
+            raise ValueError(f"Cannot convert default value {default_value!r} to float")
+    elif param_type == bool and not isinstance(default_value, bool):
+        # Be careful with bool conversion as bool(0) == False, bool(1) == True
+        if default_value in (0, False, "false", "False"):
+            return False
+        elif default_value in (1, True, "true", "True"):
+            return True
+        else:
+            raise ValueError(f"Cannot convert default value {default_value!r} to boolean")
+    
+    return default_value
+
 def _json_schema_to_python_type(schema: Dict[str, Any], depth: int = 0, max_depth: int = 10) -> type:
     """
     Maps JSON schema types to Python types for Pydantic model creation.
@@ -591,11 +635,11 @@ def _json_schema_to_python_type(schema: Dict[str, Any], depth: int = 0, max_dept
         items_schema = schema.get("items", {})
         # Recursive call for nested types, incrementing depth
         item_type = _json_schema_to_python_type(items_schema, depth=depth+1, max_depth=max_depth)
-        return List[item_type]
+        return List[item_type]  # Works with imported List from typing
     elif type_str == "object":
         # For nested objects, we can use Dict or create another dynamic model
         # For simplicity, we'll use Dict[str, Any]
-        return Dict[str, Any]
+        return Dict[str, Any]  # Works with imported Dict from typing
     elif type_str is None:
         # Handle case where type is not specified
         return Any
@@ -629,7 +673,15 @@ async def create_mcp_tools_from_client(mcp_client: MCPClient) -> List[MCPTool]:
             else:
                 # Optional field; only set a default if 'default' is present in the schema
                 if "default" in param_schema:
-                    fields[param_name] = (Optional[param_type], param_schema["default"])
+                    try:
+                        validated_default = _validate_default_value(param_schema["default"], param_type)
+                        fields[param_name] = (Optional[param_type], validated_default)
+                    except ValueError as e:
+                        # Log warning but use original value - let Pydantic handle final validation
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.warning(f"⚠️ Default value validation failed for {param_name}: {e}")
+                        fields[param_name] = (Optional[param_type], param_schema["default"])
                 else:
                     fields[param_name] = (Optional[param_type], None)
 

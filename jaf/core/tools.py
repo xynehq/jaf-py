@@ -8,7 +8,14 @@ that is more type-safe, extensible, and self-documenting than positional argumen
 import warnings
 import inspect
 import json
+import logging
 from typing import Any, Dict, Optional, Union, Awaitable, get_type_hints, get_origin, get_args
+
+# Optional pydantic import for validation
+try:
+    from pydantic import BaseModel
+except ImportError:
+    BaseModel = None
 
 from .types import (
     FunctionToolConfig,
@@ -59,7 +66,6 @@ def create_function_tool(config: FunctionToolConfig) -> Tool:
     func = config['execute']
     
     # Validate tool configuration
-    import logging
     logger = logging.getLogger(__name__)
     
     tool_name = config['name']
@@ -73,13 +79,12 @@ def create_function_tool(config: FunctionToolConfig) -> Tool:
         raise ValueError(f"Tool '{tool_name}' has None parameters. Provide a Pydantic model class.")
     
     # Check if it's a Pydantic model class
-    try:
-        from pydantic import BaseModel
+    if BaseModel is None:
+        logger.warning(f"⚠️ Pydantic not available for tool {tool_name} validation")
+    else:
         if not (isinstance(parameters, type) and issubclass(parameters, BaseModel)):
             logger.error(f"❌ Tool {tool_name}: parameters must be a Pydantic BaseModel class, got {type(parameters)}")
             raise ValueError(f"Tool '{tool_name}' parameters must be a Pydantic BaseModel class, got {type(parameters)}")
-    except ImportError:
-        logger.warning(f"⚠️ Pydantic not available for tool {tool_name} validation")
     
     # Test schema generation
     try:
