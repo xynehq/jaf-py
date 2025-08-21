@@ -59,15 +59,17 @@ class MCPToolArgs(BaseModel):
 class FastMCPTool:
     """A tool that proxies to a FastMCP server, managing its own session."""
 
-    def __init__(self, transport: Union[StdioTransport, SSETransport, StreamableHttpTransport], tool_info: mcp.types.Tool, args_model: type[BaseModel], client_info: mcp.types.Implementation):
+    def __init__(self, transport: Union[StdioTransport, SSETransport, StreamableHttpTransport], tool_info: mcp.types.Tool, args_model: type[BaseModel], client_info: mcp.types.Implementation, timeout: Optional[float] = None):
         self.transport = transport
         self.tool_name = tool_info.name
         self.args_model = args_model
         self.client_info = client_info
+        self.timeout = timeout
         self._schema = ToolSchema(
             name=tool_info.name,
             description=tool_info.description or f"MCP tool: {tool_info.name}",
-            parameters=args_model
+            parameters=args_model,
+            timeout=timeout
         )
 
     @property
@@ -188,7 +190,7 @@ class FastMCPTool:
                 )
             )
 
-async def create_tools_from_transport(transport: Union[StdioTransport, SSETransport, StreamableHttpTransport], client_info: mcp.types.Implementation, extra_fields: Optional[Dict[str, Any]] = None) -> List[FastMCPTool]:
+async def create_tools_from_transport(transport: Union[StdioTransport, SSETransport, StreamableHttpTransport], client_info: mcp.types.Implementation, extra_fields: Optional[Dict[str, Any]] = None, default_timeout: Optional[float] = None) -> List[FastMCPTool]:
     """Create JAF tools from an MCP transport."""
     client = Client(transport, client_info=client_info)
     tools = []
@@ -232,12 +234,12 @@ async def create_tools_from_transport(transport: Union[StdioTransport, SSETransp
                     **fields,
                     __base__=MCPToolArgs,
                 )
-                tools.append(FastMCPTool(transport, tool_info, ArgsModel, client_info))
+                tools.append(FastMCPTool(transport, tool_info, ArgsModel, client_info, default_timeout))
     except Exception as e:
         logging.error(f"Failed to create MCP tools: {e}")
     return tools
 
-async def create_mcp_stdio_tools(command: List[str], client_name: str = "JAF", client_version: str = "2.0.0", extra_fields: Optional[Dict[str, Any]] = None) -> List[FastMCPTool]:
+async def create_mcp_stdio_tools(command: List[str], client_name: str = "JAF", client_version: str = "2.0.0", extra_fields: Optional[Dict[str, Any]] = None, default_timeout: Optional[float] = None) -> List[FastMCPTool]:
     if not command:
         raise ValueError("Command list must not be empty for MCP stdio transport.")
     # Add juspay_meta_info by default for backward compatibility
@@ -245,20 +247,20 @@ async def create_mcp_stdio_tools(command: List[str], client_name: str = "JAF", c
         extra_fields = {"juspay_meta_info": Dict[str, Any]}
     transport = StdioTransport(command=command[0], args=command[1:])
     client_info = mcp.types.Implementation(name=client_name, version=client_version)
-    return await create_tools_from_transport(transport, client_info, extra_fields)
+    return await create_tools_from_transport(transport, client_info, extra_fields, default_timeout)
 
-async def create_mcp_sse_tools(uri: str, client_name: str = "JAF", client_version: str = "2.0.0", extra_fields: Optional[Dict[str, Any]] = None) -> List[FastMCPTool]:
+async def create_mcp_sse_tools(uri: str, client_name: str = "JAF", client_version: str = "2.0.0", extra_fields: Optional[Dict[str, Any]] = None, default_timeout: Optional[float] = None) -> List[FastMCPTool]:
     # Add juspay_meta_info by default for backward compatibility
     if extra_fields is None:
         extra_fields = {"juspay_meta_info": Dict[str, Any]}
     transport = SSETransport(url=uri)
     client_info = mcp.types.Implementation(name=client_name, version=client_version)
-    return await create_tools_from_transport(transport, client_info, extra_fields)
+    return await create_tools_from_transport(transport, client_info, extra_fields, default_timeout)
 
-async def create_mcp_http_tools(uri: str, client_name: str = "JAF", client_version: str = "2.0.0", extra_fields: Optional[Dict[str, Any]] = None) -> List[FastMCPTool]:
+async def create_mcp_http_tools(uri: str, client_name: str = "JAF", client_version: str = "2.0.0", extra_fields: Optional[Dict[str, Any]] = None, default_timeout: Optional[float] = None) -> List[FastMCPTool]:
     # Add juspay_meta_info by default for backward compatibility
     if extra_fields is None:
         extra_fields = {"juspay_meta_info": Dict[str, Any]}
     transport = StreamableHttpTransport(url=uri)
     client_info = mcp.types.Implementation(name=client_name, version=client_version)
-    return await create_tools_from_transport(transport, client_info, extra_fields)
+    return await create_tools_from_transport(transport, client_info, extra_fields, default_timeout)

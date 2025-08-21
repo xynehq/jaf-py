@@ -160,6 +160,7 @@ class ToolSchema(Generic[Args]):
     name: str
     description: str
     parameters: Any  # Should be a type that can validate Args (like Pydantic model or Zod equivalent)
+    timeout: Optional[float] = None  # Optional timeout in seconds for tool execution
 
 @runtime_checkable
 class Tool(Protocol[Args, Ctx]):
@@ -184,6 +185,7 @@ class FunctionToolConfig(TypedDict):
     parameters: Any  # Pydantic model or similar for parameter validation
     metadata: Optional[Dict[str, Any]]  # Optional metadata
     source: Optional[ToolSource]  # Optional source tracking
+    timeout: Optional[float]  # Optional timeout in seconds for tool execution
 
 
 # Type alias for tool execution functions
@@ -452,3 +454,4 @@ class RunConfig(Generic[Ctx]):
     on_event: Optional[Callable[[TraceEvent], None]] = None
     memory: Optional['MemoryConfig'] = None
     conversation_id: Optional[str] = None
+    default_tool_timeout: Optional[float] = 30.0  # Default timeout for tool execution in seconds

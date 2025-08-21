@@ -23,22 +23,29 @@ from .types import (
     ErrorOutcome,
     HandoffError,
     HandoffEvent,
+    HandoffEventData,
     InputGuardrailTripwire,
     LLMCallEndEvent,
+    LLMCallEndEventData,
     LLMCallStartEvent,
+    LLMCallStartEventData,
     MaxTurnsExceeded,
     Message,
     ModelBehaviorError,
     OutputGuardrailTripwire,
     RunConfig,
     RunEndEvent,
+    RunEndEventData,
     RunResult,
     RunStartEvent,
+    RunStartEventData,
     RunState,
     ToolCall,
     ToolCallEndEvent,
+    ToolCallEndEventData,
     ToolCallFunction,
     ToolCallStartEvent,
+    ToolCallStartEventData,
 )
 
 Ctx = TypeVar('Ctx')
@@ -53,7 +60,7 @@ async def run(
     """
     try:
         if config.on_event:
-            config.on_event(RunStartEvent(data={'run_id': initial_state.run_id, 'trace_id': initial_state.trace_id}))
+            config.on_event(RunStartEvent(data=RunStartEventData(run_id=initial_state.run_id, trace_id=initial_state.trace_id)))
 
         state_with_memory = await _load_conversation_history(initial_state, config)
         result = await _run_internal(state_with_memory, config)
@@ -61,7 +68,7 @@ async def run(
         await _store_conversation_history(result.final_state, config)
 
         if config.on_event:
-            config.on_event(RunEndEvent(data={'outcome': result.outcome}))
+            config.on_event(RunEndEvent(data=RunEndEventData(outcome=result.outcome)))
 
         return result
     except Exception as error:
@@ -70,7 +77,7 @@ async def run(
             outcome=ErrorOutcome(error=ModelBehaviorError(detail=str(error)))
         )
         if config.on_event:
-            config.on_event(RunEndEvent(data={'outcome': error_result.outcome}))
+            config.on_event(RunEndEvent(data=RunEndEventData(outcome=error_result.outcome)))
         return error_result
 
 async def _load_conversation_history(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunState[Ctx]:
@@ -191,17 +198,17 @@ async def _run_internal(
 
     # Emit LLM call start event
     if config.on_event:
-        config.on_event(LLMCallStartEvent(data={
-            'agent_name': current_agent.name,
-            'model': model
-        }))
+        config.on_event(LLMCallStartEvent(data=LLMCallStartEventData(
+            agent_name=current_agent.name,
+            model=model
+        )))
 
     # Get completion from model provider
     llm_response = await config.model_provider.get_completion(state, current_agent, config)
 
     # Emit LLM call end event
     if config.on_event:
-        config.on_event(LLMCallEndEvent(data={'choice': llm_response}))
+        config.on_event(LLMCallEndEvent(data=LLMCallEndEventData(choice=llm_response)))
 
     # Check if response has message
     if not llm_response.get('message'):
@@ -251,10 +258,10 @@ async def _run_internal(
 
             # Emit handoff event
             if config.on_event:
-                config.on_event(HandoffEvent(data={
-                    'from': current_agent.name,
-                    'to': target_agent
-                }))
+                config.on_event(HandoffEvent(data=HandoffEventData(
+                    from_agent=current_agent.name,
+                    to_agent=target_agent
+                )))
 
             # Continue with new agent
             next_state = replace(
@@ -368,10 +375,10 @@ async def _execute_tool_calls(
 
     async def execute_single_tool_call(tool_call: ToolCall) -> Dict[str, Any]:
         if config.on_event:
-            config.on_event(ToolCallStartEvent(data={
-                'tool_name': tool_call.function.name,
-                'args': _try_parse_json(tool_call.function.arguments)
-            }))
+            config.on_event(ToolCallStartEvent(data=ToolCallStartEventData(
+                tool_name=tool_call.function.name,
+                args=_try_parse_json(tool_call.function.arguments)
+            )))
 
         try:
             # Find the tool
@@ -390,10 +397,10 @@ async def _execute_tool_calls(
                 })
 
                 if config.on_event:
-                    config.on_event(ToolCallEndEvent(data={
-                        'tool_name': tool_call.function.name,
-                        'result': error_result
-                    }))
+                    config.on_event(ToolCallEndEvent(data=ToolCallEndEventData(
+                        tool_name=tool_call.function.name,
+                        result=error_result
+                    )))
 
                 return {
                     'message': Message(
@@ -420,10 +427,10 @@ async def _execute_tool_calls(
                 })
 
                 if config.on_event:
-                    config.on_event(ToolCallEndEvent(data={
-                        'tool_name': tool_call.function.name,
-                        'result': error_result
-                    }))
+                    config.on_event(ToolCallEndEvent(data=ToolCallEndEventData(
+                        tool_name=tool_call.function.name,
+                        result=error_result
+                    )))
 
                 return {
                     'message': Message(
@@ -437,8 +444,45 @@ async def _execute_tool_calls(
             print(f"[JAF:ENGINE] Tool args: {validated_args}")
             print(f"[JAF:ENGINE] Tool context: {state.context}")
 
-            # Execute the tool
-            tool_result = await tool.execute(validated_args, state.context)
+            # Determine timeout for this tool
+            # Priority: tool-specific timeout > RunConfig default > 30 seconds global default
+            timeout = None
+            if hasattr(tool.schema, 'timeout') and tool.schema.timeout is not None:
+                timeout = tool.schema.timeout
+            elif config.default_tool_timeout is not None:
+                timeout = config.default_tool_timeout
+            else:
+                timeout = 30.0  # Global default
+
+            print(f"[JAF:ENGINE] Using timeout: {timeout} seconds for tool {tool_call.function.name}")
+
+            # Execute the tool with timeout
+            try:
+                tool_result = await asyncio.wait_for(
+                    tool.execute(validated_args, state.context),
+                    timeout=timeout
+                )
+            except asyncio.TimeoutError:
+                timeout_error_result = json.dumps({
+                    'error': 'timeout_error',
+                    'message': f'Tool {tool_call.function.name} timed out after {timeout} seconds',
+                    'tool_name': tool_call.function.name,
+                    'timeout_seconds': timeout
+                })
+
+                if config.on_event:
+                    config.on_event(ToolCallEndEvent(data=ToolCallEndEventData(
+                        tool_name=tool_call.function.name,
+                        result=timeout_error_result
+                    )))
+
+                return {
+                    'message': Message(
+                        role=ContentRole.TOOL,
+                        content=timeout_error_result,
+                        tool_call_id=tool_call.id
+                    )
+                }
 
             # Handle both string and ToolResult formats
             if isinstance(tool_result, str):
@@ -453,12 +497,10 @@ async def _execute_tool_calls(
                 print(f"[JAF:ENGINE] Converted to string: {result_string}")
 
             if config.on_event:
-                config.on_event(ToolCallEndEvent(data={
-                    'tool_name': tool_call.function.name,
-                    'result': result_string,
-                    'tool_result': tool_result_obj,
-                    'status': tool_result_obj.status if tool_result_obj else 'success'
-                }))
+                config.on_event(ToolCallEndEvent(data=ToolCallEndEventData(
+                    tool_name=tool_call.function.name,
+                    result=result_string
+                )))
 
             # Check for handoff
             handoff_check = _try_parse_json(result_string)
@@ -490,10 +532,10 @@ async def _execute_tool_calls(
             })
 
             if config.on_event:
-                config.on_event(ToolCallEndEvent(data={
-                    'tool_name': tool_call.function.name,
-                    'result': error_result
-                }))
+                config.on_event(ToolCallEndEvent(data=ToolCallEndEventData(
+                    tool_name=tool_call.function.name,
+                    result=error_result
+                )))
 
             return {
                 'message': Message(
