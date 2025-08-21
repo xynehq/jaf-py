@@ -1,21 +1,19 @@
 """JAF Providers module - Model providers and external integrations."""
 
 from .mcp import (
-    MCPClient,
-    MCPTool,
+    FastMCPTool,
     MCPToolArgs,
-    create_mcp_stdio_client,
-    create_mcp_tools_from_client,
-    create_mcp_sse_client,
+    create_mcp_stdio_tools,
+    create_mcp_sse_tools,
+    create_mcp_http_tools,
 )
 from .model import make_litellm_provider
 
 __all__ = [
-    "MCPClient",
-    "MCPTool",
+    "FastMCPTool",
     "MCPToolArgs",
-    "create_mcp_stdio_client",
-    "create_mcp_tools_from_client",
-    "create_mcp_sse_client",
+    "create_mcp_stdio_tools",
+    "create_mcp_sse_tools",
+    "create_mcp_http_tools",
     "make_litellm_provider",
 ]

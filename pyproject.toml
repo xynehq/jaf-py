@@ -44,6 +44,7 @@ dependencies = [
     "google-auth>=2.20.0",
     "python-dotenv>=1.0.0",
     "psutil>=5.9.0",
+    "fastmcp>=0.1.0",
 ]
 
 [project.optional-dependencies]
