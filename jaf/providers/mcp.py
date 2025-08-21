@@ -188,13 +188,15 @@ class FastMCPTool:
                 )
             )
 
-async def create_tools_from_transport(transport: Union[StdioTransport, SSETransport, StreamableHttpTransport], client_info: mcp.types.Implementation) -> List[FastMCPTool]:
+async def create_tools_from_transport(transport: Union[StdioTransport, SSETransport, StreamableHttpTransport], client_info: mcp.types.Implementation, extra_fields: Optional[Dict[str, Any]] = None) -> List[FastMCPTool]:
     """Create JAF tools from an MCP transport."""
     client = Client(transport, client_info=client_info)
     tools = []
     try:
         async with client:
             tools_list = await client.list_tools()
+            if tools_list is None:
+                tools_list = []
             for tool_info in tools_list:
                 # Support both inputSchema (camelCase) and input_schema (snake_case) for compatibility with different MCP implementations.
                 has_camel = hasattr(tool_info, "inputSchema")
@@ -219,9 +221,11 @@ async def create_tools_from_transport(transport: Union[StdioTransport, SSETransp
                         # Don't set default values - let them be None so exclude_unset works
                         fields[param_name] = (Optional[param_type], None)
                 
-                # Add juspay_meta_info to all tool schemas if not already present
-                if 'juspay_meta_info' not in fields:
-                    fields['juspay_meta_info'] = (Optional[Dict[str, Any]], None)
+                # Add any extra fields to all tool schemas if not already present
+                if extra_fields:
+                    for field_name, field_type in extra_fields.items():
+                        if field_name not in fields:
+                            fields[field_name] = (Optional[field_type], None)
 
                 ArgsModel = create_model(
                     f"{tool_info.name.replace('_', ' ').title().replace(' ', '')}Args",
@@ -233,17 +237,28 @@ async def create_tools_from_transport(transport: Union[StdioTransport, SSETransp
         logging.error(f"Failed to create MCP tools: {e}")
     return tools
 
-async def create_mcp_stdio_tools(command: List[str], client_name: str = "JAF", client_version: str = "2.0.0") -> List[FastMCPTool]:
+async def create_mcp_stdio_tools(command: List[str], client_name: str = "JAF", client_version: str = "2.0.0", extra_fields: Optional[Dict[str, Any]] = None) -> List[FastMCPTool]:
+    if not command:
+        raise ValueError("Command list must not be empty for MCP stdio transport.")
+    # Add juspay_meta_info by default for backward compatibility
+    if extra_fields is None:
+        extra_fields = {"juspay_meta_info": Dict[str, Any]}
     transport = StdioTransport(command=command[0], args=command[1:])
     client_info = mcp.types.Implementation(name=client_name, version=client_version)
-    return await create_tools_from_transport(transport, client_info)
+    return await create_tools_from_transport(transport, client_info, extra_fields)
 
-async def create_mcp_sse_tools(uri: str, client_name: str = "JAF", client_version: str = "2.0.0") -> List[FastMCPTool]:
+async def create_mcp_sse_tools(uri: str, client_name: str = "JAF", client_version: str = "2.0.0", extra_fields: Optional[Dict[str, Any]] = None) -> List[FastMCPTool]:
+    # Add juspay_meta_info by default for backward compatibility
+    if extra_fields is None:
+        extra_fields = {"juspay_meta_info": Dict[str, Any]}
     transport = SSETransport(url=uri)
     client_info = mcp.types.Implementation(name=client_name, version=client_version)
-    return await create_tools_from_transport(transport, client_info)
+    return await create_tools_from_transport(transport, client_info, extra_fields)
 
-async def create_mcp_http_tools(uri: str, client_name: str = "JAF", client_version: str = "2.0.0") -> List[FastMCPTool]:
+async def create_mcp_http_tools(uri: str, client_name: str = "JAF", client_version: str = "2.0.0", extra_fields: Optional[Dict[str, Any]] = None) -> List[FastMCPTool]:
+    # Add juspay_meta_info by default for backward compatibility
+    if extra_fields is None:
+        extra_fields = {"juspay_meta_info": Dict[str, Any]}
     transport = StreamableHttpTransport(url=uri)
     client_info = mcp.types.Implementation(name=client_name, version=client_version)
-    return await create_tools_from_transport(transport, client_info)
+    return await create_tools_from_transport(transport, client_info, extra_fields)
