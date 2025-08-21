@@ -9,7 +9,7 @@ import asyncio
 import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, TypeVar
+from typing import Any, Dict, List, Optional, TypeVar, Union
 
 import httpx
 from httpx_sse import aconnect_sse
@@ -559,8 +559,25 @@ def create_mcp_http_client(uri: str, client_name: str = "JAF", client_version: s
     client_info = MCPClientInfo(name=client_name, version=client_version)
     return MCPClient(transport, client_info, timeout=timeout)
 
-def _json_schema_to_python_type(schema: Dict[str, Any]) -> type:
-    """Maps JSON schema types to Python types for Pydantic model creation."""
+def _json_schema_to_python_type(schema: Dict[str, Any], depth: int = 0, max_depth: int = 10) -> type:
+    """
+    Maps JSON schema types to Python types for Pydantic model creation.
+    
+    Args:
+        schema: JSON schema dictionary
+        depth: Current recursion depth
+        max_depth: Maximum allowed recursion depth
+        
+    Returns:
+        Python type corresponding to the JSON schema
+        
+    Raises:
+        ValueError: For unsupported schema types or excessive recursion
+    """
+    # Prevent infinite recursion
+    if depth > max_depth:
+        raise ValueError(f"Maximum recursion depth ({max_depth}) exceeded in JSON schema conversion")
+    
     type_str = schema.get("type")
     if type_str == "string":
         return str
@@ -572,16 +589,19 @@ def _json_schema_to_python_type(schema: Dict[str, Any]) -> type:
         return bool
     elif type_str == "array":
         items_schema = schema.get("items", {})
-        # Recursive call for nested types
-        item_type = _json_schema_to_python_type(items_schema)
+        # Recursive call for nested types, incrementing depth
+        item_type = _json_schema_to_python_type(items_schema, depth=depth+1, max_depth=max_depth)
         return List[item_type]
     elif type_str == "object":
         # For nested objects, we can use Dict or create another dynamic model
         # For simplicity, we'll use Dict[str, Any]
         return Dict[str, Any]
-    else:
-        # Fallback for any other types
+    elif type_str is None:
+        # Handle case where type is not specified
         return Any
+    else:
+        # Raise an error for unsupported or unknown schema types
+        raise ValueError(f"Unsupported or unknown JSON schema type: {type_str!r} in schema: {schema}")
 
 async def create_mcp_tools_from_client(mcp_client: MCPClient) -> List[MCPTool]:
     """Create JAF tools from all available MCP tools."""
@@ -607,9 +627,11 @@ async def create_mcp_tools_from_client(mcp_client: MCPClient) -> List[MCPTool]:
                 # Required field
                 fields[param_name] = (param_type, ...)
             else:
-                # Optional field with a default value of None
-                default_value = param_schema.get("default")
-                fields[param_name] = (Optional[param_type], default_value)
+                # Optional field; only set a default if 'default' is present in the schema
+                if "default" in param_schema:
+                    fields[param_name] = (Optional[param_type], param_schema["default"])
+                else:
+                    fields[param_name] = (Optional[param_type], None)
 
         # Create a dynamic Pydantic model for the arguments
         ArgsModel = create_model(
