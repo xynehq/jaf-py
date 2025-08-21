@@ -78,7 +78,8 @@ class FastMCPTool:
         client = Client(self.transport, client_info=self.client_info)
         try:
             async with client:
-                args_dict = args.model_dump(exclude_none=True)
+                # Only include fields that were explicitly set, not defaults
+                args_dict = args.model_dump(exclude_none=True, exclude_unset=True)
                 result = await client.call_tool_mcp(self.tool_name, arguments=args_dict)
 
                 if result.isError:
@@ -96,10 +97,15 @@ class FastMCPTool:
                     )
                 
                 data = result.structuredContent if result.structuredContent else str(result.content)
+                
+                # Create proper ToolMetadata object
+                from ..core.tool_results import ToolMetadata
+                tool_metadata = ToolMetadata(extra={"mcp_response": str(result)})
+                
                 return ToolResult(
                     status=ToolResultStatus.SUCCESS,
                     data=str(data),
-                    metadata={"mcp_response": result}
+                    metadata=tool_metadata
                 )
 
         except Exception as e:
@@ -132,8 +138,8 @@ async def create_tools_from_transport(transport: Any, client_info: mcp.types.Imp
                     if param_name in required_params:
                         fields[param_name] = (param_type, ...)
                     else:
-                        default_value = param_schema.get("default")
-                        fields[param_name] = (Optional[param_type], default_value)
+                        # Don't set default values - let them be None so exclude_unset works
+                        fields[param_name] = (Optional[param_type], None)
                 
                 # Add juspay_meta_info to all tool schemas if not already present
                 if 'juspay_meta_info' not in fields:
