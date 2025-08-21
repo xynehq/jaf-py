@@ -71,36 +71,36 @@ def create_function_tool(config: FunctionToolConfig) -> Tool:
     tool_name = config['name']
     parameters = config['parameters']
     
-    logger.info(f"🔧 Creating tool: {tool_name}")
+    logger.info(f"Creating tool: {tool_name}")
     
     # Validate parameters schema
     if parameters is None:
-        logger.error(f"❌ Tool {tool_name}: parameters is None - LLM will receive no schema!")
+        logger.error(f"Tool {tool_name}: parameters is None - LLM will receive no schema!")
         raise ValueError(f"Tool '{tool_name}' has None parameters. Provide a Pydantic model class.")
     
     # Check if it's a Pydantic model class
     if BaseModel is None:
-        logger.warning(f"⚠️ Pydantic not available for tool {tool_name} validation")
+        logger.warning(f"Pydantic not available for tool {tool_name} validation")
     else:
         if not (isinstance(parameters, type) and issubclass(parameters, BaseModel)):
-            logger.error(f"❌ Tool {tool_name}: parameters must be a Pydantic BaseModel class, got {type(parameters)}")
+            logger.error(f"Tool {tool_name}: parameters must be a Pydantic BaseModel class, got {type(parameters)}")
             raise ValueError(f"Tool '{tool_name}' parameters must be a Pydantic BaseModel class, got {type(parameters)}")
     
     # Test schema generation
     try:
         if hasattr(parameters, 'model_json_schema'):
             test_schema = parameters.model_json_schema()
-            logger.debug(f"✅ Tool {tool_name} schema test: {test_schema}")
+            logger.debug(f"Tool {tool_name} schema test: {test_schema}")
             
             if not test_schema.get('properties'):
-                logger.error(f"❌ CRITICAL: Tool {tool_name} generates EMPTY properties - LLM will send NULL!")
+                logger.error(f"Tool {tool_name} generates empty properties - LLM will send NULL!")
                 raise ValueError(f"Tool '{tool_name}' has no properties in schema. Check your Pydantic model fields.")
                 
         elif hasattr(parameters, 'schema'):
             test_schema = parameters.schema()
-            logger.debug(f"✅ Tool {tool_name} schema test (v1): {test_schema}")
+            logger.debug(f"Tool {tool_name} schema test (v1): {test_schema}")
     except Exception as e:
-        logger.error(f"❌ Tool {tool_name} schema generation failed: {e}")
+        logger.error(f"Tool {tool_name} schema generation failed: {e}")
         raise ValueError(f"Tool '{tool_name}' schema generation failed: {e}")
     
     # Create schema

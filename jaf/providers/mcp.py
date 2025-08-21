@@ -594,11 +594,22 @@ def _validate_default_value(default_value: Any, param_type: type) -> Any:
         except Exception:
             raise ValueError(f"Cannot convert default value {default_value!r} to float")
     elif param_type == bool and not isinstance(default_value, bool):
-        # Be careful with bool conversion as bool(0) == False, bool(1) == True
-        if default_value in (0, False, "false", "False"):
-            return False
-        elif default_value in (1, True, "true", "True"):
-            return True
+        # Use explicit mapping for boolean conversion
+        if isinstance(default_value, str):
+            val = default_value.strip().lower()
+            if val in ("false", "0"):
+                return False
+            elif val in ("true", "1"):
+                return True
+            else:
+                raise ValueError(f"Cannot convert default value {default_value!r} to boolean")
+        elif isinstance(default_value, (int, float)):
+            if default_value == 0:
+                return False
+            elif default_value == 1:
+                return True
+            else:
+                raise ValueError(f"Cannot convert default value {default_value!r} to boolean")
         else:
             raise ValueError(f"Cannot convert default value {default_value!r} to boolean")
     
@@ -607,6 +618,12 @@ def _validate_default_value(default_value: Any, param_type: type) -> Any:
 def _json_schema_to_python_type(schema: Dict[str, Any], depth: int = 0, max_depth: int = 10) -> type:
     """
     Maps JSON schema types to Python types for Pydantic model creation.
+    
+    This function is recursive: it calls itself to handle nested objects and arrays.
+    - For arrays, it recurses into the "items" schema to determine the item type.
+    - For objects, it returns Dict[str, Any] (does not create nested models).
+    - For deeply nested schemas, recursion depth is limited by `max_depth`.
+    If the 'type' field is missing from the schema, the function returns `Any`.
     
     Args:
         schema: JSON schema dictionary
@@ -643,6 +660,9 @@ def _json_schema_to_python_type(schema: Dict[str, Any], depth: int = 0, max_dept
         return Dict[str, Any]  # Works with imported Dict from typing
     elif type_str is None:
         # Handle case where type is not specified
+        # Log a warning when type is not specified, as this may indicate a malformed schema
+        logger = logging.getLogger(__name__)
+        logger.warning(f"JSON schema missing 'type' field: {schema!r}. Falling back to 'Any'.")
         return Any
     else:
         # Raise an error for unsupported or unknown schema types
