@@ -35,6 +35,21 @@ def _json_schema_to_python_type(schema: Dict[str, Any]) -> type:
         "array": List,
         "object": Dict,
     }
+    
+    # Handle anyOf types (union types)
+    if "anyOf" in schema:
+        # For anyOf, find the first non-null type
+        for any_type in schema["anyOf"]:
+            if any_type.get("type") != "null":
+                return _json_schema_to_python_type(any_type)
+        return Any
+    
+    # Handle integer type correctly
+    if schema.get("type") == "integer":
+        return int
+    elif schema.get("type") == "number":
+        return float
+    
     return type_map.get(schema.get("type", "object"), Any)
 
 class MCPToolArgs(BaseModel):
@@ -106,7 +121,8 @@ async def create_tools_from_transport(transport: Any, client_info: mcp.types.Imp
         async with client:
             tools_list = await client.list_tools()
             for tool_info in tools_list:
-                params_schema = tool_info.input_schema or {}
+                # Try both inputSchema (camelCase) and input_schema (snake_case)
+                params_schema = getattr(tool_info, "inputSchema", None) or getattr(tool_info, "input_schema", {}) or {}
                 properties = params_schema.get("properties", {})
                 required_params = params_schema.get("required", [])
 
@@ -118,6 +134,10 @@ async def create_tools_from_transport(transport: Any, client_info: mcp.types.Imp
                     else:
                         default_value = param_schema.get("default")
                         fields[param_name] = (Optional[param_type], default_value)
+                
+                # Add juspay_meta_info to all tool schemas if not already present
+                if 'juspay_meta_info' not in fields:
+                    fields['juspay_meta_info'] = (Optional[Dict[str, Any]], None)
 
                 ArgsModel = create_model(
                     f"{tool_info.name.replace('_', ' ').title().replace(' ', '')}Args",
