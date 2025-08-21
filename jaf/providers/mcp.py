@@ -75,7 +75,33 @@ class FastMCPTool:
         return self._schema
 
     def _convert_simple_filters_to_flat_filter(self, simple_filters: dict) -> dict:
-        """Convert simple key-value filters to FlatFilter format for tools that expect it."""
+        """
+        Converts a "simple filter" dictionary to the "FlatFilter" format required by some tools.
+
+        Simple filters are dictionaries mapping field names to values, e.g.:
+            {"status": "active", "category": ["A", "B"]}
+        Each key is a field name, and each value is either a single value or a list of values to match.
+
+        Flat filters are a more structured format with two keys:
+            - "clauses": a list of filter conditions, each specifying a field, a condition (e.g., "In"), and a list of values.
+            - "logic": a string expressing how to combine the clauses (e.g., "0 AND 1").
+        Example output:
+            {
+                "clauses": [
+                    {"field": "status", "condition": "In", "val": ["active"]},
+                    {"field": "category", "condition": "In", "val": ["A", "B"]}
+                ],
+                "logic": "0 AND 1"
+            }
+
+        This conversion is needed for tools that expect filters in FlatFilter format rather than as simple key-value pairs.
+
+        Args:
+            simple_filters (dict): A dictionary of field names to values (simple filter).
+
+        Returns:
+            dict: The filter in FlatFilter format.
+        """
         if not simple_filters:
             return simple_filters
             
