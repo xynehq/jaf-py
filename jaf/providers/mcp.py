@@ -7,13 +7,14 @@ tools and services following the MCP specification.
 
 import asyncio
 import json
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, TypeVar
+from typing import Any, Dict, List, Optional, TypeVar, Union
 
 import httpx
 from httpx_sse import aconnect_sse
-from pydantic import BaseModel
+from pydantic import BaseModel, create_model
 
 from ..core.tool_results import ToolErrorCodes, ToolResult, ToolResultStatus
 from ..core.types import ToolSchema
@@ -69,8 +70,9 @@ class MCPTransport(ABC):
 class SSEMCPTransport(MCPTransport):
     """SSE-based MCP transport."""
 
-    def __init__(self, uri: str):
+    def __init__(self, uri: str, timeout: float = 30.0):
         self.uri = uri
+        self.timeout = timeout
         self.client: Optional[httpx.AsyncClient] = None
         self._request_id = 0
         self._pending_requests: Dict[int, asyncio.Future] = {}
@@ -128,12 +130,12 @@ class SSEMCPTransport(MCPTransport):
                 messages_url = self.uri
             
             # Send request via HTTP POST
-            response = await self.client.post(messages_url, json=request, timeout=30.0)
+            response = await self.client.post(messages_url, json=request, timeout=self.timeout)
             response.raise_for_status()
             
             # For SSE, we expect the response to come through the SSE stream
             # Wait for the response
-            result = await asyncio.wait_for(future, timeout=30.0)
+            result = await asyncio.wait_for(future, timeout=self.timeout)
             return result
         except httpx.HTTPStatusError as e:
             self._pending_requests.pop(self._request_id, None)
@@ -209,8 +211,9 @@ class SSEMCPTransport(MCPTransport):
 class StreamableHttpMCPTransport(MCPTransport):
     """Streamable HTTP-based MCP transport."""
 
-    def __init__(self, uri: str):
+    def __init__(self, uri: str, timeout: float = 30.0):
         self.uri = uri
+        self.timeout = timeout
         self.client: Optional[httpx.AsyncClient] = None
         self._request_id = 0
 
@@ -238,7 +241,7 @@ class StreamableHttpMCPTransport(MCPTransport):
         }
 
         try:
-            response = await self.client.post(self.uri, json=request, timeout=30.0)
+            response = await self.client.post(self.uri, json=request, timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except httpx.HTTPStatusError as e:
@@ -264,8 +267,9 @@ class StreamableHttpMCPTransport(MCPTransport):
 class StdioMCPTransport(MCPTransport):
     """Stdio-based MCP transport for local processes."""
 
-    def __init__(self, command: List[str]):
+    def __init__(self, command: List[str], timeout: float = 30.0):
         self.command = command
+        self.timeout = timeout
         self.process: Optional[asyncio.subprocess.Process] = None
         self._request_id = 0
         self._pending_requests: Dict[int, asyncio.Future] = {}
@@ -326,7 +330,7 @@ class StdioMCPTransport(MCPTransport):
 
         # Wait for response
         try:
-            response = await asyncio.wait_for(future, timeout=30.0)
+            response = await asyncio.wait_for(future, timeout=self.timeout)
             return response
         finally:
             self._pending_requests.pop(request_id, None)
@@ -370,11 +374,15 @@ class StdioMCPTransport(MCPTransport):
 class MCPClient:
     """MCP client for interacting with MCP servers."""
 
-    def __init__(self, transport: MCPTransport, client_info: MCPClientInfo):
+    def __init__(self, transport: MCPTransport, client_info: MCPClientInfo, timeout: float = 30.0):
         self.transport = transport
         self.client_info = client_info
         self.server_info: Optional[MCPServerInfo] = None
         self._tools: Dict[str, Dict[str, Any]] = {}
+        self.timeout = timeout
+        # Pass timeout to transport if it supports it
+        if hasattr(self.transport, 'timeout'):
+            self.transport.timeout = timeout
 
     async def initialize(self) -> None:
         """Initialize the MCP connection."""
@@ -532,25 +540,133 @@ class MCPTool:
             )
 
 
-def create_mcp_stdio_client(command: List[str], client_name: str = "JAF", client_version: str = "2.0.0") -> MCPClient:
+def create_mcp_stdio_client(command: List[str], client_name: str = "JAF", client_version: str = "2.0.0", timeout: float = 30.0) -> MCPClient:
     """Create an MCP client using stdio transport."""
-    transport = StdioMCPTransport(command)
+    transport = StdioMCPTransport(command, timeout=timeout)
     client_info = MCPClientInfo(name=client_name, version=client_version)
-    return MCPClient(transport, client_info)
+    return MCPClient(transport, client_info, timeout=timeout)
 
 
-def create_mcp_sse_client(uri: str, client_name: str = "JAF", client_version: str = "2.0.0") -> MCPClient:
+def create_mcp_sse_client(uri: str, client_name: str = "JAF", client_version: str = "2.0.0", timeout: float = 30.0) -> MCPClient:
     """Create an MCP client using SSE transport."""
-    transport = SSEMCPTransport(uri)
+    transport = SSEMCPTransport(uri, timeout=timeout)
     client_info = MCPClientInfo(name=client_name, version=client_version)
-    return MCPClient(transport, client_info)
+    return MCPClient(transport, client_info, timeout=timeout)
 
 
-def create_mcp_http_client(uri: str, client_name: str = "JAF", client_version: str = "2.0.0") -> MCPClient:
+def create_mcp_http_client(uri: str, client_name: str = "JAF", client_version: str = "2.0.0", timeout: float = 30.0) -> MCPClient:
     """Create an MCP client using streamable HTTP transport."""
-    transport = StreamableHttpMCPTransport(uri)
+    transport = StreamableHttpMCPTransport(uri, timeout=timeout)
     client_info = MCPClientInfo(name=client_name, version=client_version)
-    return MCPClient(transport, client_info)
+    return MCPClient(transport, client_info, timeout=timeout)
+
+def _validate_default_value(default_value: Any, param_type: type) -> Any:
+    """
+    Validate that a default value is compatible with the parameter type.
+    
+    Args:
+        default_value: The default value from the schema
+        param_type: The expected Python type
+        
+    Returns:
+        The validated default value
+        
+    Raises:
+        ValueError: If the default value is incompatible with the type
+    """
+    if default_value is None:
+        return None
+    
+    # Basic type checking
+    if param_type == str and not isinstance(default_value, str):
+        try:
+            return str(default_value)
+        except Exception:
+            raise ValueError(f"Cannot convert default value {default_value!r} to string")
+    elif param_type == int and not isinstance(default_value, int):
+        try:
+            return int(default_value)
+        except Exception:
+            raise ValueError(f"Cannot convert default value {default_value!r} to integer")
+    elif param_type == float and not isinstance(default_value, (int, float)):
+        try:
+            return float(default_value)
+        except Exception:
+            raise ValueError(f"Cannot convert default value {default_value!r} to float")
+    elif param_type == bool and not isinstance(default_value, bool):
+        # Use explicit mapping for boolean conversion
+        if isinstance(default_value, str):
+            val = default_value.strip().lower()
+            if val in ("false", "0"):
+                return False
+            elif val in ("true", "1"):
+                return True
+            else:
+                raise ValueError(f"Cannot convert default value {default_value!r} to boolean")
+        elif isinstance(default_value, (int, float)):
+            if default_value == 0:
+                return False
+            elif default_value == 1:
+                return True
+            else:
+                raise ValueError(f"Cannot convert default value {default_value!r} to boolean")
+        else:
+            raise ValueError(f"Cannot convert default value {default_value!r} to boolean")
+    
+    return default_value
+
+def _json_schema_to_python_type(schema: Dict[str, Any], depth: int = 0, max_depth: int = 10) -> type:
+    """
+    Maps JSON schema types to Python types for Pydantic model creation.
+    
+    This function is recursive: it calls itself to handle nested objects and arrays.
+    - For arrays, it recurses into the "items" schema to determine the item type.
+    - For objects, it returns Dict[str, Any] (does not create nested models).
+    - For deeply nested schemas, recursion depth is limited by `max_depth`.
+    If the 'type' field is missing from the schema, the function returns `Any`.
+    
+    Args:
+        schema: JSON schema dictionary
+        depth: Current recursion depth
+        max_depth: Maximum allowed recursion depth
+        
+    Returns:
+        Python type corresponding to the JSON schema
+        
+    Raises:
+        ValueError: For unsupported schema types or excessive recursion
+    """
+    # Prevent infinite recursion
+    if depth > max_depth:
+        raise ValueError(f"Maximum recursion depth ({max_depth}) exceeded in JSON schema conversion")
+    
+    type_str = schema.get("type")
+    if type_str == "string":
+        return str
+    elif type_str == "integer":
+        return int
+    elif type_str == "number":
+        return float
+    elif type_str == "boolean":
+        return bool
+    elif type_str == "array":
+        items_schema = schema.get("items", {})
+        # Recursive call for nested types, incrementing depth
+        item_type = _json_schema_to_python_type(items_schema, depth=depth+1, max_depth=max_depth)
+        return List[item_type]  # Works with imported List from typing
+    elif type_str == "object":
+        # For nested objects, we can use Dict or create another dynamic model
+        # For simplicity, we'll use Dict[str, Any]
+        return Dict[str, Any]  # Works with imported Dict from typing
+    elif type_str is None:
+        # Handle case where type is not specified
+        # Log a warning when type is not specified, as this may indicate a malformed schema
+        logger = logging.getLogger(__name__)
+        logger.warning(f"JSON schema missing 'type' field: {schema!r}. Falling back to 'Any'.")
+        return Any
+    else:
+        # Raise an error for unsupported or unknown schema types
+        raise ValueError(f"Unsupported or unknown JSON schema type: {type_str!r} in schema: {schema}")
 
 async def create_mcp_tools_from_client(mcp_client: MCPClient) -> List[MCPTool]:
     """Create JAF tools from all available MCP tools."""
@@ -560,17 +676,43 @@ async def create_mcp_tools_from_client(mcp_client: MCPClient) -> List[MCPTool]:
 
     tools = []
     for tool_name in mcp_client.get_available_tools():
-        # Create a generic args model for this tool
-        class GenericMCPArgs(MCPToolArgs):
-            class Config:
-                extra = "allow"
-            
-            def __init__(self, **data):
-                super().__init__()
-                for key, value in data.items():
-                    setattr(self, key, value)
+        tool_info = mcp_client.get_tool_info(tool_name)
+        if not tool_info:
+            continue
 
-        tool = MCPTool(mcp_client, tool_name, GenericMCPArgs)
+        params_schema = tool_info.get("inputSchema", {})
+        properties = params_schema.get("properties", {})
+        required_params = params_schema.get("required", [])
+
+        fields = {}
+        for param_name, param_schema in properties.items():
+            param_type = _json_schema_to_python_type(param_schema)
+            
+            if param_name in required_params:
+                # Required field
+                fields[param_name] = (param_type, ...)
+            else:
+                # Optional field; only set a default if 'default' is present in the schema
+                if "default" in param_schema:
+                    try:
+                        validated_default = _validate_default_value(param_schema["default"], param_type)
+                        fields[param_name] = (Optional[param_type], validated_default)
+                    except ValueError as e:
+                        # Log warning but use original value - let Pydantic handle final validation
+                        logger = logging.getLogger(__name__)
+                        logger.warning(f"⚠️ Default value validation failed for {param_name}: {e}")
+                        fields[param_name] = (Optional[param_type], param_schema["default"])
+                else:
+                    fields[param_name] = (Optional[param_type], None)
+
+        # Create a dynamic Pydantic model for the arguments
+        ArgsModel = create_model(
+            f"{tool_name.replace('_', ' ').title().replace(' ', '')}Args",
+            **fields,
+            __base__=MCPToolArgs,
+        )
+
+        tool = MCPTool(mcp_client, tool_name, ArgsModel)
         tools.append(tool)
 
     return tools

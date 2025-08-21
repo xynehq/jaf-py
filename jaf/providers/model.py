@@ -178,25 +178,7 @@ def _pydantic_to_json_schema(model_class: type[BaseModel]) -> Dict[str, Any]:
     """
     if hasattr(model_class, 'model_json_schema'):
         # Pydantic v2
-        schema = model_class.model_json_schema()
+        return model_class.model_json_schema()
     else:
         # Pydantic v1 fallback
-        schema = model_class.schema()
-
-    # Ensure the schema has the required fields for OpenAI
-    if 'type' not in schema:
-        schema['type'] = 'object'
-
-    # Remove any unsupported fields
-    clean_schema = {
-        'type': schema.get('type', 'object'),
-        'properties': schema.get('properties', {}),
-    }
-
-    if 'required' in schema:
-        clean_schema['required'] = schema['required']
-
-    # Set additionalProperties to false for strict validation
-    clean_schema['additionalProperties'] = False
-
-    return clean_schema
+        return model_class.schema()
