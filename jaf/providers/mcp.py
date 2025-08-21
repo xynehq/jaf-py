@@ -74,12 +74,54 @@ class FastMCPTool:
     def schema(self) -> ToolSchema[MCPToolArgs]:
         return self._schema
 
+    def _convert_simple_filters_to_flat_filter(self, simple_filters: dict) -> dict:
+        """Convert simple key-value filters to FlatFilter format for tools that expect it."""
+        if not simple_filters:
+            return simple_filters
+            
+        clauses = []
+        for i, (field, value) in enumerate(simple_filters.items()):
+            # Convert single values to lists for "In" condition
+            if not isinstance(value, list):
+                value = [value]
+            
+            clauses.append({
+                "field": field,
+                "condition": "In", 
+                "val": value
+            })
+        
+        # Create logic string: "0 AND 1 AND 2..." for all clauses
+        logic = " AND ".join(str(i) for i in range(len(clauses)))
+        
+        return {
+            "clauses": clauses,
+            "logic": logic
+        }
+
+    def _transform_arguments_for_tool(self, args_dict: dict) -> dict:
+        """Transform arguments based on tool-specific requirements."""
+        # Handle flatFilters transformation for tools that expect FlatFilter schema
+        if ('flatFilters' in args_dict and 
+            isinstance(args_dict['flatFilters'], dict) and
+            'clauses' not in args_dict['flatFilters']):
+            
+            logging.info(f"[JAF MCP] Converting simple flatFilters to FlatFilter format for {self.tool_name}")
+            args_dict['flatFilters'] = self._convert_simple_filters_to_flat_filter(args_dict['flatFilters'])
+            logging.info(f"[JAF MCP] Converted flatFilters: {args_dict['flatFilters']}")
+        
+        return args_dict
+
     async def execute(self, args: MCPToolArgs, context: Ctx) -> ToolResult:
         client = Client(self.transport, client_info=self.client_info)
         try:
             async with client:
                 # Only include fields that were explicitly set, not defaults
                 args_dict = args.model_dump(exclude_none=True, exclude_unset=True)
+                
+                # Apply tool-specific argument transformations
+                args_dict = self._transform_arguments_for_tool(args_dict)
+                
                 result = await client.call_tool_mcp(self.tool_name, arguments=args_dict)
 
                 if result.isError:
