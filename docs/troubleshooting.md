@@ -3,7 +3,7 @@
 This guide helps you resolve common issues when working with JAF Python.
 
 !!! warning "Before You Start"
-    Make sure you're using a supported Python version (3.9+) and have properly installed JAF with `pip install jaf-py`.
+    Make sure you're using a supported Python version (3.10+) and have properly installed JAF with `pip install jaf-py`.
 
 ## Common Issues
 

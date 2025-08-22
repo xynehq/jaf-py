@@ -3,7 +3,7 @@
 <!-- ![JAF Banner](docs/cover.png) -->
 
 [![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/xynehq/jaf-py)
-[![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Docs](https://img.shields.io/badge/Docs-Live-brightgreen)](https://xynehq.github.io/jaf-py/)
 
 A purely functional agent framework with immutable state and composable tools, professionally converted from TypeScript to Python. JAF enables building production-ready AI agent systems with built-in security, observability, and error handling.
