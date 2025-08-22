@@ -51,11 +51,11 @@ from .memory import *
 from .policies.handoff import *
 from .policies.validation import *
 from .providers.mcp import (
-    MCPClient,
-    MCPTool,
+    FastMCPTool,
     MCPToolArgs,
-    create_mcp_stdio_client,
-    create_mcp_tools_from_client,
+    create_mcp_stdio_tools,
+    create_mcp_sse_tools,
+    create_mcp_http_tools,
 )
 from .providers.model import make_litellm_provider
 from .server import run_server
@@ -215,9 +215,11 @@ __all__ = [
 
     # Providers
     "make_litellm_provider",
-    "MCPClient", "MCPTool", "MCPToolArgs",
-    "create_mcp_stdio_client",
-    "create_mcp_tools_from_client",
+    "FastMCPTool",
+    "MCPToolArgs",
+    "create_mcp_stdio_tools",
+    "create_mcp_sse_tools",
+    "create_mcp_http_tools",
 
     # Memory system
     "ConversationMemory", "MemoryProvider", "MemoryQuery", "MemoryConfig",

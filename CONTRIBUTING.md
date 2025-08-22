@@ -60,7 +60,7 @@ We actively welcome your pull requests:
 
 ### Prerequisites
 
-- Python 3.9 or higher
+- Python 3.10 or higher
 - Git
 - pip (Python package installer)
 

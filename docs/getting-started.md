@@ -16,7 +16,7 @@ By completing this guide, you will have:
 
 ### Technical Requirements
 
-- **Python 3.9 or higher** (Python 3.11+ recommended for optimal performance and latest features)
+- **Python 3.10 or higher** (Python 3.11+ recommended for optimal performance and latest features)
 - **LiteLLM proxy server** for LLM integration, or direct access to LLM APIs
 - **Development environment** with package management (pip, conda, or poetry)
 - **Basic understanding** of Python asyncio, type hints, and functional programming concepts
