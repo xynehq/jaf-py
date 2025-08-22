@@ -199,16 +199,27 @@ async def create_tools_from_transport(transport: Union[StdioTransport, SSETransp
                 tools_list = []
             for tool_info in tools_list:
                 # Support both inputSchema (camelCase) and input_schema (snake_case) for compatibility with different MCP implementations.
-                has_camel = hasattr(tool_info, "inputSchema")
-                has_snake = hasattr(tool_info, "input_schema")
-                if has_camel and has_snake:
-                    logging.warning("Both 'inputSchema' and 'input_schema' are present in tool_info; using 'inputSchema'.")
-                if has_camel:
-                    params_schema = getattr(tool_info, "inputSchema")
-                elif has_snake:
-                    params_schema = getattr(tool_info, "input_schema")
+                camel_schema = getattr(tool_info, "inputSchema", None)
+                snake_schema = getattr(tool_info, "input_schema", None)
+                
+                # Choose schema with preference for camelCase when both are non-empty dicts
+                if camel_schema and snake_schema:
+                    if isinstance(camel_schema, dict) and isinstance(snake_schema, dict) and camel_schema and snake_schema:
+                        logging.info(f"Both 'inputSchema' and 'input_schema' are present for tool '{tool_info.name}'; preferring 'inputSchema'.")
+                        params_schema = camel_schema
+                    elif camel_schema:
+                        params_schema = camel_schema
+                    else:
+                        params_schema = snake_schema
+                elif camel_schema:
+                    params_schema = camel_schema
+                elif snake_schema:
+                    params_schema = snake_schema
                 else:
                     params_schema = {}
+                
+                # Ensure params_schema is a dict before accessing .get
+                params_schema = params_schema or {}
                 properties = params_schema.get("properties", {})
                 required_params = params_schema.get("required", [])
 
