@@ -22,8 +22,12 @@ from typing import (
     TypedDict,
     Union,
     runtime_checkable,
+    TYPE_CHECKING,
 )
 from enum import Enum
+
+if TYPE_CHECKING:
+    from .tool_results import ToolResult
 
 
 # Comprehensive enums for type safety and improved developer experience
@@ -171,7 +175,7 @@ class Tool(Protocol[Args, Ctx]):
         """Tool schema including name, description, and parameter validation."""
         ...
 
-    async def execute(self, args: Args, context: Ctx) -> Union[str, 'ToolResult']:
+    async def execute(self, args: Args, context: Ctx) -> Union[str, 'ToolResult[Any]']:
         """Execute the tool with given arguments and context."""
         ...
 
@@ -181,7 +185,7 @@ class FunctionToolConfig(TypedDict):
     """Configuration for creating function-based tools with object-based API."""
     name: str
     description: str
-    execute: Callable[[Any, Any], Union[str, 'ToolResult', Awaitable[Union[str, 'ToolResult']]]]
+    execute: Callable[[Any, Any], Union[str, 'ToolResult[Any]', Awaitable[Union[str, 'ToolResult[Any]']]]]
     parameters: Any  # Pydantic model or similar for parameter validation
     metadata: Optional[Dict[str, Any]]  # Optional metadata
     source: Optional[ToolSource]  # Optional source tracking
@@ -189,7 +193,7 @@ class FunctionToolConfig(TypedDict):
 
 
 # Type alias for tool execution functions
-ToolExecuteFunction = Callable[[Any, Any], Union[str, 'ToolResult', Awaitable[Union[str, 'ToolResult']]]]
+ToolExecuteFunction = Callable[[Any, Any], Union[str, 'ToolResult[Any]', Awaitable[Union[str, 'ToolResult[Any]']]]]
 
 
 @dataclass(frozen=True)

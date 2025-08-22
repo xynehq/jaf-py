@@ -98,18 +98,30 @@ await mcp_client.initialize()
 
 ### Creating MCP Tools
 
-Convert MCP server tools into JAF tools:
+Convert MCP server tools into JAF tools with timeout support:
 
 ```python
-from jaf.providers.mcp import MCPTool, MCPToolArgs
-from pydantic import BaseModel
+from jaf.providers.mcp import create_mcp_stdio_tools, create_mcp_sse_tools, create_mcp_http_tools
 
-# Define arguments for the MCP tool
-class FileReadArgs(MCPToolArgs):
-    path: str
+# Create MCP tools from stdio transport with default timeout
+mcp_tools = await create_mcp_stdio_tools(
+    command=['npx', '-y', '@modelcontextprotocol/server-filesystem', '/Users'],
+    client_name="JAF",
+    client_version="2.0.0",
+    default_timeout=30.0  # 30 second default timeout for all tools
+)
 
-# Create an MCP tool
-mcp_tool = MCPTool(mcp_client, "read_file", FileReadArgs)
+# Create MCP tools from SSE transport with custom timeout
+sse_tools = await create_mcp_sse_tools(
+    uri='http://localhost:8080/mcp',
+    default_timeout=60.0  # 60 second timeout for SSE operations
+)
+
+# Create MCP tools from HTTP transport with longer timeout
+http_tools = await create_mcp_http_tools(
+    uri='http://localhost:8080/api/mcp',
+    default_timeout=120.0  # 2 minute timeout for HTTP operations
+)
 
 # Use in an agent
 from jaf import Agent
@@ -120,7 +132,60 @@ def agent_instructions(state):
 agent = Agent(
     name="FileAgent",
     instructions=agent_instructions,
-    tools=[mcp_tool]
+    tools=mcp_tools  # Tools automatically include timeout configuration
+)
+```
+
+#### Timeout Configuration for MCP Tools
+
+MCP tools in JAF support comprehensive timeout configuration:
+
+```python
+# Default timeout for all tools from a transport
+mcp_tools = await create_mcp_stdio_tools(
+    command=['mcp-server-command'],
+    default_timeout=45.0  # All tools from this server default to 45 seconds
+)
+
+# Tools inherit the default timeout but can be overridden at RunConfig level
+from jaf.core.types import RunConfig
+
+config = RunConfig(
+    agent_registry={'Agent': agent},
+    model_provider=model_provider,
+    default_tool_timeout=60.0,  # Override default for all tools
+    max_turns=10
+)
+```
+
+#### MCP Tool Timeout Hierarchy
+
+MCP tools follow the same timeout resolution hierarchy as native JAF tools:
+
+1. **Tool-specific timeout** (if defined in MCP server) - highest priority
+2. **MCP transport default_timeout** - medium priority  
+3. **RunConfig default_tool_timeout** - lower priority
+4. **Global default (30 seconds)** - lowest priority
+
+```python
+# Example: Different timeout strategies for different MCP servers
+
+# Fast local filesystem operations - short timeout
+fs_tools = await create_mcp_stdio_tools(
+    command=['npx', '-y', '@modelcontextprotocol/server-filesystem', '/Users'],
+    default_timeout=15.0  # Quick filesystem operations
+)
+
+# Database operations - medium timeout
+db_tools = await create_mcp_http_tools(
+    uri='http://database-server:8080/mcp',
+    default_timeout=60.0  # Database queries may take longer
+)
+
+# Heavy computation services - long timeout
+compute_tools = await create_mcp_sse_tools(
+    uri='http://compute-server:8080/events',
+    default_timeout=300.0  # 5 minutes for complex computations
 )
 ```
 

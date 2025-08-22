@@ -35,6 +35,65 @@ async def my_tool(param1: str, param2: int = 0, context=None) -> str:
     return f"Processed {param1} with value {param2}"
 ```
 
+### Tool Timeouts
+
+JAF provides comprehensive timeout support to prevent tools from running indefinitely:
+
+```python
+from jaf import function_tool
+
+# Tool with specific timeout (10 seconds)
+@function_tool(timeout=10.0)
+async def quick_operation(data: str, context=None) -> str:
+    """Fast operation that should complete within 10 seconds."""
+    # Implementation here
+    return f"Processed: {data}"
+
+# Tool with longer timeout for heavy operations
+@function_tool(timeout=300.0)  # 5 minutes
+async def heavy_computation(dataset: str, context=None) -> str:
+    """Heavy computation that may take up to 5 minutes."""
+    # Long-running implementation here
+    return f"Computed: {dataset}"
+```
+
+### Timeout Configuration Hierarchy
+
+Timeouts are resolved using this priority order:
+
+1. **Tool-specific timeout** (highest priority)
+2. **RunConfig default_tool_timeout** 
+3. **Global default (30 seconds)** (lowest priority)
+
+```python
+from jaf import create_function_tool, RunConfig, Agent
+
+# Tool with specific timeout
+quick_tool = create_function_tool({
+    'name': 'quick_tool',
+    'description': 'Fast operation',
+    'execute': quick_operation,
+    'parameters': QuickArgs,
+    'timeout': 5.0  # Tool-specific: 5 seconds
+})
+
+# Tool without timeout (will use RunConfig default)
+default_tool = create_function_tool({
+    'name': 'default_tool', 
+    'description': 'Uses config default',
+    'execute': default_operation,
+    'parameters': DefaultArgs
+    # No timeout - will use RunConfig default
+})
+
+# RunConfig with default timeout for all tools
+config = RunConfig(
+    agent_registry={'Agent': agent},
+    model_provider=provider,
+    default_tool_timeout=60.0  # 60 seconds default for all tools
+)
+```
+
 ### Legacy Class-Based Tools (Backward Compatibility)
 
 For existing codebases, the class-based approach is still supported:
@@ -54,14 +113,15 @@ async def my_tool_execute(args: MyToolArgs, context: Any) -> str:
     # Tool implementation here
     return f"Processed {args.param1} with {args.param2}"
 
-# Create tool using modern object-based API
+# Create tool using modern object-based API with timeout
 my_tool = create_function_tool({
     'name': 'my_tool',
     'description': 'What this tool does',
     'execute': my_tool_execute,
     'parameters': MyToolArgs,
     'metadata': {'category': 'utility'},
-    'source': ToolSource.NATIVE
+    'source': ToolSource.NATIVE,
+    'timeout': 45.0  # 45 second timeout
 })
 ```
 
@@ -79,7 +139,8 @@ class MyTool:
         return type('ToolSchema', (), {
             'name': 'my_tool',
             'description': 'What this tool does',
-            'parameters': MyToolArgs
+            'parameters': MyToolArgs,
+            'timeout': 30.0  # Optional timeout
         })()
     
     async def execute(self, args: MyToolArgs, context: Any) -> Any:
@@ -189,14 +250,14 @@ async def greet(name: str, style: str = "friendly", context=None) -> str:
     return greeting
 ```
 
-### Tool with External API
+### Tool with External API and Timeout
 
 ```python
 import httpx
 from jaf import function_tool
 import os
 
-@function_tool
+@function_tool(timeout=30.0)  # 30 second timeout for API calls
 async def get_weather(city: str, units: str = "metric", context=None) -> str:
     """Get current weather for a city.
     
@@ -216,6 +277,7 @@ async def get_weather(city: str, units: str = "metric", context=None) -> str:
     }
     
     try:
+        # HTTP client timeout (shorter than tool timeout)
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(base_url, params=params)
             response.raise_for_status()
@@ -235,14 +297,14 @@ async def get_weather(city: str, units: str = "metric", context=None) -> str:
         return f"Error: Failed to get weather for {city}: {str(e)}"
 ```
 
-### Tool with Database Access
+### Tool with Database Access and Long Timeout
 
 ```python
 import asyncpg
 from jaf import function_tool
 from typing import Dict, Any
 
-@function_tool
+@function_tool(timeout=120.0)  # 2 minute timeout for database operations
 async def query_database(
     table: str,
     filters: Dict[str, Any] = None,
@@ -303,6 +365,56 @@ async def query_database(
         return f"Database query failed: {str(e)}"
 ```
 
+## Tool Timeout Handling
+
+### Understanding Timeout Errors
+
+When a tool exceeds its timeout, JAF automatically returns a structured error:
+
+```json
+{
+    "error": "timeout_error",
+    "message": "Tool tool_name timed out after 30.0 seconds",
+    "tool_name": "tool_name",
+    "timeout_seconds": 30.0
+}
+```
+
+### Best Practices for Timeouts
+
+```python
+from jaf import function_tool
+import asyncio
+
+# Fast operations: 5-15 seconds
+@function_tool(timeout=10.0)
+async def quick_calculation(expression: str, context=None) -> str:
+    """Fast mathematical calculation."""
+    # Quick computation
+    return f"Result: {eval(expression)}"
+
+# Medium operations: 30-120 seconds  
+@function_tool(timeout=60.0)
+async def api_integration(endpoint: str, context=None) -> str:
+    """API call with reasonable timeout."""
+    # API call implementation
+    return "API response"
+
+# Heavy operations: 2-10 minutes
+@function_tool(timeout=600.0)
+async def data_processing(dataset: str, context=None) -> str:
+    """Heavy data processing with long timeout."""
+    # Long-running computation
+    return "Processing complete"
+
+# Operations that should never timeout: use None
+@function_tool(timeout=None)
+async def interactive_tool(user_input: str, context=None) -> str:
+    """Interactive tool that waits for user input."""
+    # This tool won't timeout (use with caution)
+    return "User interaction complete"
+```
+
 ## Tool Response Handling
 
 With the `@function_tool` decorator, tools return simple strings that are automatically handled by the framework. Error handling is done through return values and exceptions.
@@ -314,7 +426,7 @@ With the `@function_tool` decorator, tools return simple strings that are automa
 Always validate and sanitize inputs:
 
 ```python
-@function_tool
+@function_tool(timeout=15.0)
 async def validate_input_example(
     required_field: str,
     identifier: str,
@@ -348,7 +460,7 @@ async def validate_input_example(
 ### Security Best Practices
 
 ```python
-@function_tool
+@function_tool(timeout=30.0)
 async def secure_calculator(expression: str, context=None) -> str:
     """Calculator with comprehensive security safeguards.
     
@@ -417,7 +529,7 @@ async def secure_calculator(expression: str, context=None) -> str:
 Use the context parameter for authorization:
 
 ```python
-@function_tool
+@function_tool(timeout=45.0)
 async def admin_operation(operation: str, data: str, context=None) -> str:
     """Example of context-based security in function tools.
     
@@ -445,22 +557,22 @@ async def admin_operation(operation: str, data: str, context=None) -> str:
 ### Registering Tools with Agents
 
 ```python
-from jaf import Agent, function_tool
+from jaf import Agent, function_tool, RunConfig
 
-# Create function tools using decorators
-@function_tool
+# Create function tools using decorators with different timeouts
+@function_tool(timeout=15.0)
 async def calculate(expression: str, context=None) -> str:
     """Perform safe mathematical calculations."""
     # Implementation here (see examples above)
     return f"Calculated: {expression}"
 
-@function_tool 
+@function_tool(timeout=30.0)  # Longer timeout for API calls
 async def get_weather(city: str, units: str = "metric", context=None) -> str:
     """Get current weather for a city."""
     # Implementation here (see examples above)
     return f"Weather in {city}: sunny"
 
-@function_tool
+@function_tool(timeout=5.0)  # Quick greeting
 async def greet(name: str, style: str = "friendly", context=None) -> str:
     """Generate a personalized greeting."""
     # Implementation here (see examples above)
@@ -474,6 +586,14 @@ agent = Agent(
     name="UtilityAgent",
     instructions=instructions,
     tools=[calculate, get_weather, greet]
+)
+
+# Configure RunConfig with default timeout
+config = RunConfig(
+    agent_registry={"UtilityAgent": agent},
+    model_provider=model_provider,
+    default_tool_timeout=60.0,  # Default 60s for tools without specific timeout
+    max_turns=10
 )
 ```
 
@@ -499,7 +619,7 @@ class UserContext:
         return 'admin' in self.permissions
 
 # Use in tools
-@function_tool
+@function_tool(timeout=20.0)
 async def context_aware_tool(data: str, context: UserContext) -> str:
     """Example tool that uses strongly-typed context."""
     if not context.has_permission('read'):
@@ -516,7 +636,7 @@ async def context_aware_tool(data: str, context: UserContext) -> str:
 import pytest
 from unittest.mock import AsyncMock, patch
 
-@function_tool
+@function_tool(timeout=10.0)
 async def greet(name: str, style: str = "friendly", context=None) -> str:
     """Generate a personalized greeting."""
     if not name.strip():
@@ -564,10 +684,25 @@ async def test_greeting_tool_validation():
     assert "empty" in result.lower()
 
 @pytest.mark.asyncio
+async def test_tool_timeout():
+    """Test tool timeout functionality."""
+    import asyncio
+    
+    @function_tool(timeout=1.0)  # 1 second timeout
+    async def slow_tool(delay: float, context=None) -> str:
+        """Tool that takes longer than timeout."""
+        await asyncio.sleep(delay)
+        return "Should not reach here"
+    
+    # This would be tested within the JAF engine context
+    # The engine handles timeouts automatically
+    pass
+
+@pytest.mark.asyncio
 async def test_weather_tool_with_mock():
     import httpx
     
-    @function_tool
+    @function_tool(timeout=30.0)
     async def get_weather(city: str, context=None) -> str:
         """Get weather with mocked HTTP client."""
         async with httpx.AsyncClient() as client:
@@ -597,7 +732,7 @@ async def test_tool_with_agent():
     from jaf import run, RunState, RunConfig, Message, Agent, function_tool
     
     # Create a greeting tool using the modern decorator
-    @function_tool
+    @function_tool(timeout=10.0)
     async def greet(name: str, style: str = "friendly", context=None) -> str:
         """Generate a personalized greeting."""
         if not name.strip():
@@ -632,7 +767,7 @@ async def test_tool_with_agent():
         }
     }])
     
-    # Run agent
+    # Run agent with timeout configuration
     initial_state = RunState(
         messages=[Message(role="user", content="Please greet Alice")],
         current_agent_name="TestAgent",
@@ -642,6 +777,7 @@ async def test_tool_with_agent():
     config = RunConfig(
         agent_registry={"TestAgent": agent},
         model_provider=mock_provider,
+        default_tool_timeout=30.0,  # Default timeout for tools
         max_turns=1
     )
     
@@ -654,7 +790,7 @@ async def test_tool_with_agent():
 
 ## Advanced Patterns
 
-### Tool Chaining
+### Tool Chaining with Timeouts
 
 Tools can call other tools or return instructions for follow-up:
 
@@ -662,7 +798,7 @@ Tools can call other tools or return instructions for follow-up:
 from jaf import function_tool
 from typing import List, Dict, Any
 
-@function_tool
+@function_tool(timeout=180.0)  # 3 minutes for complex workflows
 async def orchestrate_workflow(
     steps: List[Dict[str, Any]], 
     context=None
@@ -732,7 +868,7 @@ async def orchestrate_workflow(
 from jaf import function_tool
 from typing import Dict, Any, Optional
 
-@function_tool
+@function_tool(timeout=60.0)
 async def configurable_processor(
     data: str,
     operation: str = "basic",
@@ -785,7 +921,7 @@ async def configurable_processor(
 def create_configured_tool(enabled_features: List[str]):
     """Create a tool with specific features enabled."""
     
-    @function_tool
+    @function_tool(timeout=30.0)
     async def configured_tool(
         input_data: str,
         feature_option: str = "default",
@@ -818,6 +954,45 @@ def create_configured_tool(enabled_features: List[str]):
 8. **Use async/await** - All tools should be async for better performance
 9. **Log important events** - Use structured logging for debugging and monitoring
 10. **Consider rate limiting** - Implement safeguards for resource-intensive operations
+11. **Set appropriate timeouts** - Choose timeouts based on expected operation duration
+12. **Handle timeout gracefully** - Tools should be designed to handle interruption
+
+## Timeout Best Practices
+
+### Choosing Appropriate Timeouts
+
+- **Quick operations (0-15 seconds)**: Simple calculations, validations, quick API calls
+- **Medium operations (15-120 seconds)**: Database queries, file I/O, standard API calls  
+- **Long operations (2-10 minutes)**: Data processing, complex computations, batch operations
+- **Interactive operations**: Consider using no timeout (with caution) for user interactions
+
+### Timeout Strategy by Operation Type
+
+```python
+# Network operations - account for latency and retries
+@function_tool(timeout=45.0)
+async def api_call_tool(endpoint: str, context=None) -> str:
+    """API calls should account for network latency."""
+    pass
+
+# Database operations - account for query complexity
+@function_tool(timeout=120.0) 
+async def complex_query_tool(query: str, context=None) -> str:
+    """Database queries may need longer timeouts."""
+    pass
+
+# File operations - account for file size and I/O speed
+@function_tool(timeout=60.0)
+async def file_processing_tool(file_path: str, context=None) -> str:
+    """File operations depend on size and storage speed."""
+    pass
+
+# Computation - account for algorithm complexity
+@function_tool(timeout=300.0)
+async def heavy_computation_tool(dataset: str, context=None) -> str:
+    """Complex computations may need extended timeouts."""
+    pass
+```
 
 ## Next Steps
 
@@ -825,3 +1000,4 @@ def create_configured_tool(enabled_features: List[str]):
 - Explore [Model Providers](model-providers.md) for LLM integration
 - Check out [Examples](examples.md) for real-world tool implementations
 - Read the [API Reference](api-reference.md) for complete documentation
+- See [MCP Integration](mcp.md) for connecting external tools and services
