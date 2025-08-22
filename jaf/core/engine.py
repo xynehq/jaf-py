@@ -259,8 +259,8 @@ async def _run_internal(
             # Emit handoff event
             if config.on_event:
                 config.on_event(HandoffEvent(data=HandoffEventData(
-                    from_agent=current_agent.name,
-                    to_agent=target_agent
+                    from_=current_agent.name,
+                    to=target_agent
                 )))
 
             # Continue with new agent
@@ -448,13 +448,9 @@ async def _execute_tool_calls(
 
             # Determine timeout for this tool
             # Priority: tool-specific timeout > RunConfig default > 30 seconds global default
-            timeout = None
-            if hasattr(tool.schema, 'timeout') and tool.schema.timeout is not None:
-                timeout = tool.schema.timeout
-            elif config.default_tool_timeout is not None:
-                timeout = config.default_tool_timeout
-            else:
-                timeout = 30.0  # Global default
+            timeout = getattr(tool.schema, 'timeout', None)
+            if timeout is None:
+                timeout = config.default_tool_timeout if config.default_tool_timeout is not None else 30.0
 
             print(f"[JAF:ENGINE] Using timeout: {timeout} seconds for tool {tool_call.function.name}")
 
