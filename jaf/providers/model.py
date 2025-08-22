@@ -5,7 +5,7 @@ This module provides model providers that integrate with various LLM services,
 starting with LiteLLM for multi-provider support.
 """
 
-from typing import Any, Dict, TypeVar
+from typing import Any, Dict, Optional, TypeVar
 
 from openai import OpenAI
 from pydantic import BaseModel
@@ -16,7 +16,8 @@ Ctx = TypeVar('Ctx')
 
 def make_litellm_provider(
     base_url: str,
-    api_key: str = "anything"
+    api_key: str = "anything",
+    default_timeout: Optional[float] = None
 ) -> ModelProvider[Ctx]:
     """
     Create a LiteLLM-compatible model provider.
@@ -24,6 +25,7 @@ def make_litellm_provider(
     Args:
         base_url: Base URL for the LiteLLM server
         api_key: API key (defaults to "anything" for local servers)
+        default_timeout: Default timeout for model API calls in seconds
         
     Returns:
         ModelProvider instance
@@ -38,6 +40,7 @@ def make_litellm_provider(
                 api_key=effective_api_key,
                 # Note: dangerouslyAllowBrowser is JavaScript-specific
             )
+            self.default_timeout = default_timeout
 
         async def get_completion(
             self,

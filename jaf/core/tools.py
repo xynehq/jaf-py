@@ -63,7 +63,7 @@ def create_function_tool(config: FunctionToolConfig) -> Tool:
         ```
     """
     # Get the function from config
-    func = config['execute']
+    original_func = config['execute']
     
     # Validate tool configuration
     logger = logging.getLogger(__name__)
@@ -107,19 +107,12 @@ def create_function_tool(config: FunctionToolConfig) -> Tool:
     tool_schema = ToolSchema(
         name=config['name'],
         description=config['description'],
-        parameters=config['parameters']
+        parameters=config['parameters'],
+        timeout=config.get('timeout')
     )
     
-    # Add tool properties and methods to the function
-    func.schema = tool_schema
-    func.metadata = config.get('metadata', {})
-    func.source = config.get('source', ToolSource.NATIVE)
-    
-    # Store original function for execution
-    original_func = func
-    
-    # Add execute method that calls the original function
-    async def execute(args: Any, context: Any) -> Union[str, ToolResult]:
+    # Create a new wrapper function for this tool to avoid conflicts when multiple tools use the same base function
+    async def tool_wrapper(args: Any, context: Any) -> Union[str, ToolResult]:
         """Execute the tool with given arguments and context."""
         result = original_func(args, context)
         
@@ -128,16 +121,26 @@ def create_function_tool(config: FunctionToolConfig) -> Tool:
             return await result
         return result
     
-    func.execute = execute
+    # Add tool properties and methods to the wrapper function
+    tool_wrapper.schema = tool_schema
+    tool_wrapper.metadata = config.get('metadata', {})
+    tool_wrapper.source = config.get('source', ToolSource.NATIVE)
+    
+    # Add execute method that calls the wrapper function
+    async def execute(args: Any, context: Any) -> Union[str, ToolResult]:
+        """Execute the tool with given arguments and context."""
+        return await tool_wrapper(args, context)
+    
+    tool_wrapper.execute = execute
     
     # Add __call__ method for direct execution
     async def call_method(args: Any, context: Any) -> Union[str, ToolResult]:
         """Execute the tool with given arguments and context."""
-        return await func.execute(args, context)
+        return await tool_wrapper.execute(args, context)
     
-    func.__call__ = call_method
+    tool_wrapper.__call__ = call_method
     
-    return func
+    return tool_wrapper
 
 
 
@@ -327,7 +330,8 @@ def function_tool(
     name: Optional[str] = None,
     description: Optional[str] = None,
     metadata: Optional[Dict[str, Any]] = None,
-    source: Optional[ToolSource] = None
+    source: Optional[ToolSource] = None,
+    timeout: Optional[float] = None
 ):
     """
     Decorator to automatically create a tool from a function.
@@ -383,7 +387,8 @@ def function_tool(
         tool_schema = ToolSchema(
             name=func_name,
             description=func_description,
-            parameters=parameters
+            parameters=parameters,
+            timeout=timeout
         )
         
         # Add tool properties and methods to the function

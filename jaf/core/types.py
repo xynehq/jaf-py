@@ -22,8 +22,12 @@ from typing import (
     TypedDict,
     Union,
     runtime_checkable,
+    TYPE_CHECKING,
 )
 from enum import Enum
+
+if TYPE_CHECKING:
+    from .tool_results import ToolResult
 
 
 # Comprehensive enums for type safety and improved developer experience
@@ -160,6 +164,7 @@ class ToolSchema(Generic[Args]):
     name: str
     description: str
     parameters: Any  # Should be a type that can validate Args (like Pydantic model or Zod equivalent)
+    timeout: Optional[float] = None  # Optional timeout in seconds for tool execution
 
 @runtime_checkable
 class Tool(Protocol[Args, Ctx]):
@@ -170,7 +175,7 @@ class Tool(Protocol[Args, Ctx]):
         """Tool schema including name, description, and parameter validation."""
         ...
 
-    async def execute(self, args: Args, context: Ctx) -> Union[str, 'ToolResult']:
+    async def execute(self, args: Args, context: Ctx) -> Union[str, 'ToolResult[Any]']:
         """Execute the tool with given arguments and context."""
         ...
 
@@ -180,14 +185,15 @@ class FunctionToolConfig(TypedDict):
     """Configuration for creating function-based tools with object-based API."""
     name: str
     description: str
-    execute: Callable[[Any, Any], Union[str, 'ToolResult', Awaitable[Union[str, 'ToolResult']]]]
+    execute: Callable[[Any, Any], Union[str, 'ToolResult[Any]', Awaitable[Union[str, 'ToolResult[Any]']]]]
     parameters: Any  # Pydantic model or similar for parameter validation
     metadata: Optional[Dict[str, Any]]  # Optional metadata
     source: Optional[ToolSource]  # Optional source tracking
+    timeout: Optional[float]  # Optional timeout in seconds for tool execution
 
 
 # Type alias for tool execution functions
-ToolExecuteFunction = Callable[[Any, Any], Union[str, 'ToolResult', Awaitable[Union[str, 'ToolResult']]]]
+ToolExecuteFunction = Callable[[Any, Any], Union[str, 'ToolResult[Any]', Awaitable[Union[str, 'ToolResult[Any]']]]]
 
 
 @dataclass(frozen=True)
@@ -452,3 +458,4 @@ class RunConfig(Generic[Ctx]):
     on_event: Optional[Callable[[TraceEvent], None]] = None
     memory: Optional['MemoryConfig'] = None
     conversation_id: Optional[str] = None
+    default_tool_timeout: Optional[float] = 30.0  # Default timeout for tool execution in seconds
