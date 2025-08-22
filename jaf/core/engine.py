@@ -399,7 +399,8 @@ async def _execute_tool_calls(
                 if config.on_event:
                     config.on_event(ToolCallEndEvent(data=ToolCallEndEventData(
                         tool_name=tool_call.function.name,
-                        result=error_result
+                        result=error_result,
+                        status='error'
                     )))
 
                 return {
@@ -429,7 +430,8 @@ async def _execute_tool_calls(
                 if config.on_event:
                     config.on_event(ToolCallEndEvent(data=ToolCallEndEventData(
                         tool_name=tool_call.function.name,
-                        result=error_result
+                        result=error_result,
+                        status='error'
                     )))
 
                 return {
@@ -473,7 +475,8 @@ async def _execute_tool_calls(
                 if config.on_event:
                     config.on_event(ToolCallEndEvent(data=ToolCallEndEventData(
                         tool_name=tool_call.function.name,
-                        result=timeout_error_result
+                        result=timeout_error_result,
+                        status='timeout'
                     )))
 
                 return {
@@ -499,7 +502,8 @@ async def _execute_tool_calls(
             if config.on_event:
                 config.on_event(ToolCallEndEvent(data=ToolCallEndEventData(
                     tool_name=tool_call.function.name,
-                    result=result_string
+                    result=result_string,
+                    status='success'
                 )))
 
             # Check for handoff
@@ -534,7 +538,8 @@ async def _execute_tool_calls(
             if config.on_event:
                 config.on_event(ToolCallEndEvent(data=ToolCallEndEventData(
                     tool_name=tool_call.function.name,
-                    result=error_result
+                    result=error_result,
+                    status='error'
                 )))
 
             return {

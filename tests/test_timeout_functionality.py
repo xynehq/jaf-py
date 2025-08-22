@@ -188,8 +188,7 @@ async def main():
         if event.type == 'tool_call_start':
             print(f"🔧 Starting tool: {event.data.tool_name}")
         elif event.type == 'tool_call_end':
-            status = getattr(event.data, 'status', 'unknown')
-            print(f"✅ Tool {event.data.tool_name} finished with status: {status}")
+            print(f"✅ Tool {event.data.tool_name} finished.")
     
     # Create test agent
     test_agent = Agent(
