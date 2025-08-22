@@ -122,8 +122,8 @@ class MockModelProvider:
             }
 
 
-async def test_timeout_scenario(scenario_name: str, tools, run_config, tool_calls):
-    """Test a specific timeout scenario."""
+async def run_timeout_scenario(scenario_name: str, tools, run_config, tool_calls):
+    """Run a specific timeout scenario."""
     print(f"\n{'='*60}")
     print(f"🧪 TESTING: {scenario_name}")
     print(f"{'='*60}")
@@ -176,7 +176,7 @@ async def test_timeout_scenario(scenario_name: str, tools, run_config, tool_call
     return result
 
 
-async def main():
+async def test_all_timeout_scenarios():
     """Run comprehensive timeout tests."""
     print("🚀 JAF Timeout Functionality Test Suite")
     print("=" * 60)
@@ -217,7 +217,7 @@ async def main():
         }
     ]]
     
-    await test_timeout_scenario(
+    await run_timeout_scenario(
         "Tool-specific timeout (2s timeout, 5s operation)",
         tools, run_config_1, tool_calls_1
     )
@@ -235,7 +235,7 @@ async def main():
         }
     ]]
     
-    await test_timeout_scenario(
+    await run_timeout_scenario(
         "Tool-specific long timeout (10s timeout, 3s operation)",
         tools, run_config_1, tool_calls_2
     )
@@ -260,7 +260,7 @@ async def main():
         }
     ]]
     
-    await test_timeout_scenario(
+    await run_timeout_scenario(
         "RunConfig default timeout (3s timeout, 5s operation)",
         tools, run_config_3, tool_calls_3
     )
@@ -285,7 +285,7 @@ async def main():
         }
     ]]
     
-    await test_timeout_scenario(
+    await run_timeout_scenario(
         "Global default timeout (30s timeout, 2s operation)",
         tools, run_config_4, tool_calls_4
     )
@@ -303,7 +303,7 @@ async def main():
         }
     ]]
     
-    await test_timeout_scenario(
+    await run_timeout_scenario(
         "Fast tool (instant completion)",
         tools, run_config_1, tool_calls_5
     )
@@ -337,7 +337,7 @@ async def main():
         }
     ]]
     
-    await test_timeout_scenario(
+    await run_timeout_scenario(
         "Multiple tools (1 fast, 1 timeout, 1 fast)",
         tools, run_config_1, tool_calls_6
     )
@@ -347,4 +347,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(test_all_timeout_scenarios())

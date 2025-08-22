@@ -16,15 +16,19 @@ from typing import Dict, Any
 # Add the current directory to Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from jaf.memory.factory import MemoryFactory
-from jaf.memory.types import MemoryConfig, MemoryProvider
-from jaf.core.types import Message, Role, Agent, RunConfig
-from jaf.core.tools import Tool, ToolSchema, ToolParameter
+from jaf.memory.factory import create_memory_provider_from_env
+from jaf.memory.types import MemoryProvider
+from jaf.core.types import Message, ContentRole, Agent, RunConfig
+from jaf.core.tools import Tool, ToolSchema
+from pydantic import BaseModel
 from jaf.core.tool_results import ToolResult, ToolResultStatus
 from jaf.core.engine import run
 import redis
 
-class TestTool(Tool):
+class FixesToolArgs(BaseModel):
+    message: str
+
+class FixesTool(Tool):
     """A test tool that returns metadata to validate metadata fix."""
     
     def __init__(self):
@@ -32,21 +36,15 @@ class TestTool(Tool):
             schema=ToolSchema(
                 name="test_tool",
                 description="A test tool that returns metadata",
-                parameters={
-                    "message": ToolParameter(
-                        type="string",
-                        description="Test message to echo back",
-                        required=True
-                    )
-                }
+                parameters=FixesToolArgs
             )
         )
     
-    async def execute(self, message: str) -> ToolResult:
+    async def execute(self, args: FixesToolArgs) -> ToolResult:
         """Execute the test tool with metadata."""
         execution_time = time.time()
         result_data = {
-            "echo": message,
+            "echo": args.message,
             "timestamp": execution_time,
             "tool_name": "test_tool"
         }
@@ -73,12 +71,17 @@ async def test_redis_memory_fixes():
         # Use environment variables for Redis connection
         redis_url = os.getenv('JAF_REDIS_URL', 'redis://:test@localhost:6379/0')
         
-        memory_config = MemoryConfig(
-            provider=MemoryProvider.REDIS,
-            redis_url=redis_url
-        )
+        # Set environment variables for Redis
+        os.environ['JAF_MEMORY_TYPE'] = 'redis'
+        os.environ['JAF_REDIS_URL'] = redis_url
         
-        memory = MemoryFactory.create_memory(memory_config)
+        memory_result = await create_memory_provider_from_env()
+        
+        if hasattr(memory_result, 'is_success') and memory_result.is_success():
+            memory = memory_result.unwrap()
+        else:
+            memory = memory_result  # Assume it's the memory provider directly
+            
         print(f"✓ Redis memory provider created with URL: {redis_url}")
         
         # Test Redis connection
@@ -97,10 +100,10 @@ async def test_redis_memory_fixes():
     try:
         # Create initial conversation with some messages
         initial_messages = [
-            Message(role=Role.USER, content='Hello, this is the first message'),
-            Message(role=Role.ASSISTANT, content='Hello! I received your first message.'),
-            Message(role=Role.USER, content='Can you help me with a task?'),
-            Message(role=Role.ASSISTANT, content='Of course! I can help you with tasks.')
+            Message(role=ContentRole.USER, content='Hello, this is the first message'),
+            Message(role=ContentRole.ASSISTANT, content='Hello! I received your first message.'),
+            Message(role=ContentRole.USER, content='Can you help me with a task?'),
+            Message(role=ContentRole.ASSISTANT, content='Of course! I can help you with tasks.')
         ]
         
         # Save initial conversation with turn count metadata
@@ -131,14 +134,14 @@ async def test_redis_memory_fixes():
         test_agent = Agent(
             name="test_agent",
             instructions="You are a test agent. Use the test_tool when asked.",
-            tools=[TestTool()]
+            tools=[FixesTool()]
         )
         
         # Create run state with loaded conversation
         run_state = RunState(
             run_id=create_run_id("test_run"),
             trace_id=create_trace_id("test_trace"),
-            messages=loaded_data.messages + [Message(role=Role.USER, content="Please use the test_tool with message 'testing execution time'")],
+            messages=loaded_data.messages + [Message(role=ContentRole.USER, content="Please use the test_tool with message 'testing execution time'")],
             current_agent_name="test_agent",
             context={},
             turn_count=loaded_data.metadata.get('turn_count', 0)
@@ -147,7 +150,6 @@ async def test_redis_memory_fixes():
         # Create run config with memory
         run_config = RunConfig(
             agents={"test_agent": test_agent},
-            memory=memory_config,
             conversation_id=conversation_id,
             max_turns=1
         )
