@@ -27,30 +27,41 @@ Ctx = TypeVar('Ctx')
 
 def _json_schema_to_python_type(schema: Dict[str, Any]) -> type:
     """Maps JSON schema types to Python types for Pydantic model creation."""
+    if not isinstance(schema, dict):
+        return Any
+
     type_map = {
         "string": str,
         "integer": int,
         "number": float,
         "boolean": bool,
-        "array": List,
-        "object": Dict,
+        "array": list,   # prefer builtins for pydantic v2
+        "object": dict,
+        "null": type(None),
     }
-    
-    # Handle anyOf types (union types)
-    if "anyOf" in schema:
-        # For anyOf, find the first non-null type
-        for any_type in schema["anyOf"]:
-            if any_type.get("type") != "null":
-                return _json_schema_to_python_type(any_type)
+
+    # Union forms
+    for key in ("anyOf", "oneOf"):
+        if key in schema and isinstance(schema[key], list):
+            # Prefer the first non-null sub-schema
+            for sub in schema[key]:
+                if isinstance(sub, dict) and sub.get("type") != "null":
+                    return _json_schema_to_python_type(sub)
+            return Any
+
+    t = schema.get("type")
+    # Handle 'type' as list: e.g., ["string", "null"]
+    if isinstance(t, list):
+        non_null = [x for x in t if x != "null"]
+        if len(non_null) == 1:
+            return _json_schema_to_python_type({"type": non_null[0]})
         return Any
-    
-    # Handle integer type correctly
-    if schema.get("type") == "integer":
-        return int
-    elif schema.get("type") == "number":
-        return float
-    
-    return type_map.get(schema.get("type", "object"), Any)
+
+    if t in ("integer", "number", "string", "boolean", "object", "array"):
+        return type_map[t]
+
+    # Fallback
+    return Any
 
 class MCPToolArgs(BaseModel):
     """Base class for MCP tool arguments."""
