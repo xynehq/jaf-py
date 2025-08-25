@@ -7,10 +7,10 @@ tool calling, and state management while maintaining functional purity.
 
 import asyncio
 import json
-from dataclasses import replace
+from dataclasses import replace, asdict, is_dataclass
 from typing import Any, Dict, List, Optional, TypeVar
 
-from pydantic import ValidationError
+from pydantic import ValidationError, BaseModel
 
 from ..memory.types import Failure
 from .tool_results import tool_result_to_string
@@ -48,6 +48,26 @@ from .types import (
     ToolCallStartEventData,
 )
 
+
+def to_event_data(value: Any) -> Any:
+    """
+    Resilient serializer helper for event payloads.
+    
+    Converts various types to event-compatible data:
+    - dataclasses: uses asdict()
+    - Pydantic BaseModel: uses model_dump()
+    - other types: returns as-is
+    
+    This prevents TypeError when serializing nested Pydantic models or non-dataclass types.
+    """
+    if is_dataclass(value):
+        return asdict(value)
+    elif isinstance(value, BaseModel):
+        return value.model_dump()
+    else:
+        return value
+
+
 Ctx = TypeVar('Ctx')
 Out = TypeVar('Out')
 
@@ -60,7 +80,7 @@ async def run(
     """
     try:
         if config.on_event:
-            config.on_event(RunStartEvent(data=RunStartEventData(run_id=initial_state.run_id, trace_id=initial_state.trace_id)))
+            config.on_event(RunStartEvent(data=to_event_data(RunStartEventData(run_id=initial_state.run_id, trace_id=initial_state.trace_id))))
 
         state_with_memory = await _load_conversation_history(initial_state, config)
         result = await _run_internal(state_with_memory, config)
@@ -68,7 +88,7 @@ async def run(
         await _store_conversation_history(result.final_state, config)
 
         if config.on_event:
-            config.on_event(RunEndEvent(data=RunEndEventData(outcome=result.outcome)))
+            config.on_event(RunEndEvent(data=to_event_data(RunEndEventData(outcome=result.outcome))))
 
         return result
     except Exception as error:
@@ -77,7 +97,7 @@ async def run(
             outcome=ErrorOutcome(error=ModelBehaviorError(detail=str(error)))
         )
         if config.on_event:
-            config.on_event(RunEndEvent(data=RunEndEventData(outcome=error_result.outcome)))
+            config.on_event(RunEndEvent(data=to_event_data(RunEndEventData(outcome=error_result.outcome))))
         return error_result
 
 async def _load_conversation_history(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunState[Ctx]:
@@ -198,17 +218,17 @@ async def _run_internal(
 
     # Emit LLM call start event
     if config.on_event:
-        config.on_event(LLMCallStartEvent(data=LLMCallStartEventData(
+        config.on_event(LLMCallStartEvent(data=to_event_data(LLMCallStartEventData(
             agent_name=current_agent.name,
             model=model
-        )))
+        ))))
 
     # Get completion from model provider
     llm_response = await config.model_provider.get_completion(state, current_agent, config)
 
     # Emit LLM call end event
     if config.on_event:
-        config.on_event(LLMCallEndEvent(data=LLMCallEndEventData(choice=llm_response)))
+        config.on_event(LLMCallEndEvent(data=to_event_data(LLMCallEndEventData(choice=llm_response))))
 
     # Check if response has message
     if not llm_response.get('message'):
@@ -258,10 +278,10 @@ async def _run_internal(
 
             # Emit handoff event
             if config.on_event:
-                config.on_event(HandoffEvent(data=HandoffEventData(
+                config.on_event(HandoffEvent(data=to_event_data(HandoffEventData(
                     from_=current_agent.name,
                     to=target_agent
-                )))
+                ))))
 
             # Continue with new agent
             next_state = replace(
@@ -375,10 +395,10 @@ async def _execute_tool_calls(
 
     async def execute_single_tool_call(tool_call: ToolCall) -> Dict[str, Any]:
         if config.on_event:
-            config.on_event(ToolCallStartEvent(data=ToolCallStartEventData(
+            config.on_event(ToolCallStartEvent(data=to_event_data(ToolCallStartEventData(
                 tool_name=tool_call.function.name,
                 args=_try_parse_json(tool_call.function.arguments)
-            )))
+            ))))
 
         try:
             # Find the tool
@@ -397,11 +417,11 @@ async def _execute_tool_calls(
                 })
 
                 if config.on_event:
-                    config.on_event(ToolCallEndEvent(data=ToolCallEndEventData(
+                    config.on_event(ToolCallEndEvent(data=to_event_data(ToolCallEndEventData(
                         tool_name=tool_call.function.name,
                         result=error_result,
                         status='error'
-                    )))
+                    ))))
 
                 return {
                     'message': Message(
@@ -428,11 +448,11 @@ async def _execute_tool_calls(
                 })
 
                 if config.on_event:
-                    config.on_event(ToolCallEndEvent(data=ToolCallEndEventData(
+                    config.on_event(ToolCallEndEvent(data=to_event_data(ToolCallEndEventData(
                         tool_name=tool_call.function.name,
                         result=error_result,
                         status='error'
-                    )))
+                    ))))
 
                 return {
                     'message': Message(
@@ -469,11 +489,11 @@ async def _execute_tool_calls(
                 })
 
                 if config.on_event:
-                    config.on_event(ToolCallEndEvent(data=ToolCallEndEventData(
+                    config.on_event(ToolCallEndEvent(data=to_event_data(ToolCallEndEventData(
                         tool_name=tool_call.function.name,
                         result=timeout_error_result,
                         status='timeout'
-                    )))
+                    ))))
 
                 return {
                     'message': Message(
@@ -496,11 +516,11 @@ async def _execute_tool_calls(
                 print(f"[JAF:ENGINE] Converted to string: {result_string}")
 
             if config.on_event:
-                config.on_event(ToolCallEndEvent(data=ToolCallEndEventData(
+                config.on_event(ToolCallEndEvent(data=to_event_data(ToolCallEndEventData(
                     tool_name=tool_call.function.name,
                     result=result_string,
                     status='success'
-                )))
+                ))))
 
             # Check for handoff
             handoff_check = _try_parse_json(result_string)
@@ -532,11 +552,11 @@ async def _execute_tool_calls(
             })
 
             if config.on_event:
-                config.on_event(ToolCallEndEvent(data=ToolCallEndEventData(
+                config.on_event(ToolCallEndEvent(data=to_event_data(ToolCallEndEventData(
                     tool_name=tool_call.function.name,
                     result=error_result,
                     status='error'
-                )))
+                ))))
 
             return {
                 'message': Message(

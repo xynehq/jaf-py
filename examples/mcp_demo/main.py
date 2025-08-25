@@ -28,9 +28,9 @@ from jaf.core.tracing import ConsoleTraceCollector
 from jaf.memory import create_in_memory_provider, MemoryConfig
 from jaf.core.tool_results import ToolResult, ToolResultStatus, ToolErrorCodes
 from jaf.providers.mcp import (
-    create_mcp_stdio_client,
-    MCPClient,
-    MCPTool,
+    create_mcp_stdio_tools,
+    create_mcp_http_tools,
+    FastMCPTool,
     MCPToolArgs
 )
 from jaf.core.types import ToolSchema, RunConfig
@@ -58,101 +58,40 @@ class DynamicMCPArgs(MCPToolArgs):
         for key, value in data.items():
             setattr(self, key, value)
 
-class SecureMCPTool:
-    """A secure wrapper for MCP tools with path validation."""
-    
-    def __init__(self, mcp_tool: MCPTool, allowed_paths: List[str]):
-        self.mcp_tool = mcp_tool
-        self.allowed_paths = allowed_paths
-        self._schema = mcp_tool.schema
-    
-    @property
-    def schema(self) -> ToolSchema:
-        """Get the tool schema."""
-        return self._schema
-    
-    async def execute(self, args: Any, context: FilesystemContext) -> ToolResult:
-        """Execute the MCP tool with security validation."""
-        try:
-            print(f"🔧 Executing {self.mcp_tool.tool_name} with args: {args}")
-            
-            # Path validation for security
-            if hasattr(args, 'path') and args.path:
-                path = str(args.path)
-                is_allowed = any(path.startswith(allowed_path) for allowed_path in self.allowed_paths)
-                
-                if not is_allowed:
-                    return ToolResult(
-                        status=ToolResultStatus.ERROR,
-                        error_code=ToolErrorCodes.INVALID_INPUT,
-                        error_message=f"Path '{path}' is not in allowed directories: {', '.join(self.allowed_paths)}",
-                        data={"path": path, "allowed_paths": self.allowed_paths}
-                    )
-            
-            # Execute the original MCP tool
-            result = await self.mcp_tool.execute(args, context)
-            print(f"✅ {self.mcp_tool.tool_name} completed successfully")
-            return result
-            
-        except Exception as error:
-            print(f"❌ Error in {self.mcp_tool.tool_name}: {error}")
-            return ToolResult(
-                status=ToolResultStatus.ERROR,
-                error_code=ToolErrorCodes.EXECUTION_FAILED,
-                error_message=f"Failed to execute {self.mcp_tool.tool_name}: {str(error)}",
-                data={"error": str(error)}
-            )
-
-async def setup_filesystem_mcp_tools() -> List[SecureMCPTool]:
-    """Setup filesystem MCP tools with security wrapper."""
+async def setup_mcp_tools(mcp_url: Optional[str] = None) -> List[FastMCPTool]:
+    """Setup MCP tools."""
     try:
-        print("🔌 Connecting to filesystem MCP server...")
+        print("🔌 Connecting to MCP server...")
         
-        # Connect to filesystem MCP server using npx
-        mcp_client = create_mcp_stdio_client([
-            'npx',
-            '-y',
-            '@modelcontextprotocol/server-filesystem',
-            '/Users'  # Allow access to Users directory
-        ])
+        if mcp_url:
+            print(f"Connecting to MCP server at {mcp_url}")
+            tools = await create_mcp_http_tools(mcp_url)
+        else:
+            # Connect to filesystem MCP server using npx
+            print("Connecting to local filesystem MCP server via npx...")
+            tools = await create_mcp_stdio_tools([
+                'npx',
+                '-y',
+                '@modelcontextprotocol/server-filesystem',
+                '/Users'  # Allow access to Users directory
+            ])
         
-        # Initialize the client
-        await mcp_client.initialize()
+        print("📋 Available tools:")
+        for index, tool in enumerate(tools, 1):
+            print(f"{index}. {tool.schema.name}: {tool.schema.description[:80]}...")
         
-        # Get available tools
-        available_tools = mcp_client.get_available_tools()
-        print("📋 Available filesystem tools:")
-        
-        for index, tool_name in enumerate(available_tools, 1):
-            tool_info = mcp_client.get_tool_info(tool_name)
-            description = tool_info.get("description", "No description") if tool_info else "No description"
-            print(f"{index}. {tool_name}: {description[:80]}...")
-        
-        if not available_tools:
-            print("⚠️ No filesystem tools found! Please check MCP server connection.")
+        if not tools:
+            print("⚠️ No tools found! Please check MCP server connection.")
             return []
         
-        # Convert MCP tools to JAF tools with security wrapper
-        secure_tools = []
-        allowed_paths = ['/Users', '/tmp']
-        
-        for tool_name in available_tools:
-            # Create MCP tool
-            mcp_tool = MCPTool(mcp_client, tool_name, DynamicMCPArgs)
-            
-            # Wrap with security
-            secure_tool = SecureMCPTool(mcp_tool, allowed_paths)
-            secure_tools.append(secure_tool)
-        
-        print(f"✅ Successfully integrated {len(secure_tools)} filesystem tools")
-        return secure_tools
+        print(f"✅ Successfully integrated {len(tools)} tools")
+        return tools
         
     except Exception as error:
-        print(f"❌ Failed to connect to filesystem MCP server: {error}")
-        print("Make sure you have internet connection for npx to download the package")
+        print(f"❌ Failed to connect to MCP server: {error}")
         return []
 
-async def create_filesystem_agents(filesystem_tools: List[SecureMCPTool]) -> Dict[str, Agent]:
+async def create_filesystem_agents(filesystem_tools: List[FastMCPTool]) -> Dict[str, Agent]:
     """Create filesystem agents."""
     
     # Main Filesystem Agent - comprehensive file operations
@@ -240,12 +179,12 @@ Keep operations simple and responses brief but informative."""
         'QuickFileAgent': quick_file_agent
     }
 
-async def start_filesystem_server():
+async def start_filesystem_server(mcp_url: Optional[str] = None):
     """Start the filesystem server."""
     print("🚀 Starting MCP Filesystem Agent Server...\n")
     
     # Setup MCP tools
-    filesystem_tools = await setup_filesystem_mcp_tools()
+    filesystem_tools = await setup_mcp_tools(mcp_url)
     
     if not filesystem_tools:
         print("❌ No filesystem tools available. Cannot start server.")
@@ -302,7 +241,7 @@ async def start_filesystem_server():
         print('  -H "Content-Type: application/json" \\')
         print('  -d \'{"messages":[{"role":"user","content":"Create a file called hello.txt on my Desktop with the content: Hello from MCP filesystem agent!"}],"agentName":"FilesystemAgent","context":{"userId":"user_001","sessionId":"session_123"}}\'')
         
-        print("\n📖 Read a file:")
+        print("\n📄 Read a file:")
         print(f"curl -X POST http://{host}:{port}/chat \\")
         print('  -H "Content-Type: application/json" \\')
         print('  -d \'{"messages":[{"role":"user","content":"Read the contents of /Desktop/hello.txt"}],"agentName":"FilesystemAgent","context":{"userId":"user_001","sessionId":"session_123"}}\'')
@@ -339,7 +278,12 @@ async def start_filesystem_server():
 
 def main():
     """Main entry point."""
-    asyncio.run(start_filesystem_server())
+    import argparse
+    parser = argparse.ArgumentParser(description="JAF MCP Filesystem Server")
+    parser.add_argument("--mcp-url", type=str, help="URL of a remote MCP server to connect to.")
+    args = parser.parse_args()
+
+    asyncio.run(start_filesystem_server(args.mcp_url))
 
 if __name__ == "__main__":
     main()

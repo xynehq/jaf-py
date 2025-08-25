@@ -8,13 +8,14 @@ enabling progressive output delivery and improved user experience.
 import asyncio
 import json
 import time
+import uuid
 from dataclasses import dataclass, field
 from typing import AsyncIterator, Dict, List, Optional, Any, Union, Callable
 from enum import Enum
 
 from .types import (
     RunState, RunConfig, Message, TraceEvent, RunId, TraceId,
-    ContentRole, ToolCall, JAFError, CompletedOutcome, ErrorOutcome
+    ContentRole, ToolCall, JAFError, CompletedOutcome, ErrorOutcome, ModelBehaviorError
 )
 
 
@@ -191,14 +192,15 @@ async def run_streaming(
         StreamingEvent: Progressive updates during execution
     """
     start_time = time.time()
-    buffer = StreamingBuffer()
-    
+    event_queue = asyncio.Queue()
+    event_available = asyncio.Event()
+
     # Emit start event
     yield StreamingEvent(
         type=StreamingEventType.START,
         data=StreamingMetadata(
             agent_name=initial_state.current_agent_name,
-            model_name="unknown",  # Will be updated when known
+            model_name="unknown",
             turn_count=initial_state.turn_count,
             total_tokens=0,
             execution_time_ms=0
@@ -206,146 +208,154 @@ async def run_streaming(
         run_id=initial_state.run_id,
         trace_id=initial_state.trace_id
     )
-    
+
+    tool_call_ids = {} # To map tool calls to their IDs
+
+    def event_handler(event: TraceEvent) -> None:
+        """Handle trace events and put them into the queue."""
+        nonlocal tool_call_ids
+        streaming_event = None
+        if event.type == 'tool_call_start':
+            # Generate a unique ID for the tool call
+            call_id = f"call_{uuid.uuid4().hex[:8]}"
+            tool_call_ids[event.data.tool_name] = call_id
+            
+            tool_call = StreamingToolCall(
+                tool_name=event.data.tool_name,
+                arguments=event.data.args,
+                call_id=call_id,
+                status='started'
+            )
+            streaming_event = StreamingEvent(
+                type=StreamingEventType.TOOL_CALL,
+                data=tool_call,
+                run_id=initial_state.run_id,
+                trace_id=initial_state.trace_id
+            )
+        elif event.type == 'tool_call_end':
+            if event.data.tool_name not in tool_call_ids:
+                raise RuntimeError(
+                    f"Tool call end event received for unknown tool '{event.data.tool_name}'. "
+                    f"Known tool calls: {list(tool_call_ids.keys())}. "
+                    f"This may indicate a missing tool_call_start event or a bug in the streaming implementation."
+                )
+            call_id = tool_call_ids[event.data.tool_name]
+            tool_result = StreamingToolResult(
+                tool_name=event.data.tool_name,
+                call_id=call_id,
+                result=event.data.result,
+                status=event.data.status or 'completed'
+            )
+            streaming_event = StreamingEvent(
+                type=StreamingEventType.TOOL_RESULT,
+                data=tool_result,
+                run_id=initial_state.run_id,
+                trace_id=initial_state.trace_id
+            )
+        
+        if streaming_event:
+            try:
+                event_queue.put_nowait(streaming_event)
+                event_available.set()
+            except asyncio.QueueFull:
+                print(f"JAF-WARNING: Streaming event queue is full. Event dropped: {streaming_event.type}")
+
+    streaming_config = RunConfig(
+        agent_registry=config.agent_registry,
+        model_provider=config.model_provider,
+        max_turns=config.max_turns,
+        model_override=config.model_override,
+        initial_input_guardrails=config.initial_input_guardrails,
+        final_output_guardrails=config.final_output_guardrails,
+        on_event=event_handler,
+        memory=config.memory,
+        conversation_id=config.conversation_id
+    )
+
+    from .engine import run
+
+    run_task = asyncio.create_task(run(initial_state, streaming_config))
+
+    while not run_task.done() or not event_queue.empty():
+        if event_queue.empty():
+            await event_available.wait()
+            event_available.clear()
+            continue
+        try:
+            event = event_queue.get_nowait()
+            yield event
+            if event.type == StreamingEventType.ERROR:
+                if not run_task.done():
+                    run_task.cancel()
+                return
+        except asyncio.QueueEmpty:
+            continue
+        except asyncio.CancelledError:
+            if not run_task.done():
+                run_task.cancel()
+            raise
+
     try:
-        # Create a streaming-aware event handler
-        streaming_events: List[StreamingEvent] = []
-        
-        def event_handler(event: TraceEvent) -> None:
-            """Handle trace events and convert to streaming events."""
-            nonlocal streaming_events
-            
-            if event.type == 'llm_call_start':
-                # Update model name when LLM call starts
-                pass
-            elif event.type == 'tool_call_start':
-                tool_call = StreamingToolCall(
-                    tool_name=event.data.tool_name,
-                    arguments=event.data.args,
-                    call_id=f"call_{int(time.time() * 1000)}",
-                    status='started'
-                )
-                streaming_events.append(StreamingEvent(
-                    type=StreamingEventType.TOOL_CALL,
-                    data=tool_call,
-                    run_id=initial_state.run_id,
-                    trace_id=initial_state.trace_id
-                ))
-            elif event.type == 'tool_call_end':
-                tool_result = StreamingToolResult(
-                    tool_name=event.data.tool_name,
-                    call_id=f"call_{int(time.time() * 1000)}",
-                    result=event.data.result,
-                    status=event.data.status or 'completed'
-                )
-                streaming_events.append(StreamingEvent(
-                    type=StreamingEventType.TOOL_RESULT,
-                    data=tool_result,
-                    run_id=initial_state.run_id,
-                    trace_id=initial_state.trace_id
-                ))
-        
-        # Create streaming config with event handler
-        streaming_config = RunConfig(
-            agent_registry=config.agent_registry,
-            model_provider=config.model_provider,
-            max_turns=config.max_turns,
-            model_override=config.model_override,
-            initial_input_guardrails=config.initial_input_guardrails,
-            final_output_guardrails=config.final_output_guardrails,
-            on_event=event_handler,
-            memory=config.memory,
-            conversation_id=config.conversation_id
-        )
-        
-        # For now, we'll simulate streaming by running the agent and then
-        # streaming the result. In a full implementation, this would integrate
-        # with the model provider's streaming capabilities.
-        
-        # Import here to avoid circular imports
-        from .engine import run
-        
-        # Run the agent (this would be modified to support actual streaming)
-        result = await run(initial_state, streaming_config)
-        
-        # Emit any accumulated streaming events
-        for streaming_event in streaming_events:
-            yield streaming_event
-        
-        # Stream the final response
-        if result.outcome.status == 'completed':
-            final_content = str(result.outcome.output) if result.outcome.output else ""
-            
-            # Stream content in chunks
-            for i in range(0, len(final_content), chunk_size):
-                chunk_content = final_content[i:i + chunk_size]
-                is_final_chunk = i + chunk_size >= len(final_content)
-                
-                chunk = StreamingChunk(
-                    content=final_content[:i + len(chunk_content)],
-                    delta=chunk_content,
-                    is_complete=is_final_chunk,
-                    token_count=len(chunk_content.split()) if is_final_chunk else None
-                )
-                
-                yield StreamingEvent(
-                    type=StreamingEventType.CHUNK,
-                    data=chunk,
-                    run_id=initial_state.run_id,
-                    trace_id=initial_state.trace_id
-                )
-                
-                # Add small delay to simulate real streaming
-                await asyncio.sleep(0.05)
-            
-            # Emit completion event
-            execution_time = (time.time() - start_time) * 1000
-            
-            if include_metadata:
-                metadata = StreamingMetadata(
-                    agent_name=initial_state.current_agent_name,
-                    model_name=config.model_override or "default",
-                    turn_count=result.final_state.turn_count,
-                    total_tokens=len(final_content.split()),
-                    execution_time_ms=execution_time
-                )
-                
-                yield StreamingEvent(
-                    type=StreamingEventType.METADATA,
-                    data=metadata,
-                    run_id=initial_state.run_id,
-                    trace_id=initial_state.trace_id
-                )
-            
-            yield StreamingEvent(
-                type=StreamingEventType.COMPLETE,
-                data=StreamingChunk(
-                    content=final_content,
-                    delta="",
-                    is_complete=True,
-                    token_count=len(final_content.split())
-                ),
-                run_id=initial_state.run_id,
-                trace_id=initial_state.trace_id
-            )
-        
-        else:
-            # Handle error case
-            yield StreamingEvent(
-                type=StreamingEventType.ERROR,
-                data=result.outcome.error,
-                run_id=initial_state.run_id,
-                trace_id=initial_state.trace_id
-            )
-    
+        result = await run_task
     except Exception as e:
-        # Handle unexpected errors
-        from .types import ModelBehaviorError
         error = ModelBehaviorError(detail=str(e))
-        
         yield StreamingEvent(
             type=StreamingEventType.ERROR,
             data=error,
+            run_id=initial_state.run_id,
+            trace_id=initial_state.trace_id
+        )
+        return
+
+    if result.outcome.status == 'completed':
+        final_content = str(result.outcome.output) if result.outcome.output else ""
+        
+        # Stream content in chunks
+        for i in range(0, len(final_content), chunk_size):
+            chunk_content = final_content[i:i + chunk_size]
+            is_final_chunk = i + chunk_size >= len(final_content)
+            
+            chunk = StreamingChunk(
+                content=final_content[:i + len(chunk_content)],
+                delta=chunk_content,
+                is_complete=is_final_chunk,
+                token_count=len(chunk_content.split()) if is_final_chunk else None
+            )
+            
+            yield StreamingEvent(
+                type=StreamingEventType.CHUNK,
+                data=chunk,
+                run_id=initial_state.run_id,
+                trace_id=initial_state.trace_id
+            )
+            await asyncio.sleep(0.01) # simulate network latency
+
+        execution_time = (time.time() - start_time) * 1000
+        if include_metadata:
+            metadata = StreamingMetadata(
+                agent_name=initial_state.current_agent_name,
+                model_name=config.model_override or "default",
+                turn_count=result.final_state.turn_count,
+                total_tokens=len(final_content.split()),
+                execution_time_ms=execution_time
+            )
+            yield StreamingEvent(
+                type=StreamingEventType.METADATA,
+                data=metadata,
+                run_id=initial_state.run_id,
+                trace_id=initial_state.trace_id
+            )
+        
+        yield StreamingEvent(
+            type=StreamingEventType.COMPLETE,
+            data=StreamingChunk(content=final_content, delta="", is_complete=True),
+            run_id=initial_state.run_id,
+            trace_id=initial_state.trace_id
+        )
+    else:
+        yield StreamingEvent(
+            type=StreamingEventType.ERROR,
+            data=result.outcome.error,
             run_id=initial_state.run_id,
             trace_id=initial_state.trace_id
         )
