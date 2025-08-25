@@ -6,7 +6,8 @@ JAF provides comprehensive support for the Model Context Protocol (MCP), enablin
 
 The Model Context Protocol (MCP) is an open standard that enables secure connections between host applications (like JAF) and external data sources and tools. JAF's MCP integration provides:
 
-- **Multiple Transport Mechanisms**: Support for stdio, WebSocket, and SSE transports
+- **Multiple Transport Mechanisms**: Support for stdio, SSE, and HTTP transports via FastMCP
+- **Timeout Support**: Comprehensive timeout configuration for all MCP operations
 - **Secure Tool Integration**: Safe execution of external tools with validation
 - **Dynamic Tool Discovery**: Automatic detection and integration of MCP server tools
 - **Type-Safe Operations**: Pydantic-based validation for all MCP interactions
@@ -14,21 +15,22 @@ The Model Context Protocol (MCP) is an open standard that enables secure connect
 
 ## Transport Mechanisms
 
-JAF supports all three MCP transport mechanisms:
+JAF supports three MCP transport mechanisms via the FastMCP library:
 
 ### 1. Stdio Transport
 
 Best for local MCP servers running as separate processes:
 
 ```python
-from jaf.providers.mcp import create_mcp_stdio_client
+from jaf.providers.mcp import create_mcp_stdio_tools
 
-# Connect to a local filesystem MCP server
-mcp_client = create_mcp_stdio_client([
-    'npx', '-y', '@modelcontextprotocol/server-filesystem', '/Users'
-])
-
-await mcp_client.initialize()
+# Create MCP tools from a local filesystem MCP server
+mcp_tools = await create_mcp_stdio_tools(
+    command=['npx', '-y', '@modelcontextprotocol/server-filesystem', '/Users'],
+    client_name="JAF",
+    client_version="2.0.0",
+    default_timeout=30.0  # 30 second default timeout
+)
 ```
 
 **Use Cases:**
@@ -37,36 +39,20 @@ await mcp_client.initialize()
 - Command-line utilities
 - Local database connections
 
-### 2. WebSocket Transport
-
-Ideal for real-time, bidirectional communication:
-
-```python
-from jaf.providers.mcp import create_mcp_websocket_client
-
-# Connect to a WebSocket MCP server
-mcp_client = create_mcp_websocket_client('ws://localhost:8080/mcp')
-
-await mcp_client.initialize()
-```
-
-**Use Cases:**
-- Real-time data feeds
-- Interactive services
-- Persistent connections
-- Streaming operations
-
-### 3. Server-Sent Events (SSE) Transport
+### 2. Server-Sent Events (SSE) Transport
 
 Perfect for server-to-client streaming:
 
 ```python
-from jaf.providers.mcp import create_mcp_sse_client
+from jaf.providers.mcp import create_mcp_sse_tools
 
-# Connect to an SSE MCP server
-mcp_client = create_mcp_sse_client('http://localhost:8080/events')
-
-await mcp_client.initialize()
+# Create MCP tools from an SSE MCP server
+mcp_tools = await create_mcp_sse_tools(
+    uri='http://localhost:8080/events',
+    client_name="JAF",
+    client_version="2.0.0",
+    default_timeout=60.0  # 60 second timeout for SSE operations
+)
 ```
 
 **Use Cases:**
@@ -75,17 +61,20 @@ await mcp_client.initialize()
 - Log monitoring
 - Status updates
 
-### 4. HTTP Transport
+### 3. HTTP Transport
 
 For simple request-response patterns:
 
 ```python
-from jaf.providers.mcp import create_mcp_http_client
+from jaf.providers.mcp import create_mcp_http_tools
 
-# Connect to an HTTP MCP server
-mcp_client = create_mcp_http_client('http://localhost:8080/mcp')
-
-await mcp_client.initialize()
+# Create MCP tools from an HTTP MCP server
+mcp_tools = await create_mcp_http_tools(
+    uri='http://localhost:8080/mcp',
+    client_name="JAF", 
+    client_version="2.0.0",
+    default_timeout=120.0  # 2 minute timeout for HTTP operations
+)
 ```
 
 **Use Cases:**
@@ -194,13 +183,15 @@ compute_tools = await create_mcp_sse_tools(
 Automatically discover and integrate all available MCP tools:
 
 ```python
-from jaf.providers.mcp import create_mcp_tools_from_client
-
-# Connect to MCP server
-mcp_client = create_mcp_stdio_client(['mcp-server-command'])
+from jaf.providers.mcp import create_mcp_stdio_tools
 
 # Automatically create JAF tools from all available MCP tools
-mcp_tools = await create_mcp_tools_from_client(mcp_client)
+mcp_tools = await create_mcp_stdio_tools(
+    command=['mcp-server-command'],
+    client_name="JAF",
+    client_version="2.0.0",
+    default_timeout=45.0  # Default timeout for all tools from this server
+)
 
 # Use all tools in an agent
 agent = Agent(
@@ -218,9 +209,10 @@ Create secure wrappers for MCP tools with validation:
 
 ```python
 from jaf.core.tool_results import ToolResult, ToolResultStatus, ToolErrorCodes
+from jaf.providers.mcp import FastMCPTool
 
 class SecureMCPTool:
-    def __init__(self, mcp_tool: MCPTool, allowed_paths: List[str]):
+    def __init__(self, mcp_tool: FastMCPTool, allowed_paths: List[str]):
         self.mcp_tool = mcp_tool
         self.allowed_paths = allowed_paths
         self._schema = mcp_tool.schema
@@ -236,49 +228,50 @@ class SecureMCPTool:
             is_allowed = any(path.startswith(allowed) for allowed in self.allowed_paths)
             
             if not is_allowed:
+                from jaf.core.tool_results import ToolErrorInfo
                 return ToolResult(
                     status=ToolResultStatus.ERROR,
-                    error_code=ToolErrorCodes.INVALID_INPUT,
-                    error_message=f"Path '{path}' not allowed",
-                    data={"path": path, "allowed_paths": self.allowed_paths}
+                    error=ToolErrorInfo(
+                        code=ToolErrorCodes.INVALID_INPUT,
+                        message=f"Path '{path}' not allowed",
+                        details={"path": path, "allowed_paths": self.allowed_paths}
+                    )
                 )
         
         # Execute the original MCP tool
         return await self.mcp_tool.execute(args, context)
 
-# Use secure wrapper
-secure_tool = SecureMCPTool(mcp_tool, ['/Users', '/tmp'])
+# Use secure wrapper with FastMCP tools
+mcp_tools = await create_mcp_stdio_tools([...])
+secure_tool = SecureMCPTool(mcp_tools[0], ['/Users', '/tmp'])
 ```
 
-### Custom Transport Implementation
+### Custom Field Configuration
 
-Create custom transport mechanisms:
+Add custom fields to all MCP tools for extended functionality:
 
 ```python
-from jaf.providers.mcp import MCPTransport
-import asyncio
+from jaf.providers.mcp import create_mcp_stdio_tools
+from typing import Dict, Any
 
-class CustomMCPTransport(MCPTransport):
-    def __init__(self, config):
-        self.config = config
-        self.connection = None
-    
-    async def connect(self):
-        # Implement custom connection logic
-        self.connection = await self._create_connection()
-    
-    async def disconnect(self):
-        # Implement cleanup
-        if self.connection:
-            await self.connection.close()
-    
-    async def send_request(self, method: str, params: dict) -> dict:
-        # Implement request sending
-        return await self._send_and_receive(method, params)
-    
-    async def send_notification(self, method: str, params: dict):
-        # Implement notification sending
-        await self._send_notification(method, params)
+# Add custom fields to all tools (e.g., for metadata or routing)
+extra_fields = {
+    "juspay_meta_info": Dict[str, Any],  # Added by default for backward compatibility
+    "execution_context": str,
+    "priority": int
+}
+
+mcp_tools = await create_mcp_stdio_tools(
+    command=['mcp-server-command'],
+    client_name="JAF",
+    client_version="2.0.0",
+    extra_fields=extra_fields,
+    default_timeout=30.0
+)
+
+# All tools will now accept these additional fields
+for tool in mcp_tools:
+    print(f"Tool {tool.schema.name} accepts custom fields")
 ```
 
 ## Production Examples
@@ -290,33 +283,18 @@ Complete example of a filesystem agent using MCP:
 ```python
 import asyncio
 from jaf import Agent, run_server
-from jaf.providers.mcp import create_mcp_stdio_client, MCPTool, MCPToolArgs
+from jaf.providers.mcp import create_mcp_stdio_tools
 from jaf.providers.model import make_litellm_provider
 from jaf.core.types import RunConfig
 
-class DynamicMCPArgs(MCPToolArgs):
-    """Dynamic args that accept any parameters."""
-    class Config:
-        extra = "allow"
-    
-    def __init__(self, **data):
-        super().__init__()
-        for key, value in data.items():
-            setattr(self, key, value)
-
 async def create_filesystem_agent():
-    # Connect to filesystem MCP server
-    mcp_client = create_mcp_stdio_client([
-        'npx', '-y', '@modelcontextprotocol/server-filesystem', '/Users'
-    ])
-    
-    await mcp_client.initialize()
-    
-    # Create tools for all available MCP operations
-    tools = []
-    for tool_name in mcp_client.get_available_tools():
-        mcp_tool = MCPTool(mcp_client, tool_name, DynamicMCPArgs)
-        tools.append(mcp_tool)
+    # Create tools from filesystem MCP server with appropriate timeout
+    mcp_tools = await create_mcp_stdio_tools(
+        command=['npx', '-y', '@modelcontextprotocol/server-filesystem', '/Users'],
+        client_name="JAF",
+        client_version="2.0.0",
+        default_timeout=30.0  # 30 second timeout for filesystem operations
+    )
     
     # Create agent with filesystem capabilities
     def instructions(state):
@@ -327,7 +305,7 @@ async def create_filesystem_agent():
     return Agent(
         name="FilesystemAgent",
         instructions=instructions,
-        tools=tools
+        tools=mcp_tools
     )
 
 async def main():
@@ -337,10 +315,11 @@ async def main():
     # Setup providers
     model_provider = make_litellm_provider('http://localhost:4000')
     
-    # Create run config
+    # Create run config with timeout configuration
     run_config = RunConfig(
         agent_registry={"FilesystemAgent": agent},
         model_provider=model_provider,
+        default_tool_timeout=45.0,  # Override default timeout for all tools
         max_turns=10
     )
     
@@ -357,28 +336,32 @@ Example using multiple MCP transports:
 
 ```python
 async def create_multi_transport_agent():
-    # Filesystem via stdio
-    fs_client = create_mcp_stdio_client([
-        'npx', '-y', '@modelcontextprotocol/server-filesystem', '/Users'
-    ])
+    # Filesystem via stdio with short timeout
+    fs_tools = await create_mcp_stdio_tools(
+        command=['npx', '-y', '@modelcontextprotocol/server-filesystem', '/Users'],
+        client_name="JAF",
+        client_version="2.0.0",
+        default_timeout=15.0  # Quick filesystem operations
+    )
     
-    # Database via WebSocket
-    db_client = create_mcp_websocket_client('ws://localhost:8080/database')
+    # Database via HTTP with medium timeout
+    db_tools = await create_mcp_http_tools(
+        uri='http://localhost:8080/database',
+        client_name="JAF", 
+        client_version="2.0.0",
+        default_timeout=60.0  # Database operations may take longer
+    )
     
-    # Events via SSE
-    events_client = create_mcp_sse_client('http://localhost:8080/events')
-    
-    # Initialize all clients
-    await fs_client.initialize()
-    await db_client.initialize()
-    await events_client.initialize()
-    
-    # Create tools from all clients
-    fs_tools = await create_mcp_tools_from_client(fs_client)
-    db_tools = await create_mcp_tools_from_client(db_client)
+    # Events via SSE with long timeout
+    event_tools = await create_mcp_sse_tools(
+        uri='http://localhost:8080/events',
+        client_name="JAF",
+        client_version="2.0.0", 
+        default_timeout=120.0  # Event streaming with longer timeout
+    )
     
     # Combine all tools
-    all_tools = fs_tools + db_tools
+    all_tools = fs_tools + db_tools + event_tools
     
     def instructions(state):
         return """You are a comprehensive assistant with access to:
@@ -402,18 +385,22 @@ async def create_multi_transport_agent():
 Handle MCP connection errors gracefully:
 
 ```python
-async def robust_mcp_connection(command):
+async def robust_mcp_tool_creation(command):
     max_retries = 3
     retry_delay = 1.0
     
     for attempt in range(max_retries):
         try:
-            mcp_client = create_mcp_stdio_client(command)
-            await mcp_client.initialize()
-            return mcp_client
+            mcp_tools = await create_mcp_stdio_tools(
+                command=command,
+                client_name="JAF",
+                client_version="2.0.0",
+                default_timeout=30.0
+            )
+            return mcp_tools
         except Exception as e:
             if attempt == max_retries - 1:
-                raise Exception(f"Failed to connect after {max_retries} attempts: {e}")
+                raise Exception(f"Failed to create MCP tools after {max_retries} attempts: {e}")
             
             print(f"Connection attempt {attempt + 1} failed: {e}")
             await asyncio.sleep(retry_delay)
@@ -422,15 +409,17 @@ async def robust_mcp_connection(command):
 
 ### Tool Execution Safety
 
-Implement safe tool execution with timeouts:
+MCP tools in JAF include built-in timeout support, but you can also add additional safety wrappers:
 
 ```python
 import asyncio
+from jaf.providers.mcp import FastMCPTool
+from jaf.core.tool_results import ToolResult, ToolResultStatus, ToolErrorCodes, ToolErrorInfo
 
 class SafeMCPTool:
-    def __init__(self, mcp_tool: MCPTool, timeout: float = 30.0):
+    def __init__(self, mcp_tool: FastMCPTool, max_retries: int = 3):
         self.mcp_tool = mcp_tool
-        self.timeout = timeout
+        self.max_retries = max_retries
         self._schema = mcp_tool.schema
     
     @property
@@ -438,27 +427,36 @@ class SafeMCPTool:
         return self._schema
     
     async def execute(self, args, context) -> ToolResult:
-        try:
-            # Execute with timeout
-            result = await asyncio.wait_for(
-                self.mcp_tool.execute(args, context),
-                timeout=self.timeout
+        last_error = None
+        
+        for attempt in range(self.max_retries):
+            try:
+                # FastMCP tools handle their own timeouts
+                result = await self.mcp_tool.execute(args, context)
+                return result
+            except Exception as e:
+                last_error = e
+                if attempt < self.max_retries - 1:
+                    await asyncio.sleep(0.5 * (attempt + 1))  # Backoff
+                    continue
+                break
+        
+        # All attempts failed
+        return ToolResult(
+            status=ToolResultStatus.ERROR,
+            error=ToolErrorInfo(
+                code=ToolErrorCodes.EXECUTION_FAILED,
+                message=f"Tool execution failed after {self.max_retries} attempts: {last_error}",
+                details={"error": str(last_error), "attempts": self.max_retries}
             )
-            return result
-        except asyncio.TimeoutError:
-            return ToolResult(
-                status=ToolResultStatus.ERROR,
-                error_code=ToolErrorCodes.TIMEOUT,
-                error_message=f"Tool execution timed out after {self.timeout}s",
-                data={"timeout": self.timeout}
-            )
-        except Exception as e:
-            return ToolResult(
-                status=ToolResultStatus.ERROR,
-                error_code=ToolErrorCodes.EXECUTION_FAILED,
-                error_message=f"Tool execution failed: {e}",
-                data={"error": str(e)}
-            )
+        )
+
+# Create tools with built-in timeout and add retry wrapper
+mcp_tools = await create_mcp_stdio_tools(
+    command=['mcp-server-command'],
+    default_timeout=30.0  # Built-in timeout
+)
+safe_tool = SafeMCPTool(mcp_tools[0], max_retries=3)
 ```
 
 ## Best Practices
@@ -534,30 +532,47 @@ class CachedMCPClient:
 
 ### Unit Testing
 
-Test MCP tools with mock clients:
+Test MCP tools with the new FastMCP API:
 
 ```python
 import pytest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
+from jaf.providers.mcp import FastMCPTool, MCPToolArgs
+from pydantic import BaseModel
 
-@pytest.mark.asyncio
+class FileReadArgs(BaseModel):
+    path: str
+
+@pytest.mark.asyncio 
 async def test_mcp_tool_execution():
-    # Mock MCP client
-    mock_client = AsyncMock()
-    mock_client.call_tool.return_value = {
-        "content": [{"type": "text", "text": "File contents"}]
-    }
+    # Mock the transport and tool info for FastMCPTool
+    mock_transport = AsyncMock()
+    mock_tool_info = AsyncMock()
+    mock_tool_info.name = "read_file"
+    mock_tool_info.description = "Read a file"
+    mock_client_info = AsyncMock()
     
     # Create tool
-    tool = MCPTool(mock_client, "read_file", FileReadArgs)
+    tool = FastMCPTool(mock_transport, mock_tool_info, FileReadArgs, mock_client_info, timeout=30.0)
     
-    # Test execution
-    args = FileReadArgs(path="/test/file.txt")
-    result = await tool.execute(args, {})
-    
-    assert result.status == ToolResultStatus.SUCCESS
-    assert "File contents" in result.data
-    mock_client.call_tool.assert_called_once()
+    # Mock the Client context manager and tool execution
+    with patch('jaf.providers.mcp.Client') as mock_client_class:
+        mock_client = AsyncMock()
+        mock_client_class.return_value = mock_client
+        
+        # Mock successful result
+        mock_result = AsyncMock()
+        mock_result.isError = False
+        mock_result.structuredContent = "File contents"
+        mock_result.content = []
+        mock_client.call_tool_mcp.return_value = mock_result
+        
+        # Test execution
+        args = FileReadArgs(path="/test/file.txt")
+        result = await tool.execute(args, {})
+        
+        assert result.status.value == "success"
+        assert "File contents" in str(result.data)
 ```
 
 ### Integration Testing
@@ -567,23 +582,29 @@ Test with real MCP servers:
 ```python
 @pytest.mark.asyncio
 async def test_filesystem_integration():
-    # Start test MCP server
-    client = create_mcp_stdio_client(['test-mcp-server'])
-    await client.initialize()
-    
+    # Create tools from test MCP server
     try:
-        # Test tool discovery
-        tools = await create_mcp_tools_from_client(client)
+        tools = await create_mcp_stdio_tools(
+            command=['test-mcp-server'],
+            client_name="JAF-Test", 
+            client_version="2.0.0",
+            default_timeout=30.0
+        )
         assert len(tools) > 0
         
         # Test tool execution
         if 'list_directory' in [t.schema.name for t in tools]:
             list_tool = next(t for t in tools if t.schema.name == 'list_directory')
-            result = await list_tool.execute({'path': '/tmp'}, {})
-            assert result.status == ToolResultStatus.SUCCESS
+            
+            # Create args with proper model
+            args_model = list_tool.schema.parameters
+            args = args_model(path='/tmp')
+            
+            result = await list_tool.execute(args, {})
+            assert result.status.value == "success"
     
-    finally:
-        await client.close()
+    except Exception as e:
+        pytest.skip(f"MCP server not available: {e}")
 ```
 
 ## Troubleshooting
@@ -594,27 +615,38 @@ async def test_filesystem_integration():
    ```python
    # Check if MCP server is running
    try:
-       client = create_mcp_stdio_client(['mcp-server'])
-       await client.initialize()
+       tools = await create_mcp_stdio_tools(
+           command=['mcp-server'],
+           client_name="JAF",
+           client_version="2.0.0",
+           default_timeout=30.0
+       )
    except Exception as e:
-       print(f"Connection failed: {e}")
+       print(f"Tool creation failed: {e}")
        # Check server command, permissions, dependencies
    ```
 
 2. **Tool Discovery Issues**
    ```python
    # Debug tool loading
-   tools = client.get_available_tools()
-   if not tools:
-       print("No tools found - check server capabilities")
-       print(f"Server info: {client.server_info}")
+   try:
+       tools = await create_mcp_stdio_tools(['mcp-server'])
+       if not tools:
+           print("No tools found - check server capabilities")
+       else:
+           print(f"Found {len(tools)} tools: {[t.schema.name for t in tools]}")
+   except Exception as e:
+       print(f"Tool discovery failed: {e}")
    ```
 
-3. **Execution Errors**
+3. **Execution Errors and Timeouts**
    ```python
-   # Add detailed error logging
+   # Add detailed error logging and timeout handling
    try:
        result = await tool.execute(args, context)
+       if result.status.value == "error":
+           print(f"Tool execution error: {result.error.message}")
+           print(f"Error details: {result.error.details}")
    except Exception as e:
        print(f"Tool execution failed: {e}")
        print(f"Args: {args}")
