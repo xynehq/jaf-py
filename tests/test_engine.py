@@ -546,10 +546,12 @@ async def test_streaming_tool_call_execution():
     assert len(tool_call_events) == 1
     assert tool_call_events[0].data.tool_name == "streaming_test_tool"
     assert tool_call_events[0].data.arguments == {"message": "streamed input"}
+    call_id = tool_call_events[0].data.call_id
 
     assert len(tool_result_events) == 1
     assert tool_result_events[0].data.tool_name == "streaming_test_tool"
     assert "Streamed Success: streamed input" in tool_result_events[0].data.result
+    assert tool_result_events[0].data.call_id == call_id
 
     # Check final content
     final_message = final_buffer.get_final_message()

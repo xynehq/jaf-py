@@ -8,13 +8,14 @@ enabling progressive output delivery and improved user experience.
 import asyncio
 import json
 import time
+import uuid
 from dataclasses import dataclass, field
 from typing import AsyncIterator, Dict, List, Optional, Any, Union, Callable
 from enum import Enum
 
 from .types import (
     RunState, RunConfig, Message, TraceEvent, RunId, TraceId,
-    ContentRole, ToolCall, JAFError, CompletedOutcome, ErrorOutcome
+    ContentRole, ToolCall, JAFError, CompletedOutcome, ErrorOutcome, ModelBehaviorError
 )
 
 
@@ -207,14 +208,21 @@ async def run_streaming(
         trace_id=initial_state.trace_id
     )
 
+    tool_call_ids = {}
+
     def event_handler(event: TraceEvent) -> None:
         """Handle trace events and put them into the queue."""
+        nonlocal tool_call_ids
         streaming_event = None
         if event.type == 'tool_call_start':
+            # Generate a unique ID for the tool call
+            call_id = f"call_{uuid.uuid4().hex[:8]}"
+            tool_call_ids[event.data.tool_name] = call_id
+            
             tool_call = StreamingToolCall(
                 tool_name=event.data.tool_name,
                 arguments=event.data.args,
-                call_id=f"call_{int(time.time() * 1000)}",
+                call_id=call_id,
                 status='started'
             )
             streaming_event = StreamingEvent(
@@ -224,9 +232,10 @@ async def run_streaming(
                 trace_id=initial_state.trace_id
             )
         elif event.type == 'tool_call_end':
+            call_id = tool_call_ids.get(event.data.tool_name)
             tool_result = StreamingToolResult(
                 tool_name=event.data.tool_name,
-                call_id=f"call_{int(time.time() * 1000)}", # This might need a more robust call_id mapping
+                call_id=call_id,
                 result=event.data.result,
                 status=event.data.status or 'completed'
             )
