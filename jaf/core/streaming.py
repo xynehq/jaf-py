@@ -233,7 +233,13 @@ async def run_streaming(
                 trace_id=initial_state.trace_id
             )
         elif event.type == 'tool_call_end':
-            call_id = tool_call_ids.get(event.data.tool_name)
+            if event.data.tool_name not in tool_call_ids:
+                raise RuntimeError(
+                    f"Tool call end event received for unknown tool '{event.data.tool_name}'. "
+                    f"Known tool calls: {list(tool_call_ids.keys())}. "
+                    f"This may indicate a missing tool_call_start event or a bug in the streaming implementation."
+                )
+            call_id = tool_call_ids[event.data.tool_name]
             tool_result = StreamingToolResult(
                 tool_name=event.data.tool_name,
                 call_id=call_id,

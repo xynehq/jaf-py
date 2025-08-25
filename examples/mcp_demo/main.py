@@ -241,7 +241,7 @@ async def start_filesystem_server(mcp_url: Optional[str] = None):
         print('  -H "Content-Type: application/json" \\')
         print('  -d \'{"messages":[{"role":"user","content":"Create a file called hello.txt on my Desktop with the content: Hello from MCP filesystem agent!"}],"agentName":"FilesystemAgent","context":{"userId":"user_001","sessionId":"session_123"}}\'')
         
-        print("\n� Read a file:")
+        print("\n📄 Read a file:")
         print(f"curl -X POST http://{host}:{port}/chat \\")
         print('  -H "Content-Type: application/json" \\')
         print('  -d \'{"messages":[{"role":"user","content":"Read the contents of /Desktop/hello.txt"}],"agentName":"FilesystemAgent","context":{"userId":"user_001","sessionId":"session_123"}}\'')
