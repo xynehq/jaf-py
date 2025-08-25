@@ -488,3 +488,69 @@ async def test_model_behavior_error():
     assert isinstance(result.outcome, ErrorOutcome)
     assert isinstance(result.outcome.error, ModelBehaviorError)
     assert "Model service unavailable" in result.outcome.error.detail
+
+
+@pytest.mark.asyncio
+async def test_streaming_tool_call_execution():
+    """Test agent with tool calling in a streaming context."""
+    # Setup
+    from jaf.core.streaming import run_streaming, StreamingEventType, StreamingCollector
+
+    tool = SimpleTool("streaming_test_tool", "Streamed Success")
+    agent = create_test_agent(tools=[tool])
+
+    model_provider = MockModelProvider([
+        {
+            'message': {
+                'content': '',
+                'tool_calls': [
+                    {
+                        'id': 'call_stream_123',
+                        'type': 'function',
+                        'function': {
+                            'name': 'streaming_test_tool',
+                            'arguments': '{"message": "streamed input"}'
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            'message': {
+                'content': 'The streamed tool returned: Streamed Success: streamed input',
+                'tool_calls': None
+            }
+        }
+    ])
+
+    state = create_test_run_state()
+    config = RunConfig(
+        agent_registry={"test_agent": agent},
+        model_provider=model_provider,
+        max_turns=10
+    )
+
+    # Execute
+    stream = run_streaming(state, config)
+    collector = StreamingCollector()
+    final_buffer = await collector.collect_stream(stream)
+
+    # Assert
+    assert final_buffer.is_complete
+    assert final_buffer.error is None
+    
+    # Check for tool call and result events
+    tool_call_events = [e for e in collector.events if e.type == StreamingEventType.TOOL_CALL]
+    tool_result_events = [e for e in collector.events if e.type == StreamingEventType.TOOL_RESULT]
+    
+    assert len(tool_call_events) == 1
+    assert tool_call_events[0].data.tool_name == "streaming_test_tool"
+    assert tool_call_events[0].data.arguments == {"message": "streamed input"}
+
+    assert len(tool_result_events) == 1
+    assert tool_result_events[0].data.tool_name == "streaming_test_tool"
+    assert "Streamed Success: streamed input" in tool_result_events[0].data.result
+
+    # Check final content
+    final_message = final_buffer.get_final_message()
+    assert "Streamed Success: streamed input" in final_message.content
