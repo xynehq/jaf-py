@@ -193,6 +193,7 @@ async def run_streaming(
     """
     start_time = time.time()
     event_queue = asyncio.Queue()
+    event_available = asyncio.Event()
 
     # Emit start event
     yield StreamingEvent(
@@ -208,7 +209,7 @@ async def run_streaming(
         trace_id=initial_state.trace_id
     )
 
-    tool_call_ids = {}
+    tool_call_ids = {} # To map tool calls to their IDs
 
     def event_handler(event: TraceEvent) -> None:
         """Handle trace events and put them into the queue."""
@@ -249,6 +250,7 @@ async def run_streaming(
         if streaming_event:
             try:
                 event_queue.put_nowait(streaming_event)
+                event_available.set()
             except asyncio.QueueFull:
                 print(f"JAF-WARNING: Streaming event queue is full. Event dropped: {streaming_event.type}")
 
@@ -269,14 +271,18 @@ async def run_streaming(
     run_task = asyncio.create_task(run(initial_state, streaming_config))
 
     while not run_task.done() or not event_queue.empty():
+        if event_queue.empty():
+            await event_available.wait()
+            event_available.clear()
+            continue
         try:
-            event = await asyncio.wait_for(event_queue.get(), timeout=0.1)
+            event = event_queue.get_nowait()
             yield event
             if event.type == StreamingEventType.ERROR:
                 if not run_task.done():
                     run_task.cancel()
                 return
-        except asyncio.TimeoutError:
+        except asyncio.QueueEmpty:
             continue
         except asyncio.CancelledError:
             if not run_task.done():
