@@ -364,6 +364,7 @@ class LLMCallEndEventData:
     choice: Any
     trace_id: TraceId
     run_id: RunId
+    usage: Optional[Dict[str, int]] = None
 
 @dataclass(frozen=True)
 class LLMCallEndEvent:

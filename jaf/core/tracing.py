@@ -402,9 +402,22 @@ class LangfuseTraceCollector:
                     # End the generation
                     generation = self.active_spans[span_id]
                     choice = event.data.get("choice", {})
-                    usage = choice.get("usage", {})
-                    generation.end(output=choice, usage=usage)
                     
+                    # Extract usage from the event data
+                    usage = event.data.get("usage", {})
+
+                    # Convert to Langfuse v2 format
+                    langfuse_usage = None
+                    if usage:
+                        langfuse_usage = {
+                            "input": usage.get("prompt_tokens", 0),
+                            "output": usage.get("completion_tokens", 0),
+                            "total": usage.get("total_tokens", 0),
+                            "unit": "TOKENS"
+                        }
+
+                    generation.end(output=choice, usage=langfuse_usage)
+
                     # Clean up the span reference
                     del self.active_spans[span_id]
                     print(f"[LANGFUSE] Generation ended")

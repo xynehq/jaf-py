@@ -302,7 +302,8 @@ async def _run_internal(
         config.on_event(LLMCallEndEvent(data=to_event_data(LLMCallEndEventData(
             choice=llm_response,
             trace_id=state.trace_id,
-            run_id=state.run_id
+            run_id=state.run_id,
+            usage=llm_response.get("usage")
         ))))
 
     # Check if response has message
