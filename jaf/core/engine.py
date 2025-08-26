@@ -7,6 +7,7 @@ tool calling, and state management while maintaining functional purity.
 
 import asyncio
 import json
+import os
 from dataclasses import replace, asdict, is_dataclass
 from typing import Any, Dict, List, Optional, TypeVar
 
@@ -94,7 +95,11 @@ async def run(
         await _store_conversation_history(result.final_state, config)
 
         if config.on_event:
-            config.on_event(RunEndEvent(data=to_event_data(RunEndEventData(outcome=result.outcome))))
+            config.on_event(RunEndEvent(data=to_event_data(RunEndEventData(
+                outcome=result.outcome,
+                trace_id=initial_state.trace_id,
+                run_id=initial_state.run_id
+            ))))
 
         return result
     except Exception as error:
@@ -103,7 +108,11 @@ async def run(
             outcome=ErrorOutcome(error=ModelBehaviorError(detail=str(error)))
         )
         if config.on_event:
-            config.on_event(RunEndEvent(data=to_event_data(RunEndEventData(outcome=error_result.outcome))))
+            config.on_event(RunEndEvent(data=to_event_data(RunEndEventData(
+                outcome=error_result.outcome,
+                trace_id=initial_state.trace_id,
+                run_id=initial_state.run_id
+            ))))
         return error_result
 
 async def _load_conversation_history(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunState[Ctx]:
@@ -280,7 +289,9 @@ async def _run_internal(
     if config.on_event:
         config.on_event(LLMCallStartEvent(data=to_event_data(LLMCallStartEventData(
             agent_name=current_agent.name,
-            model=model
+            model=model,
+            trace_id=state.trace_id,
+            run_id=state.run_id
         ))))
 
     # Get completion from model provider
@@ -288,7 +299,11 @@ async def _run_internal(
 
     # Emit LLM call end event
     if config.on_event:
-        config.on_event(LLMCallEndEvent(data=to_event_data(LLMCallEndEventData(choice=llm_response))))
+        config.on_event(LLMCallEndEvent(data=to_event_data(LLMCallEndEventData(
+            choice=llm_response,
+            trace_id=state.trace_id,
+            run_id=state.run_id
+        ))))
 
     # Check if response has message
     if not llm_response.get('message'):
@@ -498,7 +513,9 @@ async def _execute_tool_calls(
         if config.on_event:
             config.on_event(ToolCallStartEvent(data=to_event_data(ToolCallStartEventData(
                 tool_name=tool_call.function.name,
-                args=_try_parse_json(tool_call.function.arguments)
+                args=_try_parse_json(tool_call.function.arguments),
+                trace_id=state.trace_id,
+                run_id=state.run_id
             ))))
 
         try:
@@ -521,8 +538,10 @@ async def _execute_tool_calls(
                     config.on_event(ToolCallEndEvent(data=to_event_data(ToolCallEndEventData(
                         tool_name=tool_call.function.name,
                         result=error_result,
+                        trace_id=state.trace_id,
+                        run_id=state.run_id,
                         status='error',
-                        tool_result={'error': 'validation_error', 'details': e.errors()}
+                        tool_result={'error': 'tool_not_found'}
                     ))))
 
                 return {
@@ -553,7 +572,10 @@ async def _execute_tool_calls(
                     config.on_event(ToolCallEndEvent(data=to_event_data(ToolCallEndEventData(
                         tool_name=tool_call.function.name,
                         result=error_result,
-                        status='error'
+                        trace_id=state.trace_id,
+                        run_id=state.run_id,
+                        status='error',
+                        tool_result={'error': 'validation_error', 'details': e.errors()}
                     ))))
 
                 return {
@@ -594,6 +616,8 @@ async def _execute_tool_calls(
                     config.on_event(ToolCallEndEvent(data=to_event_data(ToolCallEndEventData(
                         tool_name=tool_call.function.name,
                         result=timeout_error_result,
+                        trace_id=state.trace_id,
+                        run_id=state.run_id,
                         status='timeout',
                         tool_result={'error': 'timeout_error'}
                     ))))
@@ -622,6 +646,8 @@ async def _execute_tool_calls(
                 config.on_event(ToolCallEndEvent(data=to_event_data(ToolCallEndEventData(
                     tool_name=tool_call.function.name,
                     result=result_string,
+                    trace_id=state.trace_id,
+                    run_id=state.run_id,
                     tool_result=tool_result_obj,
                     status='success'
                 ))))
@@ -659,13 +685,8 @@ async def _execute_tool_calls(
                 config.on_event(ToolCallEndEvent(data=to_event_data(ToolCallEndEventData(
                     tool_name=tool_call.function.name,
                     result=error_result,
-                    status='error',
-                    tool_result={'error': 'tool_not_found'}
-                ))))
-            if config.on_event:
-                config.on_event(ToolCallEndEvent(data=to_event_data(ToolCallEndEventData(
-                    tool_name=tool_call.function.name,
-                    result=error_result,
+                    trace_id=state.trace_id,
+                    run_id=state.run_id,
                     status='error',
                     tool_result={'error': 'execution_error', 'detail': str(error)}
                 ))))

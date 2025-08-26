@@ -54,6 +54,7 @@ tracing = [
     "opentelemetry-api>=1.22.0",
     "opentelemetry-sdk>=1.22.0",
     "opentelemetry-exporter-otlp>=1.22.0",
+    "langfuse<3.0.0",
 ]
 dev = [
     "pytest>=7.0.0",
