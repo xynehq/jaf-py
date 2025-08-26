@@ -126,11 +126,26 @@ def make_litellm_provider(
                     for tc in choice.message.tool_calls
                 ]
 
+            # Extract usage data
+            usage_data = None
+            if response.usage:
+                usage_data = {
+                    "prompt_tokens": response.usage.prompt_tokens,
+                    "completion_tokens": response.usage.completion_tokens,
+                    "total_tokens": response.usage.total_tokens,
+                }
+
             return {
+                'id': response.id,
+                'created': response.created,
+                'model': response.model,
+                'system_fingerprint': response.system_fingerprint,
                 'message': {
                     'content': choice.message.content,
                     'tool_calls': tool_calls
-                }
+                },
+                'usage': usage_data,
+                'prompt': messages
             }
 
     return LiteLLMProvider()

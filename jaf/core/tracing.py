@@ -9,10 +9,106 @@ import json
 import os
 import time
 from datetime import datetime
-from typing import Dict, List, Optional, Protocol
+from typing import Any, Dict, List, Optional, Protocol
+
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 from .types import TraceEvent, TraceId
 
+# Global tracer provider
+provider = None
+tracer = None
+
+def setup_otel_tracing(service_name: str = "jaf-agent", collector_url: Optional[str] = None) -> None:
+    """Configure OpenTelemetry tracing."""
+    global provider, tracer
+    if not collector_url:
+        return
+
+    provider = TracerProvider(
+        resource=Resource.create({"service.name": service_name})
+    )
+    
+    exporter = OTLPSpanExporter(endpoint=collector_url)
+    provider.add_span_processor(BatchSpanProcessor(exporter))
+    trace.set_tracer_provider(provider)
+    tracer = trace.get_tracer(__name__)
+
+
+class OtelTraceCollector:
+    """
+    OpenTelemetry trace collector.
+
+    NOTE: This implementation assumes a single active trace at a time per collector
+    instance. It is suitable for simple scripts but not for concurrent environments
+    like a web server handling multiple requests without proper scoping.
+    """
+
+    def __init__(self, service_name: str = "jaf-agent"):
+        self.service_name = service_name
+        self.tracer = trace.get_tracer(self.service_name)
+        self.active_root_span: Optional[Any] = None
+
+    def collect(self, event: TraceEvent) -> None:
+        """Convert JAF event to OTEL span."""
+        from dataclasses import asdict, is_dataclass
+
+        if not self.tracer:
+            return
+
+        event_type = event.type
+        data = event.data or {}
+
+        if is_dataclass(data):
+            data_dict = asdict(data)
+        else:
+            data_dict = data
+
+        if event_type == "run_start":
+            if self.active_root_span:
+                self.active_root_span.end()
+
+            trace_id = data_dict.get("trace_id") or data_dict.get("traceId")
+            self.active_root_span = self.tracer.start_span(f"jaf.run.{trace_id}")
+            ctx = trace.set_span_in_context(self.active_root_span)
+        else:
+            if not self.active_root_span:
+                return
+            ctx = trace.set_span_in_context(self.active_root_span)
+
+        span_name = f"jaf.{event_type}"
+        with self.tracer.start_as_current_span(span_name, context=ctx) as span:
+            for key, value in data_dict.items():
+                if isinstance(value, (str, int, float, bool)):
+                    span.set_attribute(key, value)
+                elif value is not None:
+                    try:
+                        # Attempt to serialize complex objects to JSON
+                        span.set_attribute(key, json.dumps(value, default=str))
+                    except (TypeError, OverflowError):
+                        # Fallback to string representation if serialization fails
+                        span.set_attribute(key, str(value))
+
+        if event_type == "run_end":
+            if self.active_root_span:
+                self.active_root_span.end()
+                self.active_root_span = None
+
+    def get_trace(self, trace_id: TraceId) -> List[TraceEvent]:
+        """Not implemented for OTEL."""
+        return []
+
+    def get_all_traces(self) -> Dict[TraceId, List[TraceEvent]]:
+        """Not implemented for OTEL."""
+        return {}
+
+    def clear(self, trace_id: Optional[TraceId] = None) -> None:
+        """Not implemented for OTEL."""
+        pass
 
 class TraceCollector(Protocol):
     """Protocol for trace collectors."""
@@ -229,10 +325,19 @@ class FileTraceCollector:
 
 def create_composite_trace_collector(*collectors: TraceCollector) -> TraceCollector:
     """Create a composite trace collector that forwards events to multiple collectors."""
+    
+    collector_list = list(collectors)
+    
+    # Automatically add OTEL collector if URL is configured
+    collector_url = os.getenv("TRACE_COLLECTOR_URL")
+    if collector_url:
+        setup_otel_tracing(collector_url=collector_url)
+        otel_collector = OtelTraceCollector()
+        collector_list.append(otel_collector)
 
     class CompositeTraceCollector:
         def __init__(self, collectors_list: List[TraceCollector]):
-            self.collectors = list(collectors_list)
+            self.collectors = collectors_list
 
         def collect(self, event: TraceEvent) -> None:
             """Forward event to all collectors."""
@@ -262,4 +367,4 @@ def create_composite_trace_collector(*collectors: TraceCollector) -> TraceCollec
                 except Exception as e:
                     print(f"Warning: Failed to clear trace collector: {e}")
 
-    return CompositeTraceCollector(list(collectors))
+    return CompositeTraceCollector(collector_list)

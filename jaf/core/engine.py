@@ -25,6 +25,12 @@ from .types import (
     HandoffEvent,
     HandoffEventData,
     InputGuardrailTripwire,
+    GuardrailEvent,
+    GuardrailEventData,
+    MemoryEvent,
+    MemoryEventData,
+    OutputParseEvent,
+    OutputParseEventData,
     LLMCallEndEvent,
     LLMCallEndEventData,
     LLMCallStartEvent,
@@ -105,9 +111,23 @@ async def _load_conversation_history(state: RunState[Ctx], config: RunConfig[Ctx
     if not (config.memory and config.memory.provider and config.conversation_id):
         return state
 
+    if config.on_event:
+        config.on_event(MemoryEvent(data=MemoryEventData(
+            operation='load',
+            conversation_id=config.conversation_id,
+            status='start'
+        )))
+
     result = await config.memory.provider.get_conversation(config.conversation_id)
     if isinstance(result, Failure):
         print(f"[JAF:ENGINE] Warning: Failed to load conversation: {result.error}")
+        if config.on_event:
+            config.on_event(MemoryEvent(data=MemoryEventData(
+                operation='load',
+                conversation_id=config.conversation_id,
+                status='fail',
+                error=str(result.error)
+            )))
         return state
 
     conversation_data = result.data
@@ -132,6 +152,13 @@ async def _load_conversation_history(state: RunState[Ctx], config: RunConfig[Ctx
         else:
             print(f"[JAF:ENGINE] No metadata turn_count, calculated from messages: {turn_count}")
 
+        if config.on_event:
+            config.on_event(MemoryEvent(data=MemoryEventData(
+                operation='load',
+                conversation_id=config.conversation_id,
+                status='end',
+                message_count=len(memory_messages)
+            )))
         return replace(
             state,
             messages=list(memory_messages) + list(state.messages),
@@ -143,6 +170,13 @@ async def _store_conversation_history(state: RunState[Ctx], config: RunConfig[Ct
     """Store conversation history to memory provider."""
     if not (config.memory and config.memory.provider and config.conversation_id and config.memory.auto_store):
         return
+
+    if config.on_event:
+        config.on_event(MemoryEvent(data=MemoryEventData(
+            operation='store',
+            conversation_id=config.conversation_id,
+            status='start'
+        )))
 
     messages_to_store = list(state.messages)
     if config.memory.compression_threshold and len(messages_to_store) > config.memory.compression_threshold:
@@ -162,8 +196,22 @@ async def _store_conversation_history(state: RunState[Ctx], config: RunConfig[Ct
     result = await config.memory.provider.store_messages(config.conversation_id, messages_to_store, metadata)
     if isinstance(result, Failure):
         print(f"[JAF:ENGINE] Warning: Failed to store conversation: {result.error}")
+        if config.on_event:
+            config.on_event(MemoryEvent(data=MemoryEventData(
+                operation='store',
+                conversation_id=config.conversation_id,
+                status='fail',
+                error=str(result.error)
+            )))
     else:
         print(f"[JAF:ENGINE] Stored {len(messages_to_store)} messages for conversation {config.conversation_id}")
+        if config.on_event:
+            config.on_event(MemoryEvent(data=MemoryEventData(
+                operation='store',
+                conversation_id=config.conversation_id,
+                status='end',
+                message_count=len(messages_to_store)
+            )))
 
 async def _run_internal(
     state: RunState[Ctx],
@@ -175,12 +223,24 @@ async def _run_internal(
         first_user_message = next((m for m in state.messages if m.role == ContentRole.USER or m.role == 'user'), None)
         if first_user_message and config.initial_input_guardrails:
             for guardrail in config.initial_input_guardrails:
+                if config.on_event:
+                    config.on_event(GuardrailEvent(data=GuardrailEventData(
+                        guardrail_name=getattr(guardrail, '__name__', 'unknown_guardrail'),
+                        content=first_user_message.content
+                    )))
                 if asyncio.iscoroutinefunction(guardrail):
                     result = await guardrail(first_user_message.content)
                 else:
                     result = guardrail(first_user_message.content)
 
                 if not result.is_valid:
+                    if config.on_event:
+                        config.on_event(GuardrailEvent(data=GuardrailEventData(
+                            guardrail_name=getattr(guardrail, '__name__', 'unknown_guardrail'),
+                            content=first_user_message.content,
+                            is_valid=False,
+                            error_message=result.error_message
+                        )))
                     return RunResult(
                         final_state=state,
                         outcome=ErrorOutcome(error=InputGuardrailTripwire(
@@ -306,19 +366,42 @@ async def _run_internal(
     if assistant_message.content:
         if current_agent.output_codec:
             # Parse with output codec
+            if config.on_event:
+                config.on_event(OutputParseEvent(data=OutputParseEventData(
+                    content=assistant_message.content,
+                    status='start'
+                )))
             try:
                 parsed_content = _try_parse_json(assistant_message.content)
                 output_data = current_agent.output_codec.model_validate(parsed_content)
+                if config.on_event:
+                    config.on_event(OutputParseEvent(data=OutputParseEventData(
+                        content=assistant_message.content,
+                        status='end',
+                        parsed_output=output_data
+                    )))
 
                 # Check final output guardrails
                 if config.final_output_guardrails:
                     for guardrail in config.final_output_guardrails:
+                        if config.on_event:
+                            config.on_event(GuardrailEvent(data=GuardrailEventData(
+                                guardrail_name=getattr(guardrail, '__name__', 'unknown_guardrail'),
+                                content=output_data
+                            )))
                         if asyncio.iscoroutinefunction(guardrail):
                             result = await guardrail(output_data)
                         else:
                             result = guardrail(output_data)
 
                         if not result.is_valid:
+                            if config.on_event:
+                                config.on_event(GuardrailEvent(data=GuardrailEventData(
+                                    guardrail_name=getattr(guardrail, '__name__', 'unknown_guardrail'),
+                                    content=output_data,
+                                    is_valid=False,
+                                    error_message=result.error_message
+                                )))
                             return RunResult(
                                 final_state=replace(state, messages=new_messages),
                                 outcome=ErrorOutcome(error=OutputGuardrailTripwire(
@@ -332,6 +415,12 @@ async def _run_internal(
                 )
 
             except ValidationError as e:
+                if config.on_event:
+                    config.on_event(OutputParseEvent(data=OutputParseEventData(
+                        content=assistant_message.content,
+                        status='fail',
+                        error=str(e)
+                    )))
                 return RunResult(
                     final_state=replace(state, messages=new_messages),
                     outcome=ErrorOutcome(error=DecodeError(
@@ -342,12 +431,24 @@ async def _run_internal(
             # No output codec, return content as string
             if config.final_output_guardrails:
                 for guardrail in config.final_output_guardrails:
+                    if config.on_event:
+                        config.on_event(GuardrailEvent(data=GuardrailEventData(
+                            guardrail_name=getattr(guardrail, '__name__', 'unknown_guardrail'),
+                            content=assistant_message.content
+                        )))
                     if asyncio.iscoroutinefunction(guardrail):
                         result = await guardrail(assistant_message.content)
                     else:
                         result = guardrail(assistant_message.content)
 
                     if not result.is_valid:
+                        if config.on_event:
+                            config.on_event(GuardrailEvent(data=GuardrailEventData(
+                                guardrail_name=getattr(guardrail, '__name__', 'unknown_guardrail'),
+                                content=assistant_message.content,
+                                is_valid=False,
+                                error_message=result.error_message
+                            )))
                         return RunResult(
                             final_state=replace(state, messages=new_messages),
                             outcome=ErrorOutcome(error=OutputGuardrailTripwire(
@@ -420,7 +521,8 @@ async def _execute_tool_calls(
                     config.on_event(ToolCallEndEvent(data=to_event_data(ToolCallEndEventData(
                         tool_name=tool_call.function.name,
                         result=error_result,
-                        status='error'
+                        status='error',
+                        tool_result={'error': 'validation_error', 'details': e.errors()}
                     ))))
 
                 return {
@@ -492,7 +594,8 @@ async def _execute_tool_calls(
                     config.on_event(ToolCallEndEvent(data=to_event_data(ToolCallEndEventData(
                         tool_name=tool_call.function.name,
                         result=timeout_error_result,
-                        status='timeout'
+                        status='timeout',
+                        tool_result={'error': 'timeout_error'}
                     ))))
 
                 return {
@@ -519,6 +622,7 @@ async def _execute_tool_calls(
                 config.on_event(ToolCallEndEvent(data=to_event_data(ToolCallEndEventData(
                     tool_name=tool_call.function.name,
                     result=result_string,
+                    tool_result=tool_result_obj,
                     status='success'
                 ))))
 
@@ -555,7 +659,15 @@ async def _execute_tool_calls(
                 config.on_event(ToolCallEndEvent(data=to_event_data(ToolCallEndEventData(
                     tool_name=tool_call.function.name,
                     result=error_result,
-                    status='error'
+                    status='error',
+                    tool_result={'error': 'tool_not_found'}
+                ))))
+            if config.on_event:
+                config.on_event(ToolCallEndEvent(data=to_event_data(ToolCallEndEventData(
+                    tool_name=tool_call.function.name,
+                    result=error_result,
+                    status='error',
+                    tool_result={'error': 'execution_error', 'detail': str(error)}
                 ))))
 
             return {

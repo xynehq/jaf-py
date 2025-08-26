@@ -411,9 +411,53 @@ class RunEndEvent:
     type: Literal['run_end'] = 'run_end'
     data: RunEndEventData = field(default_factory=lambda: RunEndEventData(None))
 
+@dataclass(frozen=True)
+class GuardrailEventData:
+    """Data for guardrail check events."""
+    guardrail_name: str
+    content: Any
+    is_valid: Optional[bool] = None
+    error_message: Optional[str] = None
+
+@dataclass(frozen=True)
+class GuardrailEvent:
+    type: Literal['guardrail_check'] = 'guardrail_check'
+    data: GuardrailEventData = field(default_factory=lambda: GuardrailEventData(""))
+
+@dataclass(frozen=True)
+class MemoryEventData:
+    """Data for memory operation events."""
+    operation: Literal['load', 'store']
+    conversation_id: str
+    status: Literal['start', 'end', 'fail']
+    error: Optional[str] = None
+    message_count: Optional[int] = None
+
+@dataclass(frozen=True)
+class MemoryEvent:
+    type: Literal['memory_operation'] = 'memory_operation'
+    data: MemoryEventData = field(default_factory=lambda: MemoryEventData("load", "", "start"))
+
+@dataclass(frozen=True)
+class OutputParseEventData:
+    """Data for output parsing events."""
+    content: str
+    status: Literal['start', 'end', 'fail']
+    parsed_output: Optional[Any] = None
+    error: Optional[str] = None
+
+@dataclass(frozen=True)
+class OutputParseEvent:
+    type: Literal['output_parse'] = 'output_parse'
+    data: OutputParseEventData = field(default_factory=lambda: OutputParseEventData("", "start"))
+
+
 # Union type for all trace events
 TraceEvent = Union[
     RunStartEvent,
+    GuardrailEvent,
+    MemoryEvent,
+    OutputParseEvent,
     LLMCallStartEvent,
     LLMCallEndEvent,
     ToolCallStartEvent,
