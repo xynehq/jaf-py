@@ -36,27 +36,37 @@ The example creates:
 
 import asyncio
 import os
-from dotenv import load_dotenv
-load_dotenv()
+import sys
 from dataclasses import dataclass, replace
-from typing import Any
 
+from dotenv import load_dotenv
 from pydantic import BaseModel
 
+from jaf import ConsoleTraceCollector, run_server
 from jaf.core import (
     Agent,
-    Message,
     ContentRole,
+    Message,
+    ModelConfig,
     RunConfig,
     RunState,
-    ModelConfig,
+    create_json_output_extractor,
     generate_run_id,
     generate_trace_id,
     run,
-    create_json_output_extractor,
 )
 from jaf.providers.model import make_litellm_provider
-from jaf import run_server, ConsoleTraceCollector
+
+# Constants
+DEFAULT_TIMEOUT = 60.0
+MAX_TURNS = 3
+DEFAULT_TEMPERATURE_TRANSLATION = 0.7
+DEFAULT_TEMPERATURE_ORCHESTRATOR = 0.3
+DEFAULT_MAX_TURNS = 10
+DEFAULT_TOOL_TIMEOUT = 30.0
+DEFAULT_PORT = 3001
+MIN_PORT = 1024
+MAX_PORT = 65535
 
 
 @dataclass(frozen=True)
@@ -73,75 +83,106 @@ class TranslationOutput(BaseModel):
     target_language: str
 
 
-def create_litellm_provider():
-    """Create a LiteLLM provider from environment variables."""
-    litellm_url = os.environ.get("LITELLM_URL")
-    litellm_api_key = os.environ.get("LITELLM_API_KEY")
-    litellm_model = os.environ.get("LITELLM_MODEL")
+@dataclass(frozen=True)
+class Config:
+    """Configuration for the application."""
+    litellm_url: str
+    litellm_api_key: str
+    litellm_model: str
+    port: int = DEFAULT_PORT
 
-    missing_vars = []
-    if not litellm_url:
-        missing_vars.append("LITELLM_URL")
-    if not litellm_api_key:
-        missing_vars.append("LITELLM_API_KEY")
-    if not litellm_model:
-        missing_vars.append("LITELLM_MODEL")
-    if missing_vars:
-        raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}. Please set them in your .env file.")
+    @classmethod
+    def from_env(cls) -> "Config":
+        """Load configuration from environment variables with validation."""
+        # Get environment variables
+        litellm_url = os.environ.get("LITELLM_URL", "").strip()
+        litellm_api_key = os.environ.get("LITELLM_API_KEY", "").strip()
+        litellm_model = os.environ.get("LITELLM_MODEL", "").strip()
+        port_str = os.environ.get("PORT", str(DEFAULT_PORT)).strip()
 
-    print(f"📡 Using LiteLLM URL: {litellm_url}")
-    print(f"🔑 API Key: {'Set' if litellm_api_key else 'Not set'}")
-    print(f"🧠 Model: {litellm_model}")
+        # Validate required variables
+        missing_vars = []
+        if not litellm_url:
+            missing_vars.append("LITELLM_URL")
+        if not litellm_api_key:
+            missing_vars.append("LITELLM_API_KEY")
+        if not litellm_model:
+            missing_vars.append("LITELLM_MODEL")
+        
+        if missing_vars:
+            raise ValueError(
+                f"Missing required environment variables: {', '.join(missing_vars)}. "
+                "Please set them in your .env file."
+            )
+
+        # Validate port
+        try:
+            port = int(port_str)
+            if not MIN_PORT <= port <= MAX_PORT:
+                raise ValueError(f"Port must be between {MIN_PORT} and {MAX_PORT}")
+        except ValueError as e:
+            if "invalid literal" in str(e):
+                raise ValueError(f"PORT must be a valid integer, got: {port_str}")
+            raise
+
+        return cls(
+            litellm_url=litellm_url,
+            litellm_api_key=litellm_api_key,
+            litellm_model=litellm_model,
+            port=port
+        )
+
+
+def create_litellm_provider(config: Config):
+    """Create a LiteLLM provider from configuration."""
+    print(f"📡 Using LiteLLM URL: {config.litellm_url}")
+    print(f"🔑 API Key: {'Set' if config.litellm_api_key else 'Not set'}")
+    print(f"🧠 Model: {config.litellm_model}")
 
     return make_litellm_provider(
-        base_url=litellm_url,
-        api_key=litellm_api_key,
-        default_timeout=60.0
+        base_url=config.litellm_url,
+        api_key=config.litellm_api_key,
+        default_timeout=DEFAULT_TIMEOUT
     )
 
 
-def create_spanish_agent() -> Agent[TranslationContext, TranslationOutput]:
+def create_spanish_agent(config: Config) -> Agent[TranslationContext, TranslationOutput]:
     """Create a Spanish translation agent."""
-    model_name = os.environ.get("LITELLM_MODEL")
-    
     return Agent(
         name="spanish_agent",
-        instructions=lambda state: "You translate the user's message to Spanish. Always reply with a JSON object containing 'translated_text' and 'target_language' fields.",
+        instructions="You translate the user's message to Spanish. Always reply with a JSON object containing 'translated_text' and 'target_language' fields.",
         output_codec=TranslationOutput,
-        model_config=ModelConfig(name=model_name, temperature=0.7)
+        model_config=ModelConfig(name=config.litellm_model, temperature=DEFAULT_TEMPERATURE_TRANSLATION)
     )
 
 
-def create_french_agent() -> Agent[TranslationContext, TranslationOutput]:
+def create_french_agent(config: Config) -> Agent[TranslationContext, TranslationOutput]:
     """Create a French translation agent."""
-    model_name = os.environ.get("LITELLM_MODEL")
-    
     return Agent(
         name="french_agent", 
-        instructions=lambda state: "You translate the user's message to French. Always reply with a JSON object containing 'translated_text' and 'target_language' fields.",
+        instructions="You translate the user's message to French. Always reply with a JSON object containing 'translated_text' and 'target_language' fields.",
         output_codec=TranslationOutput,
-        model_config=ModelConfig(name=model_name, temperature=0.7)
+        model_config=ModelConfig(name=config.litellm_model, temperature=DEFAULT_TEMPERATURE_TRANSLATION)
     )
 
 
-def french_enabled(context: TranslationContext, agent: Agent) -> bool:
+def french_enabled(context: TranslationContext) -> bool:
     """Enable French translation only for french_spanish preference."""
     return context.language_preference == "french_spanish"
 
 
-def create_orchestrator_agent() -> Agent[TranslationContext, str]:
+def create_orchestrator_agent(config: Config) -> Agent[TranslationContext, str]:
     """Create an orchestrator agent that uses other agents as tools."""
-    model_name = os.environ.get("LITELLM_MODEL")
     
     # Create specialized agents
-    spanish_agent = create_spanish_agent()
-    french_agent = create_french_agent()
+    spanish_agent = create_spanish_agent(config)
+    french_agent = create_french_agent(config)
     
     # Convert agents to tools
     spanish_tool = spanish_agent.as_tool(
         tool_name="translate_to_spanish",
         tool_description="Translate the user's message to Spanish",
-        max_turns=3,
+        max_turns=MAX_TURNS,
         custom_output_extractor=create_json_output_extractor(),
         is_enabled=True,  # Always enabled
         metadata={"language": "spanish", "category": "translation"}
@@ -150,7 +191,7 @@ def create_orchestrator_agent() -> Agent[TranslationContext, str]:
     french_tool = french_agent.as_tool(
         tool_name="translate_to_french",
         tool_description="Translate the user's message to French",
-        max_turns=3,
+        max_turns=MAX_TURNS,
         custom_output_extractor=create_json_output_extractor(),
         is_enabled=french_enabled,  # Conditionally enabled
         metadata={"language": "french", "category": "translation"}
@@ -159,29 +200,30 @@ def create_orchestrator_agent() -> Agent[TranslationContext, str]:
     # Create orchestrator with agent tools
     return Agent(
         name="orchestrator_agent",
-        instructions=lambda state: (
+        instructions=(
             "You are a multilingual assistant. You use the tools given to you to respond to users. "
             "You must call ALL available tools to provide responses in different languages. "
             "You never respond in languages yourself, you always use the provided tools."
         ),
         tools=[spanish_tool, french_tool],
-        model_config=ModelConfig(name=model_name, temperature=0.3)
+        model_config=ModelConfig(name=config.litellm_model, temperature=DEFAULT_TEMPERATURE_ORCHESTRATOR)
     )
 
 
 async def demonstrate_agent_as_tool():
     """Demonstrate the agent-as-tool functionality."""
+    load_dotenv()
     
     print("🤖 JAF Agent-as-Tool Example with LiteLLM")
     print("=" * 50)
     
-    # Create LiteLLM provider
+    # Load configuration
     try:
-        model_provider = create_litellm_provider()
-        print("✅ LiteLLM provider created successfully")
+        config = Config.from_env()
+        model_provider = create_litellm_provider(config)
+        print("✅ Configuration loaded and LiteLLM provider created successfully")
     except ValueError as e:
-        print(f"❌ Error creating LiteLLM provider: {e}")
-        print("Please check your LITELLM_URL environment variable")
+        print(f"❌ Configuration error: {e}")
         return
     
     # Create context
@@ -191,7 +233,7 @@ async def demonstrate_agent_as_tool():
     )
     
     # Create orchestrator agent with agent tools
-    orchestrator = create_orchestrator_agent()
+    orchestrator = create_orchestrator_agent(config)
     
     # Create initial state
     initial_messages = [Message(
@@ -209,11 +251,11 @@ async def demonstrate_agent_as_tool():
     )
     
     # Create run configuration
-    config = RunConfig(
+    run_config = RunConfig(
         agent_registry={"orchestrator_agent": orchestrator},
         model_provider=model_provider,
-        max_turns=10,
-        default_tool_timeout=30.0
+        max_turns=DEFAULT_MAX_TURNS,
+        default_tool_timeout=DEFAULT_TOOL_TIMEOUT
     )
     
     print(f"🌍 Testing with language preference: {context.language_preference}")
@@ -222,7 +264,7 @@ async def demonstrate_agent_as_tool():
     
     # Run the orchestrator
     try:
-        result = await run(initial_state, config)
+        result = await run(initial_state, run_config)
         
         print("✅ Execution completed!")
         print(f"📊 Final turn count: {result.final_state.turn_count}")
@@ -254,8 +296,10 @@ async def demonstrate_agent_as_tool():
         else:
             print(f"❌ Error occurred: {result.outcome.error}")
             
+    except (ConnectionError, TimeoutError) as e:
+        print(f"💥 Network/timeout error during execution: {e}")
     except Exception as e:
-        print(f"💥 Exception during execution: {e}")
+        print(f"💥 Unexpected error during execution: {e}")
         import traceback
         traceback.print_exc()
     
@@ -273,7 +317,7 @@ async def demonstrate_agent_as_tool():
     print(f"🌍 Testing with language preference: {context_spanish_only.language_preference}")
     
     try:
-        result2 = await run(state_spanish_only, config)
+        result2 = await run(state_spanish_only, run_config)
         print("✅ Second execution completed!")
         print(f"📊 Final turn count: {result2.final_state.turn_count}")
         
@@ -281,26 +325,30 @@ async def demonstrate_agent_as_tool():
         tool_messages = [msg for msg in result2.final_state.messages if msg.role == ContentRole.TOOL]
         print(f"🔧 Number of tool calls: {len(tool_messages)}")
         
+    except (ConnectionError, TimeoutError) as e:
+        print(f"💥 Network/timeout error during second execution: {e}")
     except Exception as e:
-        print(f"💥 Exception during second execution: {e}")
+        print(f"💥 Unexpected error during second execution: {e}")
 
 
 async def start_server():
     """Start the JAF server with agent-as-tool functionality."""
+    load_dotenv()
+    
     print("🚀 Starting JAF Agent-as-Tool Server with LiteLLM")
     print("=" * 60)
     
-    # Create LiteLLM provider
+    # Load configuration
     try:
-        model_provider = create_litellm_provider()
-        print("✅ LiteLLM provider created successfully")
+        config = Config.from_env()
+        model_provider = create_litellm_provider(config)
+        print("✅ Configuration loaded and LiteLLM provider created successfully")
     except ValueError as e:
-        print(f"❌ Error creating LiteLLM provider: {e}")
-        print("Please check your LITELLM_URL environment variable")
+        print(f"❌ Configuration error: {e}")
         return
     
     # Create orchestrator agent
-    orchestrator = create_orchestrator_agent()
+    orchestrator = create_orchestrator_agent(config)
     
     # Set up tracing
     trace_collector = ConsoleTraceCollector()
@@ -309,14 +357,14 @@ async def start_server():
     run_config = RunConfig(
         agent_registry={"orchestrator_agent": orchestrator},
         model_provider=model_provider,
-        max_turns=10,
-        model_override=os.getenv('LITELLM_MODEL', 'qwen3-coder-480b'),
+        max_turns=DEFAULT_MAX_TURNS,
+        model_override=config.litellm_model,
         on_event=trace_collector.collect,
-        default_tool_timeout=30.0
+        default_tool_timeout=DEFAULT_TOOL_TIMEOUT
     )
     
     # Server options
-    port = int(os.getenv('PORT', '3001'))
+    port = config.port
     host = '127.0.0.1'
     
     print(f"\n📚 Try these example requests:")
