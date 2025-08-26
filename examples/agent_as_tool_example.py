@@ -148,9 +148,12 @@ def create_litellm_provider(config: Config):
 
 def create_spanish_agent(config: Config) -> Agent[TranslationContext, TranslationOutput]:
     """Create a Spanish translation agent."""
+    def instructions(state: RunState[TranslationContext]) -> str:
+        return "You translate the user's message to Spanish. Always reply with a JSON object containing 'translated_text' and 'target_language' fields."
+    
     return Agent(
         name="spanish_agent",
-        instructions="You translate the user's message to Spanish. Always reply with a JSON object containing 'translated_text' and 'target_language' fields.",
+        instructions=instructions,
         output_codec=TranslationOutput,
         model_config=ModelConfig(name=config.litellm_model, temperature=DEFAULT_TEMPERATURE_TRANSLATION)
     )
@@ -158,15 +161,18 @@ def create_spanish_agent(config: Config) -> Agent[TranslationContext, Translatio
 
 def create_french_agent(config: Config) -> Agent[TranslationContext, TranslationOutput]:
     """Create a French translation agent."""
+    def instructions(state: RunState[TranslationContext]) -> str:
+        return "You translate the user's message to French. Always reply with a JSON object containing 'translated_text' and 'target_language' fields."
+    
     return Agent(
         name="french_agent", 
-        instructions="You translate the user's message to French. Always reply with a JSON object containing 'translated_text' and 'target_language' fields.",
+        instructions=instructions,
         output_codec=TranslationOutput,
         model_config=ModelConfig(name=config.litellm_model, temperature=DEFAULT_TEMPERATURE_TRANSLATION)
     )
 
 
-def french_enabled(context: TranslationContext) -> bool:
+def french_enabled(context: TranslationContext, agent) -> bool:
     """Enable French translation only for french_spanish preference."""
     return context.language_preference == "french_spanish"
 
@@ -198,13 +204,16 @@ def create_orchestrator_agent(config: Config) -> Agent[TranslationContext, str]:
     )
     
     # Create orchestrator with agent tools
-    return Agent(
-        name="orchestrator_agent",
-        instructions=(
+    def orchestrator_instructions(state: RunState[TranslationContext]) -> str:
+        return (
             "You are a multilingual assistant. You use the tools given to you to respond to users. "
             "You must call ALL available tools to provide responses in different languages. "
             "You never respond in languages yourself, you always use the provided tools."
-        ),
+        )
+    
+    return Agent(
+        name="orchestrator_agent",
+        instructions=orchestrator_instructions,
         tools=[spanish_tool, french_tool],
         model_config=ModelConfig(name=config.litellm_model, temperature=DEFAULT_TEMPERATURE_ORCHESTRATOR)
     )

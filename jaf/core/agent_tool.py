@@ -163,6 +163,8 @@ def create_agent_tool(
             })
 
         # Create a sub-config that inherits from parent but uses this agent
+        # IMPORTANT: Preserve conversation_id to maintain session continuity across agent tool calls
+        # This ensures sub-agents maintain memory context like OpenAI Agents SDK thread_id behavior
         sub_config = RunConfig(
             agent_registry={agent.name: agent, **parent_config.agent_registry},
             model_provider=parent_config.model_provider,
@@ -172,7 +174,7 @@ def create_agent_tool(
             final_output_guardrails=parent_config.final_output_guardrails,
             on_event=parent_config.on_event,
             memory=parent_config.memory,
-            conversation_id=None,  # Don't share conversation for sub-agents
+            conversation_id=parent_config.conversation_id,  # Inherit conversation_id for session continuity
             default_tool_timeout=parent_config.default_tool_timeout
         )
 
