@@ -350,45 +350,54 @@ class LLMCallStartEventData:
     """Data for LLM call start events."""
     agent_name: str
     model: str
+    trace_id: TraceId
+    run_id: RunId
 
 @dataclass(frozen=True)
 class LLMCallStartEvent:
     type: Literal['llm_call_start'] = 'llm_call_start'
-    data: LLMCallStartEventData = field(default_factory=lambda: LLMCallStartEventData("", ""))
+    data: LLMCallStartEventData = field(default_factory=lambda: LLMCallStartEventData("", "", TraceId(""), RunId("")))
 
 @dataclass(frozen=True)
 class LLMCallEndEventData:
     """Data for LLM call end events."""
     choice: Any
+    trace_id: TraceId
+    run_id: RunId
+    usage: Optional[Dict[str, int]] = None
 
 @dataclass(frozen=True)
 class LLMCallEndEvent:
     type: Literal['llm_call_end'] = 'llm_call_end'
-    data: LLMCallEndEventData = field(default_factory=lambda: LLMCallEndEventData(None))
+    data: LLMCallEndEventData = field(default_factory=lambda: LLMCallEndEventData(None, TraceId(""), RunId("")))
 
 @dataclass(frozen=True)
 class ToolCallStartEventData:
     """Data for tool call start events."""
     tool_name: str
     args: Any
+    trace_id: TraceId
+    run_id: RunId
 
 @dataclass(frozen=True)
 class ToolCallStartEvent:
     type: Literal['tool_call_start'] = 'tool_call_start'
-    data: ToolCallStartEventData = field(default_factory=lambda: ToolCallStartEventData("", None))
+    data: ToolCallStartEventData = field(default_factory=lambda: ToolCallStartEventData("", None, TraceId(""), RunId("")))
 
 @dataclass(frozen=True)
 class ToolCallEndEventData:
     """Data for tool call end events."""
     tool_name: str
     result: str
+    trace_id: TraceId
+    run_id: RunId
     tool_result: Optional[Any] = None
     status: Optional[str] = None
 
 @dataclass(frozen=True)
 class ToolCallEndEvent:
     type: Literal['tool_call_end'] = 'tool_call_end'
-    data: ToolCallEndEventData = field(default_factory=lambda: ToolCallEndEventData("", ""))
+    data: ToolCallEndEventData = field(default_factory=lambda: ToolCallEndEventData("", "", TraceId(""), RunId("")))
 
 @dataclass(frozen=True)
 class HandoffEventData:
@@ -405,15 +414,61 @@ class HandoffEvent:
 class RunEndEventData:
     """Data for run end events."""
     outcome: 'RunOutcome[Any]'
+    trace_id: TraceId
+    run_id: RunId
 
 @dataclass(frozen=True)
 class RunEndEvent:
     type: Literal['run_end'] = 'run_end'
-    data: RunEndEventData = field(default_factory=lambda: RunEndEventData(None))
+    data: RunEndEventData = field(default_factory=lambda: RunEndEventData(None, TraceId(""), RunId("")))
+
+@dataclass(frozen=True)
+class GuardrailEventData:
+    """Data for guardrail check events."""
+    guardrail_name: str
+    content: Any
+    is_valid: Optional[bool] = None
+    error_message: Optional[str] = None
+
+@dataclass(frozen=True)
+class GuardrailEvent:
+    type: Literal['guardrail_check'] = 'guardrail_check'
+    data: GuardrailEventData = field(default_factory=lambda: GuardrailEventData(""))
+
+@dataclass(frozen=True)
+class MemoryEventData:
+    """Data for memory operation events."""
+    operation: Literal['load', 'store']
+    conversation_id: str
+    status: Literal['start', 'end', 'fail']
+    error: Optional[str] = None
+    message_count: Optional[int] = None
+
+@dataclass(frozen=True)
+class MemoryEvent:
+    type: Literal['memory_operation'] = 'memory_operation'
+    data: MemoryEventData = field(default_factory=lambda: MemoryEventData("load", "", "start"))
+
+@dataclass(frozen=True)
+class OutputParseEventData:
+    """Data for output parsing events."""
+    content: str
+    status: Literal['start', 'end', 'fail']
+    parsed_output: Optional[Any] = None
+    error: Optional[str] = None
+
+@dataclass(frozen=True)
+class OutputParseEvent:
+    type: Literal['output_parse'] = 'output_parse'
+    data: OutputParseEventData = field(default_factory=lambda: OutputParseEventData("", "start"))
+
 
 # Union type for all trace events
 TraceEvent = Union[
     RunStartEvent,
+    GuardrailEvent,
+    MemoryEvent,
+    OutputParseEvent,
     LLMCallStartEvent,
     LLMCallEndEvent,
     ToolCallStartEvent,
