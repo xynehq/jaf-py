@@ -79,6 +79,10 @@ async def run(
     Main execution function for running agents.
     """
     try:
+        # Set the current RunConfig in context for agent tools
+        from .agent_tool import set_current_run_config
+        set_current_run_config(config)
+        
         if config.on_event:
             config.on_event(RunStartEvent(data=to_event_data(RunStartEventData(run_id=initial_state.run_id, trace_id=initial_state.trace_id))))
 
@@ -115,22 +119,16 @@ async def _load_conversation_history(state: RunState[Ctx], config: RunConfig[Ctx
         max_messages = config.memory.max_messages or len(conversation_data.messages)
         memory_messages = conversation_data.messages[-max_messages:]
 
-        print(f"[JAF:ENGINE] Loaded {len(memory_messages)} messages from memory for conversation {config.conversation_id}")
-
-        # Calculate turn count based on assistant messages in memory + current state
-        memory_assistant_count = len([msg for msg in memory_messages if msg.role == ContentRole.ASSISTANT or msg.role == 'assistant'])
-        current_assistant_count = len([msg for msg in state.messages if msg.role == ContentRole.ASSISTANT or msg.role == 'assistant'])
+        # Calculate turn count efficiently
+        memory_assistant_count = sum(1 for msg in memory_messages if msg.role in (ContentRole.ASSISTANT, 'assistant'))
+        current_assistant_count = sum(1 for msg in state.messages if msg.role in (ContentRole.ASSISTANT, 'assistant'))
         calculated_turn_count = memory_assistant_count + current_assistant_count
 
         # Use metadata turn_count if available, otherwise calculate from messages
         turn_count = calculated_turn_count
         if conversation_data.metadata and "turn_count" in conversation_data.metadata:
             metadata_turn_count = conversation_data.metadata["turn_count"]
-            # Use the higher of the two to handle edge cases
             turn_count = max(metadata_turn_count, calculated_turn_count)
-            print(f"[JAF:ENGINE] Metadata turn_count: {metadata_turn_count}, calculated: {calculated_turn_count}, using: {turn_count}")
-        else:
-            print(f"[JAF:ENGINE] No metadata turn_count, calculated from messages: {turn_count}")
 
         return replace(
             state,
@@ -149,7 +147,6 @@ async def _store_conversation_history(state: RunState[Ctx], config: RunConfig[Ct
         keep_first = int(config.memory.compression_threshold * 0.2)
         keep_recent = config.memory.compression_threshold - keep_first
         messages_to_store = messages_to_store[:keep_first] + messages_to_store[-keep_recent:]
-        print(f"[JAF:ENGINE] Compressed conversation from {len(state.messages)} to {len(messages_to_store)} messages")
 
     metadata = {
         "user_id": getattr(state.context, 'user_id', None),
@@ -160,10 +157,7 @@ async def _store_conversation_history(state: RunState[Ctx], config: RunConfig[Ct
     }
 
     result = await config.memory.provider.store_messages(config.conversation_id, messages_to_store, metadata)
-    if isinstance(result, Failure):
-        print(f"[JAF:ENGINE] Warning: Failed to store conversation: {result.error}")
-    else:
-        print(f"[JAF:ENGINE] Stored {len(messages_to_store)} messages for conversation {config.conversation_id}")
+    # Removed verbose logging for performance
 
 async def _run_internal(
     state: RunState[Ctx],
@@ -204,10 +198,7 @@ async def _run_internal(
             outcome=ErrorOutcome(error=AgentNotFound(agent_name=state.current_agent_name))
         )
 
-    print(f"[JAF:ENGINE] Using agent: {current_agent.name}")
-    print(f"[JAF:ENGINE] Agent has {len(current_agent.tools or [])} tools available")
-    if current_agent.tools:
-        print(f"[JAF:ENGINE] Available tools: {[t.schema.name for t in current_agent.tools]}")
+    # Agent debugging logs removed for performance
 
     # Get model name
     model = (
@@ -250,17 +241,12 @@ async def _run_internal(
 
     # Handle tool calls
     if assistant_message.tool_calls:
-        print(f"[JAF:ENGINE] Processing {len(assistant_message.tool_calls)} tool calls")
-        print(f"[JAF:ENGINE] Tool calls: {assistant_message.tool_calls}")
-
         tool_results = await _execute_tool_calls(
             assistant_message.tool_calls,
             current_agent,
             state,
             config
         )
-
-        print(f"[JAF:ENGINE] Tool execution completed. Results count: {len(tool_results)}")
 
         # Check for handoffs
         handoff_result = next((r for r in tool_results if r.get('is_handoff')), None)
@@ -462,17 +448,11 @@ async def _execute_tool_calls(
                     )
                 }
 
-            print(f"[JAF:ENGINE] About to execute tool: {tool_call.function.name}")
-            print(f"[JAF:ENGINE] Tool args: {validated_args}")
-            print(f"[JAF:ENGINE] Tool context: {state.context}")
-
             # Determine timeout for this tool
             # Priority: tool-specific timeout > RunConfig default > 30 seconds global default
             timeout = getattr(tool.schema, 'timeout', None)
             if timeout is None:
                 timeout = config.default_tool_timeout if config.default_tool_timeout is not None else 30.0
-
-            print(f"[JAF:ENGINE] Using timeout: {timeout} seconds for tool {tool_call.function.name}")
 
             # Execute the tool with timeout
             try:
@@ -506,14 +486,9 @@ async def _execute_tool_calls(
             # Handle both string and ToolResult formats
             if isinstance(tool_result, str):
                 result_string = tool_result
-                tool_result_obj = None
-                print(f"[JAF:ENGINE] Tool {tool_call.function.name} returned string: {result_string}")
             else:
                 # It's a ToolResult object
-                tool_result_obj = tool_result
                 result_string = tool_result_to_string(tool_result)
-                print(f"[JAF:ENGINE] Tool {tool_call.function.name} returned ToolResult: {tool_result}")
-                print(f"[JAF:ENGINE] Converted to string: {result_string}")
 
             if config.on_event:
                 config.on_event(ToolCallEndEvent(data=to_event_data(ToolCallEndEventData(
@@ -524,8 +499,7 @@ async def _execute_tool_calls(
 
             # Check for handoff
             handoff_check = _try_parse_json(result_string)
-            if (isinstance(handoff_check, dict) and
-                'handoff_to' in handoff_check):
+            if isinstance(handoff_check, dict) and 'handoff_to' in handoff_check:
                 return {
                     'message': Message(
                         role=ContentRole.TOOL,
@@ -575,6 +549,8 @@ async def _execute_tool_calls(
 
 def _try_parse_json(text: str) -> Any:
     """Try to parse JSON, return original string if it fails."""
+    if not text or not isinstance(text, str):
+        return text
     try:
         return json.loads(text)
     except (json.JSONDecodeError, TypeError):

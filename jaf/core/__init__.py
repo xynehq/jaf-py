@@ -5,6 +5,14 @@ from .errors import JAFError
 from .tool_results import *
 from .tracing import ConsoleTraceCollector, TraceCollector
 from .types import *
+from .agent_tool import (
+    create_agent_tool,
+    create_default_output_extractor,
+    create_json_output_extractor,
+    create_conditional_enabler,
+    get_current_run_config,
+    set_current_run_config,
+)
 
 __all__ = [
     "Agent",
@@ -27,10 +35,16 @@ __all__ = [
     "TraceEvent",
     "TraceId",
     "ValidationResult",
+    "create_agent_tool",
+    "create_conditional_enabler",
+    "create_default_output_extractor",
+    "create_json_output_extractor",
     "create_run_id",
     "create_trace_id",
+    "get_current_run_config",
     "require_permissions",
     "run",
+    "set_current_run_config",
     "tool_result_to_string",
     "with_error_handling",
 ]

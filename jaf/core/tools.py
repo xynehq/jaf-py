@@ -86,22 +86,19 @@ def create_function_tool(config: FunctionToolConfig) -> Tool:
             logger.error(f"Tool {tool_name}: parameters must be a Pydantic BaseModel class, got {type(parameters)}")
             raise ValueError(f"Tool '{tool_name}' parameters must be a Pydantic BaseModel class, got {type(parameters)}")
     
-    # Test schema generation
-    try:
-        if hasattr(parameters, 'model_json_schema'):
-            test_schema = parameters.model_json_schema()
-            logger.debug(f"Tool {tool_name} schema test: {test_schema}")
-            
-            if not test_schema.get('properties'):
-                logger.error(f"Tool {tool_name} generates empty properties - LLM will send NULL!")
-                raise ValueError(f"Tool '{tool_name}' has no properties in schema. Check your Pydantic model fields.")
-                
-        elif hasattr(parameters, 'schema'):
-            test_schema = parameters.schema()
-            logger.debug(f"Tool {tool_name} schema test (v1): {test_schema}")
-    except Exception as e:
-        logger.error(f"Tool {tool_name} schema generation failed: {e}")
-        raise ValueError(f"Tool '{tool_name}' schema generation failed: {e}")
+    # Validate schema generation (cached for performance)
+    if not hasattr(parameters, '_schema_validated'):
+        try:
+            if hasattr(parameters, 'model_json_schema'):
+                test_schema = parameters.model_json_schema()
+                if not test_schema.get('properties'):
+                    raise ValueError(f"Tool '{tool_name}' has no properties in schema. Check your Pydantic model fields.")
+            elif hasattr(parameters, 'schema'):
+                test_schema = parameters.schema()
+            parameters._schema_validated = True
+        except Exception as e:
+            logger.error(f"Tool {tool_name} schema generation failed: {e}")
+            raise ValueError(f"Tool '{tool_name}' schema generation failed: {e}")
     
     # Create schema
     tool_schema = ToolSchema(
