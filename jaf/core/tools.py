@@ -95,6 +95,8 @@ def create_function_tool(config: FunctionToolConfig) -> Tool:
                     raise ValueError(f"Tool '{tool_name}' has no properties in schema. Check your Pydantic model fields.")
             elif hasattr(parameters, 'schema'):
                 test_schema = parameters.schema()
+                if not test_schema.get('properties'):
+                    raise ValueError(f"Tool '{tool_name}' has no properties in schema. Check your Pydantic model fields.")
             parameters._schema_validated = True
         except Exception as e:
             logger.error(f"Tool {tool_name} schema generation failed: {e}")

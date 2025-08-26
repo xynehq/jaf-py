@@ -6,23 +6,25 @@ hierarchical agent orchestration patterns using LiteLLM proxy.
 
 Prerequisites:
 1. Set up LiteLLM proxy server with your preferred model
-2. Configure environment variables:
-   - LITELLM_URL=https://grid.ai.juspay.net/
-   - LITELLM_API_KEY=
-   - LITELLM_MODEL=qwen3-coder-480b
+2. Create a .env file (see .env.example) with the following variables:
+    - LITELLM_URL=<your_litellm_url>
+    - LITELLM_API_KEY=<your_litellm_api_key>
+    - LITELLM_MODEL=<your_model_name>
 
 Usage:
 CLI Demo Mode:
-   export LITELLM_URL="https://grid.ai.juspay.net/"
-   export LITELLM_API_KEY=""
-   export LITELLM_MODEL="qwen3-coder-480b"
-   python examples/agent_as_tool_example.py
+    # Load environment variables from .env (for development only)
+    export $(cat .env | xargs)
+    python examples/agent_as_tool_example.py
 
 Server Mode (with curl examples):
-   export LITELLM_URL="https://grid.ai.juspay.net/"
-   export LITELLM_API_KEY=""
-   export LITELLM_MODEL="qwen3-coder-480b"
-   python examples/agent_as_tool_example.py --server
+    export $(cat .env | xargs)
+    python examples/agent_as_tool_example.py --server
+
+Security Notes:
+- Never commit your actual .env file to version control. Ensure .env is listed in .gitignore.
+- Rotate/revoke any previously exposed API keys immediately.
+- This example will raise a clear error if required environment variables are missing.
 
 The example creates:
 - A Spanish translation agent using LiteLLM
@@ -34,6 +36,8 @@ The example creates:
 
 import asyncio
 import os
+from dotenv import load_dotenv
+load_dotenv()
 from dataclasses import dataclass, replace
 from typing import Any
 
@@ -71,15 +75,24 @@ class TranslationOutput(BaseModel):
 
 def create_litellm_provider():
     """Create a LiteLLM provider from environment variables."""
-    litellm_url = os.getenv("LITELLM_URL", "https://grid.ai.juspay.net/")
-    litellm_api_key = os.getenv("LITELLM_API_KEY", "")
-    
+    litellm_url = os.environ.get("LITELLM_URL")
+    litellm_api_key = os.environ.get("LITELLM_API_KEY")
+    litellm_model = os.environ.get("LITELLM_MODEL")
+
+    missing_vars = []
     if not litellm_url:
-        raise ValueError("LITELLM_URL environment variable is required")
-    
+        missing_vars.append("LITELLM_URL")
+    if not litellm_api_key:
+        missing_vars.append("LITELLM_API_KEY")
+    if not litellm_model:
+        missing_vars.append("LITELLM_MODEL")
+    if missing_vars:
+        raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}. Please set them in your .env file.")
+
     print(f"📡 Using LiteLLM URL: {litellm_url}")
-    print(f"🔑 API Key: {'Set' if litellm_api_key != '' else 'Using default'}")
-    
+    print(f"🔑 API Key: {'Set' if litellm_api_key else 'Not set'}")
+    print(f"🧠 Model: {litellm_model}")
+
     return make_litellm_provider(
         base_url=litellm_url,
         api_key=litellm_api_key,
@@ -89,7 +102,7 @@ def create_litellm_provider():
 
 def create_spanish_agent() -> Agent[TranslationContext, TranslationOutput]:
     """Create a Spanish translation agent."""
-    model_name = os.getenv("LITELLM_MODEL", "qwen3-coder-480b")
+    model_name = os.environ.get("LITELLM_MODEL")
     
     return Agent(
         name="spanish_agent",
@@ -101,7 +114,7 @@ def create_spanish_agent() -> Agent[TranslationContext, TranslationOutput]:
 
 def create_french_agent() -> Agent[TranslationContext, TranslationOutput]:
     """Create a French translation agent."""
-    model_name = os.getenv("LITELLM_MODEL", "qwen3-coder-480b")
+    model_name = os.environ.get("LITELLM_MODEL")
     
     return Agent(
         name="french_agent", 
@@ -118,7 +131,7 @@ def french_enabled(context: TranslationContext, agent: Agent) -> bool:
 
 def create_orchestrator_agent() -> Agent[TranslationContext, str]:
     """Create an orchestrator agent that uses other agents as tools."""
-    model_name = os.getenv("LITELLM_MODEL", "qwen3-coder-480b")
+    model_name = os.environ.get("LITELLM_MODEL")
     
     # Create specialized agents
     spanish_agent = create_spanish_agent()
@@ -223,7 +236,17 @@ async def demonstrate_agent_as_tool():
             print("\n💬 Conversation Flow:")
             for i, msg in enumerate(result.final_state.messages, 1):
                 role_emoji = {"user": "👤", "assistant": "🤖", "tool": "🔧"}.get(msg.role, "❓")
-                content_preview = msg.content[:100] + "..." if len(msg.content) > 100 else msg.content
+                # Safely handle non-string, None, or bytes content
+                content = msg.content
+                if content is None:
+                    content_str = "None"
+                elif isinstance(content, bytes):
+                    content_str = content.decode("utf-8", errors="replace")
+                elif not isinstance(content, str):
+                    content_str = str(content)
+                else:
+                    content_str = content
+                content_preview = content_str[:100] + "..." if len(content_str) > 100 else content_str
                 print(f"  {i}. {role_emoji} {msg.role.upper()}: {content_preview}")
                 if msg.tool_calls:
                     for tool_call in msg.tool_calls:

@@ -8,6 +8,7 @@ by other agents, enabling hierarchical agent orchestration patterns.
 import asyncio
 import json
 import inspect
+import inspect
 import contextvars
 from typing import Any, Callable, Dict, List, Optional, Union, Awaitable, TypeVar, get_type_hints
 
@@ -152,44 +153,45 @@ def create_agent_tool(
             turn_count=0
         )
         
+        # Get the current RunConfig from context variable
+        parent_config = _current_run_config.get()
+        if parent_config is None:
+            # If no parent config available, we can't execute the agent
+            return json.dumps({
+                "error": "no_parent_config",
+                "message": f"Agent tool {final_tool_name} requires a parent RunConfig to execute. Please ensure the agent tool is called from within a JAF run context."
+            })
+
+        # Create a sub-config that inherits from parent but uses this agent
+        sub_config = RunConfig(
+            agent_registry={agent.name: agent, **parent_config.agent_registry},
+            model_provider=parent_config.model_provider,
+            max_turns=max_turns or parent_config.max_turns,
+            model_override=parent_config.model_override,
+            initial_input_guardrails=parent_config.initial_input_guardrails,
+            final_output_guardrails=parent_config.final_output_guardrails,
+            on_event=parent_config.on_event,
+            memory=parent_config.memory,
+            conversation_id=None,  # Don't share conversation for sub-agents
+            default_tool_timeout=parent_config.default_tool_timeout
+        )
+
+        token = _current_run_config.set(sub_config)
         try:
-            # Get the current RunConfig from context variable
-            parent_config = _current_run_config.get()
-            if parent_config is None:
-                # If no parent config available, we can't execute the agent
-                return json.dumps({
-                    "error": "no_parent_config",
-                    "message": f"Agent tool {final_tool_name} requires a parent RunConfig to execute. Please ensure the agent tool is called from within a JAF run context."
-                })
-            
-            # Create a sub-config that inherits from parent but uses this agent
-            sub_config = RunConfig(
-                agent_registry={agent.name: agent, **parent_config.agent_registry},
-                model_provider=parent_config.model_provider,
-                max_turns=max_turns or parent_config.max_turns,
-                model_override=parent_config.model_override,
-                initial_input_guardrails=parent_config.initial_input_guardrails,
-                final_output_guardrails=parent_config.final_output_guardrails,
-                on_event=parent_config.on_event,
-                memory=parent_config.memory,
-                conversation_id=None,  # Don't share conversation for sub-agents
-                default_tool_timeout=parent_config.default_tool_timeout
-            )
-            
             # Import here to avoid circular imports
             from . import engine
-            
             # Execute the agent
             result = await engine.run(initial_state, sub_config)
-            
-            # Extract output using custom extractor if provided
+        finally:
+            _current_run_config.reset(token)
+
+        # Output extraction and error handling
+        try:
             if custom_output_extractor:
                 output = custom_output_extractor(result)
-                if hasattr(output, '__await__'):
+                if inspect.isawaitable(output):
                     output = await output
                 return str(output)
-            
-            # Default output extraction
             if result.outcome.status == 'completed':
                 if hasattr(result.outcome, 'output') and result.outcome.output is not None:
                     return str(result.outcome.output)
@@ -209,7 +211,6 @@ def create_agent_tool(
                     "error": "agent_execution_failed",
                     "message": f"Agent {agent.name} failed: {error_detail}"
                 })
-                
         except Exception as e:
             return json.dumps({
                 "error": "agent_tool_error",
