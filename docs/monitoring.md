@@ -750,6 +750,30 @@ class TracedAgent:
                 raise
 ```
 
+### Langfuse Tracing
+
+JAF also supports tracing with [Langfuse](https://langfuse.com/). To enable it, set the `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` environment variables.
+
+```python
+import os
+from jaf.core.tracing import create_composite_trace_collector, ConsoleTraceCollector
+
+# Set your Langfuse credentials
+os.environ["LANGFUSE_PUBLIC_KEY"] = "your_public_key"
+os.environ["LANGFUSE_SECRET_KEY"] = "your_secret_key"
+
+# The Langfuse collector will be added automatically
+trace_collector = create_composite_trace_collector(ConsoleTraceCollector())
+
+# Use this collector in your RunConfig
+config = RunConfig(
+    # ... other config
+    on_event=trace_collector.collect,
+)
+```
+
+See the full example at `examples/langfuse_tracing_demo.py`.
+
 ### Database Query Monitoring
 
 ```python

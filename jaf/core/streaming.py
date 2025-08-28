@@ -258,7 +258,8 @@ async def run_streaming(
                 event_queue.put_nowait(streaming_event)
                 event_available.set()
             except asyncio.QueueFull:
-                print(f"JAF-WARNING: Streaming event queue is full. Event dropped: {streaming_event.type}")
+                # Queue full - drop event silently for performance
+                pass
 
     streaming_config = RunConfig(
         agent_registry=config.agent_registry,
@@ -319,7 +320,7 @@ async def run_streaming(
                 content=final_content[:i + len(chunk_content)],
                 delta=chunk_content,
                 is_complete=is_final_chunk,
-                token_count=len(chunk_content.split()) if is_final_chunk else None
+                token_count=len(final_content.split()) if is_final_chunk else None
             )
             
             yield StreamingEvent(
@@ -328,7 +329,7 @@ async def run_streaming(
                 run_id=initial_state.run_id,
                 trace_id=initial_state.trace_id
             )
-            await asyncio.sleep(0.01) # simulate network latency
+            # Remove artificial delay for better performance
 
         execution_time = (time.time() - start_time) * 1000
         if include_metadata:

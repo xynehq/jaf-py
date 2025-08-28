@@ -44,9 +44,18 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "psutil>=5.9.0",
     "fastmcp>=0.1.0",
+    "opentelemetry-api>=1.22.0",
+    "opentelemetry-sdk>=1.22.0",
+    "opentelemetry-exporter-otlp>=1.22.0",
 ]
 
 [project.optional-dependencies]
+tracing = [
+    "opentelemetry-api>=1.22.0",
+    "opentelemetry-sdk>=1.22.0",
+    "opentelemetry-exporter-otlp>=1.22.0",
+    "langfuse<3.0.0",
+]
 dev = [
     "pytest>=7.0.0",
     "pytest-asyncio>=0.21.0",
@@ -69,7 +78,7 @@ visualization = [
     "graphviz>=0.20.0",
 ]
 all = [
-    "jaf-py[dev,server,memory,visualization]",
+    "jaf-py[dev,server,memory,visualization,tracing]",
 ]
 
 [project.urls]
