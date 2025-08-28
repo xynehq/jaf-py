@@ -33,10 +33,10 @@ requires-python = ">=3.10"
 dependencies = [
     "pydantic>=2.0.0",
     "fastapi>=0.104.0",
-    "uvicorn[standard]>=0.24.0",
+    "uvicorn[standard]>=0.35.0",
     "openai>=1.0.0",
     "typing-extensions>=4.5.0",
-    "websockets>=11.0.0",
+    "websockets>=15.0.0",
     "httpx>=0.25.0",
     "httpx-sse>=0.4.0",
     "google-generativeai>=0.3.0",
@@ -59,7 +59,7 @@ dev = [
     "hypothesis>=6.0.0",
 ]
 server = [
-    "uvicorn[standard]>=0.24.0",
+    "uvicorn[standard]>=0.35.0",
 ]
 memory = [
     "redis>=5.0.0",
