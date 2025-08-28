@@ -66,7 +66,8 @@ def create_agent_tool(
     custom_output_extractor: Optional[Callable[[RunResult[Out]], Union[str, Awaitable[str]]]] = None,
     is_enabled: Union[bool, Callable[[Any, Agent[Ctx, Out]], bool], Callable[[Any, Agent[Ctx, Out]], Awaitable[bool]]] = True,
     metadata: Optional[Dict[str, Any]] = None,
-    timeout: Optional[float] = None
+    timeout: Optional[float] = None,
+    preserve_session: bool = False
 ) -> Tool[AgentToolInput, Ctx]:
     """
     Create a tool from an agent.
@@ -163,8 +164,9 @@ def create_agent_tool(
             })
 
         # Create a sub-config that inherits from parent but uses this agent
-        # IMPORTANT: Preserve conversation_id to maintain session continuity across agent tool calls
-        # This ensures sub-agents maintain memory context like OpenAI Agents SDK thread_id behavior
+        # Session inheritance is configurable via preserve_session.
+        # - When True: inherit parent's conversation_id and memory (shared memory/session)
+        # - When False: do not inherit (ephemeral, per-invocation sub-agent run)
         sub_config = RunConfig(
             agent_registry={agent.name: agent, **parent_config.agent_registry},
             model_provider=parent_config.model_provider,
@@ -173,8 +175,8 @@ def create_agent_tool(
             initial_input_guardrails=parent_config.initial_input_guardrails,
             final_output_guardrails=parent_config.final_output_guardrails,
             on_event=parent_config.on_event,
-            memory=parent_config.memory,
-            conversation_id=parent_config.conversation_id,  # Inherit conversation_id for session continuity
+            memory=parent_config.memory if preserve_session else None,
+            conversation_id=parent_config.conversation_id if preserve_session else None,
             default_tool_timeout=parent_config.default_tool_timeout
         )
 

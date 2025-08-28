@@ -214,7 +214,8 @@ class Agent(Generic[Ctx, Out]):
         custom_output_extractor: Optional[Callable[['RunResult[Out]'], Union[str, Awaitable[str]]]] = None,
         is_enabled: Union[bool, Callable[[Any, 'Agent[Ctx, Out]'], bool], Callable[[Any, 'Agent[Ctx, Out]'], Awaitable[bool]]] = True,
         metadata: Optional[Dict[str, Any]] = None,
-        timeout: Optional[float] = None
+        timeout: Optional[float] = None,
+        preserve_session: bool = False
     ) -> Tool[Any, Ctx]:
         """
         Convert this agent into a tool that can be used by other agents.
@@ -240,7 +241,8 @@ class Agent(Generic[Ctx, Out]):
             custom_output_extractor=custom_output_extractor,
             is_enabled=is_enabled,
             metadata=metadata,
-            timeout=timeout
+            timeout=timeout,
+            preserve_session=preserve_session
         )
 
 # Guardrail type
