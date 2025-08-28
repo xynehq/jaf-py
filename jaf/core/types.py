@@ -206,6 +206,45 @@ class Agent(Generic[Ctx, Out]):
     handoffs: Optional[List[str]] = None
     model_config: Optional[ModelConfig] = None
 
+    def as_tool(
+        self,
+        tool_name: Optional[str] = None,
+        tool_description: Optional[str] = None,
+        max_turns: Optional[int] = None,
+        custom_output_extractor: Optional[Callable[['RunResult[Out]'], Union[str, Awaitable[str]]]] = None,
+        is_enabled: Union[bool, Callable[[Any, 'Agent[Ctx, Out]'], bool], Callable[[Any, 'Agent[Ctx, Out]'], Awaitable[bool]]] = True,
+        metadata: Optional[Dict[str, Any]] = None,
+        timeout: Optional[float] = None,
+        preserve_session: bool = False
+    ) -> Tool[Any, Ctx]:
+        """
+        Convert this agent into a tool that can be used by other agents.
+        
+        Args:
+            tool_name: Optional custom name for the tool (defaults to agent name)
+            tool_description: Optional custom description (defaults to generic description)
+            max_turns: Maximum turns for the agent execution (defaults to RunConfig max_turns)
+            custom_output_extractor: Optional function to extract specific output from RunResult
+            is_enabled: Whether the tool is enabled (bool, sync function, or async function)
+            metadata: Optional metadata for the tool
+            timeout: Optional timeout for the tool execution
+            
+        Returns:
+            A Tool that wraps this agent's execution
+        """
+        from .agent_tool import create_agent_tool
+        return create_agent_tool(
+            agent=self,
+            tool_name=tool_name,
+            tool_description=tool_description,
+            max_turns=max_turns,
+            custom_output_extractor=custom_output_extractor,
+            is_enabled=is_enabled,
+            metadata=metadata,
+            timeout=timeout,
+            preserve_session=preserve_session
+        )
+
 # Guardrail type
 Guardrail = Callable[[Any], Union[ValidationResult, Awaitable[ValidationResult]]]
 

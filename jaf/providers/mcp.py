@@ -35,18 +35,20 @@ def _json_schema_to_python_type(schema: Dict[str, Any]) -> type:
         "integer": int,
         "number": float,
         "boolean": bool,
-        "array": list,   # prefer builtins for pydantic v2
+        "array": list,
         "object": dict,
         "null": type(None),
     }
 
-    # Union forms
-    for key in ("anyOf", "oneOf"):
-        if key in schema and isinstance(schema[key], list):
-            # Prefer the first non-null sub-schema
-            for sub in schema[key]:
-                if isinstance(sub, dict) and sub.get("type") != "null":
-                    return _json_schema_to_python_type(sub)
+    # Union forms - optimized to check once
+    union_keys = schema.keys() & {"anyOf", "oneOf"}
+    if union_keys:
+        for key in union_keys:
+            union_list = schema[key]
+            if isinstance(union_list, list):
+                for sub in union_list:
+                    if isinstance(sub, dict) and sub.get("type") != "null":
+                        return _json_schema_to_python_type(sub)
             return Any
 
     t = schema.get("type")
