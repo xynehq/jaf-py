@@ -330,7 +330,7 @@ class LangfuseTraceCollector:
     def __init__(self):
         public_key = os.environ.get("LANGFUSE_PUBLIC_KEY")
         secret_key = os.environ.get("LANGFUSE_SECRET_KEY")
-        host = "http://localhost:3000"
+        host = os.environ.get("LANGFUSE_HOST")
         
         print(f"[LANGFUSE] Initializing with host: {host}")
         print(f"[LANGFUSE] Public key: {public_key[:10]}..." if public_key else "[LANGFUSE] No public key set")
