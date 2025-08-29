@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jaf-py"
-version = "2.2.0"
+version = "2.2.1"
 description = "A purely functional agent framework with immutable state and composable tools - Python implementation"
 readme = "README.md"
 license = "MIT"
@@ -47,6 +47,7 @@ dependencies = [
     "opentelemetry-api>=1.22.0",
     "opentelemetry-sdk>=1.22.0",
     "opentelemetry-exporter-otlp>=1.22.0",
+    "langfuse<3.0.0"
 ]
 
 [project.optional-dependencies]
