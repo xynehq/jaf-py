@@ -51,8 +51,11 @@ def make_litellm_provider(
                 if proxies:
                     # Create httpx client with proxy configuration
                     try:
-                        http_client = httpx.Client(proxies=proxies)
-                        client_kwargs["http_client"] = http_client
+                        # Use the https proxy if available, otherwise http proxy
+                        proxy_url = proxies.get('https://') or proxies.get('http://')
+                        if proxy_url:
+                            http_client = httpx.Client(proxy=proxy_url)
+                            client_kwargs["http_client"] = http_client
                     except Exception as e:
                         print(f"Warning: Could not configure proxy: {e}")
                         # Fall back to environment variables for proxy
