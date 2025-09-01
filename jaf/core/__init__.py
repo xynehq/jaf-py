@@ -13,6 +13,7 @@ from .agent_tool import (
     get_current_run_config,
     set_current_run_config,
 )
+from .proxy import ProxyConfig, ProxyAuth, create_proxy_config, get_default_proxy_config
 
 __all__ = [
     "Agent",
@@ -22,6 +23,8 @@ __all__ = [
     "Message",
     "ModelConfig",
     "ModelProvider",
+    "ProxyAuth",
+    "ProxyConfig",
     "RunConfig",
     "RunId",
     "RunResult",
@@ -39,9 +42,11 @@ __all__ = [
     "create_conditional_enabler",
     "create_default_output_extractor",
     "create_json_output_extractor",
+    "create_proxy_config",
     "create_run_id",
     "create_trace_id",
     "get_current_run_config",
+    "get_default_proxy_config",
     "require_permissions",
     "run",
     "set_current_run_config",

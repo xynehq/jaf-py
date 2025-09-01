@@ -39,6 +39,7 @@ A purely functional agent framework with immutable state and composable tools, p
 - ✅ **Output Guardrails**: Response sanitization
 - ✅ **Permission System**: Role-based access control
 - ✅ **Audit Logging**: Complete interaction tracing
+- ✅ **Proxy Support**: Corporate proxy integration with authentication
 
 ### 📊 **Observability & Monitoring**
 - ✅ **Real-time Tracing**: Event-driven observability
