@@ -22,7 +22,7 @@
       
       
       <link rel="icon" href="../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.16">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.18">
     
     
       
@@ -820,6 +820,66 @@
       CLI Usage
     </span>
   </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adding-observability-and-tracing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Adding Observability and Tracing
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Adding Observability and Tracing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#basic-console-tracing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Basic Console Tracing
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#advanced-tracing-with-opentelemetry" class="md-nav__link">
+    <span class="md-ellipsis">
+      Advanced Tracing with OpenTelemetry
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#langfuse-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Langfuse Integration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#file-based-tracing" class="md-nav__link">
+    <span class="md-ellipsis">
+      File-Based Tracing
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#next-steps-with-observability" class="md-nav__link">
+    <span class="md-ellipsis">
+      Next Steps with Observability
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -2415,6 +2475,66 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#adding-observability-and-tracing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Adding Observability and Tracing
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Adding Observability and Tracing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#basic-console-tracing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Basic Console Tracing
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#advanced-tracing-with-opentelemetry" class="md-nav__link">
+    <span class="md-ellipsis">
+      Advanced Tracing with OpenTelemetry
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#langfuse-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Langfuse Integration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#file-based-tracing" class="md-nav__link">
+    <span class="md-ellipsis">
+      File-Based Tracing
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#next-steps-with-observability" class="md-nav__link">
+    <span class="md-ellipsis">
+      Next Steps with Observability
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next-steps" class="md-nav__link">
     <span class="md-ellipsis">
       Next Steps
@@ -2494,7 +2614,7 @@
 <h2 id="prerequisites-and-system-requirements">Prerequisites and System Requirements<a class="headerlink" href="#prerequisites-and-system-requirements" title="Anchor link to this section for reference">&para;</a></h2>
 <h3 id="technical-requirements">Technical Requirements<a class="headerlink" href="#technical-requirements" title="Anchor link to this section for reference">&para;</a></h3>
 <ul>
-<li><strong>Python 3.9 or higher</strong> (Python 3.11+ recommended for optimal performance and latest features)</li>
+<li><strong>Python 3.10 or higher</strong> (Python 3.11+ recommended for optimal performance and latest features)</li>
 <li><strong>LiteLLM proxy server</strong> for LLM integration, or direct access to LLM APIs</li>
 <li><strong>Development environment</strong> with package management (pip, conda, or poetry)</li>
 <li><strong>Basic understanding</strong> of Python asyncio, type hints, and functional programming concepts</li>
@@ -2530,11 +2650,14 @@
 </span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="c1"># Visualization tools (Graphviz, diagrams)</span>
 </span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;jaf-py[visualization] @ git+https://github.com/xynehq/jaf-py.git&quot;</span>
 </span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>
-</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="c1"># Development tools (testing, linting, type checking)</span>
-</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;jaf-py[dev] @ git+https://github.com/xynehq/jaf-py.git&quot;</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="c1"># Tracing and observability (OpenTelemetry, Langfuse)</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;jaf-py[tracing] @ git+https://github.com/xynehq/jaf-py.git&quot;</span>
 </span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>
-</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="c1"># Combine multiple feature sets</span>
-</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;jaf-py[server,memory,visualization] @ git+https://github.com/xynehq/jaf-py.git&quot;</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="c1"># Development tools (testing, linting, type checking)</span>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;jaf-py[dev] @ git+https://github.com/xynehq/jaf-py.git&quot;</span>
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="c1"># Combine multiple feature sets</span>
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;jaf-py[server,memory,visualization,tracing] @ git+https://github.com/xynehq/jaf-py.git&quot;</span>
 </span></code></pre></div>
 <h3 id="development-environment-setup">Development Environment Setup<a class="headerlink" href="#development-environment-setup" title="Anchor link to this section for reference">&para;</a></h3>
 <p>For contributors and advanced development:</p>
@@ -2549,7 +2672,7 @@
 </span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="c1"># Rename .env.default to .env and update the file with your api&#39;s.</span>
 </span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>
 </span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="c1"># Install in development mode with all dependencies</span>
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[dev,server,memory,visualization]&quot;</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[dev,server,memory,visualization,tracing]&quot;</span>
 </span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>
 </span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="c1"># Verify development setup</span>
 </span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>tests/<span class="w"> </span>--tb<span class="o">=</span>short
@@ -3125,11 +3248,115 @@
 </span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>jaf<span class="w"> </span>--version
 </span><span id="__span-17-10"><a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>jaf<span class="w"> </span>--help
 </span></code></pre></div>
+<h2 id="adding-observability-and-tracing">Adding Observability and Tracing<a class="headerlink" href="#adding-observability-and-tracing" title="Anchor link to this section for reference">&para;</a></h2>
+<p>JAF provides comprehensive observability through its tracing system. This enables monitoring, debugging, and performance analysis of your agents.</p>
+<h3 id="basic-console-tracing">Basic Console Tracing<a class="headerlink" href="#basic-console-tracing" title="Anchor link to this section for reference">&para;</a></h3>
+<p>The simplest way to add observability is with console tracing:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">jaf.core.tracing</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConsoleTraceCollector</span>
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="c1"># Create console trace collector</span>
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="n">trace_collector</span> <span class="o">=</span> <span class="n">ConsoleTraceCollector</span><span class="p">()</span>
+</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>
+</span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="c1"># Update your calculator example with tracing</span>
+</span><span id="__span-18-7"><a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="n">config</span> <span class="o">=</span> <span class="n">RunConfig</span><span class="p">(</span>
+</span><span id="__span-18-8"><a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>    <span class="n">agent_registry</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;Calculator&#39;</span><span class="p">:</span> <span class="n">calculator_agent</span><span class="p">},</span>
+</span><span id="__span-18-9"><a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a>    <span class="n">model_provider</span><span class="o">=</span><span class="n">model_provider</span><span class="p">,</span>
+</span><span id="__span-18-10"><a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a>    <span class="n">max_turns</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+</span><span id="__span-18-11"><a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a>    <span class="n">on_event</span><span class="o">=</span><span class="n">trace_collector</span><span class="o">.</span><span class="n">collect</span><span class="p">,</span>  <span class="c1"># Enable detailed tracing</span>
+</span><span id="__span-18-12"><a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a><span class="p">)</span>
+</span><span id="__span-18-13"><a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a>
+</span><span id="__span-18-14"><a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a><span class="c1"># Run your agent - you&#39;ll see detailed execution logs</span>
+</span><span id="__span-18-15"><a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">run</span><span class="p">(</span><span class="n">initial_state</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+</span></code></pre></div>
+<p>This provides detailed execution logs including:
+- Agent execution start/end
+- LLM calls and responses
+- Tool executions
+- Performance timing
+- Error conditions</p>
+<h3 id="advanced-tracing-with-opentelemetry">Advanced Tracing with OpenTelemetry<a class="headerlink" href="#advanced-tracing-with-opentelemetry" title="Anchor link to this section for reference">&para;</a></h3>
+<p>For production environments, use OpenTelemetry for industry-standard observability:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">jaf.core.tracing</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_composite_trace_collector</span><span class="p">,</span> <span class="n">ConsoleTraceCollector</span>
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="c1"># Configure OpenTelemetry (requires running OTLP collector like Jaeger)</span>
+</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;TRACE_COLLECTOR_URL&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;http://localhost:4318/v1/traces&quot;</span>
+</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>
+</span><span id="__span-19-7"><a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="c1"># Auto-configured tracing with multiple backends</span>
+</span><span id="__span-19-8"><a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a><span class="n">trace_collector</span> <span class="o">=</span> <span class="n">create_composite_trace_collector</span><span class="p">(</span>
+</span><span id="__span-19-9"><a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a>    <span class="n">ConsoleTraceCollector</span><span class="p">()</span>  <span class="c1"># Console output for development</span>
+</span><span id="__span-19-10"><a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a>    <span class="c1"># OpenTelemetry automatically added if TRACE_COLLECTOR_URL is set</span>
+</span><span id="__span-19-11"><a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a><span class="p">)</span>
+</span><span id="__span-19-12"><a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a>
+</span><span id="__span-19-13"><a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a><span class="n">config</span> <span class="o">=</span> <span class="n">RunConfig</span><span class="p">(</span>
+</span><span id="__span-19-14"><a id="__codelineno-19-14" name="__codelineno-19-14" href="#__codelineno-19-14"></a>    <span class="n">agent_registry</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;Calculator&#39;</span><span class="p">:</span> <span class="n">calculator_agent</span><span class="p">},</span>
+</span><span id="__span-19-15"><a id="__codelineno-19-15" name="__codelineno-19-15" href="#__codelineno-19-15"></a>    <span class="n">model_provider</span><span class="o">=</span><span class="n">model_provider</span><span class="p">,</span>
+</span><span id="__span-19-16"><a id="__codelineno-19-16" name="__codelineno-19-16" href="#__codelineno-19-16"></a>    <span class="n">max_turns</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+</span><span id="__span-19-17"><a id="__codelineno-19-17" name="__codelineno-19-17" href="#__codelineno-19-17"></a>    <span class="n">on_event</span><span class="o">=</span><span class="n">trace_collector</span><span class="o">.</span><span class="n">collect</span><span class="p">,</span>
+</span><span id="__span-19-18"><a id="__codelineno-19-18" name="__codelineno-19-18" href="#__codelineno-19-18"></a><span class="p">)</span>
+</span></code></pre></div>
+<p>To view OpenTelemetry traces, start Jaeger:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="c1"># Start Jaeger for trace visualization</span>
+</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>docker<span class="w"> </span>run<span class="w"> </span>-d<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="w">  </span>--name<span class="w"> </span>jaeger<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-20-4"><a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="w">  </span>-p<span class="w"> </span><span class="m">16686</span>:16686<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-20-5"><a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="w">  </span>-p<span class="w"> </span><span class="m">14250</span>:14250<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-20-6"><a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="w">  </span>-p<span class="w"> </span><span class="m">4318</span>:4318<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-20-7"><a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="w">  </span>jaegertracing/all-in-one:latest
+</span><span id="__span-20-8"><a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a>
+</span><span id="__span-20-9"><a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a><span class="c1"># View traces at http://localhost:16686</span>
+</span></code></pre></div>
+<h3 id="langfuse-integration">Langfuse Integration<a class="headerlink" href="#langfuse-integration" title="Anchor link to this section for reference">&para;</a></h3>
+<p>For AI-specific observability, JAF integrates with Langfuse:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="c1"># Set environment variables for Langfuse</span>
+</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">LANGFUSE_PUBLIC_KEY</span><span class="o">=</span>pk-lf-your-public-key
+</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">LANGFUSE_SECRET_KEY</span><span class="o">=</span>sk-lf-your-secret-key
+</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="nb">export</span><span class="w"> </span><span class="nv">LANGFUSE_HOST</span><span class="o">=</span>https://cloud.langfuse.com<span class="w">  </span><span class="c1"># or your self-hosted instance</span>
+</span></code></pre></div>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="c1"># Langfuse tracing is automatically enabled when keys are configured</span>
+</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="n">trace_collector</span> <span class="o">=</span> <span class="n">create_composite_trace_collector</span><span class="p">(</span>
+</span><span id="__span-22-3"><a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>    <span class="n">ConsoleTraceCollector</span><span class="p">()</span>
+</span><span id="__span-22-4"><a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a>    <span class="c1"># Langfuse automatically added if LANGFUSE_* environment variables are set</span>
+</span><span id="__span-22-5"><a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a><span class="p">)</span>
+</span><span id="__span-22-6"><a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a>
+</span><span id="__span-22-7"><a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a><span class="n">config</span> <span class="o">=</span> <span class="n">RunConfig</span><span class="p">(</span>
+</span><span id="__span-22-8"><a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a>    <span class="n">agent_registry</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;Calculator&#39;</span><span class="p">:</span> <span class="n">calculator_agent</span><span class="p">},</span>
+</span><span id="__span-22-9"><a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a>    <span class="n">model_provider</span><span class="o">=</span><span class="n">model_provider</span><span class="p">,</span>
+</span><span id="__span-22-10"><a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a>    <span class="n">max_turns</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+</span><span id="__span-22-11"><a id="__codelineno-22-11" name="__codelineno-22-11" href="#__codelineno-22-11"></a>    <span class="n">on_event</span><span class="o">=</span><span class="n">trace_collector</span><span class="o">.</span><span class="n">collect</span><span class="p">,</span>
+</span><span id="__span-22-12"><a id="__codelineno-22-12" name="__codelineno-22-12" href="#__codelineno-22-12"></a><span class="p">)</span>
+</span></code></pre></div>
+<h3 id="file-based-tracing">File-Based Tracing<a class="headerlink" href="#file-based-tracing" title="Anchor link to this section for reference">&para;</a></h3>
+<p>For debugging and analysis, save traces to files:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">jaf.core.tracing</span><span class="w"> </span><span class="kn">import</span> <span class="n">FileTraceCollector</span>
+</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>
+</span><span id="__span-23-3"><a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="n">file_collector</span> <span class="o">=</span> <span class="n">FileTraceCollector</span><span class="p">(</span><span class="s2">&quot;traces/calculator_traces.jsonl&quot;</span><span class="p">)</span>
+</span><span id="__span-23-4"><a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>
+</span><span id="__span-23-5"><a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="n">config</span> <span class="o">=</span> <span class="n">RunConfig</span><span class="p">(</span>
+</span><span id="__span-23-6"><a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a>    <span class="n">agent_registry</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;Calculator&#39;</span><span class="p">:</span> <span class="n">calculator_agent</span><span class="p">},</span>
+</span><span id="__span-23-7"><a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a>    <span class="n">model_provider</span><span class="o">=</span><span class="n">model_provider</span><span class="p">,</span>
+</span><span id="__span-23-8"><a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a>    <span class="n">max_turns</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+</span><span id="__span-23-9"><a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a>    <span class="n">on_event</span><span class="o">=</span><span class="n">file_collector</span><span class="o">.</span><span class="n">collect</span><span class="p">,</span>
+</span><span id="__span-23-10"><a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a><span class="p">)</span>
+</span></code></pre></div>
+<p>Traces are saved as JSON Lines format for easy analysis with tools like <code>jq</code>:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="c1"># Analyze trace files</span>
+</span><span id="__span-24-2"><a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>cat<span class="w"> </span>traces/calculator_traces.jsonl<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">&#39;.type&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>sort<span class="w"> </span><span class="p">|</span><span class="w"> </span>uniq<span class="w"> </span>-c
+</span><span id="__span-24-3"><a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>cat<span class="w"> </span>traces/calculator_traces.jsonl<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">&#39;select(.type == &quot;tool_call_start&quot;)&#39;</span>
+</span></code></pre></div>
+<h3 id="next-steps-with-observability">Next Steps with Observability<a class="headerlink" href="#next-steps-with-observability" title="Anchor link to this section for reference">&para;</a></h3>
+<ul>
+<li><strong><a href="../tracing/">Tracing Guide</a></strong> - Comprehensive tracing documentation</li>
+<li><strong><a href="../performance-monitoring/">Performance Monitoring</a></strong> - Optimize agent performance</li>
+<li><strong><a href="../deployment/">Production Deployment</a></strong> - Deploy with observability</li>
+</ul>
 <h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Anchor link to this section for reference">&para;</a></h2>
 <p>Now that you have a working agent, explore these topics:</p>
 <ol>
 <li><strong><a href="../core-concepts/">Core Concepts</a></strong> - Understand JAF's functional architecture</li>
 <li><strong><a href="../tools/">Tools Guide</a></strong> - Build more sophisticated tools</li>
+<li><strong><a href="../agent-as-tool/">Agent-as-Tool</a></strong> - Create hierarchical multi-agent systems</li>
+<li><strong><a href="../tracing/">Tracing Guide</a></strong> - Comprehensive observability and monitoring</li>
 <li><strong><a href="../memory-system/">Memory System</a></strong> - Add conversation persistence</li>
 <li><strong><a href="../server-api/">Server API</a></strong> - Expose your agent via HTTP API</li>
 <li><strong><a href="../examples/">Examples</a></strong> - Study advanced examples</li>
@@ -3137,17 +3364,17 @@
 <h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Anchor link to this section for reference">&para;</a></h2>
 <h3 id="common-issues">Common Issues<a class="headerlink" href="#common-issues" title="Anchor link to this section for reference">&para;</a></h3>
 <p><strong>Import Error</strong>: If you get <code>ModuleNotFoundError: No module named 'jaf'</code>:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>pip<span class="w"> </span>install<span class="w"> </span>git+https://github.com/xynehq/jaf-py.git
-</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="c1"># Or for development:</span>
-</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>pip<span class="w"> </span>install<span class="w"> </span>git+https://github.com/xynehq/jaf-py.git
+</span><span id="__span-25-2"><a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="c1"># Or for development:</span>
+</span><span id="__span-25-3"><a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
 </span></code></pre></div></p>
 <p><strong>LiteLLM Connection Error</strong>: Ensure your LiteLLM proxy is running:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1"># Check if proxy is accessible</span>
-</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>curl<span class="w"> </span>http://localhost:4000/health
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="c1"># Check if proxy is accessible</span>
+</span><span id="__span-26-2"><a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>curl<span class="w"> </span>http://localhost:4000/health
 </span></code></pre></div></p>
 <p><strong>Type Checking Issues</strong>: JAF is fully typed. If you see mypy errors:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>pip<span class="w"> </span>install<span class="w"> </span>mypy
-</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>mypy<span class="w"> </span>your_agent.py<span class="w"> </span>--ignore-missing-imports
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>pip<span class="w"> </span>install<span class="w"> </span>mypy
+</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>mypy<span class="w"> </span>your_agent.py<span class="w"> </span>--ignore-missing-imports
 </span></code></pre></div></p>
 <p><strong>Performance Issues</strong>: For high-throughput scenarios:
 - Use connection pooling with your model provider
@@ -3247,7 +3474,8 @@
   
 </div>
       
-        <div class="md-social">
+        
+<div class="md-social">
   
     
     
@@ -3274,10 +3502,10 @@
     
     
       
-      <script id="__config" type="application/json">{"base": "..", "features": ["content.action.edit", "content.code.copy", "navigation.footer", "navigation.indexes", "navigation.sections", "navigation.tabs", "navigation.top", "navigation.tracking", "search.highlight", "search.suggest", "toc.follow"], "search": "../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"base": "..", "features": ["content.action.edit", "content.code.copy", "navigation.footer", "navigation.indexes", "navigation.sections", "navigation.tabs", "navigation.top", "navigation.tracking", "search.highlight", "search.suggest", "toc.follow"], "search": "../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.50899def.min.js"></script>
+      <script src="../assets/javascripts/bundle.92b07e13.min.js"></script>
       
     
   </body>

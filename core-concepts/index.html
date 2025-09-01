@@ -22,7 +22,7 @@
       
       
       <link rel="icon" href="../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.16">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.18">
     
     
       
@@ -757,6 +757,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#agent-as-tool-composition" class="md-nav__link">
+    <span class="md-ellipsis">
+      Agent-as-Tool Composition
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#validation-composition" class="md-nav__link">
     <span class="md-ellipsis">
       Validation Composition
@@ -780,11 +789,62 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#observability" class="md-nav__link">
+  <a href="#observability-and-tracing" class="md-nav__link">
     <span class="md-ellipsis">
-      Observability
+      Observability and Tracing
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Observability and Tracing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#basic-tracing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Basic Tracing
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#production-ready-tracing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Production-Ready Tracing
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#auto-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Auto-Configuration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trace-events" class="md-nav__link">
+    <span class="md-ellipsis">
+      Trace Events
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#integration-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      Integration Examples
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -2287,6 +2347,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#agent-as-tool-composition" class="md-nav__link">
+    <span class="md-ellipsis">
+      Agent-as-Tool Composition
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#validation-composition" class="md-nav__link">
     <span class="md-ellipsis">
       Validation Composition
@@ -2310,11 +2379,62 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#observability" class="md-nav__link">
+  <a href="#observability-and-tracing" class="md-nav__link">
     <span class="md-ellipsis">
-      Observability
+      Observability and Tracing
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Observability and Tracing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#basic-tracing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Basic Tracing
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#production-ready-tracing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Production-Ready Tracing
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#auto-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Auto-Configuration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trace-events" class="md-nav__link">
+    <span class="md-ellipsis">
+      Trace Events
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#integration-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      Integration Examples
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -2660,118 +2780,267 @@ Instructions are functions that receive the current state, enabling context-awar
 </span><span id="__span-12-20"><a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a>        <span class="n">handoffs</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;TechnicalSupport&quot;</span><span class="p">,</span> <span class="s2">&quot;Billing&quot;</span><span class="p">,</span> <span class="s2">&quot;Sales&quot;</span><span class="p">]</span>  <span class="c1"># Allowed targets</span>
 </span><span id="__span-12-21"><a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a>    <span class="p">)</span>
 </span></code></pre></div>
+<h3 id="agent-as-tool-composition">Agent-as-Tool Composition<a class="headerlink" href="#agent-as-tool-composition" title="Anchor link to this section for reference">&para;</a></h3>
+<p>JAF enables sophisticated hierarchical agent architectures where specialized agents can be used as tools by other agents:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">jaf</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span><span class="p">,</span> <span class="n">ModelConfig</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="c1"># Create specialized translation agents</span>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="n">spanish_agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;spanish_translator&quot;</span><span class="p">,</span>
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>    <span class="n">instructions</span><span class="o">=</span><span class="k">lambda</span> <span class="n">state</span><span class="p">:</span> <span class="s2">&quot;Translate text to Spanish. Reply only with the translation.&quot;</span><span class="p">,</span>
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>    <span class="n">model_config</span><span class="o">=</span><span class="n">ModelConfig</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;gpt-4&quot;</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="p">)</span>
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>
+</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="n">french_agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span>
+</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;french_translator&quot;</span><span class="p">,</span> 
+</span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>    <span class="n">instructions</span><span class="o">=</span><span class="k">lambda</span> <span class="n">state</span><span class="p">:</span> <span class="s2">&quot;Translate text to French. Reply only with the translation.&quot;</span><span class="p">,</span>
+</span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a>    <span class="n">model_config</span><span class="o">=</span><span class="n">ModelConfig</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;gpt-4&quot;</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+</span><span id="__span-13-14"><a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a><span class="p">)</span>
+</span><span id="__span-13-15"><a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a>
+</span><span id="__span-13-16"><a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a><span class="c1"># Convert agents to tools with custom configuration</span>
+</span><span id="__span-13-17"><a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a><span class="n">spanish_tool</span> <span class="o">=</span> <span class="n">spanish_agent</span><span class="o">.</span><span class="n">as_tool</span><span class="p">(</span>
+</span><span id="__span-13-18"><a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a>    <span class="n">tool_name</span><span class="o">=</span><span class="s2">&quot;translate_to_spanish&quot;</span><span class="p">,</span>
+</span><span id="__span-13-19"><a id="__codelineno-13-19" name="__codelineno-13-19" href="#__codelineno-13-19"></a>    <span class="n">tool_description</span><span class="o">=</span><span class="s2">&quot;Translate any text to Spanish&quot;</span><span class="p">,</span>
+</span><span id="__span-13-20"><a id="__codelineno-13-20" name="__codelineno-13-20" href="#__codelineno-13-20"></a>    <span class="n">max_turns</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+</span><span id="__span-13-21"><a id="__codelineno-13-21" name="__codelineno-13-21" href="#__codelineno-13-21"></a>    <span class="n">timeout</span><span class="o">=</span><span class="mf">30.0</span>
+</span><span id="__span-13-22"><a id="__codelineno-13-22" name="__codelineno-13-22" href="#__codelineno-13-22"></a><span class="p">)</span>
+</span><span id="__span-13-23"><a id="__codelineno-13-23" name="__codelineno-13-23" href="#__codelineno-13-23"></a>
+</span><span id="__span-13-24"><a id="__codelineno-13-24" name="__codelineno-13-24" href="#__codelineno-13-24"></a><span class="n">french_tool</span> <span class="o">=</span> <span class="n">french_agent</span><span class="o">.</span><span class="n">as_tool</span><span class="p">(</span>
+</span><span id="__span-13-25"><a id="__codelineno-13-25" name="__codelineno-13-25" href="#__codelineno-13-25"></a>    <span class="n">tool_name</span><span class="o">=</span><span class="s2">&quot;translate_to_french&quot;</span><span class="p">,</span>
+</span><span id="__span-13-26"><a id="__codelineno-13-26" name="__codelineno-13-26" href="#__codelineno-13-26"></a>    <span class="n">tool_description</span><span class="o">=</span><span class="s2">&quot;Translate any text to French&quot;</span><span class="p">,</span> 
+</span><span id="__span-13-27"><a id="__codelineno-13-27" name="__codelineno-13-27" href="#__codelineno-13-27"></a>    <span class="n">max_turns</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+</span><span id="__span-13-28"><a id="__codelineno-13-28" name="__codelineno-13-28" href="#__codelineno-13-28"></a>    <span class="n">is_enabled</span><span class="o">=</span><span class="k">lambda</span> <span class="n">ctx</span><span class="p">,</span> <span class="n">agent</span><span class="p">:</span> <span class="s2">&quot;french&quot;</span> <span class="ow">in</span> <span class="n">ctx</span><span class="o">.</span><span class="n">target_languages</span>
+</span><span id="__span-13-29"><a id="__codelineno-13-29" name="__codelineno-13-29" href="#__codelineno-13-29"></a><span class="p">)</span>
+</span><span id="__span-13-30"><a id="__codelineno-13-30" name="__codelineno-13-30" href="#__codelineno-13-30"></a>
+</span><span id="__span-13-31"><a id="__codelineno-13-31" name="__codelineno-13-31" href="#__codelineno-13-31"></a><span class="c1"># Create orchestrator agent that uses other agents as tools</span>
+</span><span id="__span-13-32"><a id="__codelineno-13-32" name="__codelineno-13-32" href="#__codelineno-13-32"></a><span class="n">orchestrator</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span>
+</span><span id="__span-13-33"><a id="__codelineno-13-33" name="__codelineno-13-33" href="#__codelineno-13-33"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;translation_coordinator&quot;</span><span class="p">,</span>
+</span><span id="__span-13-34"><a id="__codelineno-13-34" name="__codelineno-13-34" href="#__codelineno-13-34"></a>    <span class="n">instructions</span><span class="o">=</span><span class="k">lambda</span> <span class="n">state</span><span class="p">:</span> <span class="p">(</span>
+</span><span id="__span-13-35"><a id="__codelineno-13-35" name="__codelineno-13-35" href="#__codelineno-13-35"></a>        <span class="s2">&quot;You coordinate translations using your specialized translation tools. &quot;</span>
+</span><span id="__span-13-36"><a id="__codelineno-13-36" name="__codelineno-13-36" href="#__codelineno-13-36"></a>        <span class="s2">&quot;Always use the appropriate tools for the requested languages.&quot;</span>
+</span><span id="__span-13-37"><a id="__codelineno-13-37" name="__codelineno-13-37" href="#__codelineno-13-37"></a>    <span class="p">),</span>
+</span><span id="__span-13-38"><a id="__codelineno-13-38" name="__codelineno-13-38" href="#__codelineno-13-38"></a>    <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">spanish_tool</span><span class="p">,</span> <span class="n">french_tool</span><span class="p">],</span>
+</span><span id="__span-13-39"><a id="__codelineno-13-39" name="__codelineno-13-39" href="#__codelineno-13-39"></a>    <span class="n">model_config</span><span class="o">=</span><span class="n">ModelConfig</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;gpt-4&quot;</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
+</span><span id="__span-13-40"><a id="__codelineno-13-40" name="__codelineno-13-40" href="#__codelineno-13-40"></a><span class="p">)</span>
+</span></code></pre></div>
+<p><strong>Key Benefits of Agent-as-Tool Pattern:</strong>
+- <strong>Modular Expertise</strong>: Delegate specialized tasks to expert agents
+- <strong>Hierarchical Reasoning</strong>: Create supervisor-worker agent patterns
+- <strong>Conditional Execution</strong>: Enable/disable agent tools based on context
+- <strong>Session Management</strong>: Control memory sharing between parent and child agents
+- <strong>Reusable Components</strong>: Build complex systems from composable agent components</p>
+<p><strong>Advanced Agent Tool Features:</strong></p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># Conditional enabling based on context</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="k">def</span><span class="w"> </span><span class="nf">premium_user_only</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">agent</span><span class="p">):</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>    <span class="k">return</span> <span class="n">context</span><span class="o">.</span><span class="n">user_type</span> <span class="o">==</span> <span class="s2">&quot;premium&quot;</span>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="n">premium_tool</span> <span class="o">=</span> <span class="n">expert_agent</span><span class="o">.</span><span class="n">as_tool</span><span class="p">(</span>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>    <span class="n">is_enabled</span><span class="o">=</span><span class="n">premium_user_only</span><span class="p">,</span>
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>    <span class="n">preserve_session</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># Share conversation history</span>
+</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>    <span class="n">custom_output_extractor</span><span class="o">=</span><span class="n">extract_json_summary</span>
+</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a><span class="p">)</span>
+</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a>
+</span><span id="__span-14-11"><a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a><span class="c1"># Multi-level hierarchies</span>
+</span><span id="__span-14-12"><a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a><span class="n">data_processor</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span>
+</span><span id="__span-14-13"><a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;data_processor&quot;</span><span class="p">,</span>
+</span><span id="__span-14-14"><a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a>    <span class="n">tools</span><span class="o">=</span><span class="p">[</span>
+</span><span id="__span-14-15"><a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a>        <span class="n">tokenizer_agent</span><span class="o">.</span><span class="n">as_tool</span><span class="p">(),</span>
+</span><span id="__span-14-16"><a id="__codelineno-14-16" name="__codelineno-14-16" href="#__codelineno-14-16"></a>        <span class="n">parser_agent</span><span class="o">.</span><span class="n">as_tool</span><span class="p">(),</span>
+</span><span id="__span-14-17"><a id="__codelineno-14-17" name="__codelineno-14-17" href="#__codelineno-14-17"></a>        <span class="n">validator_agent</span><span class="o">.</span><span class="n">as_tool</span><span class="p">()</span>
+</span><span id="__span-14-18"><a id="__codelineno-14-18" name="__codelineno-14-18" href="#__codelineno-14-18"></a>    <span class="p">]</span>
+</span><span id="__span-14-19"><a id="__codelineno-14-19" name="__codelineno-14-19" href="#__codelineno-14-19"></a><span class="p">)</span>
+</span><span id="__span-14-20"><a id="__codelineno-14-20" name="__codelineno-14-20" href="#__codelineno-14-20"></a>
+</span><span id="__span-14-21"><a id="__codelineno-14-21" name="__codelineno-14-21" href="#__codelineno-14-21"></a><span class="n">main_orchestrator</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span>
+</span><span id="__span-14-22"><a id="__codelineno-14-22" name="__codelineno-14-22" href="#__codelineno-14-22"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;main_orchestrator&quot;</span><span class="p">,</span> 
+</span><span id="__span-14-23"><a id="__codelineno-14-23" name="__codelineno-14-23" href="#__codelineno-14-23"></a>    <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">data_processor</span><span class="o">.</span><span class="n">as_tool</span><span class="p">()]</span>
+</span><span id="__span-14-24"><a id="__codelineno-14-24" name="__codelineno-14-24" href="#__codelineno-14-24"></a><span class="p">)</span>
+</span></code></pre></div>
+<p>See the <strong><a href="../agent-as-tool/">Agent-as-Tool Guide</a></strong> for comprehensive documentation on hierarchical agent orchestration patterns.</p>
 <h3 id="validation-composition">Validation Composition<a class="headerlink" href="#validation-composition" title="Anchor link to this section for reference">&para;</a></h3>
 <p>Multiple validation policies can be composed:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">jaf.policies.validation</span><span class="w"> </span><span class="kn">import</span> <span class="n">compose_validations</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="c1"># Individual validators</span>
-</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="n">content_filter</span> <span class="o">=</span> <span class="n">create_content_filter</span><span class="p">([</span><span class="s1">&#39;spam&#39;</span><span class="p">,</span> <span class="s1">&#39;inappropriate&#39;</span><span class="p">])</span>
-</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="n">length_guardrail</span> <span class="o">=</span> <span class="n">create_length_guardrail</span><span class="p">(</span><span class="n">max_length</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="n">permission_check</span> <span class="o">=</span> <span class="n">create_permission_validator</span><span class="p">(</span><span class="s2">&quot;file_access&quot;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">ctx</span><span class="o">.</span><span class="n">permissions</span><span class="p">)</span>
-</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>
-</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="c1"># Compose them</span>
-</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="n">combined_validator</span> <span class="o">=</span> <span class="n">compose_validations</span><span class="p">(</span>
-</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>    <span class="n">content_filter</span><span class="p">,</span>
-</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>    <span class="n">length_guardrail</span><span class="p">,</span> 
-</span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>    <span class="n">permission_check</span>
-</span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="p">)</span>
-</span><span id="__span-13-14"><a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a>
-</span><span id="__span-13-15"><a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a><span class="n">config</span> <span class="o">=</span> <span class="n">RunConfig</span><span class="p">(</span>
-</span><span id="__span-13-16"><a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a>    <span class="c1"># ...</span>
-</span><span id="__span-13-17"><a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a>    <span class="n">initial_input_guardrails</span><span class="o">=</span><span class="p">[</span><span class="n">combined_validator</span><span class="p">]</span>
-</span><span id="__span-13-18"><a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">jaf.policies.validation</span><span class="w"> </span><span class="kn">import</span> <span class="n">compose_validations</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="c1"># Individual validators</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="n">content_filter</span> <span class="o">=</span> <span class="n">create_content_filter</span><span class="p">([</span><span class="s1">&#39;spam&#39;</span><span class="p">,</span> <span class="s1">&#39;inappropriate&#39;</span><span class="p">])</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="n">length_guardrail</span> <span class="o">=</span> <span class="n">create_length_guardrail</span><span class="p">(</span><span class="n">max_length</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="n">permission_check</span> <span class="o">=</span> <span class="n">create_permission_validator</span><span class="p">(</span><span class="s2">&quot;file_access&quot;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">ctx</span><span class="o">.</span><span class="n">permissions</span><span class="p">)</span>
+</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>
+</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="c1"># Compose them</span>
+</span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="n">combined_validator</span> <span class="o">=</span> <span class="n">compose_validations</span><span class="p">(</span>
+</span><span id="__span-15-10"><a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a>    <span class="n">content_filter</span><span class="p">,</span>
+</span><span id="__span-15-11"><a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a>    <span class="n">length_guardrail</span><span class="p">,</span> 
+</span><span id="__span-15-12"><a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a>    <span class="n">permission_check</span>
+</span><span id="__span-15-13"><a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a><span class="p">)</span>
+</span><span id="__span-15-14"><a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a>
+</span><span id="__span-15-15"><a id="__codelineno-15-15" name="__codelineno-15-15" href="#__codelineno-15-15"></a><span class="n">config</span> <span class="o">=</span> <span class="n">RunConfig</span><span class="p">(</span>
+</span><span id="__span-15-16"><a id="__codelineno-15-16" name="__codelineno-15-16" href="#__codelineno-15-16"></a>    <span class="c1"># ...</span>
+</span><span id="__span-15-17"><a id="__codelineno-15-17" name="__codelineno-15-17" href="#__codelineno-15-17"></a>    <span class="n">initial_input_guardrails</span><span class="o">=</span><span class="p">[</span><span class="n">combined_validator</span><span class="p">]</span>
+</span><span id="__span-15-18"><a id="__codelineno-15-18" name="__codelineno-15-18" href="#__codelineno-15-18"></a><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="memory-and-persistence">Memory and Persistence<a class="headerlink" href="#memory-and-persistence" title="Anchor link to this section for reference">&para;</a></h2>
 <p>JAF separates the pure execution logic from persistence concerns using the Provider pattern:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># Core execution remains pure</span>
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">run</span><span class="p">(</span><span class="n">initial_state</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="c1"># Memory provider handles persistence as a side effect</span>
-</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">memory_provider</span><span class="p">:</span>
-</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>    <span class="k">await</span> <span class="n">config</span><span class="o">.</span><span class="n">memory_provider</span><span class="o">.</span><span class="n">store_conversation</span><span class="p">(</span>
-</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>        <span class="n">conversation_id</span><span class="o">=</span><span class="s2">&quot;user_123_session&quot;</span><span class="p">,</span> 
-</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>        <span class="n">messages</span><span class="o">=</span><span class="n">result</span><span class="o">.</span><span class="n">final_state</span><span class="o">.</span><span class="n">messages</span>
-</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>    <span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1"># Core execution remains pure</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">run</span><span class="p">(</span><span class="n">initial_state</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="c1"># Memory provider handles persistence as a side effect</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">memory_provider</span><span class="p">:</span>
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>    <span class="k">await</span> <span class="n">config</span><span class="o">.</span><span class="n">memory_provider</span><span class="o">.</span><span class="n">store_conversation</span><span class="p">(</span>
+</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>        <span class="n">conversation_id</span><span class="o">=</span><span class="s2">&quot;user_123_session&quot;</span><span class="p">,</span> 
+</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>        <span class="n">messages</span><span class="o">=</span><span class="n">result</span><span class="o">.</span><span class="n">final_state</span><span class="o">.</span><span class="n">messages</span>
+</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>    <span class="p">)</span>
 </span></code></pre></div>
 <p>This separation enables:
 - <strong>Testing</strong>: Easy to test without databases
 - <strong>Flexibility</strong>: Swap memory providers without changing core logic
 - <strong>Scalability</strong>: Different storage strategies for different needs</p>
-<h2 id="observability">Observability<a class="headerlink" href="#observability" title="Anchor link to this section for reference">&para;</a></h2>
-<p>JAF provides comprehensive observability through event tracing:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">trace_handler</span><span class="p">(</span><span class="n">event</span><span class="p">:</span> <span class="n">TraceEvent</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Handle trace events for monitoring.&quot;&quot;&quot;</span>
-</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>    <span class="k">if</span> <span class="n">event</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;llm_call_start&quot;</span><span class="p">:</span>
-</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;LLM call: </span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;model&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>    <span class="k">elif</span> <span class="n">event</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;tool_call_start&quot;</span><span class="p">:</span>
-</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Tool call: </span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;tool_name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>    <span class="k">elif</span> <span class="n">event</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;error&quot;</span><span class="p">:</span>
-</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error: </span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;error_type&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>
-</span><span id="__span-15-10"><a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="n">config</span> <span class="o">=</span> <span class="n">RunConfig</span><span class="p">(</span>
-</span><span id="__span-15-11"><a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a>    <span class="c1"># ...</span>
-</span><span id="__span-15-12"><a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a>    <span class="n">on_event</span><span class="o">=</span><span class="n">trace_handler</span>
-</span><span id="__span-15-13"><a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a><span class="p">)</span>
+<h2 id="observability-and-tracing">Observability and Tracing<a class="headerlink" href="#observability-and-tracing" title="Anchor link to this section for reference">&para;</a></h2>
+<p>JAF provides comprehensive observability through its advanced tracing system with support for multiple backends:</p>
+<h3 id="basic-tracing">Basic Tracing<a class="headerlink" href="#basic-tracing" title="Anchor link to this section for reference">&para;</a></h3>
+<p>Simple event-based tracing for development:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">trace_handler</span><span class="p">(</span><span class="n">event</span><span class="p">:</span> <span class="n">TraceEvent</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Handle trace events for monitoring.&quot;&quot;&quot;</span>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>    <span class="k">if</span> <span class="n">event</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;llm_call_start&quot;</span><span class="p">:</span>
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;LLM call: </span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;model&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>    <span class="k">elif</span> <span class="n">event</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;tool_call_start&quot;</span><span class="p">:</span>
+</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Tool call: </span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;tool_name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>    <span class="k">elif</span> <span class="n">event</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;error&quot;</span><span class="p">:</span>
+</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error: </span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;error_type&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>
+</span><span id="__span-17-10"><a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a><span class="n">config</span> <span class="o">=</span> <span class="n">RunConfig</span><span class="p">(</span>
+</span><span id="__span-17-11"><a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>    <span class="c1"># ...</span>
+</span><span id="__span-17-12"><a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>    <span class="n">on_event</span><span class="o">=</span><span class="n">trace_handler</span>
+</span><span id="__span-17-13"><a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a><span class="p">)</span>
 </span></code></pre></div>
+<h3 id="production-ready-tracing">Production-Ready Tracing<a class="headerlink" href="#production-ready-tracing" title="Anchor link to this section for reference">&para;</a></h3>
+<p>JAF supports multiple trace collectors for comprehensive observability:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">jaf.core.tracing</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>    <span class="n">ConsoleTraceCollector</span><span class="p">,</span>
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>    <span class="n">LangfuseTraceCollector</span><span class="p">,</span> 
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>    <span class="n">OtelTraceCollector</span><span class="p">,</span>
+</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>    <span class="n">FileTraceCollector</span><span class="p">,</span>
+</span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>    <span class="n">create_composite_trace_collector</span>
+</span><span id="__span-18-7"><a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="p">)</span>
+</span><span id="__span-18-8"><a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>
+</span><span id="__span-18-9"><a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a><span class="c1"># Console tracing for development</span>
+</span><span id="__span-18-10"><a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="n">console_collector</span> <span class="o">=</span> <span class="n">ConsoleTraceCollector</span><span class="p">()</span>
+</span><span id="__span-18-11"><a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a>
+</span><span id="__span-18-12"><a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a><span class="c1"># File-based tracing for debugging</span>
+</span><span id="__span-18-13"><a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a><span class="n">file_collector</span> <span class="o">=</span> <span class="n">FileTraceCollector</span><span class="p">(</span><span class="s2">&quot;traces/agent_traces.jsonl&quot;</span><span class="p">)</span>
+</span><span id="__span-18-14"><a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a>
+</span><span id="__span-18-15"><a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a><span class="c1"># Composite collector with multiple backends</span>
+</span><span id="__span-18-16"><a id="__codelineno-18-16" name="__codelineno-18-16" href="#__codelineno-18-16"></a><span class="n">trace_collector</span> <span class="o">=</span> <span class="n">create_composite_trace_collector</span><span class="p">(</span>
+</span><span id="__span-18-17"><a id="__codelineno-18-17" name="__codelineno-18-17" href="#__codelineno-18-17"></a>    <span class="n">console_collector</span><span class="p">,</span>
+</span><span id="__span-18-18"><a id="__codelineno-18-18" name="__codelineno-18-18" href="#__codelineno-18-18"></a>    <span class="n">file_collector</span>
+</span><span id="__span-18-19"><a id="__codelineno-18-19" name="__codelineno-18-19" href="#__codelineno-18-19"></a>    <span class="c1"># OpenTelemetry and Langfuse auto-added based on environment variables</span>
+</span><span id="__span-18-20"><a id="__codelineno-18-20" name="__codelineno-18-20" href="#__codelineno-18-20"></a><span class="p">)</span>
+</span><span id="__span-18-21"><a id="__codelineno-18-21" name="__codelineno-18-21" href="#__codelineno-18-21"></a>
+</span><span id="__span-18-22"><a id="__codelineno-18-22" name="__codelineno-18-22" href="#__codelineno-18-22"></a><span class="n">config</span> <span class="o">=</span> <span class="n">RunConfig</span><span class="p">(</span>
+</span><span id="__span-18-23"><a id="__codelineno-18-23" name="__codelineno-18-23" href="#__codelineno-18-23"></a>    <span class="n">agent_registry</span><span class="o">=</span><span class="n">agents</span><span class="p">,</span>
+</span><span id="__span-18-24"><a id="__codelineno-18-24" name="__codelineno-18-24" href="#__codelineno-18-24"></a>    <span class="n">model_provider</span><span class="o">=</span><span class="n">model_provider</span><span class="p">,</span>
+</span><span id="__span-18-25"><a id="__codelineno-18-25" name="__codelineno-18-25" href="#__codelineno-18-25"></a>    <span class="n">on_event</span><span class="o">=</span><span class="n">trace_collector</span><span class="o">.</span><span class="n">collect</span>
+</span><span id="__span-18-26"><a id="__codelineno-18-26" name="__codelineno-18-26" href="#__codelineno-18-26"></a><span class="p">)</span>
+</span></code></pre></div>
+<h3 id="auto-configuration">Auto-Configuration<a class="headerlink" href="#auto-configuration" title="Anchor link to this section for reference">&para;</a></h3>
+<p>JAF automatically enables tracing backends based on environment variables:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1"># Enable OpenTelemetry tracing</span>
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">TRACE_COLLECTOR_URL</span><span class="o">=</span>http://localhost:4318/v1/traces
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="c1"># Enable Langfuse tracing  </span>
+</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="nb">export</span><span class="w"> </span><span class="nv">LANGFUSE_PUBLIC_KEY</span><span class="o">=</span>pk-lf-your-public-key
+</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="nb">export</span><span class="w"> </span><span class="nv">LANGFUSE_SECRET_KEY</span><span class="o">=</span>sk-lf-your-secret-key
+</span><span id="__span-19-7"><a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="nb">export</span><span class="w"> </span><span class="nv">LANGFUSE_HOST</span><span class="o">=</span>https://cloud.langfuse.com
+</span></code></pre></div>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="c1"># Auto-configured tracing includes all available backends</span>
+</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="n">trace_collector</span> <span class="o">=</span> <span class="n">create_composite_trace_collector</span><span class="p">()</span>
+</span></code></pre></div>
+<h3 id="trace-events">Trace Events<a class="headerlink" href="#trace-events" title="Anchor link to this section for reference">&para;</a></h3>
+<p>JAF emits detailed trace events throughout execution:</p>
+<ul>
+<li><code>run_start</code> / <code>run_end</code> - Agent run lifecycle</li>
+<li><code>llm_call_start</code> / <code>llm_call_end</code> - LLM interactions with timing and usage</li>
+<li><code>tool_call_start</code> / <code>tool_call_end</code> - Tool executions</li>
+<li><code>handoff</code> - Agent transitions</li>
+<li><code>error</code> - Error conditions and failures</li>
+</ul>
 <p>Events provide insights into:
-- Agent execution flow
-- Tool usage patterns<br />
-- Performance metrics
-- Error conditions
-- State transitions</p>
+- <strong>Agent execution flow</strong> and decision patterns
+- <strong>Tool usage patterns</strong> and performance
+- <strong>LLM call patterns</strong> with token usage and costs
+- <strong>Performance metrics</strong> and bottlenecks
+- <strong>Error conditions</strong> and failure modes
+- <strong>State transitions</strong> and data flow</p>
+<h3 id="integration-examples">Integration Examples<a class="headerlink" href="#integration-examples" title="Anchor link to this section for reference">&para;</a></h3>
+<p><strong>OpenTelemetry with Jaeger:</strong>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="c1"># Start Jaeger</span>
+</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>docker<span class="w"> </span>run<span class="w"> </span>-d<span class="w"> </span>--name<span class="w"> </span>jaeger<span class="w"> </span>-p<span class="w"> </span><span class="m">16686</span>:16686<span class="w"> </span>-p<span class="w"> </span><span class="m">4318</span>:4318<span class="w"> </span>jaegertracing/all-in-one
+</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>
+</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="c1"># View traces at http://localhost:16686</span>
+</span></code></pre></div></p>
+<p><strong>Langfuse Cloud:</strong>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="c1"># Automatic LLM-specific observability with generation tracking,</span>
+</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="c1"># token usage analysis, and cost monitoring</span>
+</span></code></pre></div></p>
+<p><strong>Custom Analytics:</strong>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">MetricsCollector</span><span class="p">:</span>
+</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">collect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">TraceEvent</span><span class="p">):</span>
+</span><span id="__span-23-3"><a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>        <span class="c1"># Custom analytics and monitoring logic</span>
+</span><span id="__span-23-4"><a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>        <span class="k">if</span> <span class="n">event</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;llm_call_end&quot;</span><span class="p">:</span>
+</span><span id="__span-23-5"><a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">track_llm_usage</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+</span></code></pre></div></p>
+<p>See the <strong><a href="../tracing/">Tracing Guide</a></strong> for comprehensive documentation on observability, monitoring, and production deployment patterns.</p>
 <h2 id="best-practices">Best Practices<a class="headerlink" href="#best-practices" title="Anchor link to this section for reference">&para;</a></h2>
 <h3 id="1-keep-instructions-pure">1. Keep Instructions Pure<a class="headerlink" href="#1-keep-instructions-pure" title="Anchor link to this section for reference">&para;</a></h3>
 <p>Instructions should be pure functions of state:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1"># Good: Pure function</span>
-</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="k">def</span><span class="w"> </span><span class="nf">instructions</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">RunState</span><span class="p">[</span><span class="n">Ctx</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Help user with </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">messages</span><span class="p">)</span><span class="si">}</span><span class="s2"> previous messages&quot;</span>
-</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>
-</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="c1"># Avoid: Side effects or external dependencies</span>
-</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="k">def</span><span class="w"> </span><span class="nf">instructions</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">RunState</span><span class="p">[</span><span class="n">Ctx</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>    <span class="n">current_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>  <span class="c1"># External dependency</span>
-</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Generating instructions&quot;</span><span class="p">)</span>  <span class="c1"># Side effect</span>
-</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Current time is </span><span class="si">{</span><span class="n">current_time</span><span class="si">}</span><span class="s2">&quot;</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="c1"># Good: Pure function</span>
+</span><span id="__span-24-2"><a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="k">def</span><span class="w"> </span><span class="nf">instructions</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">RunState</span><span class="p">[</span><span class="n">Ctx</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="__span-24-3"><a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Help user with </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">messages</span><span class="p">)</span><span class="si">}</span><span class="s2"> previous messages&quot;</span>
+</span><span id="__span-24-4"><a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a>
+</span><span id="__span-24-5"><a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a><span class="c1"># Avoid: Side effects or external dependencies</span>
+</span><span id="__span-24-6"><a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a><span class="k">def</span><span class="w"> </span><span class="nf">instructions</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">RunState</span><span class="p">[</span><span class="n">Ctx</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="__span-24-7"><a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a>    <span class="n">current_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>  <span class="c1"># External dependency</span>
+</span><span id="__span-24-8"><a id="__codelineno-24-8" name="__codelineno-24-8" href="#__codelineno-24-8"></a>    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Generating instructions&quot;</span><span class="p">)</span>  <span class="c1"># Side effect</span>
+</span><span id="__span-24-9"><a id="__codelineno-24-9" name="__codelineno-24-9" href="#__codelineno-24-9"></a>    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Current time is </span><span class="si">{</span><span class="n">current_time</span><span class="si">}</span><span class="s2">&quot;</span>
 </span></code></pre></div>
 <h3 id="2-design-immutable-context">2. Design Immutable Context<a class="headerlink" href="#2-design-immutable-context" title="Anchor link to this section for reference">&para;</a></h3>
 <p>Context should contain all domain data needed for the conversation:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># Frozen ensures immutability</span>
-</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">OrderContext</span><span class="p">:</span>
-</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>    <span class="n">customer_id</span><span class="p">:</span> <span class="nb">str</span>
-</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>    <span class="n">order_items</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>  <span class="c1"># Immutable collection</span>
-</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>    <span class="n">shipping_preference</span><span class="p">:</span> <span class="nb">str</span>
-</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>
-</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>    <span class="c1"># Methods can compute derived data</span>
-</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>    <span class="nd">@property</span>
-</span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">total_items</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-</span><span id="__span-17-10"><a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">order_items</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># Frozen ensures immutability</span>
+</span><span id="__span-25-2"><a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">OrderContext</span><span class="p">:</span>
+</span><span id="__span-25-3"><a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>    <span class="n">customer_id</span><span class="p">:</span> <span class="nb">str</span>
+</span><span id="__span-25-4"><a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a>    <span class="n">order_items</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>  <span class="c1"># Immutable collection</span>
+</span><span id="__span-25-5"><a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a>    <span class="n">shipping_preference</span><span class="p">:</span> <span class="nb">str</span>
+</span><span id="__span-25-6"><a id="__codelineno-25-6" name="__codelineno-25-6" href="#__codelineno-25-6"></a>
+</span><span id="__span-25-7"><a id="__codelineno-25-7" name="__codelineno-25-7" href="#__codelineno-25-7"></a>    <span class="c1"># Methods can compute derived data</span>
+</span><span id="__span-25-8"><a id="__codelineno-25-8" name="__codelineno-25-8" href="#__codelineno-25-8"></a>    <span class="nd">@property</span>
+</span><span id="__span-25-9"><a id="__codelineno-25-9" name="__codelineno-25-9" href="#__codelineno-25-9"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">total_items</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span id="__span-25-10"><a id="__codelineno-25-10" name="__codelineno-25-10" href="#__codelineno-25-10"></a>        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">order_items</span><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="3-handle-errors-gracefully">3. Handle Errors Gracefully<a class="headerlink" href="#3-handle-errors-gracefully" title="Anchor link to this section for reference">&para;</a></h3>
 <p>Use JAF's error types for clear error handling:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">OrderArgs</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">OrderContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>    <span class="k">try</span><span class="p">:</span>
-</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>        <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">external_api</span><span class="o">.</span><span class="n">create_order</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">items</span><span class="p">)</span>
-</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>        <span class="k">return</span> <span class="n">ToolSuccess</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Order created: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">order_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">format</span><span class="p">()</span>
-</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>    <span class="k">except</span> <span class="n">APIError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-</span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>        <span class="k">return</span> <span class="n">ToolError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to create order: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">format</span><span class="p">()</span>
-</span><span id="__span-18-7"><a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a>    <span class="k">except</span> <span class="n">ValidationError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-</span><span id="__span-18-8"><a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>        <span class="k">return</span> <span class="n">ToolError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid order data: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">format</span><span class="p">()</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">OrderArgs</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">OrderContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="__span-26-2"><a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>    <span class="k">try</span><span class="p">:</span>
+</span><span id="__span-26-3"><a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a>        <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">external_api</span><span class="o">.</span><span class="n">create_order</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">items</span><span class="p">)</span>
+</span><span id="__span-26-4"><a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a>        <span class="k">return</span> <span class="n">ToolSuccess</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Order created: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">order_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">format</span><span class="p">()</span>
+</span><span id="__span-26-5"><a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a>    <span class="k">except</span> <span class="n">APIError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+</span><span id="__span-26-6"><a id="__codelineno-26-6" name="__codelineno-26-6" href="#__codelineno-26-6"></a>        <span class="k">return</span> <span class="n">ToolError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to create order: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">format</span><span class="p">()</span>
+</span><span id="__span-26-7"><a id="__codelineno-26-7" name="__codelineno-26-7" href="#__codelineno-26-7"></a>    <span class="k">except</span> <span class="n">ValidationError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+</span><span id="__span-26-8"><a id="__codelineno-26-8" name="__codelineno-26-8" href="#__codelineno-26-8"></a>        <span class="k">return</span> <span class="n">ToolError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid order data: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">format</span><span class="p">()</span>
 </span></code></pre></div>
 <h3 id="4-leverage-type-safety">4. Leverage Type Safety<a class="headerlink" href="#4-leverage-type-safety" title="Anchor link to this section for reference">&para;</a></h3>
 <p>Use generics and type hints throughout:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1"># Type-safe agent factory</span>
-</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="k">def</span><span class="w"> </span><span class="nf">create_agent</span><span class="p">[</span><span class="n">T</span><span class="p">](</span>
-</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>    <span class="n">instructions</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">RunState</span><span class="p">[</span><span class="n">T</span><span class="p">]],</span> <span class="nb">str</span><span class="p">],</span>
-</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>    <span class="n">tools</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tool</span><span class="p">[</span><span class="n">T</span><span class="p">]]</span>
-</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Agent</span><span class="p">[</span><span class="n">T</span><span class="p">]:</span>
-</span><span id="__span-19-7"><a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>    <span class="k">return</span> <span class="n">Agent</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">instructions</span><span class="o">=</span><span class="n">instructions</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="n">tools</span><span class="p">)</span>
-</span><span id="__span-19-8"><a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>
-</span><span id="__span-19-9"><a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a><span class="c1"># Usage maintains type safety</span>
-</span><span id="__span-19-10"><a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a><span class="n">math_agent</span><span class="p">:</span> <span class="n">Agent</span><span class="p">[</span><span class="n">StudentContext</span><span class="p">]</span> <span class="o">=</span> <span class="n">create_agent</span><span class="p">(</span>
-</span><span id="__span-19-11"><a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a>    <span class="s2">&quot;MathTutor&quot;</span><span class="p">,</span>
-</span><span id="__span-19-12"><a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a>    <span class="n">math_instructions</span><span class="p">,</span>
-</span><span id="__span-19-13"><a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a>    <span class="p">[</span><span class="n">calculator</span><span class="p">,</span> <span class="n">graph_plotter</span><span class="p">]</span>
-</span><span id="__span-19-14"><a id="__codelineno-19-14" name="__codelineno-19-14" href="#__codelineno-19-14"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="c1"># Type-safe agent factory</span>
+</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="k">def</span><span class="w"> </span><span class="nf">create_agent</span><span class="p">[</span><span class="n">T</span><span class="p">](</span>
+</span><span id="__span-27-3"><a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a>    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+</span><span id="__span-27-4"><a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a>    <span class="n">instructions</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">RunState</span><span class="p">[</span><span class="n">T</span><span class="p">]],</span> <span class="nb">str</span><span class="p">],</span>
+</span><span id="__span-27-5"><a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a>    <span class="n">tools</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tool</span><span class="p">[</span><span class="n">T</span><span class="p">]]</span>
+</span><span id="__span-27-6"><a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Agent</span><span class="p">[</span><span class="n">T</span><span class="p">]:</span>
+</span><span id="__span-27-7"><a id="__codelineno-27-7" name="__codelineno-27-7" href="#__codelineno-27-7"></a>    <span class="k">return</span> <span class="n">Agent</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">instructions</span><span class="o">=</span><span class="n">instructions</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="n">tools</span><span class="p">)</span>
+</span><span id="__span-27-8"><a id="__codelineno-27-8" name="__codelineno-27-8" href="#__codelineno-27-8"></a>
+</span><span id="__span-27-9"><a id="__codelineno-27-9" name="__codelineno-27-9" href="#__codelineno-27-9"></a><span class="c1"># Usage maintains type safety</span>
+</span><span id="__span-27-10"><a id="__codelineno-27-10" name="__codelineno-27-10" href="#__codelineno-27-10"></a><span class="n">math_agent</span><span class="p">:</span> <span class="n">Agent</span><span class="p">[</span><span class="n">StudentContext</span><span class="p">]</span> <span class="o">=</span> <span class="n">create_agent</span><span class="p">(</span>
+</span><span id="__span-27-11"><a id="__codelineno-27-11" name="__codelineno-27-11" href="#__codelineno-27-11"></a>    <span class="s2">&quot;MathTutor&quot;</span><span class="p">,</span>
+</span><span id="__span-27-12"><a id="__codelineno-27-12" name="__codelineno-27-12" href="#__codelineno-27-12"></a>    <span class="n">math_instructions</span><span class="p">,</span>
+</span><span id="__span-27-13"><a id="__codelineno-27-13" name="__codelineno-27-13" href="#__codelineno-27-13"></a>    <span class="p">[</span><span class="n">calculator</span><span class="p">,</span> <span class="n">graph_plotter</span><span class="p">]</span>
+</span><span id="__span-27-14"><a id="__codelineno-27-14" name="__codelineno-27-14" href="#__codelineno-27-14"></a><span class="p">)</span>
 </span></code></pre></div>
 <p>This functional approach makes JAF agents predictable, testable, and maintainable while providing the flexibility to build complex AI systems.</p>
 <h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Anchor link to this section for reference">&para;</a></h2>
@@ -2865,7 +3134,8 @@ Instructions are functions that receive the current state, enabling context-awar
   
 </div>
       
-        <div class="md-social">
+        
+<div class="md-social">
   
     
     
@@ -2892,10 +3162,10 @@ Instructions are functions that receive the current state, enabling context-awar
     
     
       
-      <script id="__config" type="application/json">{"base": "..", "features": ["content.action.edit", "content.code.copy", "navigation.footer", "navigation.indexes", "navigation.sections", "navigation.tabs", "navigation.top", "navigation.tracking", "search.highlight", "search.suggest", "toc.follow"], "search": "../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"base": "..", "features": ["content.action.edit", "content.code.copy", "navigation.footer", "navigation.indexes", "navigation.sections", "navigation.tabs", "navigation.top", "navigation.tracking", "search.highlight", "search.suggest", "toc.follow"], "search": "../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.50899def.min.js"></script>
+      <script src="../assets/javascripts/bundle.92b07e13.min.js"></script>
       
     
   </body>
