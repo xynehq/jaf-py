@@ -6,18 +6,21 @@ starting with LiteLLM for multi-provider support.
 """
 
 from typing import Any, Dict, Optional, TypeVar
+import httpx
 
 from openai import OpenAI
 from pydantic import BaseModel
 
 from ..core.types import Agent, ContentRole, Message, ModelProvider, RunConfig, RunState
+from ..core.proxy import ProxyConfig
 
 Ctx = TypeVar('Ctx')
 
 def make_litellm_provider(
     base_url: str,
     api_key: str = "anything",
-    default_timeout: Optional[float] = None
+    default_timeout: Optional[float] = None,
+    proxy_config: Optional[ProxyConfig] = None
 ) -> ModelProvider[Ctx]:
     """
     Create a LiteLLM-compatible model provider.
@@ -26,6 +29,7 @@ def make_litellm_provider(
         base_url: Base URL for the LiteLLM server
         api_key: API key (defaults to "anything" for local servers)
         default_timeout: Default timeout for model API calls in seconds
+        proxy_config: Optional proxy configuration
         
     Returns:
         ModelProvider instance
@@ -35,11 +39,25 @@ def make_litellm_provider(
         def __init__(self):
             # Default to "anything" if api_key is not provided, for local servers
             effective_api_key = api_key if api_key is not None else "anything"
-            self.client = OpenAI(
-                base_url=base_url,
-                api_key=effective_api_key,
-                # Note: dangerouslyAllowBrowser is JavaScript-specific
-            )
+            
+            # Configure HTTP client with proxy support
+            client_kwargs = {
+                "base_url": base_url,
+                "api_key": effective_api_key,
+            }
+            
+            if proxy_config:
+                proxies = proxy_config.to_httpx_proxies()
+                if proxies:
+                    # Create httpx client with proxy configuration
+                    try:
+                        http_client = httpx.Client(proxies=proxies)
+                        client_kwargs["http_client"] = http_client
+                    except Exception as e:
+                        print(f"Warning: Could not configure proxy: {e}")
+                        # Fall back to environment variables for proxy
+            
+            self.client = OpenAI(**client_kwargs)
             self.default_timeout = default_timeout
 
         async def get_completion(
