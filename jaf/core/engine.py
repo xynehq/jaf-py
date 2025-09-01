@@ -631,7 +631,7 @@ async def _execute_tool_calls(
                     result=result_string,
                     trace_id=state.trace_id,
                     run_id=state.run_id,
-                    tool_result=tool_result_obj,
+                    tool_result=tool_result,
                     status='success'
                 ))))
 
