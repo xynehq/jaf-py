@@ -2,7 +2,7 @@
 
 <!-- ![JAF Banner](docs/cover.png) -->
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/xynehq/jaf-py)
+[![Version](https://img.shields.io/badge/version-2.2.3-blue.svg)](https://github.com/xynehq/jaf-py)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Docs](https://img.shields.io/badge/Docs-Live-brightgreen)](https://xynehq.github.io/jaf-py/)
 
@@ -42,15 +42,23 @@ A purely functional agent framework with immutable state and composable tools, p
 
 ### 📊 **Observability & Monitoring**
 - ✅ **Real-time Tracing**: Event-driven observability
+- ✅ **OpenTelemetry Integration**: Distributed tracing with OTLP
+- ✅ **Langfuse Tracing**: LLM observability and analytics
 - ✅ **Structured Logging**: JSON-formatted logs
 - ✅ **Error Handling**: Comprehensive error types and recovery
 - ✅ **Performance Metrics**: Built-in timing and counters
+
+### 🤖 **Agent-as-Tool Architecture**
+- ✅ **Hierarchical Orchestration**: Use agents as tools in other agents
+- ✅ **Conditional Tool Enabling**: Enable/disable agent tools based on context
+- ✅ **Session Management**: Configurable session inheritance for sub-agents
+- ✅ **Flexible Output Extraction**: Custom extractors for agent tool outputs
 
 ### 🔧 **Developer Experience**
 - ✅ **CLI Tools**: Project initialization and management
 - ✅ **Hot Reload**: Development server with auto-reload
 - ✅ **Type Hints**: Full mypy compatibility
-- ✅ **Rich Examples**: RAG, multi-agent, and server demos
+- ✅ **Rich Examples**: RAG, multi-agent, agent-as-tool, and server demos
 - ✅ **Visual Architecture**: Graphviz-powered agent and tool diagrams
 
 ## 🎯 Core Philosophy
@@ -76,6 +84,7 @@ pip install "jaf-py[all] @ git+https://github.com/xynehq/jaf-py.git"
 pip install "jaf-py[server] @ git+https://github.com/xynehq/jaf-py.git"        # FastAPI server support
 pip install "jaf-py[memory] @ git+https://github.com/xynehq/jaf-py.git"        # Redis/PostgreSQL memory providers
 pip install "jaf-py[visualization] @ git+https://github.com/xynehq/jaf-py.git" # Graphviz visualization tools
+pip install "jaf-py[tracing] @ git+https://github.com/xynehq/jaf-py.git"       # OpenTelemetry and Langfuse tracing
 pip install "jaf-py[dev] @ git+https://github.com/xynehq/jaf-py.git"           # Development tools
 ```
 
@@ -140,6 +149,7 @@ For offline access, documentation is also available in the [`docs/`](docs/) dire
 - **[🔧 Tools Guide](docs/tools.md)** - Creating and using tools
 - **[💾 Memory System](docs/memory-system.md)** - Persistence and memory providers
 - **[🤖 Model Providers](docs/model-providers.md)** - LiteLLM integration
+- **[📊 Monitoring](docs/monitoring.md)** - Observability, metrics, and alerting
 - **[🌐 Server API](docs/server-api.md)** - FastAPI endpoints reference
 - **[📦 Deployment](docs/deployment.md)** - Production deployment guide
 - **[🎮 Examples](docs/examples.md)** - Detailed example walkthroughs
@@ -367,6 +377,58 @@ config = RunConfig(
 )
 ```
 
+## 🤖 Agent-as-Tool Functionality
+
+JAF 2.2+ introduces powerful agent-as-tool capabilities, allowing you to use agents as tools within other agents for hierarchical orchestration:
+
+```python
+from jaf.core.agent_tool import create_agent_tool
+from jaf.core.types import create_json_output_extractor
+
+# Create specialized agents
+spanish_agent = Agent(
+    name="spanish_translator",
+    instructions=lambda state: "Translate text to Spanish",
+    output_codec=TranslationOutput
+)
+
+french_agent = Agent(
+    name="french_translator", 
+    instructions=lambda state: "Translate text to French",
+    output_codec=TranslationOutput
+)
+
+# Convert agents to tools with conditional enabling
+spanish_tool = spanish_agent.as_tool(
+    tool_name="translate_to_spanish",
+    tool_description="Translate text to Spanish",
+    max_turns=3,
+    custom_output_extractor=create_json_output_extractor(),
+    is_enabled=True  # Always enabled
+)
+
+french_tool = french_agent.as_tool(
+    tool_name="translate_to_french", 
+    tool_description="Translate text to French",
+    max_turns=3,
+    custom_output_extractor=create_json_output_extractor(),
+    is_enabled=lambda context, agent: context.language_preference == "french_spanish"
+)
+
+# Create orchestrator agent using agent tools
+orchestrator = Agent(
+    name="translation_orchestrator",
+    instructions=lambda state: "Use translation tools to respond in multiple languages",
+    tools=[spanish_tool, french_tool]
+)
+```
+
+### Key Features:
+- **Conditional Enabling**: Enable/disable agent tools based on runtime context
+- **Session Management**: Configure whether sub-agents inherit parent session state
+- **Custom Output Extraction**: Define how to extract and format agent tool outputs
+- **Error Handling**: Robust error handling for failed agent tool executions
+
 ## 🔗 Agent Handoffs
 
 ```python
@@ -413,6 +475,48 @@ tracer = create_composite_trace_collector(console_tracer, file_tracer)
 config = RunConfig(
     # ... other config
     on_event=tracer.collect,
+)
+```
+
+### OpenTelemetry Integration
+
+JAF 2.2+ includes built-in OpenTelemetry support for distributed tracing:
+
+```python
+import os
+from jaf.core.tracing import create_composite_trace_collector, ConsoleTraceCollector
+
+# Configure OpenTelemetry endpoint
+os.environ["TRACE_COLLECTOR_URL"] = "http://localhost:4318/v1/traces"
+
+# Tracing will be automatically configured when creating a composite collector
+trace_collector = create_composite_trace_collector(ConsoleTraceCollector())
+
+config = RunConfig(
+    # ... other config
+    on_event=trace_collector.collect,
+)
+```
+
+### Langfuse Integration
+
+For LLM-specific observability and analytics:
+
+```python
+import os
+from jaf.core.tracing import create_composite_trace_collector, ConsoleTraceCollector
+
+# Configure Langfuse credentials
+os.environ["LANGFUSE_PUBLIC_KEY"] = "pk-lf-your-public-key"
+os.environ["LANGFUSE_SECRET_KEY"] = "sk-lf-your-secret-key" 
+os.environ["LANGFUSE_HOST"] = "https://cloud.langfuse.com"  # or your self-hosted instance
+
+# Langfuse tracing will be automatically configured
+trace_collector = create_composite_trace_collector(ConsoleTraceCollector())
+
+config = RunConfig(
+    # ... other config
+    on_event=trace_collector.collect,
 )
 ```
 
@@ -591,7 +695,41 @@ python server_example.py
 - `POST /chat` - Chat with any agent
 - `GET /docs` - Interactive API documentation
 
-### 2. MCP Integration Demo
+### 2. Agent-as-Tool Demo
+
+```bash
+cd examples
+python agent_as_tool_example.py
+
+# Or start as server
+python agent_as_tool_example.py --server
+```
+
+**Features demonstrated:**
+- ✅ Hierarchical agent orchestration
+- ✅ Conditional tool enabling based on context
+- ✅ Custom output extraction from agent tools
+- ✅ Session management for sub-agents
+- ✅ Translation agents working together
+
+### 3. Tracing Integration Demos
+
+```bash
+# OpenTelemetry tracing example
+cd examples
+python otel_tracing_demo.py
+
+# Langfuse tracing example  
+python langfuse_tracing_demo.py
+```
+
+**Features demonstrated:**
+- ✅ OpenTelemetry distributed tracing setup
+- ✅ Langfuse LLM observability integration
+- ✅ Composite trace collectors
+- ✅ Real-time monitoring and analytics
+
+### 4. MCP Integration Demo
 
 ```bash
 cd examples/mcp_demo  
@@ -649,4 +787,4 @@ MIT
 
 ---
 
-**JAF (Juspay Agentic Framework) v2.0** - Building the future of functional AI agent systems 🚀
+**JAF (Juspay Agentic Framework) v2.2** - Building the future of functional AI agent systems 🚀

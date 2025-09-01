@@ -61,11 +61,14 @@ pip install "jaf-py[memory] @ git+https://github.com/xynehq/jaf-py.git"
 # Visualization tools (Graphviz, diagrams)
 pip install "jaf-py[visualization] @ git+https://github.com/xynehq/jaf-py.git"
 
+# Tracing and observability (OpenTelemetry, Langfuse)
+pip install "jaf-py[tracing] @ git+https://github.com/xynehq/jaf-py.git"
+
 # Development tools (testing, linting, type checking)
 pip install "jaf-py[dev] @ git+https://github.com/xynehq/jaf-py.git"
 
 # Combine multiple feature sets
-pip install "jaf-py[server,memory,visualization] @ git+https://github.com/xynehq/jaf-py.git"
+pip install "jaf-py[server,memory,visualization,tracing] @ git+https://github.com/xynehq/jaf-py.git"
 ```
 
 ### Development Environment Setup
@@ -84,7 +87,7 @@ source .venv/bin/activate
 # Rename .env.default to .env and update the file with your api's.
 
 # Install in development mode with all dependencies
-pip install -e ".[dev,server,memory,visualization]"
+pip install -e ".[dev,server,memory,visualization,tracing]"
 
 # Verify development setup
 python -m pytest tests/ --tb=short
@@ -722,15 +725,146 @@ jaf --version
 jaf --help
 ```
 
+## Adding Observability and Tracing
+
+JAF provides comprehensive observability through its tracing system. This enables monitoring, debugging, and performance analysis of your agents.
+
+### Basic Console Tracing
+
+The simplest way to add observability is with console tracing:
+
+```python
+from jaf.core.tracing import ConsoleTraceCollector
+
+# Create console trace collector
+trace_collector = ConsoleTraceCollector()
+
+# Update your calculator example with tracing
+config = RunConfig(
+    agent_registry={'Calculator': calculator_agent},
+    model_provider=model_provider,
+    max_turns=10,
+    on_event=trace_collector.collect,  # Enable detailed tracing
+)
+
+# Run your agent - you'll see detailed execution logs
+result = await run(initial_state, config)
+```
+
+This provides detailed execution logs including:
+- Agent execution start/end
+- LLM calls and responses
+- Tool executions
+- Performance timing
+- Error conditions
+
+### Advanced Tracing with OpenTelemetry
+
+For production environments, use OpenTelemetry for industry-standard observability:
+
+```python
+import os
+from jaf.core.tracing import create_composite_trace_collector, ConsoleTraceCollector
+
+# Configure OpenTelemetry (requires running OTLP collector like Jaeger)
+os.environ["TRACE_COLLECTOR_URL"] = "http://localhost:4318/v1/traces"
+
+# Auto-configured tracing with multiple backends
+trace_collector = create_composite_trace_collector(
+    ConsoleTraceCollector()  # Console output for development
+    # OpenTelemetry automatically added if TRACE_COLLECTOR_URL is set
+)
+
+config = RunConfig(
+    agent_registry={'Calculator': calculator_agent},
+    model_provider=model_provider,
+    max_turns=10,
+    on_event=trace_collector.collect,
+)
+```
+
+To view OpenTelemetry traces, start Jaeger:
+
+```bash
+# Start Jaeger for trace visualization
+docker run -d \
+  --name jaeger \
+  -p 16686:16686 \
+  -p 14250:14250 \
+  -p 4318:4318 \
+  jaegertracing/all-in-one:latest
+
+# View traces at http://localhost:16686
+```
+
+### Langfuse Integration
+
+For AI-specific observability, JAF integrates with Langfuse:
+
+```bash
+# Set environment variables for Langfuse
+export LANGFUSE_PUBLIC_KEY=pk-lf-your-public-key
+export LANGFUSE_SECRET_KEY=sk-lf-your-secret-key
+export LANGFUSE_HOST=https://cloud.langfuse.com  # or your self-hosted instance
+```
+
+```python
+# Langfuse tracing is automatically enabled when keys are configured
+trace_collector = create_composite_trace_collector(
+    ConsoleTraceCollector()
+    # Langfuse automatically added if LANGFUSE_* environment variables are set
+)
+
+config = RunConfig(
+    agent_registry={'Calculator': calculator_agent},
+    model_provider=model_provider,
+    max_turns=10,
+    on_event=trace_collector.collect,
+)
+```
+
+### File-Based Tracing
+
+For debugging and analysis, save traces to files:
+
+```python
+from jaf.core.tracing import FileTraceCollector
+
+file_collector = FileTraceCollector("traces/calculator_traces.jsonl")
+
+config = RunConfig(
+    agent_registry={'Calculator': calculator_agent},
+    model_provider=model_provider,
+    max_turns=10,
+    on_event=file_collector.collect,
+)
+```
+
+Traces are saved as JSON Lines format for easy analysis with tools like `jq`:
+
+```bash
+# Analyze trace files
+cat traces/calculator_traces.jsonl | jq '.type' | sort | uniq -c
+cat traces/calculator_traces.jsonl | jq 'select(.type == "tool_call_start")'
+```
+
+### Next Steps with Observability
+
+- **[Tracing Guide](tracing.md)** - Comprehensive tracing documentation
+- **[Performance Monitoring](performance-monitoring.md)** - Optimize agent performance
+- **[Production Deployment](deployment.md)** - Deploy with observability
+
 ## Next Steps
 
 Now that you have a working agent, explore these topics:
 
 1. **[Core Concepts](core-concepts.md)** - Understand JAF's functional architecture
 2. **[Tools Guide](tools.md)** - Build more sophisticated tools
-3. **[Memory System](memory-system.md)** - Add conversation persistence
-4. **[Server API](server-api.md)** - Expose your agent via HTTP API
-5. **[Examples](examples.md)** - Study advanced examples
+3. **[Agent-as-Tool](agent-as-tool.md)** - Create hierarchical multi-agent systems
+4. **[Tracing Guide](tracing.md)** - Comprehensive observability and monitoring
+5. **[Memory System](memory-system.md)** - Add conversation persistence
+6. **[Server API](server-api.md)** - Expose your agent via HTTP API
+7. **[Examples](examples.md)** - Study advanced examples
 
 ## Troubleshooting
 

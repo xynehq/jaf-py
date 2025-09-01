@@ -1448,8 +1448,377 @@ async def on_complete(self, response):
 
 This example demonstrates how the callback system transforms JAF from a simple agent executor into a sophisticated reasoning engine capable of complex, adaptive behaviors that would be impossible with traditional fixed execution patterns.
 
+## Tracing and Observability Examples
+
+JAF provides comprehensive tracing capabilities for monitoring agent execution, debugging issues, and analyzing performance.
+
+### Basic Console Tracing
+
+```python
+# examples/tracing_basic_example.py
+import asyncio
+from jaf import Agent, Message, RunConfig, RunState, run
+from jaf.core.tracing import ConsoleTraceCollector
+from jaf.core.types import ContentRole, generate_run_id, generate_trace_id
+from jaf.providers.model import make_litellm_provider
+
+async def main():
+    # Create console trace collector
+    trace_collector = ConsoleTraceCollector()
+    
+    agent = Agent(
+        name="demo_agent",
+        instructions=lambda s: "You are a helpful assistant."
+    )
+    
+    config = RunConfig(
+        agent_registry={"demo_agent": agent},
+        model_provider=make_litellm_provider("http://localhost:4000", "api-key"),
+        on_event=trace_collector.collect  # Enable detailed tracing
+    )
+    
+    initial_state = RunState(
+        run_id=generate_run_id(),
+        trace_id=generate_trace_id(),
+        messages=[Message(role=ContentRole.USER, content="Hello!")],
+        current_agent_name="demo_agent",
+        context={},
+        turn_count=0
+    )
+    
+    result = await run(initial_state, config)
+    print(f"Result: {result.outcome}")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+**Output Example:**
+```
+[2024-01-15T10:30:00.123Z] JAF:run_start Starting run run_abc123 (trace: trace_xyz789)
+[2024-01-15T10:30:01.456Z] JAF:llm_call_start Calling gpt-4 for agent demo_agent
+[2024-01-15T10:30:02.789Z] JAF:llm_call_end LLM responded with content
+[2024-01-15T10:30:02.800Z] JAF:run_end Run completed successfully in 2.68s
+```
+
+### OpenTelemetry Integration
+
+```python
+# examples/otel_tracing_demo.py
+import os
+import asyncio
+from jaf.core.tracing import create_composite_trace_collector, ConsoleTraceCollector
+
+# Configure OpenTelemetry
+os.environ["TRACE_COLLECTOR_URL"] = "http://localhost:4318/v1/traces"
+
+async def main():
+    # Auto-configured tracing (includes OpenTelemetry + Console)
+    trace_collector = create_composite_trace_collector(ConsoleTraceCollector())
+    
+    # Your agent configuration...
+    config = RunConfig(
+        agent_registry={"agent": agent},
+        model_provider=model_provider,
+        on_event=trace_collector.collect
+    )
+    
+    result = await run(initial_state, config)
+    # Traces automatically sent to Jaeger at http://localhost:16686
+```
+
+**Setup Jaeger:**
+```bash
+# Start Jaeger for trace visualization
+docker run -d \
+  --name jaeger \
+  -p 16686:16686 \
+  -p 4318:4318 \
+  jaegertracing/all-in-one:latest
+
+# View traces at http://localhost:16686
+```
+
+### Langfuse Integration
+
+```python
+# examples/langfuse_tracing_demo.py
+import os
+import asyncio
+from jaf.core.tracing import create_composite_trace_collector, ConsoleTraceCollector
+
+# Configure Langfuse
+os.environ["LANGFUSE_PUBLIC_KEY"] = "pk-lf-your-public-key"
+os.environ["LANGFUSE_SECRET_KEY"] = "sk-lf-your-secret-key" 
+os.environ["LANGFUSE_HOST"] = "https://cloud.langfuse.com"
+
+async def main():
+    # Auto-configured tracing (includes Langfuse + Console)
+    trace_collector = create_composite_trace_collector(ConsoleTraceCollector())
+    
+    config = RunConfig(
+        agent_registry={"weather_agent": weather_agent},
+        model_provider=model_provider,
+        on_event=trace_collector.collect
+    )
+    
+    # Traces automatically sent to Langfuse with LLM-specific analytics
+    result = await run(initial_state, config)
+```
+
+### Custom Metrics Collection
+
+```python
+# examples/custom_metrics_example.py
+class MetricsCollector:
+    def __init__(self):
+        self.metrics = {
+            "total_runs": 0,
+            "successful_runs": 0,
+            "total_llm_calls": 0,
+            "total_tool_calls": 0
+        }
+    
+    def collect(self, event):
+        if event.type == "run_start":
+            self.metrics["total_runs"] += 1
+        elif event.type == "run_end":
+            if event.data.get("outcome", {}).get("status") == "completed":
+                self.metrics["successful_runs"] += 1
+        elif event.type == "llm_call_start":
+            self.metrics["total_llm_calls"] += 1
+        elif event.type == "tool_call_start":
+            self.metrics["total_tool_calls"] += 1
+    
+    def get_metrics(self):
+        return self.metrics.copy()
+
+# Usage
+metrics = MetricsCollector()
+config = RunConfig(
+    agent_registry=agents,
+    model_provider=model_provider,
+    on_event=metrics.collect
+)
+
+# After runs
+print("Metrics:", metrics.get_metrics())
+```
+
+## Agent-as-Tool Examples
+
+JAF's agent-as-tool functionality enables hierarchical agent architectures where specialized agents become tools for orchestrator agents.
+
+### Basic Translation Orchestrator
+
+```python
+# examples/agent_as_tool_example.py
+import asyncio
+from dataclasses import dataclass
+from jaf import Agent, ModelConfig, RunConfig, RunState, Message, run
+from jaf.core.types import ContentRole, generate_run_id, generate_trace_id
+
+@dataclass(frozen=True)
+class TranslationContext:
+    user_id: str
+    target_languages: list[str]
+
+# Create specialized translation agents
+spanish_agent = Agent(
+    name="spanish_translator",
+    instructions=lambda state: "Translate to Spanish. Reply only with the translation.",
+    model_config=ModelConfig(name="gpt-4", temperature=0.3)
+)
+
+french_agent = Agent(
+    name="french_translator",
+    instructions=lambda state: "Translate to French. Reply only with the translation.",
+    model_config=ModelConfig(name="gpt-4", temperature=0.3)
+)
+
+# Convert agents to tools
+spanish_tool = spanish_agent.as_tool(
+    tool_name="translate_to_spanish",
+    tool_description="Translate text to Spanish",
+    max_turns=3
+)
+
+french_tool = french_agent.as_tool(
+    tool_name="translate_to_french",
+    tool_description="Translate text to French",
+    max_turns=3
+)
+
+# Create orchestrator
+orchestrator = Agent(
+    name="translation_orchestrator",
+    instructions=lambda state: (
+        "You coordinate translations using your tools. "
+        "Always use the appropriate translation tools."
+    ),
+    tools=[spanish_tool, french_tool],
+    model_config=ModelConfig(name="gpt-4", temperature=0.1)
+)
+
+async def main():
+    config = RunConfig(
+        agent_registry={"translation_orchestrator": orchestrator},
+        model_provider=make_litellm_provider("http://localhost:4000", "api-key"),
+        max_turns=10
+    )
+    
+    initial_state = RunState(
+        run_id=generate_run_id(),
+        trace_id=generate_trace_id(),
+        messages=[Message(
+            role=ContentRole.USER, 
+            content="Translate 'Hello, how are you?' to Spanish and French"
+        )],
+        current_agent_name="translation_orchestrator",
+        context=TranslationContext(
+            user_id="user123",
+            target_languages=["spanish", "french"]
+        ),
+        turn_count=0
+    )
+    
+    result = await run(initial_state, config)
+    print(f"Translation result: {result.outcome.output}")
+```
+
+### Conditional Tool Enabling
+
+```python
+# Conditional enabling based on user permissions
+def premium_user_only(context, agent):
+    return context.user_type == "premium"
+
+def business_hours_only(context, agent):
+    from datetime import datetime
+    current_hour = datetime.now().hour
+    return 9 <= current_hour <= 17
+
+# Create tools with conditions
+premium_tool = expert_agent.as_tool(
+    tool_name="expert_analysis",
+    is_enabled=premium_user_only
+)
+
+support_tool = human_support_agent.as_tool(
+    tool_name="human_support",
+    is_enabled=business_hours_only
+)
+
+orchestrator = Agent(
+    name="customer_service",
+    instructions=lambda state: "Route customers to appropriate services",
+    tools=[premium_tool, support_tool]
+)
+```
+
+### Multi-Level Agent Hierarchies
+
+```python
+# Level 3: Specialized processors
+tokenizer_agent = Agent(name="tokenizer", instructions=tokenizer_instructions)
+parser_agent = Agent(name="parser", instructions=parser_instructions) 
+validator_agent = Agent(name="validator", instructions=validator_instructions)
+
+# Level 2: Processing coordinator
+processor_agent = Agent(
+    name="processor",
+    instructions=processor_instructions,
+    tools=[
+        tokenizer_agent.as_tool(tool_name="tokenize_text"),
+        parser_agent.as_tool(tool_name="parse_structure"),
+        validator_agent.as_tool(tool_name="validate_output")
+    ]
+)
+
+# Level 1: Main orchestrator
+main_agent = Agent(
+    name="orchestrator",
+    instructions=orchestrator_instructions,
+    tools=[processor_agent.as_tool(tool_name="process_data")]
+)
+```
+
+### Session Management
+
+```python
+# Ephemeral sessions (default) - independent execution
+translator_tool = translator_agent.as_tool(
+    preserve_session=False  # Fresh session each time
+)
+
+# Shared sessions - inherit conversation history
+assistant_tool = personal_agent.as_tool(
+    preserve_session=True  # Share parent's memory
+)
+
+# Custom output processing
+def extract_json_response(run_result):
+    if run_result.outcome.status == 'completed':
+        output = run_result.outcome.output
+        # Extract JSON from output
+        if output.startswith('{'):
+            return output
+    return '{"error": "No valid JSON response"}'
+
+data_tool = data_agent.as_tool(
+    custom_output_extractor=extract_json_response
+)
+```
+
+### Production Agent Registry
+
+```python
+# examples/production_agent_registry.py
+class AgentToolRegistry:
+    def __init__(self):
+        self.agents = {}
+        self.tool_configs = {}
+    
+    def register_agent(self, agent, tool_config=None):
+        self.agents[agent.name] = agent
+        if tool_config:
+            self.tool_configs[agent.name] = tool_config
+    
+    def create_orchestrator(self, name, instructions, enabled_tools):
+        tools = []
+        for tool_name in enabled_tools:
+            agent = self.agents[tool_name]
+            config = self.tool_configs.get(tool_name, {})
+            tools.append(agent.as_tool(**config))
+        
+        return Agent(name=name, instructions=instructions, tools=tools)
+
+# Usage
+registry = AgentToolRegistry()
+
+# Register specialized agents
+registry.register_agent(
+    spanish_translator,
+    {"tool_name": "translate_spanish", "max_turns": 3}
+)
+
+registry.register_agent(
+    data_analyzer,
+    {"tool_name": "analyze_data", "timeout": 60.0}
+)
+
+# Create orchestrators dynamically
+translation_agent = registry.create_orchestrator(
+    "translator",
+    translation_instructions,
+    ["spanish_translator", "french_translator"]
+)
+```
+
 ## Next Steps
 
+- **[Agent-as-Tool Guide](agent-as-tool.md)** - Comprehensive hierarchical agent orchestration documentation
+- **[Tracing Guide](tracing.md)** - Complete observability and monitoring documentation
 - Learn about [Deployment](deployment.md) for production setup
 - Review [Troubleshooting](troubleshooting.md) for common issues
 - Explore [API Reference](api-reference.md) for complete documentation
