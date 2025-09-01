@@ -91,7 +91,11 @@ async def run(
         set_current_run_config(config)
         
         if config.on_event:
-            config.on_event(RunStartEvent(data=to_event_data(RunStartEventData(run_id=initial_state.run_id, trace_id=initial_state.trace_id))))
+            config.on_event(RunStartEvent(data=to_event_data(RunStartEventData(
+                run_id=initial_state.run_id,
+                trace_id=initial_state.trace_id,
+                session_id=config.conversation_id
+            ))))
 
         state_with_memory = await _load_conversation_history(initial_state, config)
         result = await _run_internal(state_with_memory, config)

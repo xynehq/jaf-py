@@ -83,6 +83,7 @@ async def main():
             api_key=litellm_api_key
         ),
         on_event=trace_collector.collect,
+        conversation_id="session-456"
     )
 
     # Create initial state
@@ -91,7 +92,7 @@ async def main():
         trace_id=generate_trace_id(),
         messages=[Message(role=ContentRole.USER, content="what is the weather in new york?")],
         current_agent_name="weather_agent",
-        context={"user_id": "user-123", "session_id": "session-456"},
+        context={"user_id": "user-123"},
         turn_count=0,
     )
 

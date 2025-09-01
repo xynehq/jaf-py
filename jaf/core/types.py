@@ -378,6 +378,7 @@ class RunStartEventData:
     """Data for run start events."""
     run_id: RunId
     trace_id: TraceId
+    session_id: Optional[str] = None
 
 @dataclass(frozen=True)
 class RunStartEvent:
