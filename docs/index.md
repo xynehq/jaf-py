@@ -52,7 +52,18 @@ pip install git+https://github.com/xynehq/jaf-py.git
 
 ## Documentation
 
+### Core Framework
 - [Getting Started](getting-started.md) - Build your first agent
 - [Core Concepts](core-concepts.md) - Understand the architecture  
 - [API Reference](api-reference.md) - Complete documentation
+
+### Advanced Features
+- [Agent-as-Tool](agent-as-tool.md) - Hierarchical agent orchestration
+- [Tracing & Observability](tracing.md) - Monitor and debug agents
+- [Memory System](memory-system.md) - Conversation persistence
+- [Server API](server-api.md) - HTTP API deployment
+
+### Guides & Examples
 - [Examples](examples.md) - Working code samples
+- [Tools Guide](tools.md) - Building custom tools
+- [Deployment](deployment.md) - Production deployment

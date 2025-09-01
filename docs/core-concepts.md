@@ -316,6 +316,91 @@ def create_triage_agent() -> Agent[CustomerContext]:
     )
 ```
 
+### Agent-as-Tool Composition
+
+JAF enables sophisticated hierarchical agent architectures where specialized agents can be used as tools by other agents:
+
+```python
+from jaf import Agent, ModelConfig
+
+# Create specialized translation agents
+spanish_agent = Agent(
+    name="spanish_translator",
+    instructions=lambda state: "Translate text to Spanish. Reply only with the translation.",
+    model_config=ModelConfig(name="gpt-4", temperature=0.3)
+)
+
+french_agent = Agent(
+    name="french_translator", 
+    instructions=lambda state: "Translate text to French. Reply only with the translation.",
+    model_config=ModelConfig(name="gpt-4", temperature=0.3)
+)
+
+# Convert agents to tools with custom configuration
+spanish_tool = spanish_agent.as_tool(
+    tool_name="translate_to_spanish",
+    tool_description="Translate any text to Spanish",
+    max_turns=3,
+    timeout=30.0
+)
+
+french_tool = french_agent.as_tool(
+    tool_name="translate_to_french",
+    tool_description="Translate any text to French", 
+    max_turns=3,
+    is_enabled=lambda ctx, agent: "french" in ctx.target_languages
+)
+
+# Create orchestrator agent that uses other agents as tools
+orchestrator = Agent(
+    name="translation_coordinator",
+    instructions=lambda state: (
+        "You coordinate translations using your specialized translation tools. "
+        "Always use the appropriate tools for the requested languages."
+    ),
+    tools=[spanish_tool, french_tool],
+    model_config=ModelConfig(name="gpt-4", temperature=0.1)
+)
+```
+
+**Key Benefits of Agent-as-Tool Pattern:**
+- **Modular Expertise**: Delegate specialized tasks to expert agents
+- **Hierarchical Reasoning**: Create supervisor-worker agent patterns
+- **Conditional Execution**: Enable/disable agent tools based on context
+- **Session Management**: Control memory sharing between parent and child agents
+- **Reusable Components**: Build complex systems from composable agent components
+
+**Advanced Agent Tool Features:**
+
+```python
+# Conditional enabling based on context
+def premium_user_only(context, agent):
+    return context.user_type == "premium"
+
+premium_tool = expert_agent.as_tool(
+    is_enabled=premium_user_only,
+    preserve_session=True,  # Share conversation history
+    custom_output_extractor=extract_json_summary
+)
+
+# Multi-level hierarchies
+data_processor = Agent(
+    name="data_processor",
+    tools=[
+        tokenizer_agent.as_tool(),
+        parser_agent.as_tool(),
+        validator_agent.as_tool()
+    ]
+)
+
+main_orchestrator = Agent(
+    name="main_orchestrator", 
+    tools=[data_processor.as_tool()]
+)
+```
+
+See the **[Agent-as-Tool Guide](agent-as-tool.md)** for comprehensive documentation on hierarchical agent orchestration patterns.
+
 ### Validation Composition
 
 Multiple validation policies can be composed:
@@ -362,9 +447,13 @@ This separation enables:
 - **Flexibility**: Swap memory providers without changing core logic
 - **Scalability**: Different storage strategies for different needs
 
-## Observability
+## Observability and Tracing
 
-JAF provides comprehensive observability through event tracing:
+JAF provides comprehensive observability through its advanced tracing system with support for multiple backends:
+
+### Basic Tracing
+
+Simple event-based tracing for development:
 
 ```python
 def trace_handler(event: TraceEvent) -> None:
@@ -382,12 +471,102 @@ config = RunConfig(
 )
 ```
 
+### Production-Ready Tracing
+
+JAF supports multiple trace collectors for comprehensive observability:
+
+```python
+from jaf.core.tracing import (
+    ConsoleTraceCollector,
+    LangfuseTraceCollector, 
+    OtelTraceCollector,
+    FileTraceCollector,
+    create_composite_trace_collector
+)
+
+# Console tracing for development
+console_collector = ConsoleTraceCollector()
+
+# File-based tracing for debugging
+file_collector = FileTraceCollector("traces/agent_traces.jsonl")
+
+# Composite collector with multiple backends
+trace_collector = create_composite_trace_collector(
+    console_collector,
+    file_collector
+    # OpenTelemetry and Langfuse auto-added based on environment variables
+)
+
+config = RunConfig(
+    agent_registry=agents,
+    model_provider=model_provider,
+    on_event=trace_collector.collect
+)
+```
+
+### Auto-Configuration
+
+JAF automatically enables tracing backends based on environment variables:
+
+```bash
+# Enable OpenTelemetry tracing
+export TRACE_COLLECTOR_URL=http://localhost:4318/v1/traces
+
+# Enable Langfuse tracing  
+export LANGFUSE_PUBLIC_KEY=pk-lf-your-public-key
+export LANGFUSE_SECRET_KEY=sk-lf-your-secret-key
+export LANGFUSE_HOST=https://cloud.langfuse.com
+```
+
+```python
+# Auto-configured tracing includes all available backends
+trace_collector = create_composite_trace_collector()
+```
+
+### Trace Events
+
+JAF emits detailed trace events throughout execution:
+
+- `run_start` / `run_end` - Agent run lifecycle
+- `llm_call_start` / `llm_call_end` - LLM interactions with timing and usage
+- `tool_call_start` / `tool_call_end` - Tool executions
+- `handoff` - Agent transitions
+- `error` - Error conditions and failures
+
 Events provide insights into:
-- Agent execution flow
-- Tool usage patterns  
-- Performance metrics
-- Error conditions
-- State transitions
+- **Agent execution flow** and decision patterns
+- **Tool usage patterns** and performance
+- **LLM call patterns** with token usage and costs
+- **Performance metrics** and bottlenecks
+- **Error conditions** and failure modes
+- **State transitions** and data flow
+
+### Integration Examples
+
+**OpenTelemetry with Jaeger:**
+```bash
+# Start Jaeger
+docker run -d --name jaeger -p 16686:16686 -p 4318:4318 jaegertracing/all-in-one
+
+# View traces at http://localhost:16686
+```
+
+**Langfuse Cloud:**
+```python
+# Automatic LLM-specific observability with generation tracking,
+# token usage analysis, and cost monitoring
+```
+
+**Custom Analytics:**
+```python
+class MetricsCollector:
+    def collect(self, event: TraceEvent):
+        # Custom analytics and monitoring logic
+        if event.type == "llm_call_end":
+            self.track_llm_usage(event.data)
+```
+
+See the **[Tracing Guide](tracing.md)** for comprehensive documentation on observability, monitoring, and production deployment patterns.
 
 ## Best Practices
 
