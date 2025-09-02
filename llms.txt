@@ -1,0 +1,2359 @@
+# JAF (Juspay Agent Framework) - Python Implementation - Comprehensive Documentation
+
+JAF is a purely functional agent framework with immutable state and composable tools, professionally converted from TypeScript to Python. It enables building production-ready AI agent systems with built-in security, observability, and error handling.
+
+## Project Overview
+
+- **Framework Type**: Functional AI agent framework with immutable state
+- **Language**: Python 3.10+ (Python 3.11+ recommended for optimal performance)
+- **Architecture**: Immutable state machine, pure functions, composable tools
+- **License**: MIT
+- **Version**: 2.2.4
+- **Repository**: https://github.com/xynehq/jaf-py
+- **Documentation**: https://xynehq.github.io/jaf-py/
+
+## Core Philosophy and Architecture
+
+### Functional Programming at the Core
+
+JAF treats agent execution as a pure function: given an initial state and configuration, it produces a deterministic result. This approach brings several benefits:
+
+- **Predictability**: Same inputs always produce the same outputs
+- **Testability**: Easy to test individual components in isolation
+- **Debuggability**: State transitions are explicit and traceable
+- **Scalability**: Stateless design enables horizontal scaling
+
+### Immutability First
+
+All core data structures in JAF are immutable. When state changes, new objects are created rather than modifying existing ones:
+
+```python
+# Mutable approach (not JAF)
+state.messages.append(new_message)  # Modifies existing state
+
+# Immutable approach (JAF way)
+new_state = replace(state, messages=[*state.messages, new_message])
+```
+
+This ensures:
+- **Thread Safety**: Multiple agents can safely share state
+- **Time Travel**: Previous states remain accessible for debugging
+- **Reproducibility**: Exact state at any point can be recreated
+
+## Core Types and Components
+
+### 1. RunState - The Heart of JAF
+
+`RunState` represents the complete state of an agent execution at any point in time:
+
+```python
+@dataclass(frozen=True)
+class RunState(Generic[Ctx]):
+    """Immutable state of an agent run."""
+    run_id: RunId                    # Unique identifier for this run
+    trace_id: TraceId               # Trace identifier for observability
+    messages: List[Message]         # Conversation history
+    current_agent_name: str         # Currently active agent
+    context: Ctx                    # User-defined context data
+    turn_count: int                 # Number of turns taken
+    final_response: Optional[str] = None    # Final agent response
+```
+
+**Key Properties:**
+- **Frozen**: Cannot be modified after creation
+- **Generic**: Type-safe context with `Ctx` type parameter  
+- **Complete**: Contains all information needed to reproduce the run
+
+**State Transitions:**
+```python
+# Every operation creates a new state
+from dataclasses import replace
+
+async def add_message(state: RunState[Ctx], message: Message) -> RunState[Ctx]:
+    return replace(state, 
+        messages=[*state.messages, message],
+        turn_count=state.turn_count + 1
+    )
+```
+
+### 2. Agent - Behavior Definition
+
+Agents define how to respond to messages and what tools are available:
+
+```python
+@dataclass(frozen=True)
+class Agent(Generic[Ctx]):
+    """Agent definition with instructions and capabilities."""
+    name: str
+    instructions: Callable[[RunState[Ctx]], str]  # Dynamic instructions
+    tools: List[Tool[Ctx]] = field(default_factory=list)
+    handoffs: Optional[List[str]] = None         # Allowed handoff targets
+    output_codec: Optional[type] = None         # Expected output codec
+```
+
+**Dynamic Instructions:**
+Instructions are functions that receive the current state, enabling context-aware behavior:
+
+```python
+def math_tutor_instructions(state: RunState[StudentContext]) -> str:
+    problem_count = len([m for m in state.messages if 'calculate' in m.content])
+    
+    base = "You are a patient math tutor."
+    
+    if problem_count > 3:
+        return base + " The student has solved several problems. Offer encouragement!"
+    elif state.context.difficulty_level == "beginner":
+        return base + " Use simple explanations and encourage step-by-step thinking."
+    else:
+        return base + " Challenge the student with follow-up questions."
+```
+
+### 3. Tool System - Executable Capabilities
+
+JAF provides multiple ways to create tools, with the modern `@function_tool` decorator being the recommended approach:
+
+#### Modern Tool Creation with @function_tool
+
+```python
+from jaf import function_tool
+
+@function_tool
+async def calculate(expression: str, context=None) -> str:
+    """Safely evaluate mathematical expressions.
+    
+    Args:
+        expression: Mathematical expression to evaluate (e.g., '2 + 2', '10 * 5')
+    """
+    # Input validation
+    if not expression or len(expression.strip()) == 0:
+        return "Error: Expression cannot be empty"
+    
+    # Security: Only allow safe mathematical characters
+    allowed_chars = set('0123456789+-*/(). ')
+    if not all(c in allowed_chars for c in expression):
+        return "Error: Expression contains invalid characters"
+    
+    try:
+        # Safe evaluation using eval (in production, use a proper math parser)
+        result = eval(expression)
+        return f"Result: {expression} = {result}"
+    except Exception as e:
+        return f"Error: Failed to evaluate expression: {str(e)}"
+```
+
+#### Tool Timeouts
+
+JAF provides comprehensive timeout support to prevent tools from running indefinitely:
+
+```python
+# Tool with specific timeout (10 seconds)
+@function_tool(timeout=10.0)
+async def quick_operation(data: str, context=None) -> str:
+    """Fast operation that should complete within 10 seconds."""
+    return f"Processed: {data}"
+
+# Tool with longer timeout for heavy operations
+@function_tool(timeout=300.0)  # 5 minutes
+async def heavy_computation(dataset: str, context=None) -> str:
+    """Heavy computation that may take up to 5 minutes."""
+    return f"Computed: {dataset}"
+```
+
+#### Tool Parameter Definition with Pydantic
+
+JAF uses Pydantic models to define tool parameters, providing automatic validation and type safety:
+
+```python
+from pydantic import BaseModel, Field
+from typing import Optional, List, Dict, Union
+from enum import Enum
+
+class Color(str, Enum):
+    RED = "red"
+    GREEN = "green" 
+    BLUE = "blue"
+
+class AdvancedToolArgs(BaseModel):
+    # Required string parameter
+    text: str = Field(description="Text to process")
+    
+    # Optional parameters with defaults
+    count: int = Field(default=1, description="Number of times to repeat")
+    enabled: bool = Field(default=True, description="Whether to enable processing")
+    
+    # Constrained parameters
+    rating: int = Field(ge=1, le=10, description="Rating from 1 to 10")
+    email: str = Field(pattern=r'^[^@]+@[^@]+\\.[^@]+$', description="Valid email address")
+    
+    # Collections
+    tags: List[str] = Field(default=[], description="List of tags")
+    metadata: Dict[str, Any] = Field(default={}, description="Additional metadata")
+    
+    # Enums
+    color: Color = Field(default=Color.BLUE, description="Color choice")
+    
+    # Union types
+    value: Union[str, int] = Field(description="String or integer value")
+    
+    # Optional fields
+    optional_field: Optional[str] = Field(None, description="Optional parameter")
+```
+
+### 4. RunConfig - Execution Parameters
+
+Configuration object that controls how agents execute:
+
+```python
+@dataclass
+class RunConfig(Generic[Ctx]):
+    """Configuration for agent execution."""
+    agent_registry: Dict[str, Agent[Ctx]]        # Available agents
+    model_provider: ModelProvider                # LLM integration
+    memory_provider: Optional[MemoryProvider] = None  # Conversation storage
+    max_turns: int = 100                        # Safety limit
+    on_event: Optional[Callable[[TraceEvent], None]] = None  # Observability
+    initial_input_guardrails: List[Guardrail] = field(default_factory=list)
+    final_output_guardrails: List[Guardrail] = field(default_factory=list)
+    default_tool_timeout: Optional[float] = None  # Default timeout for tools
+```
+
+## The Execution Flow
+
+### Pure Function at the Core
+
+The main `run` function is a pure function that transforms state:
+
+```python
+async def run(
+    initial_state: RunState[Ctx], 
+    config: RunConfig[Ctx]
+) -> RunResult[Out]:
+    """
+    Pure function: RunState + RunConfig → RunResult
+    
+    No side effects in core logic - all effects happen in providers.
+    """
+```
+
+### Step-by-Step Execution
+
+1. **Initialization**: Validate state and configuration
+2. **Guard Rails**: Apply input validation policies
+3. **Agent Selection**: Get current agent from registry  
+4. **Instruction Generation**: Call agent's instruction function with current state
+5. **LLM Call**: Send messages and instructions to model provider
+6. **Response Processing**: Parse LLM response for tool calls or final answer
+7. **Tool Execution**: If tool calls present, execute them with context
+8. **State Update**: Create new state with response and tool results
+9. **Loop Check**: If not complete and under turn limit, continue
+10. **Final Guards**: Apply output validation policies
+11. **Memory Storage**: Persist conversation if memory provider configured
+
+### Error Handling
+
+JAF uses a Result-style approach for error handling:
+
+```python
+@dataclass(frozen=True)
+class RunResult(Generic[Out]):
+    """Result of an agent run."""
+    final_state: RunState
+    outcome: Union[CompletedOutcome[Out], ErrorOutcome]
+
+# Usage
+result = await run(state, config)
+if result.outcome.status == 'completed':
+    print(f"Success: {result.outcome.output}")
+else:
+    print(f"Error: {result.outcome.error}")
+```
+
+## Model Provider Integration
+
+### LiteLLM Provider
+
+JAF integrates with 100+ LLM models through LiteLLM, providing a unified interface:
+
+```python
+from jaf import make_litellm_provider
+
+# Connect to LiteLLM proxy for 100+ model support
+model_provider = make_litellm_provider(
+    'http://localhost:4000',  # LiteLLM proxy URL
+    'your-api-key'           # Optional API key
+)
+
+# OpenAI API
+provider = make_litellm_provider(
+    "https://api.openai.com/v1", 
+    api_key="your-openai-api-key"
+)
+
+# Custom LiteLLM deployment
+provider = make_litellm_provider(
+    "https://your-litellm-server.com/v1",
+    api_key="your-api-key"
+)
+```
+
+### LiteLLM Proxy Setup
+
+#### Development Configuration
+
+```bash
+# Install LiteLLM with proxy support
+pip install litellm[proxy]
+
+# Create development configuration
+cat > litellm_config.yaml << EOF
+model_list:
+  - model_name: gpt-4o
+    litellm_params:
+      model: openai/gpt-4o
+      api_key: ${OPENAI_API_KEY}
+      max_tokens: 4096
+      temperature: 0.1
+  
+  - model_name: claude-3-sonnet
+    litellm_params:
+      model: anthropic/claude-3-sonnet-20240229
+      api_key: ${ANTHROPIC_API_KEY}
+      max_tokens: 4096
+      temperature: 0.1
+  
+  - model_name: gemini-pro
+    litellm_params:
+      model: google/gemini-pro
+      api_key: ${GOOGLE_API_KEY}
+
+general_settings:
+  master_key: "your-proxy-master-key"
+  database_url: "sqlite:///litellm_proxy.db"
+  
+router_settings:
+  routing_strategy: "least-busy"
+  model_group_alias:
+    "gpt-4": ["gpt-4o", "gpt-4-turbo"]
+    "claude": ["claude-3-sonnet", "claude-3-haiku"]
+EOF
+
+# Start LiteLLM proxy with enhanced configuration
+litellm --config litellm_config.yaml --port 4000 --num_workers 4
+```
+
+## Memory System
+
+JAF provides a robust conversation memory system that enables persistent conversations across sessions.
+
+### Core Concepts
+
+#### ConversationMemory
+
+The `ConversationMemory` dataclass represents a complete conversation:
+
+```python
+from jaf.memory import ConversationMemory
+from jaf.core.types import Message
+
+# Immutable conversation object
+conversation = ConversationMemory(
+    conversation_id="user-123-session-1",
+    user_id="user-123", 
+    messages=[
+        Message(role="user", content="Hello!"),
+        Message(role="assistant", content="Hi there! How can I help you?")
+    ],
+    metadata={"session_start": "2024-01-15T10:00:00Z"}
+)
+```
+
+#### MemoryProvider Protocol
+
+All memory providers implement the `MemoryProvider` protocol:
+
+```python
+from jaf.memory import MemoryProvider, MemoryQuery, ConversationMemory
+from typing import List, Optional, Dict, Any
+
+class MyCustomProvider:
+    async def store_messages(
+        self, 
+        conversation_id: str, 
+        messages: List[Message],
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Result:
+        """Store messages for a conversation."""
+        
+    async def get_conversation(self, conversation_id: str) -> Optional[ConversationMemory]:
+        """Retrieve complete conversation history."""
+        
+    async def append_messages(
+        self,
+        conversation_id: str,
+        messages: List[Message], 
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Result:
+        """Add new messages to existing conversation."""
+        
+    async def get_recent_messages(
+        self, 
+        conversation_id: str, 
+        limit: int = 50
+    ) -> List[Message]:
+        """Get recent messages from conversation."""
+        
+    async def delete_conversation(self, conversation_id: str) -> bool:
+        """Delete conversation and return success status."""
+        
+    async def health_check(self) -> Dict[str, Any]:
+        """Check provider health and connectivity."""
+```
+
+### Available Providers
+
+#### In-Memory Provider
+Perfect for development and testing. Conversations are lost when the application restarts.
+
+```python
+from jaf.memory import create_in_memory_provider, InMemoryConfig
+
+# Create provider with configuration
+config = InMemoryConfig(
+    max_conversations=1000,  # Maximum conversations to store
+    max_messages=1000        # Maximum messages per conversation
+)
+
+provider = create_in_memory_provider(config)
+```
+
+**Environment Variables:**
+```bash
+JAF_MEMORY_TYPE=memory
+JAF_MEMORY_MAX_CONVERSATIONS=1000
+JAF_MEMORY_MAX_MESSAGES=1000
+```
+
+#### Redis Provider
+High-performance, in-memory storage with optional persistence.
+
+```python
+from jaf.memory import create_redis_provider, RedisConfig
+import redis.asyncio as redis
+
+# Method 1: Create with config and client
+redis_client = redis.Redis(host="localhost", port=6379, db=0)
+config = RedisConfig(
+    host="localhost",
+    port=6379,
+    db=0,
+    key_prefix="jaf:memory:",
+    ttl=86400  # 24 hours
+)
+
+provider = await create_redis_provider(config, redis_client)
+
+# Method 2: Create from URL
+config = RedisConfig(url="redis://localhost:6379/0")
+provider = await create_redis_provider(config)
+```
+
+**Environment Variables:**
+```bash
+JAF_MEMORY_TYPE=redis
+
+# Option 1: Full URL
+JAF_REDIS_URL=redis://localhost:6379/0
+
+# Option 2: Individual parameters  
+JAF_REDIS_HOST=localhost
+JAF_REDIS_PORT=6379
+JAF_REDIS_PASSWORD=your-password
+JAF_REDIS_DB=0
+JAF_REDIS_KEY_PREFIX=jaf:memory:
+JAF_REDIS_TTL=86400
+```
+
+#### PostgreSQL Provider
+Robust, ACID-compliant relational database storage.
+
+```python
+from jaf.memory import create_postgres_provider, PostgresConfig
+import asyncpg
+
+# Method 1: Create with config and connection
+connection = await asyncpg.connect("postgresql://user:pass@localhost/jaf_memory")
+config = PostgresConfig(
+    host="localhost",
+    port=5432,
+    database="jaf_memory",
+    username="postgres",
+    password="your-password",
+    table_name="conversations"
+)
+
+provider = await create_postgres_provider(config, connection)
+
+# Method 2: Create from connection string
+config = PostgresConfig(
+    connection_string="postgresql://user:pass@localhost/jaf_memory"
+)
+provider = await create_postgres_provider(config)
+```
+
+**Environment Variables:**
+```bash
+JAF_MEMORY_TYPE=postgres
+
+# Option 1: Connection string
+JAF_POSTGRES_CONNECTION_STRING=postgresql://user:pass@localhost/jaf_memory
+
+# Option 2: Individual parameters
+JAF_POSTGRES_HOST=localhost
+JAF_POSTGRES_PORT=5432
+JAF_POSTGRES_DATABASE=jaf_memory
+JAF_POSTGRES_USERNAME=postgres
+JAF_POSTGRES_PASSWORD=your-password
+JAF_POSTGRES_SSL=false
+JAF_POSTGRES_TABLE_NAME=conversations
+JAF_POSTGRES_MAX_CONNECTIONS=10
+```
+
+### Environment-Based Configuration
+
+JAF provides automatic provider creation from environment variables:
+
+```python
+from jaf.memory import create_memory_provider_from_env, MemoryConfig
+
+# Create provider based on JAF_MEMORY_TYPE
+provider = await create_memory_provider_from_env()
+
+# Create memory config for engine
+memory_config = MemoryConfig(
+    provider=provider,
+    auto_store=True,      # Automatically store conversations
+    max_messages=1000,    # Limit messages per conversation
+    ttl=86400            # Time to live in seconds
+)
+```
+
+## Observability and Tracing
+
+JAF provides comprehensive observability through its advanced tracing system with support for multiple backends.
+
+### Basic Tracing
+
+Simple event-based tracing for development:
+
+```python
+def trace_handler(event: TraceEvent) -> None:
+    """Handle trace events for monitoring."""
+    if event.type == "llm_call_start":
+        print(f"LLM call: {event.data['model']}")
+    elif event.type == "tool_call_start":
+        print(f"Tool call: {event.data['tool_name']}")
+    elif event.type == "error":
+        print(f"Error: {event.data['error_type']}")
+
+config = RunConfig(
+    # ...
+    on_event=trace_handler
+)
+```
+
+### Production-Ready Tracing
+
+JAF supports multiple trace collectors for comprehensive observability:
+
+```python
+from jaf.core.tracing import (
+    ConsoleTraceCollector,
+    LangfuseTraceCollector, 
+    OtelTraceCollector,
+    FileTraceCollector,
+    create_composite_trace_collector
+)
+
+# Console tracing for development
+console_collector = ConsoleTraceCollector()
+
+# File-based tracing for debugging
+file_collector = FileTraceCollector("traces/agent_traces.jsonl")
+
+# Composite collector with multiple backends
+trace_collector = create_composite_trace_collector(
+    console_collector,
+    file_collector
+    # OpenTelemetry and Langfuse auto-added based on environment variables
+)
+
+config = RunConfig(
+    agent_registry=agents,
+    model_provider=model_provider,
+    on_event=trace_collector.collect
+)
+```
+
+### Auto-Configuration
+
+JAF automatically enables tracing backends based on environment variables:
+
+```bash
+# Enable OpenTelemetry tracing
+export TRACE_COLLECTOR_URL=http://localhost:4318/v1/traces
+
+# Enable Langfuse tracing  
+export LANGFUSE_PUBLIC_KEY=pk-lf-your-public-key
+export LANGFUSE_SECRET_KEY=sk-lf-your-secret-key
+export LANGFUSE_HOST=https://cloud.langfuse.com
+```
+
+```python
+# Auto-configured tracing includes all available backends
+trace_collector = create_composite_trace_collector()
+```
+
+### Trace Events
+
+JAF emits detailed trace events throughout execution:
+
+- `run_start` / `run_end` - Agent run lifecycle
+- `llm_call_start` / `llm_call_end` - LLM interactions with timing and usage
+- `tool_call_start` / `tool_call_end` - Tool executions
+- `handoff` - Agent transitions
+- `error` - Error conditions and failures
+
+Events provide insights into:
+- **Agent execution flow** and decision patterns
+- **Tool usage patterns** and performance
+- **LLM call patterns** with token usage and costs
+- **Performance metrics** and bottlenecks
+- **Error conditions** and failure modes
+- **State transitions** and data flow
+
+## Agent-as-Tool Pattern
+
+JAF enables sophisticated hierarchical agent architectures where specialized agents can be used as tools by other agents:
+
+```python
+from jaf import Agent, ModelConfig
+
+# Create specialized translation agents
+spanish_agent = Agent(
+    name="spanish_translator",
+    instructions=lambda state: "Translate text to Spanish. Reply only with the translation.",
+    model_config=ModelConfig(name="gpt-4", temperature=0.3)
+)
+
+french_agent = Agent(
+    name="french_translator", 
+    instructions=lambda state: "Translate text to French. Reply only with the translation.",
+    model_config=ModelConfig(name="gpt-4", temperature=0.3)
+)
+
+# Convert agents to tools with custom configuration
+spanish_tool = spanish_agent.as_tool(
+    tool_name="translate_to_spanish",
+    tool_description="Translate any text to Spanish",
+    max_turns=3,
+    timeout=30.0
+)
+
+french_tool = french_agent.as_tool(
+    tool_name="translate_to_french",
+    tool_description="Translate any text to French", 
+    max_turns=3,
+    is_enabled=lambda ctx, agent: "french" in ctx.target_languages
+)
+
+# Create orchestrator agent that uses other agents as tools
+orchestrator = Agent(
+    name="translation_coordinator",
+    instructions=lambda state: (
+        "You coordinate translations using your specialized translation tools. "
+        "Always use the appropriate tools for the requested languages."
+    ),
+    tools=[spanish_tool, french_tool],
+    model_config=ModelConfig(name="gpt-4", temperature=0.1)
+)
+```
+
+**Key Benefits of Agent-as-Tool Pattern:**
+- **Modular Expertise**: Delegate specialized tasks to expert agents
+- **Hierarchical Reasoning**: Create supervisor-worker agent patterns
+- **Conditional Execution**: Enable/disable agent tools based on context
+- **Session Management**: Control memory sharing between parent and child agents
+- **Reusable Components**: Build complex systems from composable agent components
+
+## Validation and Security
+
+### Input/Output Guardrails
+
+```python
+from jaf.policies.validation import create_length_guardrail, create_content_filter
+
+# Create length validation
+length_guard = create_length_guardrail(max_length=1000, min_length=10)
+
+# Create content filtering
+content_filter = create_content_filter(['spam', 'inappropriate'])
+
+config = RunConfig(
+    # ... other config
+    initial_input_guardrails=[length_guard, content_filter]
+)
+```
+
+### JSON Validation
+
+```python
+from jaf.policies.validation import create_json_validation_guardrail
+from pydantic import BaseModel
+
+class OrderOutput(BaseModel):
+    order_id: str
+    total: float
+    items: List[str]
+
+json_validator = create_json_validation_guardrail(OrderOutput)
+
+config = RunConfig(
+    # ... other config
+    final_output_guardrails=[json_validator]
+)
+```
+
+### Handoff Policies
+
+```python
+from jaf.policies.handoff import create_role_based_handoff_policy
+
+# Define roles
+agent_roles = {
+    "TriageAgent": "triage",
+    "TechnicalAgent": "technical", 
+    "BillingAgent": "billing"
+}
+
+# Define permissions (which roles can handoff to which)
+role_permissions = {
+    "triage": ["technical", "billing"],
+    "technical": ["triage"],
+    "billing": ["triage"]
+}
+
+handoff_policy = create_role_based_handoff_policy(agent_roles, role_permissions)
+```
+
+## Server Implementation
+
+### FastAPI Server
+
+JAF includes a built-in FastAPI server for exposing agents via HTTP:
+
+```python
+from jaf.server import run_server
+from jaf.providers.model import make_litellm_provider
+
+def create_my_agent():
+    def instructions(state):
+        return 'You are a helpful assistant'
+    
+    return Agent(
+        name='MyAgent',
+        instructions=instructions,
+        tools=[calculator_tool, greeting_tool]
+    )
+
+model_provider = make_litellm_provider('http://localhost:4000')
+
+# Start server on port 3000
+await run_server(
+    [create_my_agent()], 
+    {'model_provider': model_provider},
+    {'port': 3000}
+)
+```
+
+Server provides RESTful endpoints:
+- `GET /health` - Health check
+- `GET /agents` - List available agents  
+- `POST /chat` - General chat endpoint
+- `POST /agents/{name}/chat` - Agent-specific endpoint
+- `GET /docs` - Interactive API documentation
+
+## Advanced Features
+
+### Performance Monitoring
+
+JAF provides comprehensive performance monitoring with metrics collection:
+
+```python
+from jaf.core.performance import PerformanceMonitor, monitor_performance
+
+# Create performance monitor
+monitor = PerformanceMonitor()
+
+# Monitor agent performance
+@monitor_performance(monitor)
+async def my_agent_function():
+    # Agent logic here
+    pass
+
+# Get performance summary
+summary = monitor.get_performance_summary()
+print(f"Average response time: {summary.avg_response_time}ms")
+print(f"Total requests: {summary.total_requests}")
+```
+
+### Workflow Orchestration
+
+Create complex multi-step workflows:
+
+```python
+from jaf.core.workflows import (
+    create_workflow, 
+    AgentStep, 
+    ToolStep, 
+    ConditionalStep,
+    execute_workflow_stream
+)
+
+# Define workflow steps
+steps = [
+    AgentStep(agent_name="DataValidator", input_key="raw_data"),
+    ConditionalStep(
+        condition=lambda ctx: ctx.validation_passed,
+        if_true=ToolStep(tool_name="process_data"),
+        if_false=AgentStep(agent_name="ErrorHandler")
+    ),
+    AgentStep(agent_name="Summarizer", input_key="processed_data")
+]
+
+# Create and execute workflow
+workflow = create_workflow("DataProcessingWorkflow", steps)
+async for result in execute_workflow_stream(workflow, initial_data):
+    print(f"Step completed: {result.step_name}")
+```
+
+### Plugin System
+
+Extend JAF with custom plugins:
+
+```python
+from jaf.plugins import JAFPlugin, PluginMetadata, get_plugin_registry
+
+class MyCustomPlugin(JAFPlugin):
+    metadata = PluginMetadata(
+        name="custom_plugin",
+        version="1.0.0",
+        description="My custom JAF plugin"
+    )
+    
+    async def initialize(self):
+        # Plugin initialization logic
+        pass
+    
+    async def on_agent_start(self, agent_name: str, context: Any):
+        # Hook into agent lifecycle
+        pass
+
+# Register and use plugin
+registry = get_plugin_registry()
+await registry.register_plugin(MyCustomPlugin())
+```
+
+### Analytics System
+
+Built-in analytics for conversation quality and agent performance:
+
+```python
+from jaf.core.analytics import (
+    AnalyticsEngine, 
+    analyze_conversation_quality,
+    get_analytics_report
+)
+
+# Analyze conversation quality
+quality_score = await analyze_conversation_quality(conversation_messages)
+print(f"Conversation quality: {quality_score.overall_score}")
+
+# Get comprehensive analytics report
+report = await get_analytics_report(time_period="last_7_days")
+print(f"Total conversations: {report.total_conversations}")
+print(f"Average satisfaction: {report.avg_satisfaction}")
+```
+
+## Installation and Setup
+
+### Production Installation
+
+```bash
+# Complete installation with all features
+pip install "jaf-py[all] @ git+https://github.com/xynehq/jaf-py.git"
+
+# Verify installation
+python -c "import jaf; print('JAF installed successfully')"
+```
+
+### Feature-Specific Installation
+
+```bash
+# Core framework only
+pip install git+https://github.com/xynehq/jaf-py.git
+
+# Server capabilities (FastAPI, uvicorn)
+pip install "jaf-py[server] @ git+https://github.com/xynehq/jaf-py.git"
+
+# Memory providers (Redis, PostgreSQL)
+pip install "jaf-py[memory] @ git+https://github.com/xynehq/jaf-py.git"
+
+# Visualization tools (Graphviz, diagrams)
+pip install "jaf-py[visualization] @ git+https://github.com/xynehq/jaf-py.git"
+
+# Tracing and observability (OpenTelemetry, Langfuse)
+pip install "jaf-py[tracing] @ git+https://github.com/xynehq/jaf-py.git"
+
+# Development tools (testing, linting, type checking)
+pip install "jaf-py[dev] @ git+https://github.com/xynehq/jaf-py.git"
+```
+
+### Development Environment Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/xynehq/jaf-py.git
+cd jaf-py
+
+# Make virtual environment
+python -m venv .venv
+source .venv/bin/activate
+
+# Install in development mode with all dependencies
+pip install -e ".[dev,server,memory,visualization,tracing]"
+
+# Verify development setup
+python -m pytest tests/ --tb=short
+```
+
+## Environment Configuration
+
+### Development Environment
+
+Create a `.env` file for local development:
+
+```bash
+# LiteLLM Provider Configuration (Required)
+LITELLM_URL=http://localhost:4000/
+LITELLM_API_KEY=your-litellm-api-key
+LITELLM_MODEL=gpt-4
+PORT=3000
+HOST=127.0.0.1
+DEMO_MODE=development
+VERBOSE_LOGGING=true
+
+# Model Provider API Keys
+OPENAI_API_KEY=your-openai-api-key
+ANTHROPIC_API_KEY=your-anthropic-api-key
+GOOGLE_API_KEY=your-google-api-key
+
+# Memory Provider Configuration
+JAF_MEMORY_TYPE=memory  # Options: memory, redis, postgres
+
+# Redis Provider Configuration
+JAF_REDIS_HOST=localhost
+JAF_REDIS_PORT=6379
+JAF_REDIS_PASSWORD=your-redis-password
+JAF_REDIS_DB=0
+JAF_REDIS_PREFIX=JAF:memory:
+JAF_REDIS_TTL=86400
+
+# PostgreSQL Provider Configuration  
+JAF_POSTGRES_HOST=localhost
+JAF_POSTGRES_PORT=5432
+JAF_POSTGRES_DB=jaf_test
+JAF_POSTGRES_USER=postgres
+JAF_POSTGRES_PASSWORD=your-postgres-password
+JAF_POSTGRES_SSL=false
+JAF_POSTGRES_TABLE=conversations
+JAF_POSTGRES_MAX_CONNECTIONS=10
+
+# Tracing Configuration
+TRACE_COLLECTOR_URL=http://localhost:4318/v1/traces
+LANGFUSE_PUBLIC_KEY=pk-lf-your-public-key
+LANGFUSE_SECRET_KEY=sk-lf-your-secret-key
+LANGFUSE_HOST=https://cloud.langfuse.com
+```
+
+### Production Environment
+
+```bash
+# LiteLLM Provider Configuration
+LITELLM_URL=https://api.your-company.com/llm/
+LITELLM_API_KEY=${LITELLM_MASTER_KEY}
+LITELLM_MODEL=gpt-4o
+PORT=8000
+HOST=0.0.0.0
+DEMO_MODE=production
+VERBOSE_LOGGING=false
+
+# Memory Provider (Production Redis)
+JAF_MEMORY_TYPE=redis
+JAF_REDIS_URL=redis://redis-cluster.internal:6379/0
+JAF_REDIS_PASSWORD=${REDIS_PASSWORD}
+JAF_REDIS_PREFIX=JAF:memory:prod:
+JAF_REDIS_TTL=604800  # 7 days
+
+# Alternative: PostgreSQL for persistent memory
+# JAF_MEMORY_TYPE=postgres
+# JAF_POSTGRES_CONNECTION_STRING=postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}
+# JAF_POSTGRES_SSL=true
+# JAF_POSTGRES_MAX_CONNECTIONS=50
+```
+
+## Complete Working Example
+
+Here's a comprehensive example showing JAF's capabilities:
+
+```python
+import asyncio
+from dataclasses import dataclass
+from typing import List
+from pydantic import BaseModel, Field
+import jaf
+
+@dataclass
+class UserContext:
+    user_id: str
+    permissions: List[str]
+
+class CalculateArgs(BaseModel):
+    expression: str = Field(description="Math expression to evaluate")
+
+# Create tools using modern decorator
+@jaf.function_tool(timeout=10.0)
+async def calculate(expression: str, context: UserContext) -> str:
+    """Safely evaluate mathematical expressions.
+    
+    Args:
+        expression: Mathematical expression to evaluate (e.g., "2 + 2", "15 * 7")
+    """
+    # Security: Only allow safe characters
+    allowed_chars = set('0123456789+-*/(). ')
+    if not all(c in allowed_chars for c in expression):
+        return "Error: Invalid characters in expression"
+    
+    try:
+        result = eval(expression)  # Safe due to validation
+        return f"{expression} = {result}"
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+@jaf.function_tool(timeout=5.0)
+async def greet(name: str, context: UserContext) -> str:
+    """Generate a personalized greeting.
+    
+    Args:
+        name: Name to greet
+    """
+    if not name.strip():
+        return "Error: Name cannot be empty"
+    
+    return f"Hello, {name}! Nice to meet you."
+
+# Create agents
+def create_math_agent() -> jaf.Agent[UserContext, str]:
+    def instructions(state: jaf.RunState[UserContext]) -> str:
+        return 'You are a helpful math tutor. Use the calculator tool to perform calculations.'
+    
+    return jaf.Agent(
+        name='MathTutor',
+        instructions=instructions,
+        tools=[calculate]
+    )
+
+def create_chat_agent() -> jaf.Agent[UserContext, str]:
+    def instructions(state: jaf.RunState[UserContext]) -> str:
+        return 'You are a friendly chatbot. Use the greeting tool when meeting people.'
+    
+    return jaf.Agent(
+        name='ChatBot',
+        instructions=instructions,
+        tools=[greet]
+    )
+
+async def main():
+    # Set up model provider
+    model_provider = jaf.make_litellm_provider('http://localhost:4000')
+    
+    # Set up memory
+    memory_provider = await jaf.create_memory_provider_from_env()
+    memory_config = jaf.MemoryConfig(
+        provider=memory_provider,
+        auto_store=True,
+        max_messages=100
+    )
+    
+    # Set up tracing
+    trace_collector = jaf.ConsoleTraceCollector()
+    
+    # Create agents
+    math_agent = create_math_agent()
+    chat_agent = create_chat_agent()
+    
+    # Configure run
+    config = jaf.RunConfig(
+        agent_registry={
+            'MathTutor': math_agent,
+            'ChatBot': chat_agent
+        },
+        model_provider=model_provider,
+        memory=memory_config,
+        conversation_id='demo-conversation',
+        max_turns=10,
+        on_event=trace_collector.collect,
+        initial_input_guardrails=[
+            jaf.create_length_guardrail(max_length=1000)
+        ]
+    )
+    
+    # Create initial state
+    initial_state = jaf.RunState(
+        run_id=jaf.generate_run_id(),
+        trace_id=jaf.generate_trace_id(),
+        messages=[jaf.Message(role='user', content='Hello! What is 15 * 8?')],
+        current_agent_name='MathTutor',
+        context=UserContext(user_id='demo_user', permissions=['user']),
+        turn_count=0
+    )
+    
+    # Run the agent
+    print("🤖 Running JAF Demo...")
+    result = await jaf.run(initial_state, config)
+    
+    # Handle result
+    if result.outcome.status == 'completed':
+        print(f"\n✅ Success: {result.outcome.output}")
+    else:
+        print(f"\n❌ Error: {result.outcome.error}")
+    
+    return result
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+## Key Files and Structure
+
+```
+jaf-py/
+├── jaf/                           # Core framework package
+│   ├── __init__.py               # Main exports and API surface
+│   ├── core/                     # Core types, engine, tools
+│   │   ├── types.py             # Core type definitions (RunState, Agent, etc.)
+│   │   ├── engine.py            # Main execution engine
+│   │   ├── tools.py             # Tool creation utilities
+│   │   ├── tracing.py           # Observability and tracing
+│   │   ├── errors.py            # Error handling system
+│   │   ├── composition.py       # Tool composition utilities
+│   │   ├── performance.py       # Performance monitoring
+│   │   ├── analytics.py         # Conversation analytics
+│   │   └── workflows.py         # Workflow orchestration
+│   ├── memory/                   # Conversation persistence
+│   │   ├── __init__.py          # Memory provider exports
+│   │   ├── types.py             # Memory system types
+│   │   ├── factory.py           # Provider factory functions
+│   │   └── providers/           # Memory provider implementations
+│   │       ├── in_memory.py     # In-memory provider
+│   │       ├── redis.py         # Redis provider
+│   │       └── postgres.py      # PostgreSQL provider
+│   ├── providers/                # External integrations
+│   │   ├── model.py             # LiteLLM integration
+│   │   └── mcp.py               # Model Context Protocol
+│   ├── policies/                 # Validation and security
+│   │   ├── validation.py        # Input/output guardrails
+│   │   └── handoff.py           # Agent handoff policies
+│   ├── server/                   # FastAPI server
+│   │   ├── __init__.py          # Server creation functions
+│   │   └── endpoints.py         # HTTP endpoint definitions
+│   ├── a2a/                      # Agent-to-agent communication
+│   ├── plugins/                  # Plugin system
+│   ├── visualization/            # Agent visualization tools
+│   └── cli.py                    # Command-line interface
+├── examples/                     # Example applications
+│   ├── server_demo.py           # Multi-agent server demo
+│   ├── server_example.py        # RAG example with LiteLLM
+│   ├── agent_as_tool_example.py # Agent-as-tool demonstration
+│   ├── otel_tracing_demo.py     # OpenTelemetry tracing
+│   ├── langfuse_tracing_demo.py # Langfuse tracing
+│   └── function_tool_examples.py # Modern tool examples
+├── docs/                         # Comprehensive documentation
+│   ├── getting-started.md       # Installation and first agent tutorial
+│   ├── core-concepts.md         # Functional architecture principles
+│   ├── api-reference.md         # Complete Python API documentation
+│   ├── tools.md                 # Creating and using tools
+│   ├── memory-system.md         # Persistence and memory providers
+│   ├── monitoring.md            # Observability and tracing
+│   ├── examples.md              # Detailed example walkthroughs
+│   ├── agent-as-tool.md         # Hierarchical agent patterns
+│   ├── tracing.md               # Comprehensive tracing guide
+│   └── deployment.md            # Production deployment guide
+├── tests/                        # Test suite
+│   ├── test_core.py             # Core functionality tests
+│   ├── test_memory.py           # Memory system tests
+│   ├── test_tools.py            # Tool system tests
+│   └── integration/             # Integration tests
+├── pyproject.toml                # Project configuration and dependencies
+├── README.md                     # Project overview and quick start
+└── .env.example                  # Example environment configuration
+```
+
+## Dependencies
+
+### Core Dependencies
+- `pydantic>=2.0.0`: Runtime validation and type safety
+- `fastapi>=0.104.0`: HTTP API framework for server capabilities
+- `uvicorn[standard]>=0.35.0`: ASGI server for FastAPI
+- `openai>=1.0.0`: OpenAI client integration
+- `typing-extensions>=4.5.0`: Extended type system support
+- `websockets>=15.0.0`: WebSocket support for real-time features
+- `httpx>=0.25.0`: Async HTTP client for external integrations
+- `httpx-sse>=0.4.0`: Server-sent events support
+- `google-generativeai>=0.3.0`: Google AI integration
+- `google-auth>=2.20.0`: Google authentication
+- `python-dotenv>=1.0.0`: Environment variable management
+- `psutil>=5.9.0`: System monitoring utilities
+- `fastmcp>=0.1.0`: Model Context Protocol support
+- `opentelemetry-api>=1.22.0`: Observability framework
+- `opentelemetry-sdk>=1.22.0`: OpenTelemetry SDK
+- `opentelemetry-exporter-otlp>=1.22.0`: OTLP exporter
+- `langfuse<3.0.0`: LLM observability platform
+
+### Optional Dependencies
+- **`[server]`**: Additional server dependencies (uvicorn)
+- **`[memory]`**: Redis and PostgreSQL support (redis, psycopg2-binary)
+- **`[visualization]`**: Graphviz for agent diagrams (graphviz)
+- **`[tracing]`**: Enhanced tracing capabilities (OpenTelemetry, Langfuse)
+- **`[dev]`**: Development tools (pytest, mypy, ruff, black, hypothesis)
+- **`[all]`**: All optional dependencies combined
+
+## Testing
+
+JAF includes a comprehensive test suite:
+
+```bash
+# Run all tests
+pytest
+
+# Run specific test categories
+pytest --markers unit           # Unit tests only
+pytest --markers integration    # Integration tests only
+pytest --markers a2a           # Agent-to-agent tests
+pytest --markers memory        # Memory provider tests
+pytest --markers visualization # Visualization tests
+
+# Run tests with coverage
+pytest --cov=jaf --cov-report=html
+
+# Type checking
+mypy jaf/
+
+# Code formatting and linting
+black jaf/
+ruff check jaf/
+```
+
+## CLI Usage
+
+JAF provides a powerful CLI for project management:
+
+```bash
+# Initialize a new JAF project
+jaf init my-agent-project
+cd my-agent-project
+
+# Run development server
+jaf server --host 0.0.0.0 --port 8000
+
+# Show version and help
+jaf --version
+jaf --help
+```
+
+## Best Practices
+
+### 1. Context Design
+Design immutable, type-safe contexts:
+
+```python
+@dataclass(frozen=True)
+class AppContext:
+    user_id: str
+    permissions: Tuple[str, ...]  # Immutable collection
+    session_metadata: Optional[Dict[str, Any]] = None
+    
+    def has_permission(self, permission: str) -> bool:
+        return permission in self.permissions
+```
+
+### 2. Tool Security
+Always validate and sanitize inputs:
+
+```python
+@jaf.function_tool(timeout=30.0)
+async def secure_tool(user_input: str, context: AppContext) -> str:
+    # 1. Validate permissions
+    if not context.has_permission('tool_access'):
+        return "Error: Insufficient permissions"
+    
+    # 2. Sanitize input
+    sanitized = user_input.strip()[:1000]  # Length limit
+    
+    # 3. Validate format
+    if not sanitized.replace(' ', '').isalnum():
+        return "Error: Invalid input format"
+    
+    # 4. Process securely
+    return f"Processed: {sanitized}"
+```
+
+### 3. Error Handling
+Use JAF's error types for clear error handling:
+
+```python
+async def execute(self, args: Args, context: Context) -> str:
+    try:
+        result = await external_api.call(args.data)
+        return f"Success: {result}"
+    except APIError as e:
+        return f"Error: API call failed: {e}"
+    except ValidationError as e:
+        return f"Error: Invalid data: {e}"
+    except Exception as e:
+        return f"Error: Unexpected error: {e}"
+```
+
+### 4. Performance Optimization
+- Set appropriate tool timeouts based on operation complexity
+- Use connection pooling for database and API connections
+- Implement caching for expensive operations
+- Monitor performance with built-in metrics
+
+### 5. Production Deployment
+- Use Redis or PostgreSQL for memory persistence
+- Enable comprehensive logging and tracing
+- Set up health checks and monitoring
+- Implement proper error handling and recovery
+- Use environment-based configuration
+
+This framework is designed for building sophisticated, production-ready AI agent systems with enterprise-grade features while maintaining functional programming principles, type safety, and excellent developer experience.
+
+## A2A (Agent-to-Agent) Communication Protocol
+
+JAF provides a complete implementation of the A2A (Agent-to-Agent) protocol, enabling distributed agent communication through JSON-RPC over HTTP. This protocol allows agents to communicate seamlessly across different services and applications.
+
+### A2A Protocol Overview
+
+The A2A protocol is built on JSON-RPC 2.0 and provides:
+
+- **Distributed Agents**: Agents running on different services can communicate directly
+- **Task Management**: Submit, track, and cancel long-running tasks
+- **Real-time Streaming**: Stream responses for iterative tasks
+- **Agent Discovery**: Automatically discover available agents and their capabilities
+- **Standard Protocol**: Based on JSON-RPC 2.0 for broad compatibility
+
+### Protocol Specification
+
+#### Transport and Message Format
+- **Protocol**: JSON-RPC 2.0 over HTTP
+- **Content-Type**: `application/json`
+- **Character Encoding**: UTF-8
+- **Streaming**: Server-sent events for `message/stream`
+
+#### Supported Methods
+
+| Method | Description | Response Type |
+|--------|-------------|---------------|
+| `message/send` | Send a message to an agent | Immediate response |
+| `message/stream` | Stream a message response | Server-sent events |
+| `tasks/get` | Get task status and results | Task information |
+| `tasks/cancel` | Cancel a running task | Cancellation status |
+| `agent/getAuthenticatedExtendedCard` | Get agent capabilities | Agent card |
+
+### Core Message Types
+
+#### A2AMessage
+The fundamental communication unit between agents:
+
+```json
+{
+  "role": "user" | "agent" | "system",
+  "parts": [
+    {
+      "kind": "text",
+      "text": "Hello, how can you help me?"
+    }
+  ],
+  "messageId": "unique-message-identifier",
+  "contextId": "conversation-context-identifier",
+  "kind": "message",
+  "timestamp": "2024-03-15T14:30:00Z"
+}
+```
+
+#### A2ATask
+Represents an ongoing operation or conversation state:
+
+```json
+{
+  "id": "task-unique-identifier",
+  "contextId": "conversation-context-identifier", 
+  "kind": "task",
+  "status": {
+    "state": "submitted" | "working" | "completed" | "failed" | "cancelled",
+    "message": { /* A2AMessage */ },
+    "timestamp": "2024-03-15T14:30:00Z",
+    "error": { /* A2AError (optional) */ }
+  }
+}
+```
+
+### Quick Start with A2A
+
+#### Creating A2A Client
+
+```python
+from jaf.a2a import A2A, connect_to_a2a_agent
+
+# Simple client
+client = A2A.client("http://localhost:3000")
+
+# Full-featured connection
+connection = await connect_to_a2a_agent("http://localhost:3000")
+```
+
+#### Sending Messages
+
+```python
+import asyncio
+from jaf.a2a import send_message_to_agent
+
+async def demo():
+    # Send a message to a specific agent
+    response = await send_message_to_agent(
+        client,
+        agent_name="MathTutor", 
+        message="What is 15 * 7?"
+    )
+    
+    print(f"Response: {response}")
+
+asyncio.run(demo())
+```
+
+#### Streaming Responses
+
+```python
+from jaf.a2a import stream_message_to_agent
+
+async def stream_demo():
+    async for event in stream_message_to_agent(
+        client,
+        agent_name="ResearchAgent",
+        message="Research the history of Python programming"
+    ):
+        if event.get("kind") == "message":
+            print(f"Streamed: {event['message']['content']}")
+
+asyncio.run(stream_demo())
+```
+
+### Agent Creation for A2A
+
+#### Basic Agent Setup
+
+```python
+from jaf.a2a import create_a2a_agent, create_a2a_tool
+
+# Define a tool
+def calculate(expression: str) -> str:
+    """Safe calculation tool"""
+    try:
+        # Basic validation
+        allowed_chars = set('0123456789+-*/(). ')
+        if not all(c in allowed_chars for c in expression):
+            return 'Error: Invalid characters'
+        return str(eval(expression))
+    except:
+        return 'Error: Invalid expression'
+
+# Create A2A tool
+calc_tool = create_a2a_tool(
+    name="calculate",
+    description="Perform mathematical calculations",
+    parameters={
+        "type": "object",
+        "properties": {
+            "expression": {
+                "type": "string",
+                "description": "Mathematical expression to evaluate"
+            }
+        },
+        "required": ["expression"]
+    },
+    execute_func=calculate
+)
+
+# Create A2A agent
+math_agent = create_a2a_agent(
+    name="MathTutor",
+    description="A helpful math tutor agent",
+    instruction="You are a math tutor. Use the calculate tool for math problems.",
+    tools=[calc_tool]
+)
+```
+
+#### Transform to JAF Agent
+
+```python
+from jaf.a2a import transform_a2a_agent_to_jaf
+
+# Convert A2A agent to JAF agent for local execution
+jaf_agent = transform_a2a_agent_to_jaf(math_agent)
+
+# Now you can use it with JAF's run engine
+from jaf import run, RunConfig, RunState
+```
+
+### A2A Server Setup
+
+#### Basic A2A Server
+
+```python
+import asyncio
+from jaf.a2a import create_server_config, start_a2a_server
+
+async def main():
+    # Create multiple agents
+    agents = {
+        "MathTutor": math_agent,
+        "ChatBot": chat_agent,
+        "Assistant": assistant_agent
+    }
+    
+    # Create server configuration
+    server_config = create_server_config(
+        agents=agents,
+        name="Multi-Agent Server",
+        description="A server with multiple specialized agents",
+        port=3000,
+        cors=True
+    )
+    
+    # Start the server
+    server = await start_a2a_server(server_config)
+    print("A2A server running on http://localhost:3000")
+    
+    # Server provides these endpoints automatically:
+    # GET  /.well-known/agent-card     # Agent discovery
+    # POST /a2a                        # Main A2A endpoint
+    # POST /a2a/agents/{agent_name}    # Agent-specific endpoint
+    # GET  /a2a/health                 # Health check
+
+asyncio.run(main())
+```
+
+### Agent Discovery
+
+#### Get Agent Capabilities
+
+```python
+from jaf.a2a import get_agent_card, discover_agents
+
+async def discovery_demo():
+    # Get specific agent information
+    agent_card = await get_agent_card("http://localhost:3000")
+    print(f"Available skills: {len(agent_card['skills'])}")
+    
+    # Discover all agents
+    agents = await discover_agents("http://localhost:3000")
+    for agent in agents:
+        print(f"Agent: {agent['name']} - {agent['description']}")
+
+asyncio.run(discovery_demo())
+```
+
+#### Agent Card Structure
+
+```json
+{
+  "name": "Multi-Agent Server",
+  "description": "A server with multiple specialized agents",
+  "version": "1.0.0",
+  "protocolVersion": "0.3.0",
+  "skills": [
+    {
+      "id": "math-calculation",
+      "name": "Mathematical Calculations", 
+      "description": "Perform arithmetic calculations and explain math concepts",
+      "tags": ["math", "calculation", "education"],
+      "examples": [
+        {
+          "query": "What is 15 * 7?",
+          "result": "15 × 7 equals 105. This is a basic multiplication..."
+        }
+      ]
+    }
+  ],
+  "capabilities": {
+    "streaming": true,
+    "pushNotifications": false,
+    "stateTransitionHistory": true
+  },
+  "defaultInputModes": ["text"],
+  "defaultOutputModes": ["text"]
+}
+```
+
+### Task Management
+
+#### Submit and Track Tasks
+
+```python
+from jaf.a2a import create_a2a_task, create_message_request
+
+async def task_demo():
+    # Create a task request
+    request = create_message_request(
+        method="message/send",
+        message={
+            "role": "user",
+            "parts": [{"kind": "text", "text": "Generate a detailed report on Python performance"}],
+            "messageId": "task_001",
+            "contextId": "research_session",
+            "kind": "message"
+        }
+    )
+    
+    # Send the request
+    response = await send_a2a_request("http://localhost:3000", request)
+    
+    if "result" in response:
+        task_id = response["result"]["taskId"]
+        print(f"Task submitted: {task_id}")
+        
+        # Check task status
+        status_request = {
+            "jsonrpc": "2.0",
+            "id": "status_check",
+            "method": "tasks/get",
+            "params": {"id": task_id}
+        }
+        
+        status_response = await send_a2a_request(
+            "http://localhost:3000", 
+            status_request
+        )
+        
+        task_info = status_response["result"]
+        print(f"Status: {task_info['status']['state']}")
+
+asyncio.run(task_demo())
+```
+
+### Streaming Communication
+
+#### Real-time Streaming
+
+```python
+from jaf.a2a import stream_message, parse_sse_event
+
+async def streaming_demo():
+    # Create streaming request
+    stream_request = {
+        "jsonrpc": "2.0",
+        "id": "stream_001", 
+        "method": "message/stream",
+        "params": {
+            "message": {
+                "role": "user",
+                "parts": [{"kind": "text", "text": "Write a story step by step"}],
+                "messageId": "story_request",
+                "contextId": "creative_session",
+                "kind": "message"
+            }
+        }
+    }
+    
+    # Stream the response
+    async for raw_event in stream_message(
+        "http://localhost:3000",
+        stream_request
+    ):
+        event = parse_sse_event(raw_event)
+        
+        if event and event.get("kind") == "message":
+            content = event["message"]["content"]
+            print(f"Stream chunk: {content}")
+        elif event and event.get("kind") == "status-update":
+            print(f"Status: {event['status']['state']}")
+
+asyncio.run(streaming_demo())
+```
+
+### Error Handling in A2A
+
+#### Robust Error Management
+
+```python
+from jaf.a2a import A2AError, A2AErrorCodes, send_message
+
+async def error_handling_demo():
+    try:
+        response = await send_message(
+            client,
+            "Perform an impossible task"
+        )
+    except A2AError as e:
+        if e.code == A2AErrorCodes.AGENT_NOT_FOUND:
+            print(f"Agent not available: {e.message}")
+        elif e.code == A2AErrorCodes.INVALID_REQUEST:
+            print(f"Request error: {e.message}")
+        elif e.code == A2AErrorCodes.EXECUTION_ERROR:
+            print(f"Agent execution failed: {e.message}")
+        else:
+            print(f"A2A error: {e}")
+    except Exception as e:
+        print(f"Network or other error: {e}")
+
+asyncio.run(error_handling_demo())
+```
+
+#### Standard A2A Error Codes
+
+| Code | Name | Description |
+|------|------|-------------|
+| -32700 | Parse Error | Invalid JSON |
+| -32600 | Invalid Request | Invalid JSON-RPC request |
+| -32601 | Method Not Found | Unknown method |
+| -32602 | Invalid Params | Invalid parameters |
+| -32603 | Internal Error | Server internal error |
+| -32000 | Agent Not Found | Specified agent not available |
+| -32001 | Task Not Found | Specified task not found |
+| -32002 | Agent Unavailable | Agent temporarily unavailable |
+| -32003 | Rate Limited | Request rate exceeded |
+| -32004 | Authentication Required | Authentication missing |
+| -32005 | Permission Denied | Insufficient permissions |
+| -32006 | Timeout | Request processing timeout |
+| -32007 | Resource Exhausted | Server resources exhausted |
+
+### Integration with JAF Core
+
+#### Hybrid Local/Remote Agents
+
+```python
+from jaf import Agent, run, RunConfig, RunState
+from jaf.a2a import create_a2a_client, transform_a2a_agent_to_jaf
+
+async def hybrid_demo():
+    # Local JAF agent
+    local_agent = Agent(
+        name="LocalProcessor",
+        instructions=lambda state: "Process data locally",
+        tools=[]
+    )
+    
+    # Remote A2A agent
+    a2a_client = create_a2a_client("http://remote-server:3000")
+    remote_agent = transform_a2a_agent_to_jaf(
+        await a2a_client.get_agent("DataAnalyzer")
+    )
+    
+    # Use both in JAF run configuration
+    config = RunConfig(
+        agent_registry={
+            "LocalProcessor": local_agent,
+            "RemoteAnalyzer": remote_agent
+        },
+        model_provider=make_litellm_provider("http://localhost:4000"),
+        max_turns=5
+    )
+    
+    # Agents can hand off to each other seamlessly
+    initial_state = RunState(
+        messages=[Message(role="user", content="Analyze this data")],
+        current_agent_name="LocalProcessor",
+        # ... other fields
+    )
+    
+    result = await run(initial_state, config)
+
+asyncio.run(hybrid_demo())
+```
+
+### Production A2A Deployment
+
+#### Docker Deployment
+
+```dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+COPY . .
+
+EXPOSE 3000
+
+CMD ["python", "-m", "jaf.a2a.examples.server_example"]
+```
+
+#### Environment Configuration
+
+```bash
+# Server configuration
+A2A_HOST=0.0.0.0
+A2A_PORT=3000
+A2A_CORS_ORIGINS=https://app.example.com,https://admin.example.com
+
+# Memory configuration  
+A2A_MEMORY_PROVIDER=redis
+A2A_REDIS_URL=redis://redis:6379
+
+# Task management
+A2A_TASK_TTL=3600
+A2A_MAX_TASKS_PER_CONTEXT=100
+
+# Monitoring
+A2A_ENABLE_METRICS=true
+A2A_LOG_LEVEL=INFO
+```
+
+#### Health Monitoring
+
+```python
+import httpx
+
+async def health_check():
+    """Monitor A2A server health"""
+    try:
+        response = await httpx.get("http://localhost:3000/a2a/health")
+        health_data = response.json()
+        
+        if health_data.get("healthy"):
+            print("✅ A2A server healthy")
+            return True
+        else:
+            print(f"❌ A2A server unhealthy: {health_data}")
+            return False
+    except Exception as e:
+        print(f"❌ Health check failed: {e}")
+        return False
+```
+
+### A2A Protocol Testing
+
+#### Unit Tests
+
+```python
+import pytest
+from jaf.a2a import create_a2a_client, create_a2a_agent
+
+@pytest.mark.asyncio
+async def test_a2a_message_flow():
+    """Test complete A2A message flow"""
+    
+    # Mock server setup
+    mock_server = await create_mock_a2a_server()
+    
+    # Client creation
+    client = create_a2a_client(mock_server.url)
+    
+    # Send test message
+    response = await client.send_message("Hello, test agent!")
+    
+    # Verify response
+    assert response["success"] is True
+    assert "data" in response
+    
+    await mock_server.cleanup()
+```
+
+#### Integration Tests
+
+```python
+@pytest.mark.integration
+async def test_real_server_integration():
+    """Test against real A2A server"""
+    
+    # Assumes test server running on localhost:3001
+    client = create_a2a_client("http://localhost:3001")
+    
+    # Test agent discovery
+    agents = await discover_agents(client.base_url)
+    assert len(agents) > 0
+    
+    # Test message sending
+    if "TestAgent" in [a["name"] for a in agents]:
+        response = await send_message_to_agent(
+            client, 
+            "TestAgent", 
+            "Integration test message"
+        )
+        assert response is not None
+```
+
+## Model Context Protocol (MCP) Integration
+
+JAF provides comprehensive support for the Model Context Protocol (MCP), enabling seamless integration with external tools and services. MCP allows agents to access tools and resources from external servers through standardized protocols.
+
+### MCP Overview
+
+The Model Context Protocol (MCP) is an open standard that enables secure connections between host applications (like JAF) and external data sources and tools. JAF's MCP integration provides:
+
+- **Multiple Transport Mechanisms**: Support for stdio, WebSocket, SSE, and HTTP transports
+- **Secure Tool Integration**: Safe execution of external tools with validation
+- **Dynamic Tool Discovery**: Automatic detection and integration of MCP server tools
+- **Type-Safe Operations**: Pydantic-based validation for all MCP interactions
+- **Production Ready**: Robust error handling and connection management
+
+### Transport Mechanisms
+
+JAF supports all MCP transport mechanisms:
+
+#### 1. Stdio Transport
+Best for local MCP servers running as separate processes:
+
+```python
+from jaf.providers.mcp import create_mcp_stdio_client
+
+# Connect to a local filesystem MCP server
+mcp_client = create_mcp_stdio_client([
+    'npx', '-y', '@modelcontextprotocol/server-filesystem', '/Users'
+])
+
+await mcp_client.initialize()
+```
+
+**Use Cases:**
+- Local development tools
+- File system operations
+- Command-line utilities
+- Local database connections
+
+#### 2. WebSocket Transport
+Ideal for real-time, bidirectional communication:
+
+```python
+from jaf.providers.mcp import create_mcp_websocket_client
+
+# Connect to a WebSocket MCP server
+mcp_client = create_mcp_websocket_client('ws://localhost:8080/mcp')
+
+await mcp_client.initialize()
+```
+
+**Use Cases:**
+- Real-time data feeds
+- Interactive services
+- Persistent connections
+- Streaming operations
+
+#### 3. Server-Sent Events (SSE) Transport
+Perfect for server-to-client streaming:
+
+```python
+from jaf.providers.mcp import create_mcp_sse_client
+
+# Connect to an SSE MCP server
+mcp_client = create_mcp_sse_client('http://localhost:8080/events')
+
+await mcp_client.initialize()
+```
+
+**Use Cases:**
+- Event streams
+- Notifications
+- Log monitoring
+- Status updates
+
+#### 4. HTTP Transport
+For simple request-response patterns:
+
+```python
+from jaf.providers.mcp import create_mcp_http_client
+
+# Connect to an HTTP MCP server
+mcp_client = create_mcp_http_client('http://localhost:8080/mcp')
+
+await mcp_client.initialize()
+```
+
+**Use Cases:**
+- REST API integration
+- Simple tool calls
+- Stateless operations
+- Web service integration
+
+### Creating MCP Tools with Timeout Support
+
+Convert MCP server tools into JAF tools with comprehensive timeout configuration:
+
+```python
+from jaf.providers.mcp import create_mcp_stdio_tools, create_mcp_sse_tools, create_mcp_http_tools
+
+# Create MCP tools from stdio transport with default timeout
+mcp_tools = await create_mcp_stdio_tools(
+    command=['npx', '-y', '@modelcontextprotocol/server-filesystem', '/Users'],
+    client_name="JAF",
+    client_version="2.0.0",
+    default_timeout=30.0  # 30 second default timeout for all tools
+)
+
+# Create MCP tools from SSE transport with custom timeout
+sse_tools = await create_mcp_sse_tools(
+    uri='http://localhost:8080/mcp',
+    default_timeout=60.0  # 60 second timeout for SSE operations
+)
+
+# Create MCP tools from HTTP transport with longer timeout
+http_tools = await create_mcp_http_tools(
+    uri='http://localhost:8080/api/mcp',
+    default_timeout=120.0  # 2 minute timeout for HTTP operations
+)
+
+# Use in an agent
+from jaf import Agent
+
+def agent_instructions(state):
+    return "You can read files using the read_file tool."
+
+agent = Agent(
+    name="FileAgent",
+    instructions=agent_instructions,
+    tools=mcp_tools  # Tools automatically include timeout configuration
+)
+```
+
+#### MCP Tool Timeout Hierarchy
+
+MCP tools follow the same timeout resolution hierarchy as native JAF tools:
+
+1. **Tool-specific timeout** (if defined in MCP server) - highest priority
+2. **MCP transport default_timeout** - medium priority  
+3. **RunConfig default_tool_timeout** - lower priority
+4. **Global default (30 seconds)** - lowest priority
+
+```python
+# Example: Different timeout strategies for different MCP servers
+
+# Fast local filesystem operations - short timeout
+fs_tools = await create_mcp_stdio_tools(
+    command=['npx', '-y', '@modelcontextprotocol/server-filesystem', '/Users'],
+    default_timeout=15.0  # Quick filesystem operations
+)
+
+# Database operations - medium timeout
+db_tools = await create_mcp_http_tools(
+    uri='http://database-server:8080/mcp',
+    default_timeout=60.0  # Database queries may take longer
+)
+
+# Heavy computation services - long timeout
+compute_tools = await create_mcp_sse_tools(
+    uri='http://compute-server:8080/events',
+    default_timeout=300.0  # 5 minutes for complex computations
+)
+```
+
+### Dynamic Tool Discovery
+
+Automatically discover and integrate all available MCP tools:
+
+```python
+from jaf.providers.mcp import create_mcp_tools_from_client
+
+# Connect to MCP server
+mcp_client = create_mcp_stdio_client(['mcp-server-command'])
+
+# Automatically create JAF tools from all available MCP tools
+mcp_tools = await create_mcp_tools_from_client(mcp_client)
+
+# Use all tools in an agent
+agent = Agent(
+    name="MCPAgent",
+    instructions=lambda state: "You have access to various MCP tools.",
+    tools=mcp_tools
+)
+```
+
+### Advanced MCP Features
+
+#### Secure Tool Wrapper
+
+Create secure wrappers for MCP tools with validation:
+
+```python
+from jaf.core.tool_results import ToolResult, ToolResultStatus, ToolErrorCodes
+
+class SecureMCPTool:
+    def __init__(self, mcp_tool: MCPTool, allowed_paths: List[str]):
+        self.mcp_tool = mcp_tool
+        self.allowed_paths = allowed_paths
+        self._schema = mcp_tool.schema
+    
+    @property
+    def schema(self):
+        return self._schema
+    
+    async def execute(self, args, context) -> ToolResult:
+        # Validate paths for security
+        if hasattr(args, 'path') and args.path:
+            path = str(args.path)
+            is_allowed = any(path.startswith(allowed) for allowed in self.allowed_paths)
+            
+            if not is_allowed:
+                return ToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error_code=ToolErrorCodes.INVALID_INPUT,
+                    error_message=f"Path '{path}' not allowed",
+                    data={"path": path, "allowed_paths": self.allowed_paths}
+                )
+        
+        # Execute the original MCP tool
+        return await self.mcp_tool.execute(args, context)
+
+# Use secure wrapper
+secure_tool = SecureMCPTool(mcp_tool, ['/Users', '/tmp'])
+```
+
+### Production MCP Examples
+
+#### Filesystem Agent with MCP
+
+Complete example of a filesystem agent using MCP:
+
+```python
+import asyncio
+from jaf import Agent, run_server
+from jaf.providers.mcp import create_mcp_stdio_client, MCPTool, MCPToolArgs
+from jaf.providers.model import make_litellm_provider
+from jaf.core.types import RunConfig
+
+class DynamicMCPArgs(MCPToolArgs):
+    """Dynamic args that accept any parameters."""
+    class Config:
+        extra = "allow"
+    
+    def __init__(self, **data):
+        super().__init__()
+        for key, value in data.items():
+            setattr(self, key, value)
+
+async def create_filesystem_agent():
+    # Connect to filesystem MCP server
+    mcp_client = create_mcp_stdio_client([
+        'npx', '-y', '@modelcontextprotocol/server-filesystem', '/Users'
+    ])
+    
+    await mcp_client.initialize()
+    
+    # Create tools for all available MCP operations
+    tools = []
+    for tool_name in mcp_client.get_available_tools():
+        mcp_tool = MCPTool(mcp_client, tool_name, DynamicMCPArgs)
+        tools.append(mcp_tool)
+    
+    # Create agent with filesystem capabilities
+    def instructions(state):
+        return """You are a filesystem assistant with access to file operations.
+        You can read, write, list, and manage files safely within allowed directories.
+        Always validate paths and provide helpful feedback to users."""
+    
+    return Agent(
+        name="FilesystemAgent",
+        instructions=instructions,
+        tools=tools
+    )
+
+async def main():
+    # Create agent
+    agent = await create_filesystem_agent()
+    
+    # Setup providers
+    model_provider = make_litellm_provider('http://localhost:4000')
+    
+    # Create run config
+    run_config = RunConfig(
+        agent_registry={"FilesystemAgent": agent},
+        model_provider=model_provider,
+        max_turns=10
+    )
+    
+    # Start server
+    await run_server([agent], run_config, host="127.0.0.1", port=3003)
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+#### Multi-Transport MCP Integration
+
+Example using multiple MCP transports:
+
+```python
+async def create_multi_transport_agent():
+    # Filesystem via stdio
+    fs_client = create_mcp_stdio_client([
+        'npx', '-y', '@modelcontextprotocol/server-filesystem', '/Users'
+    ])
+    
+    # Database via WebSocket
+    db_client = create_mcp_websocket_client('ws://localhost:8080/database')
+    
+    # Events via SSE
+    events_client = create_mcp_sse_client('http://localhost:8080/events')
+    
+    # Initialize all clients
+    await fs_client.initialize()
+    await db_client.initialize()
+    await events_client.initialize()
+    
+    # Create tools from all clients
+    fs_tools = await create_mcp_tools_from_client(fs_client)
+    db_tools = await create_mcp_tools_from_client(db_client)
+    
+    # Combine all tools
+    all_tools = fs_tools + db_tools
+    
+    def instructions(state):
+        return """You are a comprehensive assistant with access to:
+        - Filesystem operations (read, write, list files)
+        - Database operations (query, update, insert)
+        - Real-time event monitoring
+        
+        Use these capabilities to help users with complex tasks."""
+    
+    return Agent(
+        name="MultiTransportAgent",
+        instructions=instructions,
+        tools=all_tools
+    )
+```
+
+### MCP Error Handling and Best Practices
+
+#### Connection Management
+
+Handle MCP connection errors gracefully:
+
+```python
+async def robust_mcp_connection(command):
+    max_retries = 3
+    retry_delay = 1.0
+    
+    for attempt in range(max_retries):
+        try:
+            mcp_client = create_mcp_stdio_client(command)
+            await mcp_client.initialize()
+            return mcp_client
+        except Exception as e:
+            if attempt == max_retries - 1:
+                raise Exception(f"Failed to connect after {max_retries} attempts: {e}")
+            
+            print(f"Connection attempt {attempt + 1} failed: {e}")
+            await asyncio.sleep(retry_delay)
+            retry_delay *= 2  # Exponential backoff
+```
+
+#### Resource Management
+
+Properly manage MCP connections:
+
+```python
+class MCPManager:
+    def __init__(self):
+        self.clients = {}
+    
+    async def add_client(self, name: str, client: MCPClient):
+        self.clients[name] = client
+        await client.initialize()
+    
+    async def close_all(self):
+        for client in self.clients.values():
+            await client.close()
+        self.clients.clear()
+    
+    async def __aenter__(self):
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.close_all()
+
+# Usage
+async with MCPManager() as manager:
+    await manager.add_client("fs", fs_client)
+    await manager.add_client("db", db_client)
+    # Clients automatically closed on exit
+```
+
+### MCP Testing
+
+#### Unit Testing
+
+Test MCP tools with mock clients:
+
+```python
+import pytest
+from unittest.mock import AsyncMock
+
+@pytest.mark.asyncio
+async def test_mcp_tool_execution():
+    """Test complete MCP tool flow"""
+    
+    # Mock MCP client
+    mock_client = AsyncMock()
+    mock_client.call_tool.return_value = {
+        "content": [{"type": "text", "text": "File contents"}]
+    }
+    
+    # Create tool
+    tool = MCPTool(mock_client, "read_file", FileReadArgs)
+    
+    # Test execution
+    args = FileReadArgs(path="/test/file.txt")
+    result = await tool.execute(args, {})
+    
+    assert result.status == ToolResultStatus.SUCCESS
+    assert "File contents" in result.data
+    mock_client.call_tool.assert_called_once()
+```
+
+#### Integration Testing
+
+Test with real MCP servers:
+
+```python
+@pytest.mark.integration
+async def test_filesystem_integration():
+    """Test against real MCP server"""
+    
+    # Start test MCP server
+    client = create_mcp_stdio_client(['test-mcp-server'])
+    await client.initialize()
+    
+    try:
+        # Test tool discovery
+        tools = await create_mcp_tools_from_client(client)
+        assert len(tools) > 0
+        
+        # Test tool execution
+        if 'list_directory' in [t.schema.name for t in tools]:
+            list_tool = next(t for t in tools if t.schema.name == 'list_directory')
+            result = await list_tool.execute({'path': '/tmp'}, {})
+            assert result.status == ToolResultStatus.SUCCESS
+    
+    finally:
+        await client.close()
+```
