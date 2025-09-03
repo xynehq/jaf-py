@@ -358,15 +358,99 @@ class LangfuseTraceCollector:
             if event.type == "run_start":
                 # Start a new trace for the entire run
                 print(f"[LANGFUSE] Starting trace for run: {trace_id}")
+                
+                # Extract user query from the run_start data
+                user_query = None
+                user_id = None
+                
+                # Debug: Print the event data structure to understand what we're working with
+                print(f"[LANGFUSE DEBUG] Event data keys: {list(event.data.keys()) if event.data else 'No data'}")
+                if event.data.get("context"):
+                    context = event.data["context"]
+                    print(f"[LANGFUSE DEBUG] Context type: {type(context)}")
+                    print(f"[LANGFUSE DEBUG] Context attributes: {dir(context) if hasattr(context, '__dict__') else 'Not an object'}")
+                    if hasattr(context, '__dict__'):
+                        print(f"[LANGFUSE DEBUG] Context dict: {context.__dict__}")
+                
+                # Try to extract from context first
+                context = event.data.get("context")
+                if context:
+                    # Try direct attribute access
+                    if hasattr(context, 'query'):
+                        user_query = context.query
+                        print(f"[LANGFUSE DEBUG] Found user_query from context.query: {user_query}")
+                    
+                    # Try to extract from combined_history
+                    if hasattr(context, 'combined_history') and context.combined_history:
+                        history = context.combined_history
+                        print(f"[LANGFUSE DEBUG] Found combined_history with {len(history)} messages")
+                        for i, msg in enumerate(reversed(history)):
+                            print(f"[LANGFUSE DEBUG] History message {i}: {msg}")
+                            if isinstance(msg, dict) and msg.get("role") == "user":
+                                user_query = msg.get("content", "")
+                                print(f"[LANGFUSE DEBUG] Found user_query from history: {user_query}")
+                                break
+                    
+                    # Try to extract user_id from token_response
+                    if hasattr(context, 'token_response'):
+                        token_response = context.token_response
+                        print(f"[LANGFUSE DEBUG] Found token_response: {type(token_response)}")
+                        if isinstance(token_response, dict):
+                            user_id = token_response.get("email") or token_response.get("username")
+                            print(f"[LANGFUSE DEBUG] Extracted user_id: {user_id}")
+                        elif hasattr(token_response, 'email'):
+                            user_id = token_response.email
+                            print(f"[LANGFUSE DEBUG] Extracted user_id from attr: {user_id}")
+                
+                # Fallback: try to extract from messages if context didn't work
+                if not user_query and event.data.get("messages"):
+                    print(f"[LANGFUSE DEBUG] Trying fallback from messages")
+                    messages = event.data["messages"]
+                    print(f"[LANGFUSE DEBUG] Found {len(messages)} messages")
+                    # Find the last user message which should be the current query
+                    for i, msg in enumerate(reversed(messages)):
+                        print(f"[LANGFUSE DEBUG] Message {i}: {msg}")
+                        if isinstance(msg, dict) and msg.get("role") == "user":
+                            user_query = msg.get("content", "")
+                            print(f"[LANGFUSE DEBUG] Found user_query from messages: {user_query}")
+                            break
+                        elif hasattr(msg, 'role') and msg.role == 'user':
+                            user_query = msg.content
+                            print(f"[LANGFUSE DEBUG] Found user_query from message attr: {user_query}")
+                            break
+                
+                print(f"[LANGFUSE DEBUG] Final extracted - user_query: {user_query}, user_id: {user_id}")
+                
+                # Create comprehensive input data for the trace
+                trace_input = {
+                    "user_query": user_query,
+                    "run_id": str(trace_id),
+                    "agent_name": event.data.get("agent_name", "analytics_agent_jaf"),
+                    "session_info": {
+                        "session_id": event.data.get("session_id"),
+                        "user_id": user_id or event.data.get("user_id")
+                    }
+                }
+                
                 trace = self.langfuse.trace(
                     name=f"jaf-run-{trace_id}",
-                    user_id=event.data.get("user_id"),
+                    user_id=user_id or event.data.get("user_id"),
                     session_id=event.data.get("session_id"),
-                    input=event.data,
-                    metadata={"framework": "jaf", "event_type": "run_start", "trace_id": str(trace_id)}
+                    input=trace_input,
+                    metadata={
+                        "framework": "jaf", 
+                        "event_type": "run_start", 
+                        "trace_id": str(trace_id),
+                        "user_query": user_query,
+                        "user_id": user_id or event.data.get("user_id"),
+                        "agent_name": event.data.get("agent_name", "analytics_agent_jaf")
+                    }
                 )
                 self.trace_spans[trace_id] = trace
-                print(f"[LANGFUSE] Created trace: {trace}")
+                # Store user_id and user_query for later use in generations
+                trace._user_id = user_id or event.data.get("user_id")
+                trace._user_query = user_query
+                print(f"[LANGFUSE] Created trace with user query: {user_query[:100] if user_query else 'None'}...")
                 
             elif event.type == "run_end":
                 if trace_id in self.trace_spans:
@@ -386,10 +470,21 @@ class LangfuseTraceCollector:
                 # Start a generation for LLM calls
                 model = event.data.get("model", "unknown")
                 print(f"[LANGFUSE] Starting generation for LLM call with model: {model}")
-                generation = self.trace_spans[trace_id].generation(
+                
+                # Get stored user information from the trace
+                trace = self.trace_spans[trace_id]
+                user_id = getattr(trace, '_user_id', None)
+                user_query = getattr(trace, '_user_query', None)
+                
+                generation = trace.generation(
                     name=f"llm-call-{model}",
                     input=event.data.get("messages"),
-                    metadata={"agent_name": event.data.get("agent_name"), "model": model}
+                    metadata={
+                        "agent_name": event.data.get("agent_name"), 
+                        "model": model,
+                        "user_id": user_id,
+                        "user_query": user_query
+                    }
                 )
                 span_id = self._get_span_id(event)
                 self.active_spans[span_id] = generation
@@ -405,47 +500,111 @@ class LangfuseTraceCollector:
                     
                     # Extract usage from the event data
                     usage = event.data.get("usage", {})
-
-                    # Convert to Langfuse v2 format
+                    
+                    # Extract model information from choice data or event data
+                    model = choice.get("model", "unknown")
+                    if model == "unknown":
+                        # Try to get model from the choice response structure
+                        if isinstance(choice, dict):
+                            model = choice.get("model") or choice.get("id", "unknown")
+                    
+                    # Convert to Langfuse v2 format - let Langfuse handle cost calculation automatically
                     langfuse_usage = None
                     if usage:
+                        prompt_tokens = usage.get("prompt_tokens", 0)
+                        completion_tokens = usage.get("completion_tokens", 0)
+                        total_tokens = usage.get("total_tokens", 0)
+                        
                         langfuse_usage = {
-                            "input": usage.get("prompt_tokens", 0),
-                            "output": usage.get("completion_tokens", 0),
-                            "total": usage.get("total_tokens", 0),
+                            "input": prompt_tokens,
+                            "output": completion_tokens,
+                            "total": total_tokens,
                             "unit": "TOKENS"
                         }
+                        
+                        print(f"[LANGFUSE] Usage data for automatic cost calculation: {langfuse_usage}")
 
-                    generation.end(output=choice, usage=langfuse_usage)
+                    # Include model information in the generation end - Langfuse will calculate costs automatically
+                    generation.end(
+                        output=choice, 
+                        usage=langfuse_usage,
+                        model=model,  # Pass model directly for automatic cost calculation
+                        metadata={
+                            "model": model,
+                            "system_fingerprint": choice.get("system_fingerprint"),
+                            "created": choice.get("created"),
+                            "response_id": choice.get("id")
+                        }
+                    )
 
                     # Clean up the span reference
                     del self.active_spans[span_id]
-                    print(f"[LANGFUSE] Generation ended")
+                    print(f"[LANGFUSE] Generation ended with cost tracking")
                 else:
                     print(f"[LANGFUSE] No generation found for llm_call_end: {span_id}")
                     
             elif event.type == "tool_call_start":
-                # Start a span for tool calls
-                print(f"[LANGFUSE] Starting span for tool call: {event.data.get('tool_name')}")
+                # Start a span for tool calls with detailed input information
+                tool_name = event.data.get('tool_name', 'unknown')
+                tool_args = event.data.get("args", {})
+                
+                print(f"[LANGFUSE] Starting span for tool call: {tool_name}")
+                
+                # Create comprehensive input data for the tool call
+                tool_input = {
+                    "tool_name": tool_name,
+                    "arguments": tool_args,
+                    "call_id": event.data.get("call_id"),
+                    "timestamp": datetime.now().isoformat()
+                }
+                
                 span = self.trace_spans[trace_id].span(
-                    name=f"tool-{event.data.get('tool_name', 'unknown')}",
-                    input=event.data.get("args"),
-                    metadata={"tool_name": event.data.get("tool_name")}
+                    name=f"tool-{tool_name}",
+                    input=tool_input,
+                    metadata={
+                        "tool_name": tool_name,
+                        "call_id": event.data.get("call_id"),
+                        "framework": "jaf",
+                        "event_type": "tool_call"
+                    }
                 )
                 span_id = self._get_span_id(event)
                 self.active_spans[span_id] = span
-                print(f"[LANGFUSE] Created tool span: {span}")
+                print(f"[LANGFUSE] Created tool span for {tool_name} with args: {str(tool_args)[:100]}...")
                     
             elif event.type == "tool_call_end":
                 span_id = self._get_span_id(event)
                 if span_id in self.active_spans:
-                    print(f"[LANGFUSE] Ending span for tool call")
-                    # End the span
+                    tool_name = event.data.get('tool_name', 'unknown')
+                    tool_result = event.data.get("result")
+                    
+                    print(f"[LANGFUSE] Ending span for tool call: {tool_name}")
+                    
+                    # Create comprehensive output data for the tool call
+                    tool_output = {
+                        "tool_name": tool_name,
+                        "result": tool_result,
+                        "call_id": event.data.get("call_id"),
+                        "timestamp": datetime.now().isoformat(),
+                        "status": "completed"
+                    }
+                    
+                    # End the span with detailed output
                     span = self.active_spans[span_id]
-                    span.end(output=event.data.get("result"))
+                    span.end(
+                        output=tool_output,
+                        metadata={
+                            "tool_name": tool_name,
+                            "call_id": event.data.get("call_id"),
+                            "result_length": len(str(tool_result)) if tool_result else 0,
+                            "framework": "jaf",
+                            "event_type": "tool_call_end"
+                        }
+                    )
+                    
                     # Clean up the span reference
                     del self.active_spans[span_id]
-                    print(f"[LANGFUSE] Tool span ended")
+                    print(f"[LANGFUSE] Tool span ended for {tool_name} with result length: {len(str(tool_result)) if tool_result else 0}")
                 else:
                     print(f"[LANGFUSE] No tool span found for tool_call_end: {span_id}")
                     
@@ -502,19 +661,10 @@ class LangfuseTraceCollector:
             tool_name = event.data.get('tool_name') or event.data.get('toolName', 'unknown')
             return f"tool-{tool_name}-{trace_id}"
         elif event.type.startswith('llm_call'):
-            # For LLM calls, get the model name from the event data
-            model = event.data.get('model')
-            
-            # For llm_call_end events, the model might be in the choice object
-            if not model and event.type == 'llm_call_end':
-                choice = event.data.get('choice', {})
-                if isinstance(choice, dict):
-                    model = choice.get('model')
-            
-            # Handle case where model might be empty or None
-            if not model or model == '':
-                model = 'unknown'
-            return f"llm-{model}-{trace_id}"
+            # For LLM calls, use a simpler consistent ID that matches between start and end
+            # Get run_id for more consistent matching
+            run_id = event.data.get('run_id') or event.data.get('runId', trace_id)
+            return f"llm-{run_id}"
         else:
             return f"{event.type}-{trace_id}"
 

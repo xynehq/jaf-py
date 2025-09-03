@@ -94,7 +94,9 @@ async def run(
             config.on_event(RunStartEvent(data=to_event_data(RunStartEventData(
                 run_id=initial_state.run_id,
                 trace_id=initial_state.trace_id,
-                session_id=config.conversation_id
+                session_id=config.conversation_id,
+                context=initial_state.context,
+                messages=initial_state.messages
             ))))
 
         state_with_memory = await _load_conversation_history(initial_state, config)
@@ -293,7 +295,9 @@ async def _run_internal(
             agent_name=current_agent.name,
             model=model,
             trace_id=state.trace_id,
-            run_id=state.run_id
+            run_id=state.run_id,
+            context=state.context,
+            messages=state.messages
         ))))
 
     # Get completion from model provider

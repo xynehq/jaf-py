@@ -379,6 +379,8 @@ class RunStartEventData:
     run_id: RunId
     trace_id: TraceId
     session_id: Optional[str] = None
+    context: Optional[Any] = None
+    messages: Optional[List[Message]] = None
 
 @dataclass(frozen=True)
 class RunStartEvent:
@@ -392,6 +394,8 @@ class LLMCallStartEventData:
     model: str
     trace_id: TraceId
     run_id: RunId
+    context: Optional[Any] = None
+    messages: Optional[List[Message]] = None
 
 @dataclass(frozen=True)
 class LLMCallStartEvent:
