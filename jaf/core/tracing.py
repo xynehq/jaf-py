@@ -364,7 +364,6 @@ class LangfuseTraceCollector:
                 user_id = None
                 
                 # Debug: Print the event data structure to understand what we're working with
-                print(f"[LANGFUSE DEBUG] Event data keys: {list(event.data.keys()) if event.data else 'No data'}")
                 if event.data.get("context"):
                     context = event.data["context"]
                     print(f"[LANGFUSE DEBUG] Context type: {type(context)}")
@@ -649,7 +648,6 @@ class LangfuseTraceCollector:
                 return TraceId(event.data['runId'])
         
         # Debug: print what's actually in the event data
-        print(f"[LANGFUSE] Event data keys: {list(event.data.keys()) if hasattr(event, 'data') and event.data else 'No data'}")
         return None
 
     def _get_span_id(self, event: TraceEvent) -> str:
