@@ -36,6 +36,8 @@ from .types import (
     LLMCallEndEventData,
     LLMCallStartEvent,
     LLMCallStartEventData,
+    AssistantMessageEvent,
+    AssistantMessageEventData,
     MaxTurnsExceeded,
     Message,
     ModelBehaviorError,
@@ -300,8 +302,115 @@ async def _run_internal(
             messages=state.messages
         ))))
 
-    # Get completion from model provider
-    llm_response = await config.model_provider.get_completion(state, current_agent, config)
+    # Get completion from model provider, prefer streaming if available
+    llm_response: Dict[str, Any]
+    assistant_event_streamed = False
+
+    get_stream = getattr(config.model_provider, "get_completion_stream", None)
+    if callable(get_stream):
+        try:
+            aggregated_text = ""
+            # Working array of partial tool calls
+            partial_tool_calls: List[Dict[str, Any]] = []
+
+            async for chunk in get_stream(state, current_agent, config):  # type: ignore[arg-type]
+                # Text deltas
+                delta_text = getattr(chunk, "delta", None)
+                if delta_text:
+                    aggregated_text += delta_text
+
+                # Tool call deltas
+                tcd = getattr(chunk, "tool_call_delta", None)
+                if tcd is not None:
+                    idx = getattr(tcd, "index", 0) or 0
+                    # Ensure slot exists
+                    while len(partial_tool_calls) <= idx:
+                        partial_tool_calls.append({
+                            "id": None,
+                            "type": "function",
+                            "function": {"name": None, "arguments": ""}
+                        })
+                    target = partial_tool_calls[idx]
+                    # id
+                    tc_id = getattr(tcd, "id", None)
+                    if tc_id:
+                        target["id"] = tc_id
+                    # function fields
+                    fn = getattr(tcd, "function", None)
+                    if fn is not None:
+                        fn_name = getattr(fn, "name", None)
+                        if fn_name:
+                            target["function"]["name"] = fn_name
+                        args_delta = getattr(fn, "arguments_delta", None)
+                        if args_delta:
+                            target["function"]["arguments"] += args_delta
+
+                # Emit partial assistant message when something changed
+                if delta_text or tcd is not None:
+                    assistant_event_streamed = True
+                    # Normalize tool_calls for message
+                    message_tool_calls = None
+                    if len(partial_tool_calls) > 0:
+                        message_tool_calls = []
+                        for i, tc in enumerate(partial_tool_calls):
+                            message_tool_calls.append({
+                                "id": tc["id"] or f"call_{i}",
+                                "type": "function",
+                                "function": {
+                                    "name": tc["function"]["name"] or "",
+                                    "arguments": tc["function"]["arguments"]
+                                }
+                            })
+
+                    partial_msg = Message(
+                        role=ContentRole.ASSISTANT,
+                        content=aggregated_text or "",
+                        tool_calls=None if not message_tool_calls else [
+                            ToolCall(
+                                id=mc["id"],
+                                type="function",
+                                function=ToolCallFunction(
+                                    name=mc["function"]["name"],
+                                    arguments=mc["function"]["arguments"],
+                                ),
+                            ) for mc in message_tool_calls
+                        ],
+                    )
+                    try:
+                        if config.on_event:
+                            config.on_event(AssistantMessageEvent(data=to_event_data(
+                                AssistantMessageEventData(message=partial_msg)
+                            )))
+                    except Exception as _e:
+                        # Do not fail the run on callback errors
+                        pass
+
+            # Build final response object compatible with downstream logic
+            final_tool_calls = None
+            if len(partial_tool_calls) > 0:
+                final_tool_calls = []
+                for i, tc in enumerate(partial_tool_calls):
+                    final_tool_calls.append({
+                        "id": tc["id"] or f"call_{i}",
+                        "type": "function",
+                        "function": {
+                            "name": tc["function"]["name"] or "",
+                            "arguments": tc["function"]["arguments"]
+                        }
+                    })
+
+            llm_response = {
+                "message": {
+                    "content": aggregated_text or None,
+                    "tool_calls": final_tool_calls
+                }
+            }
+        except Exception:
+            # Fallback to non-streaming on error
+            assistant_event_streamed = False
+            llm_response = await config.model_provider.get_completion(state, current_agent, config)
+    else:
+        llm_response = await config.model_provider.get_completion(state, current_agent, config)
 
     # Emit LLM call end event
     if config.on_event:

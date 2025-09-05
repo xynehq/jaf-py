@@ -5,13 +5,14 @@ This module provides model providers that integrate with various LLM services,
 starting with LiteLLM for multi-provider support.
 """
 
-from typing import Any, Dict, Optional, TypeVar
+from typing import Any, Dict, Optional, TypeVar, AsyncIterator, List
+import asyncio
 import httpx
 
 from openai import OpenAI
 from pydantic import BaseModel
 
-from ..core.types import Agent, ContentRole, Message, ModelProvider, RunConfig, RunState
+from ..core.types import Agent, ContentRole, Message, ModelProvider, RunConfig, RunState, CompletionStreamChunk, ToolCallDelta, ToolCallFunctionDelta
 from ..core.proxy import ProxyConfig
 
 Ctx = TypeVar('Ctx')
@@ -168,6 +169,168 @@ def make_litellm_provider(
                 'usage': usage_data,
                 'prompt': messages
             }
+
+        async def get_completion_stream(
+            self,
+            state: RunState[Ctx],
+            agent: Agent[Ctx, Any],
+            config: RunConfig[Ctx]
+        ) -> AsyncIterator[CompletionStreamChunk]:
+            """
+            Stream completion chunks from the model provider, yielding text deltas and tool-call deltas.
+            Uses OpenAI-compatible streaming via LiteLLM endpoint.
+            """
+            # Determine model to use
+            model = (config.model_override or
+                     (agent.model_config.name if agent.model_config else "gpt-4o"))
+
+            # Create system message
+            system_message = {
+                "role": "system",
+                "content": agent.instructions(state)
+            }
+
+            # Convert messages to OpenAI format
+            messages = [system_message] + [
+                _convert_message(msg) for msg in state.messages
+            ]
+
+            # Convert tools to OpenAI format
+            tools = None
+            if agent.tools:
+                tools = [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": tool.schema.name,
+                            "description": tool.schema.description,
+                            "parameters": _pydantic_to_json_schema(tool.schema.parameters),
+                        }
+                    }
+                    for tool in agent.tools
+                ]
+
+            # Determine tool choice behavior
+            last_message = state.messages[-1] if state.messages else None
+            is_after_tool_call = last_message and (last_message.role == ContentRole.TOOL or last_message.role == 'tool')
+
+            # Prepare request parameters
+            request_params: Dict[str, Any] = {
+                "model": model,
+                "messages": messages,
+            }
+
+            # Add optional parameters
+            if agent.model_config:
+                if agent.model_config.temperature is not None:
+                    request_params["temperature"] = agent.model_config.temperature
+                if agent.model_config.max_tokens is not None:
+                    request_params["max_tokens"] = agent.model_config.max_tokens
+
+            if tools:
+                request_params["tools"] = tools
+                # Set tool_choice to auto when tools are available
+                request_params["tool_choice"] = "auto"
+
+            if agent.output_codec:
+                request_params["response_format"] = {"type": "json_object"}
+
+            # Enable streaming
+            request_params["stream"] = True
+
+            loop = asyncio.get_running_loop()
+            queue: asyncio.Queue = asyncio.Queue(maxsize=256)
+            SENTINEL = object()
+
+            def _put(item: CompletionStreamChunk):
+                try:
+                    asyncio.run_coroutine_threadsafe(queue.put(item), loop)
+                except RuntimeError:
+                    # Event loop closed; drop silently
+                    pass
+
+            def _producer():
+                try:
+                    stream = self.client.chat.completions.create(**request_params)
+                    for chunk in stream:
+                        try:
+                            # Best-effort extraction of raw for debugging
+                            try:
+                                raw_obj = chunk.model_dump()  # pydantic BaseModel
+                            except Exception:
+                                raw_obj = None
+
+                            choice = None
+                            if getattr(chunk, "choices", None):
+                                choice = chunk.choices[0]
+
+                            if choice is None:
+                                continue
+
+                            delta = getattr(choice, "delta", None)
+                            finish_reason = getattr(choice, "finish_reason", None)
+
+                            # Text content delta
+                            if delta is not None:
+                                content_delta = getattr(delta, "content", None)
+                                if content_delta:
+                                    _put(CompletionStreamChunk(delta=content_delta, raw=raw_obj))
+
+                                # Tool call deltas
+                                tool_calls = getattr(delta, "tool_calls", None)
+                                if isinstance(tool_calls, list):
+                                    for tc in tool_calls:
+                                        # Each tc is likely a pydantic model with .index/.id/.function
+                                        try:
+                                            idx = getattr(tc, "index", 0) or 0
+                                            tc_id = getattr(tc, "id", None)
+                                            fn = getattr(tc, "function", None)
+                                            fn_name = getattr(fn, "name", None) if fn is not None else None
+                                            # OpenAI streams "arguments" as incremental deltas
+                                            args_delta = getattr(fn, "arguments", None) if fn is not None else None
+
+                                            _put(CompletionStreamChunk(
+                                                tool_call_delta=ToolCallDelta(
+                                                    index=idx,
+                                                    id=tc_id,
+                                                    type='function',
+                                                    function=ToolCallFunctionDelta(
+                                                        name=fn_name,
+                                                        arguments_delta=args_delta
+                                                    )
+                                                ),
+                                                raw=raw_obj
+                                            ))
+                                        except Exception:
+                                            # Skip malformed tool-call deltas
+                                            continue
+
+                            # Completion ended
+                            if finish_reason:
+                                _put(CompletionStreamChunk(is_done=True, finish_reason=finish_reason, raw=raw_obj))
+                        except Exception:
+                            # Skip individual chunk errors, keep streaming
+                            continue
+                except Exception:
+                    # On top-level stream error, signal done
+                    pass
+                finally:
+                    try:
+                        asyncio.run_coroutine_threadsafe(queue.put(SENTINEL), loop)
+                    except RuntimeError:
+                        pass
+
+            # Start producer in background
+            loop.run_in_executor(None, _producer)
+
+            # Consume queue and yield
+            while True:
+                item = await queue.get()
+                if item is SENTINEL:
+                    break
+                # Guarantee type for consumers
+                if isinstance(item, CompletionStreamChunk):
+                    yield item
 
     return LiteLLMProvider()
 
