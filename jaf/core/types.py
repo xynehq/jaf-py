@@ -5,7 +5,7 @@ This module defines all the fundamental data structures and types used throughou
 the framework, maintaining immutability and type safety.
 """
 
-from collections.abc import Awaitable
+from collections.abc import Awaitable, AsyncIterator
 
 # ReadOnly is only available in Python 3.13+, so we'll use a simpler approach
 from dataclasses import dataclass, field
@@ -416,6 +416,15 @@ class LLMCallEndEvent:
     data: LLMCallEndEventData = field(default_factory=lambda: LLMCallEndEventData(None, TraceId(""), RunId("")))
 
 @dataclass(frozen=True)
+class AssistantMessageEventData:
+    """Data for assistant message events (partial or complete)."""
+    message: Message
+
+@dataclass(frozen=True)
+class AssistantMessageEvent:
+    type: Literal['assistant_message'] = 'assistant_message'
+    data: AssistantMessageEventData = field(default_factory=lambda: AssistantMessageEventData(Message(role=ContentRole.ASSISTANT, content="")))
+@dataclass(frozen=True)
 class ToolCallStartEventData:
     """Data for tool call start events."""
     tool_name: str
@@ -515,6 +524,7 @@ TraceEvent = Union[
     OutputParseEvent,
     LLMCallStartEvent,
     LLMCallEndEvent,
+    AssistantMessageEvent,
     ToolCallStartEvent,
     ToolCallEndEvent,
     HandoffEvent,
@@ -532,6 +542,30 @@ class ModelCompletionResponse:
     """Response structure from model completion."""
     message: Optional[ModelCompletionMessage] = None
 
+# Streaming chunk structures for provider-level streaming support
+@dataclass(frozen=True)
+class ToolCallFunctionDelta:
+    """Function fields that may stream as deltas."""
+    name: Optional[str] = None
+    arguments_delta: Optional[str] = None
+
+@dataclass(frozen=True)
+class ToolCallDelta:
+    """Represents a partial tool call delta in a streamed response."""
+    index: int
+    id: Optional[str] = None
+    type: Literal['function'] = 'function'
+    function: Optional[ToolCallFunctionDelta] = None
+
+@dataclass(frozen=True)
+class CompletionStreamChunk:
+    """A streamed chunk from the model provider."""
+    delta: Optional[str] = None
+    tool_call_delta: Optional[ToolCallDelta] = None
+    is_done: Optional[bool] = False
+    finish_reason: Optional[str] = None
+    raw: Optional[Any] = None
+
 @runtime_checkable
 class ModelProvider(Protocol[Ctx]):
     """Protocol for model providers."""
@@ -543,6 +577,15 @@ class ModelProvider(Protocol[Ctx]):
         config: 'RunConfig[Ctx]'
     ) -> ModelCompletionResponse:
         """Get completion from the model."""
+        ...
+
+    async def get_completion_stream(
+        self,
+        state: RunState[Ctx],
+        agent: Agent[Ctx, Any],
+        config: 'RunConfig[Ctx]'
+    ) -> AsyncIterator[CompletionStreamChunk]:
+        """Optional streaming API: yields incremental deltas while generating."""
         ...
 
 @dataclass(frozen=True)

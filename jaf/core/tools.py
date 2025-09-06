@@ -89,14 +89,12 @@ def create_function_tool(config: FunctionToolConfig) -> Tool:
     # Validate schema generation (cached for performance)
     if not hasattr(parameters, '_schema_validated'):
         try:
+            # Generate schema once to validate the model is well-formed.
+            # Allow empty object schemas (no parameters) for tools that take no args.
             if hasattr(parameters, 'model_json_schema'):
-                test_schema = parameters.model_json_schema()
-                if not test_schema.get('properties'):
-                    raise ValueError(f"Tool '{tool_name}' has no properties in schema. Check your Pydantic model fields.")
+                _ = parameters.model_json_schema()
             elif hasattr(parameters, 'schema'):
-                test_schema = parameters.schema()
-                if not test_schema.get('properties'):
-                    raise ValueError(f"Tool '{tool_name}' has no properties in schema. Check your Pydantic model fields.")
+                _ = parameters.schema()
             parameters._schema_validated = True
         except Exception as e:
             logger.error(f"Tool {tool_name} schema generation failed: {e}")
