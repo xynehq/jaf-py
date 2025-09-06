@@ -2,67 +2,67 @@
 
 <!-- ![JAF Banner](docs/cover.png) -->
 
-[![Version](https://img.shields.io/badge/version-2.2.3-blue.svg)](https://github.com/xynehq/jaf-py)
+[![Version](https://img.shields.io/badge/version-2.3.1-blue.svg)](https://github.com/xynehq/jaf-py)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Docs](https://img.shields.io/badge/Docs-Live-brightgreen)](https://xynehq.github.io/jaf-py/)
 
 A purely functional agent framework with immutable state and composable tools, professionally converted from TypeScript to Python. JAF enables building production-ready AI agent systems with built-in security, observability, and error handling.
 
-**🎯 Production Ready**: Complete feature parity with TypeScript version, comprehensive test suite, and production deployment support.
+** Production Ready**: Complete feature parity with TypeScript version, comprehensive test suite, and production deployment support.
 
-## 📚 **[Read the Full Documentation](https://xynehq.github.io/jaf-py/)**
+##  **[Read the Full Documentation](https://xynehq.github.io/jaf-py/)**
 
-**[🚀 Get Started →](https://xynehq.github.io/jaf-py/getting-started/)** | **[📖 API Reference →](https://xynehq.github.io/jaf-py/api-reference/)** | **[🎮 Examples →](https://xynehq.github.io/jaf-py/examples/)**
+**[ Get Started →](https://xynehq.github.io/jaf-py/getting-started/)** | **[ API Reference →](https://xynehq.github.io/jaf-py/api-reference/)** | **[ Examples →](https://xynehq.github.io/jaf-py/examples/)**
 
-## ✨ Key Features
+## Key Features
 
-### 🏗️ **Complete TypeScript Conversion**
-- ✅ **Full Feature Parity**: All TypeScript functionality converted to Python
-- ✅ **Type Safety**: Pydantic models with runtime validation
-- ✅ **Immutable State**: Functional programming principles preserved
-- ✅ **Tool Integration**: Complete tool calling and execution system
+###  **Complete TypeScript Conversion**
+-  **Full Feature Parity**: All TypeScript functionality converted to Python
+-  **Type Safety**: Pydantic models with runtime validation
+-  **Immutable State**: Functional programming principles preserved
+-  **Tool Integration**: Complete tool calling and execution system
 
-### 🚀 **Production Ready Server**
-- ✅ **FastAPI Server**: High-performance async HTTP API
-- ✅ **Auto Documentation**: Interactive API docs at `/docs`
-- ✅ **Health Monitoring**: Built-in health checks and metrics
-- ✅ **CORS Support**: Ready for browser integration
+###  **Production Ready Server**
+-  **FastAPI Server**: High-performance async HTTP API
+-  **Auto Documentation**: Interactive API docs at `/docs`
+-  **Health Monitoring**: Built-in health checks and metrics
+-  **CORS Support**: Ready for browser integration
 
-### 🔌 **Model Context Protocol (MCP)**
-- ✅ **MCP Client**: Full MCP specification support
-- ✅ **Stdio & SSE**: Multiple transport protocols
-- ✅ **Tool Integration**: Seamless MCP tool integration
-- ✅ **Auto Discovery**: Dynamic tool loading from MCP servers
+###  **Model Context Protocol (MCP)**
+-  **MCP Client**: Full MCP specification support
+-  **Stdio & SSE**: Multiple transport protocols
+-  **Tool Integration**: Seamless MCP tool integration
+-  **Auto Discovery**: Dynamic tool loading from MCP servers
 
-### 🛡️ **Enterprise Security**
-- ✅ **Input Guardrails**: Content filtering and validation
-- ✅ **Output Guardrails**: Response sanitization
-- ✅ **Permission System**: Role-based access control
-- ✅ **Audit Logging**: Complete interaction tracing
-- ✅ **Proxy Support**: Corporate proxy integration with authentication
+###  **Enterprise Security**
+-  **Input Guardrails**: Content filtering and validation
+-  **Output Guardrails**: Response sanitization
+-  **Permission System**: Role-based access control
+-  **Audit Logging**: Complete interaction tracing
+-  **Proxy Support**: Corporate proxy integration with authentication
 
-### 📊 **Observability & Monitoring**
-- ✅ **Real-time Tracing**: Event-driven observability
-- ✅ **OpenTelemetry Integration**: Distributed tracing with OTLP
-- ✅ **Langfuse Tracing**: LLM observability and analytics
-- ✅ **Structured Logging**: JSON-formatted logs
-- ✅ **Error Handling**: Comprehensive error types and recovery
-- ✅ **Performance Metrics**: Built-in timing and counters
+###  **Observability & Monitoring**
+-  **Real-time Tracing**: Event-driven observability
+-  **OpenTelemetry Integration**: Distributed tracing with OTLP
+-  **Langfuse Tracing**: LLM observability and analytics
+-  **Structured Logging**: JSON-formatted logs
+-  **Error Handling**: Comprehensive error types and recovery
+-  **Performance Metrics**: Built-in timing and counters
 
-### 🤖 **Agent-as-Tool Architecture**
-- ✅ **Hierarchical Orchestration**: Use agents as tools in other agents
-- ✅ **Conditional Tool Enabling**: Enable/disable agent tools based on context
-- ✅ **Session Management**: Configurable session inheritance for sub-agents
-- ✅ **Flexible Output Extraction**: Custom extractors for agent tool outputs
+###  **Agent-as-Tool Architecture**
+-  **Hierarchical Orchestration**: Use agents as tools in other agents
+-  **Conditional Tool Enabling**: Enable/disable agent tools based on context
+-  **Session Management**: Configurable session inheritance for sub-agents
+-  **Flexible Output Extraction**: Custom extractors for agent tool outputs
 
-### 🔧 **Developer Experience**
-- ✅ **CLI Tools**: Project initialization and management
-- ✅ **Hot Reload**: Development server with auto-reload
-- ✅ **Type Hints**: Full mypy compatibility
-- ✅ **Rich Examples**: RAG, multi-agent, agent-as-tool, and server demos
-- ✅ **Visual Architecture**: Graphviz-powered agent and tool diagrams
+###  **Developer Experience**
+-  **CLI Tools**: Project initialization and management
+-  **Hot Reload**: Development server with auto-reload
+-  **Type Hints**: Full mypy compatibility
+-  **Rich Examples**: RAG, multi-agent, agent-as-tool, and server demos
+-  **Visual Architecture**: Graphviz-powered agent and tool diagrams
 
-## 🎯 Core Philosophy
+##  Core Philosophy
 
 - **Immutability**: All core data structures are deeply immutable
 - **Pure Functions**: Core logic expressed as pure, predictable functions
@@ -70,7 +70,7 @@ A purely functional agent framework with immutable state and composable tools, p
 - **Composition over Configuration**: Build complex behavior by composing simple functions
 - **Type-Safe by Design**: Leverages Python's type system with Pydantic for runtime safety
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### Installation
 
@@ -126,37 +126,37 @@ pip install -r requirements-docs.txt
 ./docs.sh deploy # Deploy to GitHub Pages
 ```
 
-## 📖 Documentation
+##  Documentation
 
-### 🌐 **[Official Documentation Website](https://xynehq.github.io/jaf-py/)**
+###  **[Official Documentation Website](https://xynehq.github.io/jaf-py/)**
 
 The complete, searchable documentation is available at **[xynehq.github.io/jaf-py](https://xynehq.github.io/jaf-py/)** with:
 
-- ✅ **Interactive navigation** with search and filtering
-- ✅ **Dark/light mode** with automatic system preference detection  
-- ✅ **Mobile-responsive design** for documentation on any device
-- ✅ **Live code examples** with syntax highlighting
-- ✅ **API reference** with auto-generated documentation
-- ✅ **Always up-to-date** with automatic deployments
+-  **Interactive navigation** with search and filtering
+-  **Dark/light mode** with automatic system preference detection  
+-  **Mobile-responsive design** for documentation on any device
+-  **Live code examples** with syntax highlighting
+-  **API reference** with auto-generated documentation
+-  **Always up-to-date** with automatic deployments
 
-### 📁 **Local Documentation**
+###  **Local Documentation**
 
 For offline access, documentation is also available in the [`docs/`](docs/) directory:
 
-- **[📚 Documentation Hub](docs/README.md)** - Your starting point for all documentation
-- **[🚀 Getting Started](docs/getting-started.md)** - Installation and first agent tutorial
-- **[🏗️ Core Concepts](docs/core-concepts.md)** - JAF's functional architecture principles
-- **[📋 API Reference](docs/api-reference.md)** - Complete Python API documentation
-- **[🔧 Tools Guide](docs/tools.md)** - Creating and using tools
-- **[💾 Memory System](docs/memory-system.md)** - Persistence and memory providers
-- **[🤖 Model Providers](docs/model-providers.md)** - LiteLLM integration
-- **[📊 Monitoring](docs/monitoring.md)** - Observability, metrics, and alerting
-- **[🌐 Server API](docs/server-api.md)** - FastAPI endpoints reference
-- **[📦 Deployment](docs/deployment.md)** - Production deployment guide
-- **[🎮 Examples](docs/examples.md)** - Detailed example walkthroughs
-- **[🔧 Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
+- **[ Documentation Hub](docs/README.md)** - Your starting point for all documentation
+- **[ Getting Started](docs/getting-started.md)** - Installation and first agent tutorial
+- **[ Core Concepts](docs/core-concepts.md)** - JAF's functional architecture principles
+- **[ API Reference](docs/api-reference.md)** - Complete Python API documentation
+- **[ Tools Guide](docs/tools.md)** - Creating and using tools
+- **[ Memory System](docs/memory-system.md)** - Persistence and memory providers
+- **[ Model Providers](docs/model-providers.md)** - LiteLLM integration
+- **[ Monitoring](docs/monitoring.md)** - Observability, metrics, and alerting
+- **[ Server API](docs/server-api.md)** - FastAPI endpoints reference
+- **[ Deployment](docs/deployment.md)** - Production deployment guide
+- **[ Examples](docs/examples.md)** - Detailed example walkthroughs
+- **[ Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 jaf-py/
@@ -172,7 +172,7 @@ jaf-py/
 └── tests/                  # Test suite
 ```
 
-## 🎨 Architectural Visualization
+##  Architectural Visualization
 
 JAF includes powerful visualization capabilities to help you understand and document your agent systems.
 
@@ -224,7 +224,7 @@ async def main():
     )
     
     if result.success:
-        print(f"✅ Visualization saved to: {result.output_path}")
+        print(f" Visualization saved to: {result.output_path}")
     else:
         print(f"❌ Error: {result.error}")
 
@@ -233,12 +233,12 @@ asyncio.run(main())
 
 ### Features
 
-- **🎨 Multiple Color Schemes**: Choose from `default`, `modern`, or `minimal` themes
-- **📊 Agent Architecture**: Visualize agents, tools, and handoff relationships  
-- **🔧 Tool Ecosystems**: Generate dedicated tool interaction diagrams
-- **🏃 Runner Architecture**: Show complete system architecture with session layers
-- **📄 Multiple Formats**: Export as PNG, SVG, or PDF
-- **⚙️ Customizable Layouts**: Support for various Graphviz layouts (`dot`, `circo`, `neato`, etc.)
+- ** Multiple Color Schemes**: Choose from `default`, `modern`, or `minimal` themes
+- ** Agent Architecture**: Visualize agents, tools, and handoff relationships  
+- ** Tool Ecosystems**: Generate dedicated tool interaction diagrams
+- ** Runner Architecture**: Show complete system architecture with session layers
+- ** Multiple Formats**: Export as PNG, SVG, or PDF
+- ** Customizable Layouts**: Support for various Graphviz layouts (`dot`, `circo`, `neato`, etc.)
 
 ### Example Output
 
@@ -265,7 +265,7 @@ await run_visualization_examples()
 # - ./examples/agent-modern.png (modern color scheme)
 ```
 
-## 🏗️ Key Components
+##  Key Components
 
 ### Core Types
 
@@ -343,7 +343,7 @@ async def main():
 asyncio.run(main())
 ```
 
-## 🛡️ Security & Validation
+##  Security & Validation
 
 ### Composable Validation Policies
 
@@ -378,7 +378,7 @@ config = RunConfig(
 )
 ```
 
-## 🤖 Agent-as-Tool Functionality
+##  Agent-as-Tool Functionality
 
 JAF 2.2+ introduces powerful agent-as-tool capabilities, allowing you to use agents as tools within other agents for hierarchical orchestration:
 
@@ -457,7 +457,7 @@ def create_triage_agent():
     )
 ```
 
-## 📊 Observability
+##  Observability
 
 ### Real-time Tracing
 
@@ -534,7 +534,7 @@ if result.outcome.status == 'error':
     print(f"[{severity}] {formatted_error} (retryable: {is_retryable})")
 ```
 
-## 🔌 Provider Integrations
+##  Provider Integrations
 
 ### A2A (Agent-to-Agent) Communication
 
@@ -601,7 +601,7 @@ from jaf.providers.mcp import create_mcp_sse_client
 sse_client = create_mcp_sse_client('http://localhost:8080/sse')
 ```
 
-## 🚀 Development Server
+##  Development Server
 
 JAF includes a built-in development server for testing agents locally via HTTP endpoints:
 
@@ -635,7 +635,7 @@ Server provides RESTful endpoints:
 - `POST /chat` - General chat endpoint
 - `POST /agents/{name}/chat` - Agent-specific endpoint
 
-## 🔧 Function Composition
+##  Function Composition
 
 JAF supports functional composition patterns for building complex behaviors from simple, reusable functions:
 
@@ -671,7 +671,7 @@ enhanced_tool = create_function_tool({
 - **Type Safety**: Full type checking support
 - **Performance**: Optimize individual pieces independently
 
-## 🎮 Example Applications
+##  Example Applications
 
 Explore the example applications to see the framework in action:
 
@@ -683,12 +683,12 @@ python server_example.py
 ```
 
 **Features demonstrated:**
-- ✅ Multiple specialized agents (math, weather, general)
-- ✅ Tool integration (calculator, weather API)
-- ✅ Agent handoffs and routing
-- ✅ RESTful API with auto-documentation
-- ✅ Real-time tracing and error handling
-- ✅ Production-ready server configuration
+-  Multiple specialized agents (math, weather, general)
+-  Tool integration (calculator, weather API)
+-  Agent handoffs and routing
+-  RESTful API with auto-documentation
+-  Real-time tracing and error handling
+-  Production-ready server configuration
 
 **Available endpoints:**
 - `GET /health` - Server health check
@@ -707,11 +707,11 @@ python agent_as_tool_example.py --server
 ```
 
 **Features demonstrated:**
-- ✅ Hierarchical agent orchestration
-- ✅ Conditional tool enabling based on context
-- ✅ Custom output extraction from agent tools
-- ✅ Session management for sub-agents
-- ✅ Translation agents working together
+-  Hierarchical agent orchestration
+-  Conditional tool enabling based on context
+-  Custom output extraction from agent tools
+-  Session management for sub-agents
+-  Translation agents working together
 
 ### 3. Tracing Integration Demos
 
@@ -725,10 +725,10 @@ python langfuse_tracing_demo.py
 ```
 
 **Features demonstrated:**
-- ✅ OpenTelemetry distributed tracing setup
-- ✅ Langfuse LLM observability integration
-- ✅ Composite trace collectors
-- ✅ Real-time monitoring and analytics
+-  OpenTelemetry distributed tracing setup
+-  Langfuse LLM observability integration
+-  Composite trace collectors
+-  Real-time monitoring and analytics
 
 ### 4. MCP Integration Demo
 
@@ -738,12 +738,12 @@ python main.py
 ```
 
 **Features demonstrated:**
-- ✅ Model Context Protocol integration
-- ✅ Dynamic tool loading from MCP servers
-- ✅ Secure filesystem operations
-- ✅ MCP client configuration and management
+-  Model Context Protocol integration
+-  Dynamic tool loading from MCP servers
+-  Secure filesystem operations
+-  MCP client configuration and management
 
-## 🧪 Testing
+##  Testing
 
 ```bash
 pytest          # Run tests
@@ -752,7 +752,7 @@ mypy .          # Type checking
 black .         # Format code
 ```
 
-## 🏛️ Architecture Principles
+##  Architecture Principles
 
 ### Immutable State Machine
 - All state transformations create new state objects
@@ -788,4 +788,4 @@ MIT
 
 ---
 
-**JAF (Juspay Agentic Framework) v2.2** - Building the future of functional AI agent systems 🚀
+**JAF (Juspay Agentic Framework) v2.2** - Building the future of functional AI agent systems 
