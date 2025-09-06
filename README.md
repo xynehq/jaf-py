@@ -8,7 +8,7 @@
 
 A purely functional agent framework with immutable state and composable tools, professionally converted from TypeScript to Python. JAF enables building production-ready AI agent systems with built-in security, observability, and error handling.
 
-** Production Ready**: Complete feature parity with TypeScript version, comprehensive test suite, and production deployment support.
+**Production Ready**: Complete feature parity with TypeScript version, comprehensive test suite, and production deployment support.
 
 ##  **[Read the Full Documentation](https://xynehq.github.io/jaf-py/)**
 
@@ -233,12 +233,12 @@ asyncio.run(main())
 
 ### Features
 
-- ** Multiple Color Schemes**: Choose from `default`, `modern`, or `minimal` themes
-- ** Agent Architecture**: Visualize agents, tools, and handoff relationships  
-- ** Tool Ecosystems**: Generate dedicated tool interaction diagrams
-- ** Runner Architecture**: Show complete system architecture with session layers
-- ** Multiple Formats**: Export as PNG, SVG, or PDF
-- ** Customizable Layouts**: Support for various Graphviz layouts (`dot`, `circo`, `neato`, etc.)
+- **Multiple Color Schemes**: Choose from `default`, `modern`, or `minimal` themes
+- **Agent Architecture**: Visualize agents, tools, and handoff relationships  
+- **Tool Ecosystems**: Generate dedicated tool interaction diagrams
+- **Runner Architecture**: Show complete system architecture with session layers
+- **Multiple Formats**: Export as PNG, SVG, or PDF
+- **Customizable Layouts**: Support for various Graphviz layouts (`dot`, `circo`, `neato`, etc.)
 
 ### Example Output
 
