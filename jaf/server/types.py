@@ -10,16 +10,35 @@ from typing import Any, Dict, Generic, List, Literal, Optional, TypeVar, Union
 
 from pydantic import BaseModel, Field
 
-from ..core.types import Agent, RunConfig
+from ..core.types import Agent, RunConfig, Attachment, MessageContentPart, get_text_content
 from ..memory.types import MemoryProvider
 
 Ctx = TypeVar('Ctx')
+
+# Pydantic models for attachments to work with HTTP API
+class HttpAttachment(BaseModel):
+    """HTTP attachment format for API requests."""
+    kind: Literal['image', 'document', 'file']
+    mime_type: Optional[str] = None
+    name: Optional[str] = None
+    url: Optional[str] = None
+    data: Optional[str] = None  # Base64 encoded data
+    format: Optional[str] = None
+    use_litellm_format: Optional[bool] = None
+
+class HttpMessageContentPart(BaseModel):
+    """HTTP message content part for multi-part messages."""
+    type: Literal['text', 'image_url', 'file']
+    text: Optional[str] = None
+    image_url: Optional[Dict[str, Any]] = None
+    file: Optional[Dict[str, Any]] = None
 
 # HTTP Message types
 class HttpMessage(BaseModel):
     """HTTP message format for API requests."""
     role: Literal['user', 'assistant', 'system', 'tool']
-    content: str
+    content: Union[str, List[HttpMessageContentPart]]
+    attachments: Optional[List[HttpAttachment]] = None
     tool_call_id: Optional[str] = None
     tool_calls: Optional[List[Dict[str, Any]]] = None
 

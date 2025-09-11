@@ -201,12 +201,13 @@ def create_agent_tool(
                     return str(result.outcome.output)
                 else:
                     # Fall back to the last assistant message
+                    from .types import get_text_content
                     assistant_messages = [
                         msg for msg in result.final_state.messages 
-                        if msg.role == ContentRole.ASSISTANT and msg.content
+                        if msg.role == ContentRole.ASSISTANT and get_text_content(msg.content)
                     ]
                     if assistant_messages:
-                        return assistant_messages[-1].content
+                        return get_text_content(assistant_messages[-1].content)
                     return "Agent completed successfully but produced no output"
             else:
                 # Error case

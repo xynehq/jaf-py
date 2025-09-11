@@ -414,7 +414,8 @@ class LangfuseTraceCollector:
                             print(f"[LANGFUSE DEBUG] Found user_query from messages: {user_query}")
                             break
                         elif hasattr(msg, 'role') and msg.role == 'user':
-                            user_query = msg.content
+                            from .types import get_text_content
+                            user_query = get_text_content(msg.content)
                             print(f"[LANGFUSE DEBUG] Found user_query from message attr: {user_query}")
                             break
                 

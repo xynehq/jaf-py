@@ -144,12 +144,40 @@ class ToolCallFunction:
     arguments: str
 
 @dataclass(frozen=True)
+class Attachment:
+    """Represents an attachment with various content types."""
+    kind: Literal['image', 'document', 'file']
+    mime_type: Optional[str] = None  # e.g. image/png, application/pdf
+    name: Optional[str] = None       # Optional filename
+    url: Optional[str] = None        # Remote URL or data URL
+    data: Optional[str] = None       # Base64 without data: prefix
+    format: Optional[str] = None     # Optional short format like 'pdf', 'txt'
+    use_litellm_format: Optional[bool] = None  # Use LiteLLM native file format
+
+@dataclass(frozen=True)
+class MessageContentPart:
+    """Part of multi-part message content."""
+    type: Literal['text', 'image_url', 'file']
+    text: Optional[str] = None
+    image_url: Optional[Dict[str, Any]] = None  # Contains url and optional detail
+    file: Optional[Dict[str, Any]] = None       # Contains file_id and optional format
+
+@dataclass(frozen=True)
 class Message:
     """A message in the conversation."""
     role: ContentRole
-    content: str
+    content: Union[str, List[MessageContentPart]]
+    attachments: Optional[List[Attachment]] = None
     tool_call_id: Optional[str] = None
     tool_calls: Optional[List[ToolCall]] = None
+
+def get_text_content(content: Union[str, List[MessageContentPart]]) -> str:
+    """Extract text content from message content."""
+    if isinstance(content, str):
+        return content
+    
+    text_parts = [part.text for part in content if part.type == 'text' and part.text]
+    return ' '.join(text_parts)
 
 @dataclass(frozen=True)
 class ModelConfig:

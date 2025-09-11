@@ -5,17 +5,102 @@ This module provides model providers that integrate with various LLM services,
 starting with LiteLLM for multi-provider support.
 """
 
-from typing import Any, Dict, Optional, TypeVar, AsyncIterator, List
+from typing import Any, Dict, Optional, TypeVar, AsyncIterator, List, Union
 import asyncio
 import httpx
+import time
 
 from openai import OpenAI
 from pydantic import BaseModel
 
-from ..core.types import Agent, ContentRole, Message, ModelProvider, RunConfig, RunState, CompletionStreamChunk, ToolCallDelta, ToolCallFunctionDelta
+from ..core.types import (
+    Agent, ContentRole, Message, ModelProvider, RunConfig, RunState, 
+    CompletionStreamChunk, ToolCallDelta, ToolCallFunctionDelta,
+    MessageContentPart, get_text_content
+)
 from ..core.proxy import ProxyConfig
+from ..utils.document_processor import (
+    extract_document_content, is_document_supported, 
+    get_document_description, DocumentProcessingError
+)
 
 Ctx = TypeVar('Ctx')
+
+# Vision model caching
+VISION_MODEL_CACHE_TTL = 5 * 60  # 5 minutes
+VISION_API_TIMEOUT = 3.0  # 3 seconds
+_vision_model_cache: Dict[str, Dict[str, Any]] = {}
+
+async def _is_vision_model(model: str, base_url: str) -> bool:
+    """
+    Check if a model supports vision capabilities.
+    
+    Args:
+        model: Model name to check
+        base_url: Base URL of the LiteLLM server
+        
+    Returns:
+        True if model supports vision, False otherwise
+    """
+    cache_key = f"{base_url}:{model}"
+    cached = _vision_model_cache.get(cache_key)
+    
+    if cached and time.time() - cached['timestamp'] < VISION_MODEL_CACHE_TTL:
+        return cached['supports']
+    
+    try:
+        async with httpx.AsyncClient(timeout=VISION_API_TIMEOUT) as client:
+            response = await client.get(
+                f"{base_url}/model_group/info",
+                headers={'accept': 'application/json'}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                model_info = None
+                
+                if 'data' in data and isinstance(data['data'], list):
+                    for m in data['data']:
+                        if (m.get('model_group') == model or 
+                            model in str(m.get('model_group', ''))):
+                            model_info = m
+                            break
+                
+                if model_info and 'supports_vision' in model_info:
+                    result = model_info['supports_vision']
+                    _vision_model_cache[cache_key] = {
+                        'supports': result,
+                        'timestamp': time.time()
+                    }
+                    return result
+            else:
+                print(f"Warning: Vision API returned status {response.status_code} for model {model}")
+                
+    except Exception as e:
+        print(f"Warning: Vision API error for model {model}: {e}")
+    
+    # Fallback to known vision models
+    known_vision_models = [
+        'gpt-4-vision-preview',
+        'gpt-4o',
+        'gpt-4o-mini',
+        'claude-sonnet-4',
+        'claude-sonnet-4-20250514',
+        'gemini-2.5-flash',
+        'gemini-2.5-pro'
+    ]
+    
+    is_known_vision_model = any(
+        vision_model.lower() in model.lower()
+        for vision_model in known_vision_models
+    )
+    
+    _vision_model_cache[cache_key] = {
+        'supports': is_known_vision_model,
+        'timestamp': time.time()
+    }
+    
+    return is_known_vision_model
 
 def make_litellm_provider(
     base_url: str,
@@ -76,6 +161,23 @@ def make_litellm_provider(
             model = (config.model_override or
                     (agent.model_config.name if agent.model_config else "gpt-4o"))
 
+            # Check if any message contains image content or image attachments
+            has_image_content = any(
+                (isinstance(msg.content, list) and
+                 any(part.type == 'image_url' for part in msg.content)) or
+                (msg.attachments and
+                 any(att.kind == 'image' for att in msg.attachments))
+                for msg in state.messages
+            )
+
+            if has_image_content:
+                supports_vision = await _is_vision_model(model, base_url)
+                if not supports_vision:
+                    raise ValueError(
+                        f"Model {model} does not support vision capabilities. "
+                        f"Please use a vision-capable model like gpt-4o, claude-3-5-sonnet, or gemini-1.5-pro."
+                    )
+
             # Create system message
             system_message = {
                 "role": "system",
@@ -83,9 +185,12 @@ def make_litellm_provider(
             }
 
             # Convert messages to OpenAI format
-            messages = [system_message] + [
-                _convert_message(msg) for msg in state.messages
-            ]
+            converted_messages = []
+            for msg in state.messages:
+                converted_msg = await _convert_message(msg)
+                converted_messages.append(converted_msg)
+            
+            messages = [system_message] + converted_messages
 
             # Convert tools to OpenAI format
             tools = None
@@ -190,10 +295,13 @@ def make_litellm_provider(
                 "content": agent.instructions(state)
             }
 
-            # Convert messages to OpenAI format
-            messages = [system_message] + [
-                _convert_message(msg) for msg in state.messages
-            ]
+            # Convert messages to OpenAI format  
+            converted_messages = []
+            for msg in state.messages:
+                converted_msg = await _convert_message(msg)
+                converted_messages.append(converted_msg)
+            
+            messages = [system_message] + converted_messages
 
             # Convert tools to OpenAI format
             tools = None
@@ -334,17 +442,22 @@ def make_litellm_provider(
 
     return LiteLLMProvider()
 
-def _convert_message(msg: Message) -> Dict[str, Any]:
-    """Convert JAF Message to OpenAI message format."""
+async def _convert_message(msg: Message) -> Dict[str, Any]:
+    """Convert JAF Message to OpenAI message format with attachment support."""
     if msg.role == 'user':
-        return {
-            "role": "user",
-            "content": msg.content
-        }
+        if isinstance(msg.content, list):
+            # Multi-part content
+            return {
+                "role": "user",
+                "content": [_convert_content_part(part) for part in msg.content]
+            }
+        else:
+            # Build message with attachments if available
+            return await _build_chat_message_with_attachments('user', msg)
     elif msg.role == 'assistant':
         result = {
             "role": "assistant",
-            "content": msg.content,
+            "content": get_text_content(msg.content),
         }
         if msg.tool_calls:
             result["tool_calls"] = [
@@ -362,11 +475,138 @@ def _convert_message(msg: Message) -> Dict[str, Any]:
     elif msg.role == ContentRole.TOOL:
         return {
             "role": "tool",
-            "content": msg.content,
+            "content": get_text_content(msg.content),
             "tool_call_id": msg.tool_call_id
         }
     else:
         raise ValueError(f"Unknown message role: {msg.role}")
+
+
+def _convert_content_part(part: MessageContentPart) -> Dict[str, Any]:
+    """Convert MessageContentPart to OpenAI format."""
+    if part.type == 'text':
+        return {
+            "type": "text",
+            "text": part.text
+        }
+    elif part.type == 'image_url':
+        return {
+            "type": "image_url",
+            "image_url": part.image_url
+        }
+    elif part.type == 'file':
+        return {
+            "type": "file",
+            "file": part.file
+        }
+    else:
+        raise ValueError(f"Unknown content part type: {part.type}")
+
+
+async def _build_chat_message_with_attachments(
+    role: str,
+    msg: Message
+) -> Dict[str, Any]:
+    """
+    Build multi-part content for Chat Completions if attachments exist.
+    Supports images via image_url and documents via content extraction.
+    """
+    has_attachments = msg.attachments and len(msg.attachments) > 0
+    if not has_attachments:
+        if role == 'assistant':
+            base_msg = {"role": "assistant", "content": get_text_content(msg.content)}
+            if msg.tool_calls:
+                base_msg["tool_calls"] = [
+                    {
+                        "id": tc.id,
+                        "type": tc.type,
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments
+                        }
+                    }
+                    for tc in msg.tool_calls
+                ]
+            return base_msg
+        return {"role": "user", "content": get_text_content(msg.content)}
+
+    parts = []
+    text_content = get_text_content(msg.content)
+    if text_content and text_content.strip():
+        parts.append({"type": "text", "text": text_content})
+
+    for att in msg.attachments:
+        if att.kind == 'image':
+            # Prefer explicit URL; otherwise construct a data URL from base64
+            url = att.url
+            if not url and att.data and att.mime_type:
+                url = f"data:{att.mime_type};base64,{att.data}"
+            if url:
+                parts.append({
+                    "type": "image_url",
+                    "image_url": {"url": url}
+                })
+        
+        elif att.kind in ['document', 'file']:
+            # Check if attachment has use_litellm_format flag or is a large document
+            use_litellm_format = att.use_litellm_format is True
+            
+            if use_litellm_format and (att.url or att.data):
+                # Use LiteLLM native file format for better handling of large documents
+                file_id = att.url
+                if not file_id and att.data and att.mime_type:
+                    file_id = f"data:{att.mime_type};base64,{att.data}"
+                if file_id:
+                    parts.append({
+                        "type": "file",
+                        "file": {
+                            "file_id": file_id,
+                            "format": att.mime_type or att.format
+                        }
+                    })
+            else:
+                # Extract document content if supported and we have data or URL
+                if is_document_supported(att.mime_type) and (att.data or att.url):
+                    try:
+                        processed = await extract_document_content(att)
+                        file_name = att.name or 'document'
+                        description = get_document_description(att.mime_type)
+                        
+                        parts.append({
+                            "type": "text",
+                            "text": f"DOCUMENT: {file_name} ({description}):\n\n{processed.content}"
+                        })
+                    except DocumentProcessingError as e:
+                        # Fallback to filename if extraction fails
+                        label = att.name or att.format or att.mime_type or 'attachment'
+                        parts.append({
+                            "type": "text",
+                            "text": f"ERROR: Failed to process {att.kind}: {label} ({e})"
+                        })
+                else:
+                    # Unsupported document type - show placeholder
+                    label = att.name or att.format or att.mime_type or 'attachment'
+                    url_info = f" ({att.url})" if att.url else ""
+                    parts.append({
+                        "type": "text",
+                        "text": f"ATTACHMENT: {att.kind}: {label}{url_info}"
+                    })
+
+    base_msg = {"role": role, "content": parts}
+    if role == 'assistant' and msg.tool_calls:
+        base_msg["tool_calls"] = [
+            {
+                "id": tc.id,
+                "type": tc.type,
+                "function": {
+                    "name": tc.function.name,
+                    "arguments": tc.function.arguments
+                }
+            }
+            for tc in msg.tool_calls
+        ]
+    
+    return base_msg
 
 def _pydantic_to_json_schema(model_class: type[BaseModel]) -> Dict[str, Any]:
     """
