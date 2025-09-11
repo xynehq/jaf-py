@@ -11,8 +11,7 @@ import csv
 import io
 import json
 import zipfile
-from typing import Dict, Any, Optional, List, Union
-from urllib.parse import urlparse
+from typing import Dict, Any, Optional, List
 
 try:
     import aiofiles
@@ -196,30 +195,18 @@ async def extract_document_content(attachment: Attachment) -> ProcessedDocument:
     mime_type = mime_type.lower() if mime_type else None
     
     # Process based on MIME type
-            reader = PyPDF2.PdfReader(io.BytesIO(content_bytes))
-            text_parts = []
-            
-            for page in reader.pages:
-                text_parts.append(page.extract_text())
-            
-            content = '\n'.join(text_parts).strip()
-            
-            # Safely extract metadata with size limits
-            safe_metadata = {}
-            if reader.metadata:
-                allowed_keys = ['Title', 'Author', 'Subject', 'Creator', 'Producer', 'CreationDate', 'ModDate']
-                for key in allowed_keys:
-                    if key in reader.metadata:
-                        value = str(reader.metadata[key])[:1000]  # Limit value length
-                        safe_metadata[key] = value
-            
-            return ProcessedDocument(
-                content=content,
-                metadata={
-                    'pages': len(reader.pages),
-                    'info': safe_metadata if safe_metadata else None
-                }
-            )
+    if mime_type == 'application/pdf':
+        return await _extract_pdf_content(content_bytes)
+    elif mime_type in ['application/vnd.openxmlformats-officedocument.wordprocessingml.document']:
+        return _extract_docx_content(content_bytes)
+    elif mime_type in ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel']:
+        return _extract_excel_content(content_bytes)
+    elif mime_type == 'application/json':
+        return _extract_json_content(content_bytes)
+    elif mime_type == 'application/zip':
+        return _extract_zip_content(content_bytes)
+    elif mime_type in ['text/plain', 'text/csv']:
+        return _extract_text_content(content_bytes, mime_type)
     else:
         # Fallback: try to extract as text
         return _extract_text_content(content_bytes, 'text/plain')

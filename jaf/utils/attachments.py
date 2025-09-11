@@ -63,8 +63,19 @@ def _validate_base64(data: str) -> bool:
 def _validate_attachment_size(data: Optional[str]) -> None:
     """Validate attachment size doesn't exceed limits."""
     if data:
-        # Estimate decoded size from base64 data (decoded is ~3/4 of encoded)
-        decoded_size = len(data) * BASE64_SIZE_RATIO
+        # Calculate exact decoded size for base64 data
+        # Remove padding to get accurate count
+        data_without_padding = data.rstrip('=')
+        # Each 4 base64 chars encode 3 bytes, with the last group potentially having padding
+        exact_groups = len(data_without_padding) // 4
+        remaining_chars = len(data_without_padding) % 4
+        
+        decoded_size = exact_groups * 3
+        if remaining_chars == 2:
+            decoded_size += 1  # 2 chars = 1 byte
+        elif remaining_chars == 3:
+            decoded_size += 2  # 3 chars = 2 bytes
+        
         if decoded_size > MAX_ATTACHMENT_SIZE:
             size_mb = round(decoded_size / 1024 / 1024, 2)
             max_mb = MAX_ATTACHMENT_SIZE // 1024 // 1024
@@ -320,26 +331,59 @@ def validate_attachment(attachment: Attachment) -> None:
     Raises:
         AttachmentValidationError: If validation fails
     """
-    if not attachment.url and not attachment.data:
-        raise AttachmentValidationError('Attachment must have either url or data')
-    
-    _validate_filename(attachment.name)
-    _validate_url(attachment.url)
-    
-    if attachment.data:
-        _validate_attachment_size(attachment.data)
-        if not _validate_base64(attachment.data):
-            raise AttachmentValidationError('Invalid base64 data in attachment')
-    
-    # Validate MIME type based on attachment kind
-    if attachment.kind == 'image':
-        _validate_mime_type(attachment.mime_type, ALLOWED_IMAGE_MIME_TYPES, 'image')
-    elif attachment.kind == 'document':
-        _validate_mime_type(attachment.mime_type, ALLOWED_DOCUMENT_MIME_TYPES, 'document')
-    elif attachment.kind == 'file':
-        # Files can have any MIME type, but still validate format
-        if attachment.format and len(attachment.format) > MAX_FORMAT_LENGTH:
-            raise AttachmentValidationError('File format must be 10 characters or less')
+    try:
+        if not attachment.url and not attachment.data:
+            raise AttachmentValidationError(
+                'Attachment must have either url or data',
+                field='url/data'
+            )
+        
+        if attachment.name:
+            try:
+                _validate_filename(attachment.name)
+            except AttachmentValidationError as e:
+                raise AttachmentValidationError(f"Invalid filename: {e}", field='name') from e
+        
+        if attachment.url:
+            try:
+                _validate_url(attachment.url)
+            except AttachmentValidationError as e:
+                raise AttachmentValidationError(f"Invalid URL: {e}", field='url') from e
+        
+        if attachment.data:
+            try:
+                _validate_attachment_size(attachment.data)
+            except AttachmentValidationError as e:
+                raise AttachmentValidationError(f"Size validation failed: {e}", field='data') from e
+                
+            if not _validate_base64(attachment.data):
+                raise AttachmentValidationError(
+                    'Invalid base64 data format in attachment',
+                    field='data'
+                )
+        
+        # Validate MIME type based on attachment kind
+        if attachment.kind == 'image':
+            try:
+                _validate_mime_type(attachment.mime_type, ALLOWED_IMAGE_MIME_TYPES, 'image')
+            except AttachmentValidationError as e:
+                raise AttachmentValidationError(f"Image MIME type validation failed: {e}", field='mime_type') from e
+        elif attachment.kind == 'document':
+            try:
+                _validate_mime_type(attachment.mime_type, ALLOWED_DOCUMENT_MIME_TYPES, 'document')
+            except AttachmentValidationError as e:
+                raise AttachmentValidationError(f"Document MIME type validation failed: {e}", field='mime_type') from e
+        elif attachment.kind == 'file':
+            # Files can have any MIME type, but still validate format
+            if attachment.format and len(attachment.format) > MAX_FORMAT_LENGTH:
+                raise AttachmentValidationError(
+                    f'File format "{attachment.format}" exceeds maximum length of {MAX_FORMAT_LENGTH} characters',
+                    field='format'
+                )
+    except AttachmentValidationError:
+        raise
+    except Exception as e:
+        raise AttachmentValidationError(f"Unexpected validation error: {e}") from e
 
 
 # Legacy function for backwards compatibility

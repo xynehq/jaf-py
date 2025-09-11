@@ -58,7 +58,7 @@ tracing = [
     "langfuse<3.0.0",
 ]
 attachments = [
-    "pypdf>=3.1.0",
+    "PyPDF2>=3.0.0",
     "python-docx>=1.1.0",
     "openpyxl>=3.1.0",
     "pillow>=11.0.0",

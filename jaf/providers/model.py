@@ -5,7 +5,7 @@ This module provides model providers that integrate with various LLM services,
 starting with LiteLLM for multi-provider support.
 """
 
-from typing import Any, Dict, Optional, TypeVar, AsyncIterator, List, Union
+from typing import Any, Dict, Optional, TypeVar, AsyncIterator
 import asyncio
 import httpx
 import time
