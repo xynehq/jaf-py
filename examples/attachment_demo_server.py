@@ -7,11 +7,10 @@ including images, documents, and files. The server can process and analyze diffe
 Run with: python examples/attachment_demo_server.py
 """
 
-import asyncio
 import os
 from typing import Any
 
-from jaf import Agent, RunState, make_litellm_provider
+from jaf import Agent, RunState, RunConfig, make_litellm_provider
 from jaf.server import create_jaf_server, ServerConfig
 from jaf.core.types import ModelConfig
 
@@ -38,7 +37,7 @@ Supported document types: PDF, DOCX, XLSX, CSV, TXT, JSON, ZIP files."""
     )
 
 
-async def main():
+def main():
     """Main function to run the attachment demo server."""
     
     # Configuration
@@ -66,13 +65,19 @@ async def main():
         'attachment-analyst': attachment_agent
     }
 
+    # Create run configuration
+    run_config = RunConfig(
+        agent_registry=agent_registry,
+        model_provider=model_provider,
+        max_turns=DEFAULT_MAX_TURNS
+    )
+
     # Create server configuration
     server_config = ServerConfig(
         port=DEFAULT_PORT,
         host=DEFAULT_HOST,
         agent_registry=agent_registry,
-        model_provider=model_provider,
-        max_turns=DEFAULT_MAX_TURNS
+        run_config=run_config
     )
 
     # Create and start server
@@ -85,7 +90,7 @@ async def main():
     print(f"""curl -X POST http://{DEFAULT_HOST}:{DEFAULT_PORT}/chat \\
   -H "Content-Type: application/json" \\
   -d '{{
-    "agentName": "attachment-analyst",
+    "agent_name": "attachment-analyst",
     "messages": [
       {{
         "role": "user", 
@@ -99,7 +104,7 @@ async def main():
     print(f"""curl -X POST http://{DEFAULT_HOST}:{DEFAULT_PORT}/chat \\
   -H "Content-Type: application/json" \\
   -d '{{
-    "agentName": "attachment-analyst",
+    "agent_name": "attachment-analyst",
     "messages": [
       {{
         "role": "user",
@@ -121,7 +126,7 @@ async def main():
     print(f"""curl -X POST http://{DEFAULT_HOST}:{DEFAULT_PORT}/chat \\
   -H "Content-Type: application/json" \\
   -d '{{
-    "agentName": "attachment-analyst", 
+    "agent_name": "attachment-analyst", 
     "messages": [
       {{
         "role": "user",
@@ -143,7 +148,7 @@ async def main():
     print(f"""curl -X POST http://{DEFAULT_HOST}:{DEFAULT_PORT}/chat \\
   -H "Content-Type: application/json" \\
   -d '{{
-    "agentName": "attachment-analyst",
+    "agent_name": "attachment-analyst",
     "messages": [
       {{
         "role": "user",
@@ -165,7 +170,7 @@ async def main():
     print(f"""curl -X POST http://{DEFAULT_HOST}:{DEFAULT_PORT}/chat \\
   -H "Content-Type: application/json" \\
   -d '{{
-    "agentName": "attachment-analyst",
+    "agent_name": "attachment-analyst",
     "messages": [
       {{
         "role": "user",
@@ -187,7 +192,7 @@ async def main():
     print(f"""curl -X POST http://{DEFAULT_HOST}:{DEFAULT_PORT}/chat \\
   -H "Content-Type: application/json" \\
   -d '{{
-    "agentName": "attachment-analyst",
+    "agent_name": "attachment-analyst",
     "messages": [
       {{
         "role": "user",
@@ -209,7 +214,7 @@ async def main():
     print(f"""curl -X POST http://{DEFAULT_HOST}:{DEFAULT_PORT}/chat \\
   -H "Content-Type: application/json" \\
   -d '{{
-    "agentName": "attachment-analyst",
+    "agent_name": "attachment-analyst",
     "messages": [
       {{
         "role": "user",
@@ -231,7 +236,7 @@ async def main():
     print(f"""curl -X POST http://{DEFAULT_HOST}:{DEFAULT_PORT}/chat \\
   -H "Content-Type: application/json" \\
   -d '{{
-    "agentName": "attachment-analyst",
+    "agent_name": "attachment-analyst",
     "messages": [
       {{
         "role": "user",
@@ -255,7 +260,7 @@ async def main():
     print(f"""curl -X POST http://{DEFAULT_HOST}:{DEFAULT_PORT}/chat \\
   -H "Content-Type: application/json" \\
   -d '{{
-    "agentName": "attachment-analyst",
+    "agent_name": "attachment-analyst",
     "messages": [
       {{
         "role": "user",
@@ -294,7 +299,7 @@ async def main():
     # Import uvicorn and run server
     try:
         import uvicorn
-        await uvicorn.run(
+        uvicorn.run(
             app,
             host=DEFAULT_HOST,
             port=DEFAULT_PORT,
@@ -307,4 +312,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

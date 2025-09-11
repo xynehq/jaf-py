@@ -579,43 +579,12 @@ async def _build_chat_message_with_attachments(
             use_litellm_format = att.use_litellm_format is True
             
             if use_litellm_format and (att.url or att.data):
-                # Use LiteLLM native file format for better handling of large documents
-                file_id = att.url
-                if not file_id and att.data and att.mime_type:
-                    # Validate base64 data size before creating data URL
-                    try:
-                        # Estimate decoded size (base64 is ~4/3 of decoded size)
-                        estimated_size = len(att.data) * 3 // 4
-                        
-                        if estimated_size > MAX_IMAGE_BYTES:
-                            print(f"Warning: Skipping oversized document/file ({estimated_size} bytes > {MAX_IMAGE_BYTES}). "
-                                  f"Set JAF_MAX_IMAGE_BYTES env var to adjust limit.")
-                            parts.append({
-                                "type": "text",
-                                "text": f"[DOCUMENT SKIPPED: Size exceeds limit of {MAX_IMAGE_BYTES//1024//1024}MB. "
-                                       f"Document name: {att.name or 'unnamed'}]"
-                            })
-                            continue
-                        
-                        # Create data URL for valid-sized documents
-                        file_id = f"data:{att.mime_type};base64,{att.data}"
-                    except Exception as e:
-                        print(f"Error processing document data: {e}")
-                        parts.append({
-                            "type": "text",
-                            "text": f"[DOCUMENT ERROR: Failed to process document data. Document name: {att.name or 'unnamed'}]"
-                        })
-                        continue
-                
-                if file_id:
-                    parts.append({
-                        "type": "file",
-                        "file": {
-                            "file_id": file_id,
-                            "format": att.mime_type or att.format
-                        }
-                    })
-            else:
+                # For now, fall back to content extraction since most providers don't support native file format
+                # TODO: Add provider-specific file format support
+                print(f"Info: LiteLLM format requested for {att.name}, falling back to content extraction")
+                use_litellm_format = False
+            
+            if not use_litellm_format:
                 # Extract document content if supported and we have data or URL
                 if is_document_supported(att.mime_type) and (att.data or att.url):
                     try:

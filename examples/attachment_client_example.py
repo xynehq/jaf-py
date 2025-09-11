@@ -88,8 +88,7 @@ async def test_attachments_with_agent():
             messages=[message],
             current_agent_name="attachment-analyst",
             context={},
-            turn_count=0,
-            approvals={}
+            turn_count=0
         )
         
         print(f"Created text attachment: {text_attachment.name} ({text_attachment.mime_type})")
