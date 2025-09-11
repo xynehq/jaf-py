@@ -32,8 +32,6 @@ class HttpAttachment(BaseModel):
         """Validate that at least one of url or data is present."""
         if self.url is None and self.data is None:
             raise ValueError("At least one of 'url' or 'data' must be provided")
-        if self.url is not None and self.data is not None:
-            raise ValueError("Only one of 'url' or 'data' should be provided, not both")
         return self
     
     @field_validator('data')
