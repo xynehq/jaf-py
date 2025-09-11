@@ -24,7 +24,7 @@ class AttachmentValidationError(Exception):
 # Constants
 MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024  # 10MB
 MAX_FILENAME_LENGTH = 255
-BASE64_SIZE_RATIO = 3 / 4
+BASE64_SIZE_RATIO = 0.75  # Base64 decoded size is approximately 3/4 of the encoded size
 MAX_FORMAT_LENGTH = 10
 
 ALLOWED_IMAGE_MIME_TYPES = [
@@ -63,9 +63,10 @@ def _validate_base64(data: str) -> bool:
 def _validate_attachment_size(data: Optional[str]) -> None:
     """Validate attachment size doesn't exceed limits."""
     if data:
-        estimated_size = len(data) * BASE64_SIZE_RATIO
-        if estimated_size > MAX_ATTACHMENT_SIZE:
-            size_mb = round(estimated_size / 1024 / 1024)
+        # Estimate decoded size from base64 data (decoded is ~3/4 of encoded)
+        decoded_size = len(data) * BASE64_SIZE_RATIO
+        if decoded_size > MAX_ATTACHMENT_SIZE:
+            size_mb = round(decoded_size / 1024 / 1024, 2)
             max_mb = MAX_ATTACHMENT_SIZE // 1024 // 1024
             raise AttachmentValidationError(
                 f"Attachment size ({size_mb}MB) exceeds maximum allowed size ({max_mb}MB)"
@@ -98,11 +99,18 @@ def _validate_filename(name: Optional[str]) -> None:
 
 def _validate_mime_type(mime_type: Optional[str], allowed_types: List[str], kind: str) -> None:
     """Validate MIME type against allowed types."""
-    if mime_type and mime_type.lower() not in allowed_types:
-        raise AttachmentValidationError(
-            f"MIME type '{mime_type}' is not allowed for {kind} attachments. "
-            f"Allowed types: {', '.join(allowed_types)}"
-        )
+    if mime_type:
+        # Normalize the input mime_type
+        normalized_mime_type = mime_type.lower().strip()
+        
+        # Normalize the allowed types list
+        normalized_allowed_types = {t.lower().strip() for t in allowed_types}
+        
+        if normalized_mime_type not in normalized_allowed_types:
+            raise AttachmentValidationError(
+                f"MIME type '{mime_type}' is not allowed for {kind} attachments. "
+                f"Allowed types: {', '.join(allowed_types)}"
+            )
 
 
 def _validate_url(url: Optional[str]) -> None:
@@ -122,9 +130,19 @@ def _validate_url(url: Optional[str]) -> None:
         
         # Additional validation for data URLs
         if parsed.scheme == 'data':
-            data_url_pattern = re.compile(r'^data:([^;]+)(;base64)?,(.+)$')
-            if not data_url_pattern.match(url):
-                raise AttachmentValidationError('Invalid data URL format')
+            # For data URLs, the "path" component in urlparse contains the mediatype and data
+            # Proper data URL format: mediatype[;charset][;base64],data
+            data_content_pattern = re.compile(r'^([^;,]+)(;[^;,]+)*(;base64)?,(.+)$')
+            data_content = parsed.path
+            
+            # Some URLs might have query components that are part of the data
+            if parsed.query:
+                data_content += "?" + parsed.query
+                
+            if not data_content_pattern.match(data_content):
+                raise AttachmentValidationError(
+                    'Invalid data URL format: must match mediatype[;charset][;base64],data pattern'
+                )
                 
     except ValueError as e:
         raise AttachmentValidationError(f"Invalid URL: {e}")
@@ -173,10 +191,12 @@ def make_image_attachment(
     _validate_url(url)
     _validate_mime_type(mime_type, ALLOWED_IMAGE_MIME_TYPES, 'image')
     
-    if isinstance(data, str):
-        _validate_attachment_size(data)
-    
+    # Process data to base64 first, so we can validate size for both bytes and string inputs
     base64_data = _process_base64_data(data)
+    
+    # Validate size if we have data
+    if base64_data:
+        _validate_attachment_size(base64_data)
     
     # Ensure at least one content source
     if not url and not base64_data:
@@ -218,10 +238,12 @@ def make_file_attachment(
     _validate_filename(name)
     _validate_url(url)
     
-    if isinstance(data, str):
-        _validate_attachment_size(data)
-    
+    # Process data to base64 first, so we can validate size for both bytes and string inputs
     base64_data = _process_base64_data(data)
+    
+    # Validate size if we have data
+    if base64_data:
+        _validate_attachment_size(base64_data)
     
     # Ensure at least one content source
     if not url and not base64_data:

@@ -52,7 +52,7 @@ def _convert_http_message_to_core(http_msg: HttpMessage) -> Message:
     else:
         # Convert list of content parts
         content_parts = []
-        for part in http_msg.content:
+        for i, part in enumerate(http_msg.content):
             if part.type == 'text':
                 content_parts.append(MessageContentPart(
                     type='text',
@@ -74,6 +74,10 @@ def _convert_http_message_to_core(http_msg: HttpMessage) -> Message:
                     image_url=None,
                     file=part.file
                 ))
+            else:
+                # Raise explicit error for unrecognized part types
+                raise ValueError(f"Unrecognized message content part type: '{part.type}' at index {i}. "
+                                 f"Supported types are: 'text', 'image_url', 'file'")
         content = content_parts
 
     # Convert attachments
@@ -111,7 +115,7 @@ def _convert_core_message_to_http(core_msg: Message) -> HttpMessage:
     elif isinstance(core_msg.content, list):
         # Convert content parts to HTTP format
         http_parts = []
-        for part in core_msg.content:
+        for i, part in enumerate(core_msg.content):
             if part.type == 'text':
                 http_parts.append(HttpMessageContentPart(
                     type='text',
@@ -133,6 +137,12 @@ def _convert_core_message_to_http(core_msg: Message) -> HttpMessage:
                     image_url=None,
                     file=part.file
                 ))
+            else:
+                # Raise explicit error for unrecognized part types
+                message_info = f"role={core_msg.role}"
+                raise ValueError(f"Unrecognized core message content part type: '{part.type}' at index {i}. "
+                                f"Message info: {message_info}. "
+                                f"Supported types are: 'text', 'image_url', 'file'")
         content = http_parts
     else:
         content = get_text_content(core_msg.content)

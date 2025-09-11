@@ -7,8 +7,9 @@ for the JAF HTTP server implementation.
 
 from dataclasses import dataclass
 from typing import Any, Dict, Generic, List, Literal, Optional, TypeVar, Union
+import base64
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from ..core.types import Agent, RunConfig, Attachment, MessageContentPart, get_text_content
 from ..memory.types import MemoryProvider
@@ -25,6 +26,48 @@ class HttpAttachment(BaseModel):
     data: Optional[str] = None  # Base64 encoded data
     format: Optional[str] = None
     use_litellm_format: Optional[bool] = None
+    
+    @model_validator(mode='after')
+    def validate_url_or_data_present(self) -> 'HttpAttachment':
+        """Validate that at least one of url or data is present."""
+        if self.url is None and self.data is None:
+            raise ValueError("At least one of 'url' or 'data' must be provided")
+        if self.url is not None and self.data is not None:
+            raise ValueError("Only one of 'url' or 'data' should be provided, not both")
+        return self
+    
+    @field_validator('data')
+    @classmethod
+    def validate_base64_data(cls, v: Optional[str]) -> Optional[str]:
+        """Validate that data is proper base64 encoded."""
+        if v is not None:
+            try:
+                # Try to decode the base64 data to verify it's valid
+                decoded = base64.b64decode(v)
+                # Check if it's empty
+                if len(decoded) == 0:
+                    raise ValueError("Base64 data decodes to empty content")
+            except Exception as e:
+                raise ValueError(f"Invalid base64 encoding: {str(e)}")
+        return v
+    
+    @model_validator(mode='after')
+    def validate_mime_type_consistency(self) -> 'HttpAttachment':
+        """Validate that mime_type is consistent with kind."""
+        if self.mime_type is not None and self.kind is not None:
+            if self.kind == 'image' and not self.mime_type.startswith('image/'):
+                raise ValueError(f"For kind='image', mime_type must start with 'image/'. Got: {self.mime_type}")
+            
+            elif self.kind == 'document' and not (
+                self.mime_type.startswith('application/') or 
+                self.mime_type.startswith('text/') or
+                self.mime_type.startswith('document/')
+            ):
+                raise ValueError(
+                    f"For kind='document', mime_type must start with 'application/', 'text/', "
+                    f"or 'document/'. Got: {self.mime_type}"
+                )
+        return self
 
 class HttpMessageContentPart(BaseModel):
     """HTTP message content part for multi-part messages."""
@@ -32,6 +75,33 @@ class HttpMessageContentPart(BaseModel):
     text: Optional[str] = None
     image_url: Optional[Dict[str, Any]] = None
     file: Optional[Dict[str, Any]] = None
+    
+    @model_validator(mode='after')
+    def validate_content_consistency(self) -> 'HttpMessageContentPart':
+        """Validate that exactly one field is populated and it matches the declared type."""
+        # Count non-None content fields
+        populated_fields = []
+        if self.text is not None:
+            populated_fields.append('text')
+        if self.image_url is not None:
+            populated_fields.append('image_url')
+        if self.file is not None:
+            populated_fields.append('file')
+        
+        # Check if exactly one field is populated
+        if len(populated_fields) != 1:
+            raise ValueError(f"Exactly one content field must be populated. Found {len(populated_fields)}: {populated_fields}")
+        
+        # Check that the populated field matches the declared type
+        populated_field = populated_fields[0]
+        if self.type == 'text' and populated_field != 'text':
+            raise ValueError(f"For type='text', the 'text' field must be populated, but found '{populated_field}' instead")
+        elif self.type == 'image_url' and populated_field != 'image_url':
+            raise ValueError(f"For type='image_url', the 'image_url' field must be populated, but found '{populated_field}' instead")
+        elif self.type == 'file' and populated_field != 'file':
+            raise ValueError(f"For type='file', the 'file' field must be populated, but found '{populated_field}' instead")
+        
+        return self
 
 # HTTP Message types
 class HttpMessage(BaseModel):

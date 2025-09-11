@@ -112,31 +112,61 @@ async def _fetch_url_content(url: str) -> tuple[bytes, Optional[str]]:
     
     try:
         async with httpx.AsyncClient(timeout=FETCH_TIMEOUT) as client:
-            response = await client.get(
+            # First check content length with a HEAD request if possible
+            try:
+                head_response = await client.head(
+                    url,
+                    headers={'User-Agent': 'JAF-DocumentProcessor/1.0'},
+                    timeout=FETCH_TIMEOUT / 2  # Shorter timeout for HEAD request
+                )
+                head_response.raise_for_status()
+                
+                # Check Content-Length header if present
+                content_length_str = head_response.headers.get('content-length')
+                if content_length_str and content_length_str.isdigit():
+                    content_length = int(content_length_str)
+                    if content_length > MAX_DOCUMENT_SIZE:
+                        size_mb = round(content_length / 1024 / 1024)
+                        max_mb = round(MAX_DOCUMENT_SIZE / 1024 / 1024)
+                        raise DocumentProcessingError(
+                            f"File size ({size_mb}MB) exceeds maximum allowed size ({max_mb}MB)"
+                        )
+            except (httpx.HTTPStatusError, httpx.RequestError):
+                # HEAD request failed, we'll check size during streaming
+                pass
+            
+            # Stream the response to validate size as we download
+            content_type = None
+            accumulated_bytes = bytearray()
+            async with client.stream(
+                'GET',
                 url,
                 headers={'User-Agent': 'JAF-DocumentProcessor/1.0'}
-            )
-            response.raise_for_status()
+            ) as response:
+                response.raise_for_status()
+                content_type = response.headers.get('content-type')
+                
+                # Process the response in chunks
+                async for chunk in response.aiter_bytes(chunk_size=8192):
+                    accumulated_bytes.extend(chunk)
+                    if len(accumulated_bytes) > MAX_DOCUMENT_SIZE:
+                        size_mb = round(len(accumulated_bytes) / 1024 / 1024)
+                        max_mb = round(MAX_DOCUMENT_SIZE / 1024 / 1024)
+                        raise DocumentProcessingError(
+                            f"File size ({size_mb}MB) exceeds maximum allowed size ({max_mb}MB)"
+                        )
             
-            content = response.content
-            content_type = response.headers.get('content-type')
-            
-            # Basic size check
-            if len(content) > MAX_DOCUMENT_SIZE:
-                size_mb = round(len(content) / 1024 / 1024)
-                max_mb = round(MAX_DOCUMENT_SIZE / 1024 / 1024)
-                raise DocumentProcessingError(
-                    f"File size ({size_mb}MB) exceeds maximum allowed size ({max_mb}MB)"
-                )
-            
-            return content, content_type
+            return bytes(accumulated_bytes), content_type
             
     except httpx.HTTPStatusError as e:
         raise NetworkError(f"HTTP {e.response.status_code}: {e.response.reason_phrase}", e.response.status_code)
     except httpx.RequestError as e:
-        raise NetworkError(f"Failed to fetch URL content: {e}")
+        raise NetworkError(f"Failed to fetch URL content: {e}", cause=e)
     except Exception as e:
-        raise NetworkError(f"Failed to fetch URL content: {e}")
+        # Preserve system exceptions
+        if isinstance(e, (KeyboardInterrupt, SystemExit, GeneratorExit, MemoryError)):
+            raise
+        raise NetworkError(f"Failed to fetch URL content: {e}", cause=e)
 
 
 async def extract_document_content(attachment: Attachment) -> ProcessedDocument:
@@ -166,21 +196,30 @@ async def extract_document_content(attachment: Attachment) -> ProcessedDocument:
     mime_type = mime_type.lower() if mime_type else None
     
     # Process based on MIME type
-    if mime_type == 'application/pdf':
-        return await _extract_pdf_content(content_bytes)
-    elif mime_type in ['text/plain', 'text/csv']:
-        return _extract_text_content(content_bytes, mime_type)
-    elif mime_type in [
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/vnd.ms-excel'
-    ]:
-        return _extract_excel_content(content_bytes)
-    elif mime_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-        return _extract_docx_content(content_bytes)
-    elif mime_type == 'application/json':
-        return _extract_json_content(content_bytes)
-    elif mime_type == 'application/zip':
-        return _extract_zip_content(content_bytes)
+            reader = PyPDF2.PdfReader(io.BytesIO(content_bytes))
+            text_parts = []
+            
+            for page in reader.pages:
+                text_parts.append(page.extract_text())
+            
+            content = '\n'.join(text_parts).strip()
+            
+            # Safely extract metadata with size limits
+            safe_metadata = {}
+            if reader.metadata:
+                allowed_keys = ['Title', 'Author', 'Subject', 'Creator', 'Producer', 'CreationDate', 'ModDate']
+                for key in allowed_keys:
+                    if key in reader.metadata:
+                        value = str(reader.metadata[key])[:1000]  # Limit value length
+                        safe_metadata[key] = value
+            
+            return ProcessedDocument(
+                content=content,
+                metadata={
+                    'pages': len(reader.pages),
+                    'info': safe_metadata if safe_metadata else None
+                }
+            )
     else:
         # Fallback: try to extract as text
         return _extract_text_content(content_bytes, 'text/plain')
@@ -347,7 +386,14 @@ def _extract_json_content(content_bytes: bytes) -> ProcessedDocument:
         
     except (UnicodeDecodeError, json.JSONDecodeError):
         # Fallback to raw text if JSON parsing fails
-        return ProcessedDocument(content=content_bytes.decode('utf-8', errors='replace').strip())
+        if isinstance(content_bytes, bytes):
+            # If input is bytes, decode with error handling
+            fallback_content = content_bytes.decode('utf-8', errors='replace').strip()
+        else:
+            # If input is already a string (from a previous decode attempt)
+            fallback_content = json_str.strip() if isinstance(json_str, str) else str(content_bytes)
+        
+        return ProcessedDocument(content=fallback_content)
 
 
 def _extract_zip_content(content_bytes: bytes) -> ProcessedDocument:
@@ -357,25 +403,71 @@ def _extract_zip_content(content_bytes: bytes) -> ProcessedDocument:
             files = zip_file.namelist()
             
             content_parts = ['ZIP File Contents:\n']
+            safe_files = []
+            
+            # Create virtual root for path safety checks
+            from pathlib import Path
+            import os
+            virtual_root = Path("/safe_extract_dir")  # Virtual root never actually used for extraction
             
             for file_name in files:
-                if file_name.endswith('/'):
-                    content_parts.append(f"DIR: {file_name}")
-                else:
-                    try:
-                        file_info = zip_file.getinfo(file_name)
-                        size = file_info.file_size
-                        content_parts.append(f"FILE: {file_name} ({size} bytes)")
-                    except KeyError:
-                        content_parts.append(f"FILE: {file_name}")
+                # Skip empty entries
+                if not file_name:
+                    continue
+                    
+                # Basic security checks
+                if (file_name.startswith('/') or  # Absolute path
+                    file_name.startswith('\\') or  # Windows absolute path
+                    file_name.startswith('..') or  # Parent directory traversal
+                    '..' in file_name.split('/') or  # Parent directory traversal
+                    '..' in file_name.split('\\') or  # Windows traversal
+                    ':' in file_name or  # Windows drive letter
+                    '\0' in file_name):  # Null byte
+                    # Skip unsafe entries
+                    content_parts.append(f"WARNING: Skipped suspicious path: {file_name[:50]}...")
+                    continue
+                
+                # Normalize path for additional safety check
+                try:
+                    # Create safe path relative to virtual root
+                    norm_path = os.path.normpath(file_name)
+                    if norm_path.startswith('..'):
+                        # Skip unsafe entries that normalize to traversal
+                        content_parts.append(f"WARNING: Skipped path traversal attempt: {file_name[:50]}...")
+                        continue
+                    
+                    # Check if path would escape the virtual root
+                    test_path = virtual_root.joinpath(norm_path).resolve()
+                    if not str(test_path).startswith(str(virtual_root)):
+                        # Skip unsafe entries that would escape extraction root
+                        content_parts.append(f"WARNING: Skipped path traversal attempt: {file_name[:50]}...")
+                        continue
+                        
+                    # Passed all security checks, add to safe file list
+                    safe_files.append(file_name)
+                    
+                    # Get file info for display
+                    if file_name.endswith('/'):
+                        content_parts.append(f"DIR: {file_name}")
+                    else:
+                        try:
+                            file_info = zip_file.getinfo(file_name)
+                            size = file_info.file_size
+                            content_parts.append(f"FILE: {file_name} ({size} bytes)")
+                        except KeyError:
+                            content_parts.append(f"FILE: {file_name}")
+                except Exception:
+                    # Skip any entry that causes normalization errors
+                    content_parts.append(f"WARNING: Skipped invalid path: {file_name[:50]}...")
+                    continue
             
             content = '\n'.join(content_parts).strip()
             
             return ProcessedDocument(
                 content=content,
                 metadata={
-                    'files': files,
-                    'total_files': len(files)
+                    'files': safe_files,
+                    'total_files': len(safe_files)
                 }
             )
             

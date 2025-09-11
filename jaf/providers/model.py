@@ -9,6 +9,8 @@ from typing import Any, Dict, Optional, TypeVar, AsyncIterator, List, Union
 import asyncio
 import httpx
 import time
+import os
+import base64
 
 from openai import OpenAI
 from pydantic import BaseModel
@@ -30,6 +32,7 @@ Ctx = TypeVar('Ctx')
 VISION_MODEL_CACHE_TTL = 5 * 60  # 5 minutes
 VISION_API_TIMEOUT = 3.0  # 3 seconds
 _vision_model_cache: Dict[str, Dict[str, Any]] = {}
+MAX_IMAGE_BYTES = int(os.environ.get("JAF_MAX_IMAGE_BYTES", 8 * 1024 * 1024))
 
 async def _is_vision_model(model: str, base_url: str) -> bool:
     """
@@ -540,7 +543,31 @@ async def _build_chat_message_with_attachments(
             # Prefer explicit URL; otherwise construct a data URL from base64
             url = att.url
             if not url and att.data and att.mime_type:
-                url = f"data:{att.mime_type};base64,{att.data}"
+                # Validate base64 data size before creating data URL
+                try:
+                    # Estimate decoded size (base64 is ~4/3 of decoded size)
+                    estimated_size = len(att.data) * 3 // 4
+                    
+                    if estimated_size > MAX_IMAGE_BYTES:
+                        print(f"Warning: Skipping oversized image ({estimated_size} bytes > {MAX_IMAGE_BYTES}). "
+                              f"Set JAF_MAX_IMAGE_BYTES env var to adjust limit.")
+                        parts.append({
+                            "type": "text",
+                            "text": f"[IMAGE SKIPPED: Size exceeds limit of {MAX_IMAGE_BYTES//1024//1024}MB. "
+                                   f"Image name: {att.name or 'unnamed'}]"
+                        })
+                        continue
+                    
+                    # Create data URL for valid-sized images
+                    url = f"data:{att.mime_type};base64,{att.data}"
+                except Exception as e:
+                    print(f"Error processing image data: {e}")
+                    parts.append({
+                        "type": "text",
+                        "text": f"[IMAGE ERROR: Failed to process image data. Image name: {att.name or 'unnamed'}]"
+                    })
+                    continue
+            
             if url:
                 parts.append({
                     "type": "image_url",
@@ -555,7 +582,31 @@ async def _build_chat_message_with_attachments(
                 # Use LiteLLM native file format for better handling of large documents
                 file_id = att.url
                 if not file_id and att.data and att.mime_type:
-                    file_id = f"data:{att.mime_type};base64,{att.data}"
+                    # Validate base64 data size before creating data URL
+                    try:
+                        # Estimate decoded size (base64 is ~4/3 of decoded size)
+                        estimated_size = len(att.data) * 3 // 4
+                        
+                        if estimated_size > MAX_IMAGE_BYTES:
+                            print(f"Warning: Skipping oversized document/file ({estimated_size} bytes > {MAX_IMAGE_BYTES}). "
+                                  f"Set JAF_MAX_IMAGE_BYTES env var to adjust limit.")
+                            parts.append({
+                                "type": "text",
+                                "text": f"[DOCUMENT SKIPPED: Size exceeds limit of {MAX_IMAGE_BYTES//1024//1024}MB. "
+                                       f"Document name: {att.name or 'unnamed'}]"
+                            })
+                            continue
+                        
+                        # Create data URL for valid-sized documents
+                        file_id = f"data:{att.mime_type};base64,{att.data}"
+                    except Exception as e:
+                        print(f"Error processing document data: {e}")
+                        parts.append({
+                            "type": "text",
+                            "text": f"[DOCUMENT ERROR: Failed to process document data. Document name: {att.name or 'unnamed'}]"
+                        })
+                        continue
+                
                 if file_id:
                     parts.append({
                         "type": "file",

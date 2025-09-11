@@ -153,6 +153,11 @@ class Attachment:
     data: Optional[str] = None       # Base64 without data: prefix
     format: Optional[str] = None     # Optional short format like 'pdf', 'txt'
     use_litellm_format: Optional[bool] = None  # Use LiteLLM native file format
+    
+    def __post_init__(self):
+        """Validate that exactly one of url or data is provided."""
+        if (self.url is None and self.data is None) or (self.url is not None and self.data is not None):
+            raise ValueError("Exactly one of 'url' or 'data' must be provided for an Attachment.")
 
 @dataclass(frozen=True)
 class MessageContentPart:

@@ -98,17 +98,17 @@ async def test_attachments_with_agent():
     except Exception as e:
         print(f"✗ Error with text attachment: {e}\n")
     
-    # Test 2: Image attachment (URL)
-    print("Test 2: Image attachment from URL")
+    # Test 2: Image attachment (base64 data)
+    print("Test 2: Image attachment from base64 data")
     try:
         image_attachment = make_image_attachment(
-            url="https://picsum.photos/200/150",
-            mime_type="image/jpeg",
-            name="sample-image.jpg"
+            data=TINY_PNG_B64,
+            mime_type="image/png",
+            name="sample-image.png"
         )
         
-        print(f"Created image attachment: {image_attachment.name} from URL")
-        print("✓ Image attachment from URL created successfully\n")
+        print(f"Created image attachment: {image_attachment.name} from base64 data")
+        print("✓ Image attachment from base64 data created successfully\n")
         
     except Exception as e:
         print(f"✗ Error with image attachment: {e}\n")
