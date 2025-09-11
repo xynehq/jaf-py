@@ -12,7 +12,7 @@ from typing import Dict, List, Optional, Any, Tuple, Set
 from collections import defaultdict, Counter
 from datetime import datetime, timedelta
 
-from .types import Message, ContentRole, RunState, TraceEvent
+from .types import Message, ContentRole, RunState, TraceEvent, get_text_content
 from .performance import PerformanceMetrics
 
 
@@ -129,10 +129,11 @@ class ConversationAnalyzer:
         total_words = 0
         
         for message in messages:
-            if not message.content:
+            content_text = get_text_content(message.content)
+            if not content_text:
                 continue
             
-            words = message.content.lower().split()
+            words = content_text.lower().split()
             total_words += len(words)
             
             for word in words:

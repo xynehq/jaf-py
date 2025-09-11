@@ -164,12 +164,54 @@ class MessageContentPart:
 
 @dataclass(frozen=True)
 class Message:
-    """A message in the conversation."""
+    """
+    A message in the conversation.
+    
+    BACKWARDS COMPATIBILITY:
+    - Messages created with string content remain fully backwards compatible
+    - Direct access to .content returns the original string when created with string
+    - Use .text_content property for guaranteed string access in all cases
+    - Use get_text_content() function to extract text from any content type
+    
+    Examples:
+        # Original usage - still works exactly the same
+        msg = Message(role='user', content='Hello')
+        text = msg.content  # Returns 'Hello' as string
+        
+        # Guaranteed string access (recommended for new code)
+        text = msg.text_content  # Always returns string
+        
+        # Universal text extraction
+        text = get_text_content(msg.content)  # Works with any content type
+    """
     role: ContentRole
     content: Union[str, List[MessageContentPart]]
     attachments: Optional[List[Attachment]] = None
     tool_call_id: Optional[str] = None
     tool_calls: Optional[List[ToolCall]] = None
+    
+    @property
+    def text_content(self) -> str:
+        """Get text content as string for backwards compatibility."""
+        return get_text_content(self.content)
+    
+    @classmethod
+    def create(
+        cls,
+        role: ContentRole,
+        content: str,
+        attachments: Optional[List[Attachment]] = None,
+        tool_call_id: Optional[str] = None,
+        tool_calls: Optional[List[ToolCall]] = None
+    ) -> 'Message':
+        """Create a message with string content and optional attachments."""
+        return cls(
+            role=role,
+            content=content,
+            attachments=attachments,
+            tool_call_id=tool_call_id,
+            tool_calls=tool_calls
+        )
 
 def get_text_content(content: Union[str, List[MessageContentPart]]) -> str:
     """Extract text content from message content."""

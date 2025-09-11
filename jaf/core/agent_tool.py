@@ -27,6 +27,7 @@ from .types import (
     RunState,
     RunResult,
     Message,
+    get_text_content,
     ContentRole,
     generate_run_id,
     generate_trace_id,
@@ -279,8 +280,8 @@ def create_json_output_extractor() -> Callable[[RunResult], str]:
     def json_extractor(run_result: RunResult) -> str:
         # Scan the agent's outputs in reverse order until we find a JSON-like message
         for message in reversed(run_result.final_state.messages):
-            if message.role == ContentRole.ASSISTANT and message.content:
-                content = message.content.strip()
+            if message.role == ContentRole.ASSISTANT and get_text_content(message.content):
+                content = get_text_content(message.content).strip()
                 if content.startswith('{') or content.startswith('['):
                     try:
                         # Validate it's proper JSON

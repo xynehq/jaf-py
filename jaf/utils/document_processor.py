@@ -14,8 +14,17 @@ import zipfile
 from typing import Dict, Any, Optional, List, Union
 from urllib.parse import urlparse
 
-import aiofiles
-import httpx
+try:
+    import aiofiles
+    HAS_AIOFILES = True
+except ImportError:
+    HAS_AIOFILES = False
+
+try:
+    import httpx
+    HAS_HTTPX = True
+except ImportError:
+    HAS_HTTPX = False
 from pydantic import BaseModel
 
 from ..core.types import Attachment
@@ -96,6 +105,11 @@ async def _fetch_url_content(url: str) -> tuple[bytes, Optional[str]]:
         NetworkError: If fetch fails
         DocumentProcessingError: If file is too large
     """
+    if not HAS_HTTPX:
+        raise DocumentProcessingError(
+            "URL fetching not available. Install with: pip install 'jaf-py[attachments]'"
+        )
+    
     try:
         async with httpx.AsyncClient(timeout=FETCH_TIMEOUT) as client:
             response = await client.get(
@@ -442,6 +456,10 @@ def get_missing_dependencies() -> List[str]:
         missing.append('Pillow (for image processing)')
     if not HAS_MAGIC:
         missing.append('python-magic (for MIME type detection)')
+    if not HAS_HTTPX:
+        missing.append('httpx (for URL fetching)')
+    if not HAS_AIOFILES:
+        missing.append('aiofiles (for async file operations)')
     
     return missing
 
@@ -458,5 +476,7 @@ def check_dependencies() -> Dict[str, bool]:
         'docx': HAS_DOCX,
         'excel': HAS_EXCEL,
         'image': HAS_PIL,
-        'magic': HAS_MAGIC
+        'magic': HAS_MAGIC,
+        'httpx': HAS_HTTPX,
+        'aiofiles': HAS_AIOFILES
     }

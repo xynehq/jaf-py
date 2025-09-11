@@ -9,7 +9,7 @@ import json
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from ..core.types import Message, ToolCall, ToolCallFunction
+from ..core.types import Message, ToolCall, ToolCallFunction, get_text_content
 from .types import ConversationMemory
 
 
