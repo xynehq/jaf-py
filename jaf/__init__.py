@@ -16,6 +16,21 @@ from .core.tools import (
 )
 from .core.tracing import ConsoleTraceCollector, TraceCollector
 from .core.types import *
+# Import attachment utilities for convenience
+from .utils.attachments import (
+    make_image_attachment,
+    make_file_attachment,
+    make_document_attachment,
+    validate_attachment,
+    AttachmentValidationError,
+)
+from .utils.document_processor import (
+    extract_document_content,
+    is_document_supported,
+    get_document_description,
+    ProcessedDocument,
+    DocumentProcessingError,
+)
 from .exceptions import (
     A2AException,
     A2AProtocolError,

@@ -44,6 +44,7 @@ from .types import (
     AssistantMessageEventData,
     MaxTurnsExceeded,
     Message,
+    get_text_content,
     ModelBehaviorError,
     OutputGuardrailTripwire,
     RunConfig,
@@ -404,18 +405,18 @@ async def _run_internal(
                 if config.on_event:
                     config.on_event(GuardrailEvent(data=GuardrailEventData(
                         guardrail_name=getattr(guardrail, '__name__', 'unknown_guardrail'),
-                        content=first_user_message.content
+                        content=get_text_content(first_user_message.content)
                     )))
                 if asyncio.iscoroutinefunction(guardrail):
-                    result = await guardrail(first_user_message.content)
+                    result = await guardrail(get_text_content(first_user_message.content))
                 else:
-                    result = guardrail(first_user_message.content)
+                    result = guardrail(get_text_content(first_user_message.content))
 
                 if not result.is_valid:
                     if config.on_event:
                         config.on_event(GuardrailEvent(data=GuardrailEventData(
                             guardrail_name=getattr(guardrail, '__name__', 'unknown_guardrail'),
-                            content=first_user_message.content,
+                            content=get_text_content(first_user_message.content),
                             is_valid=False,
                             error_message=result.error_message
                         )))
@@ -724,20 +725,20 @@ async def _run_internal(
         return await _run_internal(next_state, config)
 
     # Handle text completion
-    if assistant_message.content:
+    if get_text_content(assistant_message.content):
         if current_agent.output_codec:
             # Parse with output codec
             if config.on_event:
                 config.on_event(OutputParseEvent(data=OutputParseEventData(
-                    content=assistant_message.content,
+                    content=get_text_content(assistant_message.content),
                     status='start'
                 )))
             try:
-                parsed_content = _try_parse_json(assistant_message.content)
+                parsed_content = _try_parse_json(get_text_content(assistant_message.content))
                 output_data = current_agent.output_codec.model_validate(parsed_content)
                 if config.on_event:
                     config.on_event(OutputParseEvent(data=OutputParseEventData(
-                        content=assistant_message.content,
+                        content=get_text_content(assistant_message.content),
                         status='end',
                         parsed_output=output_data
                     )))
@@ -778,7 +779,7 @@ async def _run_internal(
             except ValidationError as e:
                 if config.on_event:
                     config.on_event(OutputParseEvent(data=OutputParseEventData(
-                        content=assistant_message.content,
+                        content=get_text_content(assistant_message.content),
                         status='fail',
                         error=str(e)
                     )))
@@ -795,18 +796,18 @@ async def _run_internal(
                     if config.on_event:
                         config.on_event(GuardrailEvent(data=GuardrailEventData(
                             guardrail_name=getattr(guardrail, '__name__', 'unknown_guardrail'),
-                            content=assistant_message.content
+                            content=get_text_content(assistant_message.content)
                         )))
                     if asyncio.iscoroutinefunction(guardrail):
-                        result = await guardrail(assistant_message.content)
+                        result = await guardrail(get_text_content(assistant_message.content))
                     else:
-                        result = guardrail(assistant_message.content)
+                        result = guardrail(get_text_content(assistant_message.content))
 
                     if not result.is_valid:
                         if config.on_event:
                             config.on_event(GuardrailEvent(data=GuardrailEventData(
                                 guardrail_name=getattr(guardrail, '__name__', 'unknown_guardrail'),
-                                content=assistant_message.content,
+                                content=get_text_content(assistant_message.content),
                                 is_valid=False,
                                 error_message=result.error_message
                             )))
@@ -819,7 +820,7 @@ async def _run_internal(
 
             return RunResult(
                 final_state=replace(state, messages=new_messages, turn_count=state.turn_count + 1, approvals=state.approvals),
-                outcome=CompletedOutcome(output=assistant_message.content)
+                outcome=CompletedOutcome(output=get_text_content(assistant_message.content))
             )
 
     # Model produced neither content nor tool calls

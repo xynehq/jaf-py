@@ -24,6 +24,8 @@ from ..core.types import (
     ErrorOutcome,
     InterruptedOutcome,
     Message,
+    MessageContentPart,
+    Attachment,
     RunState,
     create_run_id,
     create_trace_id,
@@ -80,6 +82,133 @@ def compute_tool_call_signature(tool_call) -> str:
         return f"{tool_call.function.name}:{stable_stringify(args)}"
     except Exception:
         return f"{tool_call.function.name}:unknown"
+
+def _convert_http_message_to_core(http_msg: HttpMessage) -> Message:
+    """Convert HTTP message format to core Message format."""
+    # Convert content
+    if isinstance(http_msg.content, str):
+        content = http_msg.content
+    else:
+        # Convert list of content parts
+        content_parts = []
+        for i, part in enumerate(http_msg.content):
+            if part.type == 'text':
+                content_parts.append(MessageContentPart(
+                    type='text',
+                    text=part.text,
+                    image_url=None,
+                    file=None
+                ))
+            elif part.type == 'image_url':
+                content_parts.append(MessageContentPart(
+                    type='image_url',
+                    text=None,
+                    image_url=part.image_url,
+                    file=None
+                ))
+            elif part.type == 'file':
+                content_parts.append(MessageContentPart(
+                    type='file',
+                    text=None,
+                    image_url=None,
+                    file=part.file
+                ))
+            else:
+                # Raise explicit error for unrecognized part types
+                raise ValueError(f"Unrecognized message content part type: '{part.type}' at index {i}. "
+                                 f"Supported types are: 'text', 'image_url', 'file'")
+        content = content_parts
+
+    # Convert attachments
+    attachments = None
+    if http_msg.attachments:
+        attachments = [
+            Attachment(
+                kind=att.kind,
+                mime_type=att.mime_type,
+                name=att.name,
+                url=att.url,
+                data=att.data,
+                format=att.format,
+                use_litellm_format=att.use_litellm_format
+            )
+            for att in http_msg.attachments
+        ]
+
+    return Message(
+        role=http_msg.role,
+        content=content,
+        attachments=attachments,
+        tool_call_id=http_msg.tool_call_id,
+        tool_calls=http_msg.tool_calls
+    )
+
+def _convert_core_message_to_http(core_msg: Message) -> HttpMessage:
+    """Convert core Message format to HTTP message format."""
+    from .types import HttpAttachment, HttpMessageContentPart
+    from ..core.types import get_text_content
+    
+    # Convert content
+    if isinstance(core_msg.content, str):
+        content = core_msg.content
+    elif isinstance(core_msg.content, list):
+        # Convert content parts to HTTP format
+        http_parts = []
+        for i, part in enumerate(core_msg.content):
+            if part.type == 'text':
+                http_parts.append(HttpMessageContentPart(
+                    type='text',
+                    text=part.text,
+                    image_url=None,
+                    file=None
+                ))
+            elif part.type == 'image_url':
+                http_parts.append(HttpMessageContentPart(
+                    type='image_url',
+                    text=None,
+                    image_url=part.image_url,
+                    file=None
+                ))
+            elif part.type == 'file':
+                http_parts.append(HttpMessageContentPart(
+                    type='file',
+                    text=None,
+                    image_url=None,
+                    file=part.file
+                ))
+            else:
+                # Raise explicit error for unrecognized part types
+                message_info = f"role={core_msg.role}"
+                raise ValueError(f"Unrecognized core message content part type: '{part.type}' at index {i}. "
+                                f"Message info: {message_info}. "
+                                f"Supported types are: 'text', 'image_url', 'file'")
+        content = http_parts
+    else:
+        content = get_text_content(core_msg.content)
+
+    # Convert attachments
+    attachments = None
+    if core_msg.attachments:
+        attachments = [
+            HttpAttachment(
+                kind=att.kind,
+                mime_type=att.mime_type,
+                name=att.name,
+                url=att.url,
+                data=att.data,
+                format=att.format,
+                use_litellm_format=att.use_litellm_format
+            )
+            for att in core_msg.attachments
+        ]
+
+    return HttpMessage(
+        role=core_msg.role,
+        content=content,
+        attachments=attachments,
+        tool_call_id=core_msg.tool_call_id,
+        tool_calls=core_msg.tool_calls
+    )
 
 def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
     """Create and configure a JAF server instance."""
@@ -373,7 +502,7 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
         initial_state = RunState(
             run_id=create_run_id(str(uuid.uuid4())),
             trace_id=create_trace_id(str(uuid.uuid4())),
-            messages=[Message(**msg.model_dump()) for msg in request.messages],
+            messages=[_convert_http_message_to_core(msg) for msg in request.messages],
             current_agent_name=request.agent_name,
             context=request.context or {},
             turn_count=initial_turn_count,  # Use loaded turn count instead of always 0
@@ -454,7 +583,7 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
         # Non-streaming execution
         result = await run(initial_state, run_config_with_memory)
 
-        http_messages = [HttpMessage.model_validate(asdict(msg)) for msg in result.final_state.messages]
+        http_messages = [_convert_core_message_to_http(msg) for msg in result.final_state.messages]
 
         # Create proper outcome object
         if isinstance(result.outcome, CompletedOutcome):
