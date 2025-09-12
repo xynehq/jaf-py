@@ -233,3 +233,4 @@ class MemoryConfig:
     max_messages: Optional[int] = None
     ttl: Optional[int] = None
     compression_threshold: Optional[int] = None
+    store_on_completion: bool = True  # Store conversation on completion (in addition to interruptions)
