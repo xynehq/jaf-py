@@ -8,6 +8,7 @@ tool calling, and state management while maintaining functional purity.
 import asyncio
 import json
 import os
+import time
 from dataclasses import replace, asdict, is_dataclass
 from typing import Any, Dict, List, Optional, TypeVar
 
@@ -18,6 +19,7 @@ from .tool_results import tool_result_to_string
 from .types import (
     Agent,
     AgentNotFound,
+    ApprovalValue,
     CompletedOutcome,
     ContentRole,
     DecodeError,
@@ -26,6 +28,8 @@ from .types import (
     HandoffEvent,
     HandoffEventData,
     InputGuardrailTripwire,
+    InterruptedOutcome,
+    Interruption,
     GuardrailEvent,
     GuardrailEventData,
     MemoryEvent,
@@ -49,6 +53,7 @@ from .types import (
     RunStartEvent,
     RunStartEventData,
     RunState,
+    ToolApprovalInterruption,
     ToolCall,
     ToolCallEndEvent,
     ToolCallEndEventData,
@@ -80,6 +85,82 @@ def to_event_data(value: Any) -> Any:
 Ctx = TypeVar('Ctx')
 Out = TypeVar('Out')
 
+async def try_resume_pending_tool_calls(
+    state: RunState[Ctx],
+    config: RunConfig[Ctx]
+) -> Optional[RunResult[Out]]:
+    """
+    Try to resume pending tool calls if the last assistant message contained tool_calls
+    and some of those calls have not yet produced tool results.
+    """
+    try:
+        messages = state.messages
+        for i in range(len(messages) - 1, -1, -1):
+            msg = messages[i]
+            # Handle both string and enum roles
+            role_str = msg.role.value if hasattr(msg.role, 'value') else str(msg.role)
+            if role_str == 'assistant' and msg.tool_calls:
+                tool_call_ids = {tc.id for tc in msg.tool_calls}
+                
+                # Scan forward for tool results tied to these ids
+                executed_ids = set()
+                for j in range(i + 1, len(messages)):
+                    m = messages[j]
+                    # Handle both string and enum roles
+                    m_role_str = m.role.value if hasattr(m.role, 'value') else str(m.role)
+                    if m_role_str == 'tool' and m.tool_call_id and m.tool_call_id in tool_call_ids:
+                        executed_ids.add(m.tool_call_id)
+                
+                pending_tool_calls = [tc for tc in msg.tool_calls if tc.id not in executed_ids]
+                
+                if not pending_tool_calls:
+                    continue  # Continue checking other assistant messages
+                
+                current_agent = config.agent_registry.get(state.current_agent_name)
+                if not current_agent:
+                    return RunResult(
+                        final_state=state,
+                        outcome=ErrorOutcome(error=AgentNotFound(agent_name=state.current_agent_name))
+                    )
+                
+                # Execute pending tool calls
+                tool_results = await _execute_tool_calls(
+                    pending_tool_calls,
+                    current_agent,
+                    state,
+                    config
+                )
+                
+                # Check for interruptions
+                interruptions = [r.get('interruption') for r in tool_results if r.get('interruption')]
+                if interruptions:
+                    completed_results = [r for r in tool_results if not r.get('interruption')]
+                    interrupted_state = replace(
+                        state,
+                        messages=list(state.messages) + [r['message'] for r in completed_results],
+                        turn_count=state.turn_count,
+                        approvals=state.approvals
+                    )
+                    return RunResult(
+                        final_state=interrupted_state,
+                        outcome=InterruptedOutcome(interruptions=interruptions)
+                    )
+                
+                # Continue with normal execution
+                next_state = replace(
+                    state,
+                    messages=list(state.messages) + [r['message'] for r in tool_results],
+                    turn_count=state.turn_count,
+                    approvals=state.approvals
+                )
+                return await _run_internal(next_state, config)
+        
+    except Exception as e:
+        # Best-effort resume; ignore and continue normal flow
+        pass
+    
+    return None
+
 async def run(
     initial_state: RunState[Ctx],
     config: RunConfig[Ctx]
@@ -102,9 +183,26 @@ async def run(
             ))))
 
         state_with_memory = await _load_conversation_history(initial_state, config)
+        
+        # Load approvals from storage if configured
+        if config.approval_storage:
+            print(f'[JAF:ENGINE] Loading approvals for runId {state_with_memory.run_id}')
+            from .state import load_approvals_into_state
+            state_with_memory = await load_approvals_into_state(state_with_memory, config)
+        
         result = await _run_internal(state_with_memory, config)
 
-        await _store_conversation_history(result.final_state, config)
+        # Store conversation history only if this is a final completion of the entire conversation
+        # For HITL scenarios, storage happens on interruption to allow resumption
+        # We only store on completion if explicitly indicated this is the end of the conversation
+        if (config.memory and config.memory.auto_store and config.conversation_id and 
+            result.outcome.status == 'completed' and getattr(config.memory, 'store_on_completion', True)):
+            print(f'[JAF:ENGINE] Storing final completed conversation for {config.conversation_id}')
+            await _store_conversation_history(result.final_state, config)
+        elif result.outcome.status == 'interrupted':
+            print('[JAF:ENGINE] Conversation interrupted - storage already handled during interruption')
+        else:
+            print(f'[JAF:ENGINE] Skipping memory store - status: {result.outcome.status}, store_on_completion: {getattr(config.memory, "store_on_completion", True) if config.memory else "N/A"}')
 
         if config.on_event:
             config.on_event(RunEndEvent(data=to_event_data(RunEndEventData(
@@ -154,7 +252,46 @@ async def _load_conversation_history(state: RunState[Ctx], config: RunConfig[Ctx
     conversation_data = result.data
     if conversation_data:
         max_messages = config.memory.max_messages or len(conversation_data.messages)
-        memory_messages = conversation_data.messages[-max_messages:]
+        all_memory_messages = conversation_data.messages[-max_messages:]
+
+        # Filter out halted messages - they're for audit/database only, not for LLM context
+        memory_messages = []
+        filtered_count = 0
+        
+        for msg in all_memory_messages:
+            if msg.role not in (ContentRole.TOOL, 'tool'):
+                memory_messages.append(msg)
+            else:
+                try:
+                    content = json.loads(msg.content)
+                    status = content.get('status')
+                    # Filter out ALL halted messages (they're for audit only)
+                    if status == 'halted':
+                        filtered_count += 1
+                        continue  # Skip this halted message
+                    else:
+                        memory_messages.append(msg)
+                except (json.JSONDecodeError, TypeError):
+                    # Keep non-JSON tool messages
+                    memory_messages.append(msg)
+
+        # For HITL scenarios, append new messages to memory messages
+        # This prevents duplication when resuming from interruptions
+        if memory_messages:
+            combined_messages = memory_messages + [
+                msg for msg in state.messages 
+                if not any(
+                    mem_msg.role == msg.role and 
+                    mem_msg.content == msg.content and 
+                    getattr(mem_msg, 'tool_calls', None) == getattr(msg, 'tool_calls', None)
+                    for mem_msg in memory_messages
+                )
+            ]
+        else:
+            combined_messages = list(state.messages)
+
+        # Approvals will be loaded separately via approval storage system
+        approvals_map = state.approvals
 
         # Calculate turn count efficiently
         memory_assistant_count = sum(1 for msg in memory_messages if msg.role in (ContentRole.ASSISTANT, 'assistant'))
@@ -174,10 +311,17 @@ async def _load_conversation_history(state: RunState[Ctx], config: RunConfig[Ctx
                 status='end',
                 message_count=len(memory_messages)
             )))
+
+        if filtered_count > 0:
+            print(f'[JAF:MEMORY] Loaded {len(all_memory_messages)} messages from memory, filtered to {len(memory_messages)} for LLM context (removed {filtered_count} halted messages)')
+        else:
+            print(f'[JAF:MEMORY] Loaded {len(all_memory_messages)} messages from memory')
+
         return replace(
             state,
-            messages=list(memory_messages) + list(state.messages),
-            turn_count=turn_count
+            messages=combined_messages,
+            turn_count=turn_count,
+            approvals=approvals_map
         )
     return state
 
@@ -199,12 +343,23 @@ async def _store_conversation_history(state: RunState[Ctx], config: RunConfig[Ct
         keep_recent = config.memory.compression_threshold - keep_first
         messages_to_store = messages_to_store[:keep_first] + messages_to_store[-keep_recent:]
 
+    # Store approval information if any approvals were made
+    approval_metadata = {}
+    if state.approvals:
+        approval_metadata = {
+            "approval_count": len(state.approvals),
+            "approved_tools": [tool_id for tool_id, approval in state.approvals.items() if approval.approved],
+            "rejected_tools": [tool_id for tool_id, approval in state.approvals.items() if not approval.approved],
+            "has_approvals": True
+        }
+    
     metadata = {
         "user_id": getattr(state.context, 'user_id', None),
         "trace_id": str(state.trace_id),
         "run_id": str(state.run_id),
         "agent_name": state.current_agent_name,
-        "turn_count": state.turn_count
+        "turn_count": state.turn_count,
+        **approval_metadata
     }
 
     result = await config.memory.provider.store_messages(config.conversation_id, messages_to_store, metadata)
@@ -236,6 +391,11 @@ async def _run_internal(
     config: RunConfig[Ctx]
 ) -> RunResult[Out]:
     """Internal run function with recursive execution logic."""
+    # Try to resume pending tool calls first
+    resumed = await try_resume_pending_tool_calls(state, config)
+    if resumed:
+        return resumed
+    
     # Check initial input guardrails on first turn
     if state.turn_count == 0:
         first_user_message = next((m for m in state.messages if m.role == ContentRole.USER or m.role == 'user'), None)
@@ -448,6 +608,45 @@ async def _run_internal(
             config
         )
 
+        # Check for interruptions
+        interruptions = [r.get('interruption') for r in tool_results if r.get('interruption')]
+        if interruptions:
+            # Separate completed tool results from interrupted ones
+            completed_results = [r for r in tool_results if not r.get('interruption')]
+            approval_required_results = [r for r in tool_results if r.get('interruption')]
+            
+            # Add pending approvals to state.approvals
+            updated_approvals = dict(state.approvals)
+            for interruption in interruptions:
+                if interruption.type == 'tool_approval':
+                    updated_approvals[interruption.tool_call.id] = ApprovalValue(
+                        status='pending',
+                        approved=False,
+                        additional_context={'status': 'pending', 'timestamp': str(int(time.time() * 1000))}
+                    )
+
+            # Create state with only completed tool results (for LLM context)
+            interrupted_state = replace(
+                state,
+                messages=new_messages + [r['message'] for r in completed_results],
+                turn_count=state.turn_count + 1,
+                approvals=updated_approvals
+            )
+            
+            # Store conversation state with ALL messages including approval-required (for database records)
+            if config.memory and config.memory.auto_store and config.conversation_id:
+                print(f'[JAF:ENGINE] Storing conversation state due to interruption for {config.conversation_id}')
+                state_for_storage = replace(
+                    interrupted_state,
+                    messages=interrupted_state.messages + [r['message'] for r in approval_required_results]
+                )
+                await _store_conversation_history(state_for_storage, config)
+            
+            return RunResult(
+                final_state=interrupted_state,
+                outcome=InterruptedOutcome(interruptions=interruptions)
+            )
+
         # Check for handoffs
         handoff_result = next((r for r in tool_results if r.get('is_handoff')), None)
         if handoff_result:
@@ -469,21 +668,57 @@ async def _run_internal(
                     to=target_agent
                 ))))
 
+            # Remove any halted messages that are being replaced by actual execution results
+            cleaned_new_messages = []
+            for msg in new_messages:
+                if msg.role not in (ContentRole.TOOL, 'tool'):
+                    cleaned_new_messages.append(msg)
+                else:
+                    try:
+                        content = json.loads(msg.content)
+                        if content.get('status') == 'halted':
+                            # Remove this halted message if we have a new result for the same tool_call_id
+                            if not any(result['message'].tool_call_id == msg.tool_call_id for result in tool_results):
+                                cleaned_new_messages.append(msg)
+                        else:
+                            cleaned_new_messages.append(msg)
+                    except (json.JSONDecodeError, TypeError):
+                        cleaned_new_messages.append(msg)
+
             # Continue with new agent
             next_state = replace(
                 state,
-                messages=new_messages + [r['message'] for r in tool_results],
+                messages=cleaned_new_messages + [r['message'] for r in tool_results],
                 current_agent_name=target_agent,
-                turn_count=state.turn_count + 1
+                turn_count=state.turn_count + 1,
+                approvals=state.approvals
             )
 
             return await _run_internal(next_state, config)
 
+        # Remove any halted messages that are being replaced by actual execution results
+        cleaned_new_messages = []
+        for msg in new_messages:
+            if msg.role not in (ContentRole.TOOL, 'tool'):
+                cleaned_new_messages.append(msg)
+            else:
+                try:
+                    content = json.loads(msg.content)
+                    if content.get('status') == 'halted':
+                        # Remove this halted message if we have a new result for the same tool_call_id
+                        if not any(result['message'].tool_call_id == msg.tool_call_id for result in tool_results):
+                            cleaned_new_messages.append(msg)
+                    else:
+                        cleaned_new_messages.append(msg)
+                except (json.JSONDecodeError, TypeError):
+                    cleaned_new_messages.append(msg)
+
         # Continue with tool results
         next_state = replace(
             state,
-            messages=new_messages + [r['message'] for r in tool_results],
-            turn_count=state.turn_count + 1
+            messages=cleaned_new_messages + [r['message'] for r in tool_results],
+            turn_count=state.turn_count + 1,
+            approvals=state.approvals
         )
 
         return await _run_internal(next_state, config)
@@ -529,14 +764,14 @@ async def _run_internal(
                                     error_message=result.error_message
                                 )))
                             return RunResult(
-                                final_state=replace(state, messages=new_messages),
+                                final_state=replace(state, messages=new_messages, approvals=state.approvals),
                                 outcome=ErrorOutcome(error=OutputGuardrailTripwire(
                                     reason=result.error_message or "Output guardrail failed"
                                 ))
                             )
 
                 return RunResult(
-                    final_state=replace(state, messages=new_messages, turn_count=state.turn_count + 1),
+                    final_state=replace(state, messages=new_messages, turn_count=state.turn_count + 1, approvals=state.approvals),
                     outcome=CompletedOutcome(output=output_data)
                 )
 
@@ -548,7 +783,7 @@ async def _run_internal(
                         error=str(e)
                     )))
                 return RunResult(
-                    final_state=replace(state, messages=new_messages),
+                    final_state=replace(state, messages=new_messages, approvals=state.approvals),
                     outcome=ErrorOutcome(error=DecodeError(
                         errors=[{'message': str(e), 'details': e.errors()}]
                     ))
@@ -576,20 +811,20 @@ async def _run_internal(
                                 error_message=result.error_message
                             )))
                         return RunResult(
-                            final_state=replace(state, messages=new_messages),
+                            final_state=replace(state, messages=new_messages, approvals=state.approvals),
                             outcome=ErrorOutcome(error=OutputGuardrailTripwire(
                                 reason=result.error_message or "Output guardrail failed"
                             ))
                         )
 
             return RunResult(
-                final_state=replace(state, messages=new_messages, turn_count=state.turn_count + 1),
+                final_state=replace(state, messages=new_messages, turn_count=state.turn_count + 1, approvals=state.approvals),
                 outcome=CompletedOutcome(output=assistant_message.content)
             )
 
     # Model produced neither content nor tool calls
     return RunResult(
-        final_state=replace(state, messages=new_messages),
+        final_state=replace(state, messages=new_messages, approvals=state.approvals),
         outcome=ErrorOutcome(error=ModelBehaviorError(
             detail='Model produced neither content nor tool calls'
         ))
@@ -621,6 +856,7 @@ async def _execute_tool_calls(
     """Execute tool calls and return results."""
 
     async def execute_single_tool_call(tool_call: ToolCall) -> Dict[str, Any]:
+        print(f'[JAF:TOOL-EXEC] Starting execute_single_tool_call for {tool_call.function.name}')
         if config.on_event:
             config.on_event(ToolCallStartEvent(data=to_event_data(ToolCallStartEventData(
                 tool_name=tool_call.function.name,
@@ -640,7 +876,7 @@ async def _execute_tool_calls(
 
             if not tool:
                 error_result = json.dumps({
-                    'error': 'tool_not_found',
+                    'status': 'tool_not_found',
                     'message': f'Tool {tool_call.function.name} not found',
                     'tool_name': tool_call.function.name,
                 })
@@ -673,7 +909,7 @@ async def _execute_tool_calls(
                     validated_args = raw_args
             except ValidationError as e:
                 error_result = json.dumps({
-                    'error': 'validation_error',
+                    'status': 'validation_error',
                     'message': f'Invalid arguments for {tool_call.function.name}: {e!s}',
                     'tool_name': tool_call.function.name,
                     'validation_errors': e.errors()
@@ -697,16 +933,116 @@ async def _execute_tool_calls(
                     )
                 }
 
+            # Check if tool needs approval
+            needs_approval = False
+            approval_func = getattr(tool, 'needs_approval', False)
+            if callable(approval_func):
+                needs_approval = await approval_func(state.context, validated_args)
+            else:
+                needs_approval = bool(approval_func)
+            
+            # Check approval status - first by ID, then by signature for cross-session matching
+            approval_status = state.approvals.get(tool_call.id)
+            if not approval_status:
+                signature = f"{tool_call.function.name}:{tool_call.function.arguments}"
+                for _, approval in state.approvals.items():
+                    if approval.additional_context and approval.additional_context.get('signature') == signature:
+                        approval_status = approval
+                        break
+            
+            derived_status = None
+            if approval_status:
+                # Use explicit status if available
+                if approval_status.status:
+                    derived_status = approval_status.status
+                # Fall back to approved boolean if status not set
+                elif approval_status.approved is True:
+                    derived_status = 'approved'
+                elif approval_status.approved is False:
+                    if approval_status.additional_context and approval_status.additional_context.get('status') == 'pending':
+                        derived_status = 'pending'
+                    else:
+                        derived_status = 'rejected'
+
+            is_pending = derived_status == 'pending'
+
+            # If approval needed and not yet decided, create interruption
+            if needs_approval and (approval_status is None or is_pending):
+                interruption = ToolApprovalInterruption(
+                    type='tool_approval',
+                    tool_call=tool_call,
+                    agent=agent,
+                    session_id=str(state.run_id)
+                )
+                
+                # Return interrupted result with halted message
+                halted_result = json.dumps({
+                    'status': 'halted',
+                    'message': f'Tool {tool_call.function.name} requires approval.',
+                })
+                
+                return {
+                    'message': Message(
+                        role=ContentRole.TOOL,
+                        content=halted_result,
+                        tool_call_id=tool_call.id
+                    ),
+                    'interruption': interruption
+                }
+
+            # If approval was explicitly rejected, return rejection message
+            if derived_status == 'rejected':
+                rejection_reason = approval_status.additional_context.get('rejection_reason', 'User declined the action') if approval_status.additional_context else 'User declined the action'
+                rejection_result = json.dumps({
+                    'status': 'approval_denied',
+                    'message': f'Action was not approved. {rejection_reason}. Please ask if you can help with something else or suggest an alternative approach.',
+                    'tool_name': tool_call.function.name,
+                    'rejection_reason': rejection_reason,
+                    'additional_context': approval_status.additional_context if approval_status else None
+                })
+                
+                return {
+                    'message': Message(
+                        role=ContentRole.TOOL,
+                        content=rejection_result,
+                        tool_call_id=tool_call.id
+                    )
+                }
+
             # Determine timeout for this tool
             # Priority: tool-specific timeout > RunConfig default > 30 seconds global default
-            timeout = getattr(tool.schema, 'timeout', None)
+            if tool and hasattr(tool, 'schema'):
+                timeout = getattr(tool.schema, 'timeout', None)
+            else:
+                timeout = None
             if timeout is None:
                 timeout = config.default_tool_timeout if config.default_tool_timeout is not None else 30.0
 
+            # Merge additional context if provided through approval
+            additional_context = approval_status.additional_context if approval_status else None
+            context_with_additional = state.context
+            if additional_context:
+                # Create a copy of context with additional fields from approval
+                if hasattr(state.context, '__dict__'):
+                    # For dataclass contexts, add additional context as attributes
+                    context_dict = {**state.context.__dict__, **additional_context}
+                    context_with_additional = type(state.context)(**{k: v for k, v in context_dict.items() if k in state.context.__dict__})
+                    # Add any extra fields as attributes
+                    for key, value in additional_context.items():
+                        if not hasattr(context_with_additional, key):
+                            setattr(context_with_additional, key, value)
+                else:
+                    # For dict contexts, merge normally
+                    context_with_additional = {**state.context, **additional_context}
+            
+            print(f'[JAF:ENGINE] About to execute tool: {tool_call.function.name}')
+            print(f'[JAF:ENGINE] Tool args:', validated_args)
+            print(f'[JAF:ENGINE] Tool context:', state.context)
+            
             # Execute the tool with timeout
             try:
                 tool_result = await asyncio.wait_for(
-                    tool.execute(validated_args, state.context),
+                    tool.execute(validated_args, context_with_additional),
                     timeout=timeout
                 )
             except asyncio.TimeoutError:
@@ -738,14 +1074,41 @@ async def _execute_tool_calls(
             # Handle both string and ToolResult formats
             if isinstance(tool_result, str):
                 result_string = tool_result
+                print(f'[JAF:ENGINE] Tool {tool_call.function.name} returned string:', result_string)
             else:
                 # It's a ToolResult object
                 result_string = tool_result_to_string(tool_result)
+                print(f'[JAF:ENGINE] Tool {tool_call.function.name} returned ToolResult:', tool_result)
+                print(f'[JAF:ENGINE] Converted to string:', result_string)
+
+            # Wrap tool result with status information for approval context
+            if approval_status and approval_status.additional_context:
+                final_content = json.dumps({
+                    'status': 'approved_and_executed',
+                    'result': result_string,
+                    'tool_name': tool_call.function.name,
+                    'approval_context': approval_status.additional_context,
+                    'message': 'Tool was approved and executed successfully with additional context.'
+                })
+            elif needs_approval:
+                final_content = json.dumps({
+                    'status': 'approved_and_executed',
+                    'result': result_string,
+                    'tool_name': tool_call.function.name,
+                    'message': 'Tool was approved and executed successfully.'
+                })
+            else:
+                final_content = json.dumps({
+                    'status': 'executed',
+                    'result': result_string,
+                    'tool_name': tool_call.function.name,
+                    'message': 'Tool executed successfully.'
+                })
 
             if config.on_event:
                 config.on_event(ToolCallEndEvent(data=to_event_data(ToolCallEndEventData(
                     tool_name=tool_call.function.name,
-                    result=result_string,
+                    result=final_content,
                     trace_id=state.trace_id,
                     run_id=state.run_id,
                     tool_result=tool_result,
@@ -758,7 +1121,7 @@ async def _execute_tool_calls(
                 return {
                     'message': Message(
                         role=ContentRole.TOOL,
-                        content=result_string,
+                        content=final_content,
                         tool_call_id=tool_call.id
                     ),
                     'is_handoff': True,
@@ -768,14 +1131,14 @@ async def _execute_tool_calls(
             return {
                 'message': Message(
                     role=ContentRole.TOOL,
-                    content=result_string,
+                    content=final_content,
                     tool_call_id=tool_call.id
                 )
             }
 
         except Exception as error:
             error_result = json.dumps({
-                'error': 'execution_error',
+                'status': 'execution_error',
                 'message': str(error),
                 'tool_name': tool_call.function.name,
             })
