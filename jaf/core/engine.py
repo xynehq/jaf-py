@@ -28,6 +28,8 @@ from .types import (
     InputGuardrailTripwire,
     GuardrailEvent,
     GuardrailEventData,
+    GuardrailViolationEvent,
+    GuardrailViolationEventData,
     MemoryEvent,
     MemoryEventData,
     OutputParseEvent,
@@ -56,6 +58,15 @@ from .types import (
     ToolCallFunction,
     ToolCallStartEvent,
     ToolCallStartEventData,
+    Guardrail,
+    ValidValidationResult,
+    InvalidValidationResult,
+)
+from .guardrails import (
+    build_effective_guardrails,
+    execute_input_guardrails_sequential,
+    execute_input_guardrails_parallel,
+    execute_output_guardrails,
 )
 
 
@@ -237,36 +248,7 @@ async def _run_internal(
     config: RunConfig[Ctx]
 ) -> RunResult[Out]:
     """Internal run function with recursive execution logic."""
-    # Check initial input guardrails on first turn
-    if state.turn_count == 0:
-        first_user_message = next((m for m in state.messages if m.role == ContentRole.USER or m.role == 'user'), None)
-        if first_user_message and config.initial_input_guardrails:
-            for guardrail in config.initial_input_guardrails:
-                if config.on_event:
-                    config.on_event(GuardrailEvent(data=GuardrailEventData(
-                        guardrail_name=getattr(guardrail, '__name__', 'unknown_guardrail'),
-                        content=get_text_content(first_user_message.content)
-                    )))
-                if asyncio.iscoroutinefunction(guardrail):
-                    result = await guardrail(get_text_content(first_user_message.content))
-                else:
-                    result = guardrail(get_text_content(first_user_message.content))
-
-                if not result.is_valid:
-                    if config.on_event:
-                        config.on_event(GuardrailEvent(data=GuardrailEventData(
-                            guardrail_name=getattr(guardrail, '__name__', 'unknown_guardrail'),
-                            content=get_text_content(first_user_message.content),
-                            is_valid=False,
-                            error_message=result.error_message
-                        )))
-                    return RunResult(
-                        final_state=state,
-                        outcome=ErrorOutcome(error=InputGuardrailTripwire(
-                            reason=result.error_message or "Input guardrail failed"
-                        ))
-                    )
-
+    
     # Check max turns
     max_turns = config.max_turns or 50
     if state.turn_count >= max_turns:
@@ -282,6 +264,105 @@ async def _run_internal(
             final_state=state,
             outcome=ErrorOutcome(error=AgentNotFound(agent_name=state.current_agent_name))
         )
+
+    # Determine if agent has advanced guardrails configuration
+    has_advanced_guardrails = bool(
+        current_agent.advanced_config and 
+        current_agent.advanced_config.guardrails and
+        (current_agent.advanced_config.guardrails.input_prompt or 
+         current_agent.advanced_config.guardrails.output_prompt or 
+         current_agent.advanced_config.guardrails.require_citations)
+    )
+    
+    print('[JAF:ENGINE] Debug guardrails setup:', {
+        'agent_name': current_agent.name,
+        'has_advanced_config': bool(current_agent.advanced_config),
+        'has_advanced_guardrails': has_advanced_guardrails,
+        'initial_input_guardrails': len(config.initial_input_guardrails or []),
+        'final_output_guardrails': len(config.final_output_guardrails or [])
+    })
+
+    # Build effective guardrails
+    effective_input_guardrails: List[Guardrail] = []
+    effective_output_guardrails: List[Guardrail] = []
+    
+    if has_advanced_guardrails:
+        result = await build_effective_guardrails(current_agent, config)
+        effective_input_guardrails, effective_output_guardrails = result
+    else:
+        effective_input_guardrails = list(config.initial_input_guardrails or [])
+        effective_output_guardrails = list(config.final_output_guardrails or [])
+
+    # Execute input guardrails on first turn
+    input_guardrails_to_run = (effective_input_guardrails 
+                              if state.turn_count == 0 and effective_input_guardrails 
+                              else [])
+    
+    print('[JAF:ENGINE] Input guardrails to run:', {
+        'turn_count': state.turn_count,
+        'effective_input_length': len(effective_input_guardrails),
+        'input_guardrails_to_run_length': len(input_guardrails_to_run),
+        'has_advanced_guardrails': has_advanced_guardrails
+    })
+
+    if input_guardrails_to_run and state.turn_count == 0:
+        first_user_message = next((m for m in state.messages if m.role == ContentRole.USER or m.role == 'user'), None)
+        if first_user_message:
+            if has_advanced_guardrails:
+                execution_mode = (current_agent.advanced_config.guardrails.execution_mode 
+                                if current_agent.advanced_config and current_agent.advanced_config.guardrails 
+                                else 'parallel')
+            
+                if execution_mode == 'sequential':
+                    guardrail_result = await execute_input_guardrails_sequential(
+                        input_guardrails_to_run, first_user_message, config
+                    )
+                    if not guardrail_result.is_valid:
+                        return RunResult(
+                            final_state=state,
+                            outcome=ErrorOutcome(error=InputGuardrailTripwire(
+                                reason=getattr(guardrail_result, 'error_message', 'Input guardrail violation')
+                            ))
+                        )
+                else:
+                    # Parallel execution with LLM call overlap
+                    guardrail_result = await execute_input_guardrails_parallel(
+                        input_guardrails_to_run, first_user_message, config
+                    )
+                    if not guardrail_result.is_valid:
+                        print(f"🚨 Input guardrail violation: {getattr(guardrail_result, 'error_message', 'Unknown violation')}")
+                        return RunResult(
+                            final_state=state,
+                            outcome=ErrorOutcome(error=InputGuardrailTripwire(
+                                reason=getattr(guardrail_result, 'error_message', 'Input guardrail violation')
+                            ))
+                        )
+            else:
+                # Legacy guardrails path
+                print('[JAF:ENGINE] Using LEGACY guardrails path with', len(input_guardrails_to_run), 'guardrails')
+                for guardrail in input_guardrails_to_run:
+                    if config.on_event:
+                        config.on_event(GuardrailEvent(data=GuardrailEventData(
+                            guardrail_name=getattr(guardrail, '__name__', 'unknown_guardrail'),
+                            content=get_text_content(first_user_message.content)
+                        )))
+                    if asyncio.iscoroutinefunction(guardrail):
+                        result = await guardrail(get_text_content(first_user_message.content))
+                    else:
+                        result = guardrail(get_text_content(first_user_message.content))
+
+                    if not result.is_valid:
+                        if config.on_event:
+                            config.on_event(GuardrailViolationEvent(data=GuardrailViolationEventData(
+                                stage='input',
+                                reason=getattr(result, 'error_message', 'Input guardrail failed')
+                            )))
+                        return RunResult(
+                            final_state=state,
+                            outcome=ErrorOutcome(error=InputGuardrailTripwire(
+                                reason=getattr(result, 'error_message', 'Input guardrail failed')
+                            ))
+                        )
 
     # Agent debugging logs removed for performance
 
@@ -509,32 +590,44 @@ async def _run_internal(
                     )))
 
                 # Check final output guardrails
-                if config.final_output_guardrails:
-                    for guardrail in config.final_output_guardrails:
-                        if config.on_event:
-                            config.on_event(GuardrailEvent(data=GuardrailEventData(
-                                guardrail_name=getattr(guardrail, '__name__', 'unknown_guardrail'),
-                                content=output_data
-                            )))
-                        if asyncio.iscoroutinefunction(guardrail):
-                            result = await guardrail(output_data)
-                        else:
-                            result = guardrail(output_data)
-
-                        if not result.is_valid:
+                if has_advanced_guardrails:
+                    # Use new advanced system
+                    output_guardrail_result = await execute_output_guardrails(
+                        effective_output_guardrails, output_data, config
+                    )
+                    if not output_guardrail_result.is_valid:
+                        return RunResult(
+                            final_state=replace(state, messages=new_messages),
+                            outcome=ErrorOutcome(error=OutputGuardrailTripwire(
+                                reason=getattr(output_guardrail_result, 'error_message', 'Output guardrail violation')
+                            ))
+                        )
+                else:
+                    # Legacy system
+                    if effective_output_guardrails:
+                        for guardrail in effective_output_guardrails:
                             if config.on_event:
                                 config.on_event(GuardrailEvent(data=GuardrailEventData(
                                     guardrail_name=getattr(guardrail, '__name__', 'unknown_guardrail'),
-                                    content=output_data,
-                                    is_valid=False,
-                                    error_message=result.error_message
+                                    content=output_data
                                 )))
-                            return RunResult(
-                                final_state=replace(state, messages=new_messages),
-                                outcome=ErrorOutcome(error=OutputGuardrailTripwire(
-                                    reason=result.error_message or "Output guardrail failed"
-                                ))
-                            )
+                            if asyncio.iscoroutinefunction(guardrail):
+                                result = await guardrail(output_data)
+                            else:
+                                result = guardrail(output_data)
+
+                            if not result.is_valid:
+                                if config.on_event:
+                                    config.on_event(GuardrailViolationEvent(data=GuardrailViolationEventData(
+                                        stage='output',
+                                        reason=getattr(result, 'error_message', 'Output guardrail failed')
+                                    )))
+                                return RunResult(
+                                    final_state=replace(state, messages=new_messages),
+                                    outcome=ErrorOutcome(error=OutputGuardrailTripwire(
+                                        reason=getattr(result, 'error_message', 'Output guardrail failed')
+                                    ))
+                                )
 
                 return RunResult(
                     final_state=replace(state, messages=new_messages, turn_count=state.turn_count + 1),
@@ -556,32 +649,44 @@ async def _run_internal(
                 )
         else:
             # No output codec, return content as string
-            if config.final_output_guardrails:
-                for guardrail in config.final_output_guardrails:
-                    if config.on_event:
-                        config.on_event(GuardrailEvent(data=GuardrailEventData(
-                            guardrail_name=getattr(guardrail, '__name__', 'unknown_guardrail'),
-                            content=get_text_content(assistant_message.content)
-                        )))
-                    if asyncio.iscoroutinefunction(guardrail):
-                        result = await guardrail(get_text_content(assistant_message.content))
-                    else:
-                        result = guardrail(get_text_content(assistant_message.content))
-
-                    if not result.is_valid:
+            if has_advanced_guardrails:
+                # Use new advanced system
+                output_guardrail_result = await execute_output_guardrails(
+                    effective_output_guardrails, get_text_content(assistant_message.content), config
+                )
+                if not output_guardrail_result.is_valid:
+                    return RunResult(
+                        final_state=replace(state, messages=new_messages),
+                        outcome=ErrorOutcome(error=OutputGuardrailTripwire(
+                            reason=getattr(output_guardrail_result, 'error_message', 'Output guardrail violation')
+                        ))
+                    )
+            else:
+                # Legacy system
+                if effective_output_guardrails:
+                    for guardrail in effective_output_guardrails:
                         if config.on_event:
                             config.on_event(GuardrailEvent(data=GuardrailEventData(
                                 guardrail_name=getattr(guardrail, '__name__', 'unknown_guardrail'),
-                                content=get_text_content(assistant_message.content),
-                                is_valid=False,
-                                error_message=result.error_message
+                                content=get_text_content(assistant_message.content)
                             )))
-                        return RunResult(
-                            final_state=replace(state, messages=new_messages),
-                            outcome=ErrorOutcome(error=OutputGuardrailTripwire(
-                                reason=result.error_message or "Output guardrail failed"
-                            ))
-                        )
+                        if asyncio.iscoroutinefunction(guardrail):
+                            result = await guardrail(get_text_content(assistant_message.content))
+                        else:
+                            result = guardrail(get_text_content(assistant_message.content))
+
+                        if not result.is_valid:
+                            if config.on_event:
+                                config.on_event(GuardrailViolationEvent(data=GuardrailViolationEventData(
+                                    stage='output',
+                                    reason=getattr(result, 'error_message', 'Output guardrail failed')
+                                )))
+                            return RunResult(
+                                final_state=replace(state, messages=new_messages),
+                                outcome=ErrorOutcome(error=OutputGuardrailTripwire(
+                                    reason=getattr(result, 'error_message', 'Output guardrail failed')
+                                ))
+                            )
 
             return RunResult(
                 final_state=replace(state, messages=new_messages, turn_count=state.turn_count + 1),
