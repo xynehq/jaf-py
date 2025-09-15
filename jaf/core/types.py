@@ -11,6 +11,7 @@ from collections.abc import Awaitable, AsyncIterator
 from dataclasses import dataclass, field
 from typing import (
     Any,
+    Awaitable,
     Callable,
     Dict,
     Generic,
@@ -28,6 +29,8 @@ from enum import Enum
 
 if TYPE_CHECKING:
     from .tool_results import ToolResult
+    from ..memory.approval_storage import ApprovalStorage
+    from ..memory.types import MemoryConfig
 
 
 # Comprehensive enums for type safety and improved developer experience
@@ -254,6 +257,11 @@ class Tool(Protocol[Args, Ctx]):
         """Execute the tool with given arguments and context."""
         ...
 
+    @property
+    def needs_approval(self) -> Union[bool, Callable[[Ctx, Args], Union[bool, Awaitable[bool]]]]:
+        """Whether this tool requires approval before execution."""
+        return False
+
 
 # Function tool configuration for improved DX
 class FunctionToolConfig(TypedDict):
@@ -324,6 +332,13 @@ class Agent(Generic[Ctx, Out]):
 Guardrail = Callable[[Any], Union[ValidationResult, Awaitable[ValidationResult]]]
 
 @dataclass(frozen=True)
+class ApprovalValue:
+    """Represents an approval decision with context."""
+    status: str  # 'pending', 'approved', 'rejected'
+    approved: bool
+    additional_context: Optional[Dict[str, Any]] = None
+
+@dataclass(frozen=True)
 class RunState(Generic[Ctx]):
     """Immutable state of a run."""
     run_id: RunId
@@ -332,6 +347,7 @@ class RunState(Generic[Ctx]):
     current_agent_name: str
     context: Ctx
     turn_count: int
+    approvals: Dict[str, ApprovalValue] = field(default_factory=dict)
 
 # Error types using dataclasses for immutability
 @dataclass(frozen=True)
@@ -410,6 +426,18 @@ class NetworkError:
     is_retryable: bool = True
     endpoint: Optional[str] = None
 
+# Interruption types for HITL
+@dataclass(frozen=True)
+class ToolApprovalInterruption(Generic[Ctx]):
+    """Interruption for tool approval."""
+    type: Literal['tool_approval'] = 'tool_approval'
+    tool_call: ToolCall = field(default_factory=lambda: ToolCall("", "function", ToolCallFunction("", "")))
+    agent: 'Agent[Ctx, Any]' = None
+    session_id: Optional[str] = None
+
+# Union type for all interruptions
+Interruption = Union[ToolApprovalInterruption[Any]]
+
 # Union type for all possible errors
 JAFError = Union[
     MaxTurnsExceeded,
@@ -438,8 +466,14 @@ class ErrorOutcome:
     status: Literal['error'] = 'error'
     error: JAFError = field(default=None)
 
+@dataclass(frozen=True)
+class InterruptedOutcome:
+    """Interrupted outcome for HITL."""
+    status: Literal['interrupted'] = 'interrupted'
+    interruptions: List[Interruption] = field(default_factory=list)
+
 # Union type for outcomes
-RunOutcome = Union[CompletedOutcome[Out], ErrorOutcome]
+RunOutcome = Union[CompletedOutcome[Out], ErrorOutcome, InterruptedOutcome]
 
 @dataclass(frozen=True)
 class RunResult(Generic[Out]):
@@ -676,3 +710,4 @@ class RunConfig(Generic[Ctx]):
     memory: Optional['MemoryConfig'] = None
     conversation_id: Optional[str] = None
     default_tool_timeout: Optional[float] = 30.0  # Default timeout for tool execution in seconds
+    approval_storage: Optional['ApprovalStorage'] = None  # Storage for approval decisions
