@@ -7,6 +7,9 @@ This server demonstrates the advanced guardrails system and can be tested with c
 import os
 from typing import Any
 
+# Constants
+DEFAULT_MODEL = 'claude-sonnet-4'
+
 from jaf.core.types import (
     Agent,
     RunConfig,
@@ -30,7 +33,7 @@ Always be helpful, informative, and follow safety guidelines."""
         name='safe-assistant',
         instructions=instructions,
         model_config=ModelConfig(
-            name='claude-sonnet-4',
+            name=DEFAULT_MODEL,
             temperature=0.7,
             max_tokens=1000
         ),
@@ -51,7 +54,7 @@ The message should be ALLOWED unless it clearly violates these rules.""",
 The response should be ALLOWED unless it clearly violates these rules.""",
 
                 require_citations=True,
-                fast_model='claude-sonnet-4',
+                fast_model=DEFAULT_MODEL,
                 fail_safe='allow',
                 execution_mode='parallel',
                 timeout_ms=10000
@@ -100,7 +103,7 @@ async def main():
         agent_registry=agent_registry,
         model_provider=model_provider,
         max_turns=10,
-        default_fast_model='claude-sonnet-4',
+        default_fast_model=DEFAULT_MODEL,
         on_event=event_handler
     )
     

@@ -351,10 +351,10 @@ def validate_guardrails_config(config: Optional[AdvancedGuardrailsConfig]) -> Ad
         return AdvancedGuardrailsConfig()
     
     return AdvancedGuardrailsConfig(
-        input_prompt=config.input_prompt.strip() if config.input_prompt else None,
-        output_prompt=config.output_prompt.strip() if config.output_prompt else None,
+        input_prompt=config.input_prompt.strip() if isinstance(config.input_prompt, str) and config.input_prompt else None,
+        output_prompt=config.output_prompt.strip() if isinstance(config.output_prompt, str) and config.output_prompt else None,
         require_citations=config.require_citations,
-        fast_model=config.fast_model.strip() if config.fast_model else None,
+        fast_model=config.fast_model.strip() if isinstance(config.fast_model, str) and config.fast_model else None,
         fail_safe=config.fail_safe,
         execution_mode=config.execution_mode,
         timeout_ms=max(1000, config.timeout_ms)

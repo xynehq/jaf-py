@@ -39,6 +39,12 @@ SHORT_TIMEOUT_MAX_CONTENT = 10000
 LONG_TIMEOUT_MAX_CONTENT = 50000
 CIRCUIT_BREAKER_CLEANUP_MAX_AGE = 10 * 60 * 1000  # 10 minutes
 
+# Constants for timeout values
+DEFAULT_FAST_MODEL_TIMEOUT_MS = 10000
+DEFAULT_TIMEOUT_MS = 5000
+GUARDRAIL_TIMEOUT_MS = 10000
+OUTPUT_GUARDRAIL_TIMEOUT_MS = 15000
+
 
 class GuardrailCircuitBreaker:
     """Circuit breaker for guardrail execution to handle repeated failures."""
@@ -438,7 +444,7 @@ async def execute_input_guardrails_sequential(
         try:
             print(f"[JAF:GUARDRAILS] Starting {guardrail_name}")
             
-            timeout_ms = 10000
+            timeout_ms = GUARDRAIL_TIMEOUT_MS
             result = await _with_timeout(
                 guardrail(content) if asyncio.iscoroutinefunction(guardrail) else guardrail(content),
                 timeout_ms,
@@ -495,7 +501,7 @@ async def execute_input_guardrails_parallel(
         try:
             print(f"[JAF:GUARDRAILS] Starting {guardrail_name}")
             
-            timeout_ms = 10000 if config.default_fast_model else 5000
+            timeout_ms = DEFAULT_FAST_MODEL_TIMEOUT_MS if config.default_fast_model else DEFAULT_TIMEOUT_MS
             
             if asyncio.iscoroutinefunction(guardrail):
                 result = await _with_timeout(guardrail(content), timeout_ms, 
@@ -571,7 +577,7 @@ async def execute_output_guardrails(
         guardrail_name = f"output-guardrail-{i + 1}"
         
         try:
-            timeout_ms = 15000
+            timeout_ms = OUTPUT_GUARDRAIL_TIMEOUT_MS
             
             if asyncio.iscoroutinefunction(guardrail):
                 result = await _with_timeout(guardrail(output), timeout_ms,
