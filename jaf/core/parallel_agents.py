@@ -297,7 +297,7 @@ def create_simple_parallel_tool(
 def create_language_specialists_tool(
     language_agents: Dict[str, Agent],
     tool_name: str = "consult_language_specialists",
-    timeout: Optional[float] = 30.0
+    timeout: Optional[float] = 300.0
 ) -> Tool:
     """Create a tool that consults multiple language specialists in parallel."""
     group = ParallelAgentGroup(

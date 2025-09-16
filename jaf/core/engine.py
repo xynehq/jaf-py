@@ -702,7 +702,7 @@ async def _execute_tool_calls(
             # Priority: tool-specific timeout > RunConfig default > 30 seconds global default
             timeout = getattr(tool.schema, 'timeout', None)
             if timeout is None:
-                timeout = config.default_tool_timeout if config.default_tool_timeout is not None else 30.0
+                timeout = config.default_tool_timeout if config.default_tool_timeout is not None else 300.0
 
             # Execute the tool with timeout
             try:

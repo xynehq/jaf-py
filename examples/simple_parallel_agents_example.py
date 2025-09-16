@@ -42,7 +42,7 @@ def example_simple_parallel():
         tool_name="consult_experts",
         shared_input=True,          # All agents get the same input
         result_aggregation="combine", # Combine all results
-        timeout=30.0               # 30 second timeout
+        timeout=300.0              # 300 second timeout
     )
     
     print("✅ Created parallel experts tool!")

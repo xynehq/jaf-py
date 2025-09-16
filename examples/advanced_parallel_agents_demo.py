@@ -127,7 +127,7 @@ def create_orchestrator_with_parallel_tools(specialists: Dict[str, Agent]) -> Ag
     language_tool = create_language_specialists_tool(
         language_agents,
         tool_name="consult_language_specialists",
-        timeout=30.0
+        timeout=300.0
     )
     
     # Create domain experts tool
@@ -217,7 +217,7 @@ async def demo_simple_parallel():
             tool_name="translate_parallel", 
             shared_input=True,
             result_aggregation="combine",
-            timeout=30.0
+            timeout=300.0
         )
         
         # Create simple orchestrator
@@ -348,7 +348,7 @@ async def demo_custom_aggregation():
             shared_input=True,
             result_aggregation="custom",
             custom_aggregator=consensus_aggregator,
-            timeout=30.0
+            timeout=300.0
         )
         
         custom_tool = create_parallel_agents_tool(
