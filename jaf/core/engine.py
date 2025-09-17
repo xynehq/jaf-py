@@ -516,12 +516,15 @@ async def _run_internal(
                     if len(partial_tool_calls) > 0:
                         message_tool_calls = []
                         for i, tc in enumerate(partial_tool_calls):
+                            arguments = tc["function"]["arguments"]
+                            if isinstance(arguments, str):
+                                arguments = _normalize_tool_call_arguments(arguments)
                             message_tool_calls.append({
                                 "id": tc["id"] or f"call_{i}",
                                 "type": "function",
                                 "function": {
                                     "name": tc["function"]["name"] or "",
-                                    "arguments": tc["function"]["arguments"]
+                                    "arguments": arguments
                                 }
                             })
 
@@ -534,7 +537,7 @@ async def _run_internal(
                                 type="function",
                                 function=ToolCallFunction(
                                     name=mc["function"]["name"],
-                                    arguments=mc["function"]["arguments"],
+                                    arguments=_normalize_tool_call_arguments(mc["function"]["arguments"])
                                 ),
                             ) for mc in message_tool_calls
                         ],
@@ -553,12 +556,15 @@ async def _run_internal(
             if len(partial_tool_calls) > 0:
                 final_tool_calls = []
                 for i, tc in enumerate(partial_tool_calls):
+                    arguments = tc["function"]["arguments"]
+                    if isinstance(arguments, str):
+                        arguments = _normalize_tool_call_arguments(arguments)
                     final_tool_calls.append({
                         "id": tc["id"] or f"call_{i}",
                         "type": "function",
                         "function": {
                             "name": tc["function"]["name"] or "",
-                            "arguments": tc["function"]["arguments"]
+                            "arguments": arguments
                         }
                     })
 
@@ -844,11 +850,32 @@ def _convert_tool_calls(tool_calls: Optional[List[Dict[str, Any]]]) -> Optional[
             type='function',
             function=ToolCallFunction(
                 name=tc['function']['name'],
-                arguments=tc['function']['arguments']
+                arguments=_normalize_tool_call_arguments(tc['function']['arguments'])
             )
         )
         for tc in tool_calls
     ]
+
+
+def _normalize_tool_call_arguments(arguments: Any) -> Any:
+    """Strip trailing streaming artifacts so arguments remain valid JSON strings."""
+    if not arguments or not isinstance(arguments, str):
+        return arguments
+
+    decoder = json.JSONDecoder()
+    try:
+        obj, end = decoder.raw_decode(arguments)
+    except json.JSONDecodeError:
+        return arguments
+
+    remainder = arguments[end:].strip()
+    if remainder:
+        try:
+            return json.dumps(obj)
+        except (TypeError, ValueError):
+            return arguments
+
+    return arguments
 
 async def _execute_tool_calls(
     tool_calls: List[ToolCall],
