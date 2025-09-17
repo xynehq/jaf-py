@@ -110,6 +110,15 @@ class HttpMessage(BaseModel):
     tool_call_id: Optional[str] = None
     tool_calls: Optional[List[Dict[str, Any]]] = None
 
+# Approval types for HITL
+class ApprovalMessage(BaseModel):
+    """Approval message for tool execution."""
+    type: Literal['approval'] = 'approval'
+    session_id: str = Field(..., description="Session ID for the approval")
+    tool_call_id: str = Field(..., description="ID of the tool call being approved")
+    approved: bool = Field(..., description="Whether the tool execution is approved")
+    additional_context: Optional[Dict[str, Any]] = Field(default=None, description="Additional context for the approval")
+
 # Request types
 class ChatRequest(BaseModel):
     """Request format for chat endpoints."""
@@ -120,6 +129,33 @@ class ChatRequest(BaseModel):
     stream: bool = Field(default=False, description="Whether to stream the response")
     conversation_id: Optional[str] = Field(default=None, description="Conversation ID for memory persistence")
     memory: Optional[Dict[str, Any]] = Field(default=None, description="Memory configuration override")
+    store_on_completion: Optional[bool] = Field(default=None, description="Whether to store conversation on completion")
+    approvals: Optional[List[ApprovalMessage]] = Field(default=None, description="Approval decisions for tool calls")
+
+# Interruption types for HITL
+class ToolCallInterruption(BaseModel):
+    """Tool call interruption data."""
+    id: str
+    type: Literal['function'] = 'function'
+    function: Dict[str, str]  # name and arguments
+
+class InterruptionData(BaseModel):
+    """Interruption information."""
+    type: Literal['tool_approval'] = 'tool_approval'
+    tool_call: Optional[ToolCallInterruption]
+    session_id: str
+
+# Base outcome types
+class BaseOutcomeData(BaseModel):
+    """Base outcome data."""
+    status: Literal['completed', 'error', 'max_turns', 'interrupted']
+    output: Optional[str] = None
+    error: Optional[Any] = None
+
+class InterruptedOutcomeData(BaseOutcomeData):
+    """Outcome data for interrupted runs."""
+    status: Literal['interrupted'] = 'interrupted'
+    interruptions: Optional[List[InterruptionData]] = None
 
 # Response types
 class CompletedChatData(BaseModel):
@@ -127,7 +163,7 @@ class CompletedChatData(BaseModel):
     run_id: str
     trace_id: str
     messages: List[HttpMessage]
-    outcome: Dict[str, Any]
+    outcome: BaseOutcomeData
     turn_count: int
     execution_time_ms: int
     conversation_id: Optional[str] = None
@@ -209,6 +245,28 @@ class ServerConfig(Generic[Ctx]):
     port: int = 3000
     cors: Union[bool, Dict[str, Any]] = True
     default_memory_provider: Optional[MemoryProvider] = None
+
+# Approval response types
+class PendingApprovalData(BaseModel):
+    """Data for a pending approval."""
+    conversation_id: str
+    tool_call_id: str
+    tool_name: str
+    args: Dict[str, Any]
+    signature: Optional[str] = None
+    status: Literal['pending'] = 'pending'
+    session_id: Optional[str] = None
+
+class PendingApprovalsData(BaseModel):
+    """Data for pending approvals response."""
+    pending: List[PendingApprovalData]
+
+class PendingApprovalsResponse(BaseModel):
+    """Response format for pending approvals endpoint."""
+    success: bool
+    data: Optional[PendingApprovalsData] = None
+    error: Optional[str] = None
+
 
 # Validation schemas
 def validate_chat_request(data: Dict[str, Any]) -> ChatRequest:
