@@ -710,5 +710,5 @@ class RunConfig(Generic[Ctx]):
     on_event: Optional[Callable[[TraceEvent], None]] = None
     memory: Optional['MemoryConfig'] = None
     conversation_id: Optional[str] = None
-    default_tool_timeout: Optional[float] = 30.0  # Default timeout for tool execution in seconds
+    default_tool_timeout: Optional[float] = 300.0  # Default timeout for tool execution in seconds
     approval_storage: Optional['ApprovalStorage'] = None  # Storage for approval decisions

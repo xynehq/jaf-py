@@ -1019,7 +1019,7 @@ async def _execute_tool_calls(
             else:
                 timeout = None
             if timeout is None:
-                timeout = config.default_tool_timeout if config.default_tool_timeout is not None else 30.0
+                timeout = config.default_tool_timeout if config.default_tool_timeout is not None else 300.0
 
             # Merge additional context if provided through approval
             additional_context = approval_status.additional_context if approval_status else None

@@ -13,6 +13,14 @@ from .agent_tool import (
     get_current_run_config,
     set_current_run_config,
 )
+from .parallel_agents import (
+    ParallelAgentGroup,
+    ParallelExecutionConfig,
+    create_parallel_agents_tool,
+    create_simple_parallel_tool,
+    create_language_specialists_tool,
+    create_domain_experts_tool,
+)
 from .proxy import ProxyConfig, ProxyAuth, create_proxy_config, get_default_proxy_config
 
 __all__ = [
@@ -23,6 +31,8 @@ __all__ = [
     "Message",
     "ModelConfig",
     "ModelProvider",
+    "ParallelAgentGroup",
+    "ParallelExecutionConfig",
     "ProxyAuth",
     "ProxyConfig",
     "RunConfig",
@@ -41,9 +51,13 @@ __all__ = [
     "create_agent_tool",
     "create_conditional_enabler",
     "create_default_output_extractor",
+    "create_domain_experts_tool",
     "create_json_output_extractor",
+    "create_language_specialists_tool",
+    "create_parallel_agents_tool",
     "create_proxy_config",
     "create_run_id",
+    "create_simple_parallel_tool",
     "create_trace_id",
     "get_current_run_config",
     "get_default_proxy_config",
