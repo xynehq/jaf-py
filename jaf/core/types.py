@@ -490,6 +490,7 @@ class RunStartEventData:
     session_id: Optional[str] = None
     context: Optional[Any] = None
     messages: Optional[List[Message]] = None
+    agent_name: Optional[str] = None
 
 @dataclass(frozen=True)
 class RunStartEvent:

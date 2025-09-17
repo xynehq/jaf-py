@@ -174,16 +174,18 @@ async def run(
         from .agent_tool import set_current_run_config
         set_current_run_config(config)
         
+        state_with_memory = await _load_conversation_history(initial_state, config)
+        
+        # Emit RunStartEvent AFTER loading conversation history so we have complete context
         if config.on_event:
             config.on_event(RunStartEvent(data=to_event_data(RunStartEventData(
                 run_id=initial_state.run_id,
                 trace_id=initial_state.trace_id,
                 session_id=config.conversation_id,
-                context=initial_state.context,
-                messages=initial_state.messages
+                context=state_with_memory.context,
+                messages=state_with_memory.messages,  # Now includes full conversation history
+                agent_name=state_with_memory.current_agent_name
             ))))
-
-        state_with_memory = await _load_conversation_history(initial_state, config)
         
         # Load approvals from storage if configured
         if config.approval_storage:
