@@ -533,12 +533,12 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
             async def event_stream():
                 try:
                     # Send initial metadata
-                    yield f"event: stream_start\ndata: {json.dumps({
+                    yield f"""event: stream_start data: {json.dumps({
                         'runId': str(initial_state.run_id),
                         'traceId': str(initial_state.trace_id),
                         'conversationId': conversation_id,
                         'agent': request.agent_name
-                    })}\n\n"
+                    })}"""
                     
                     # Stream events from the engine
                     async for event in run_streaming(initial_state, run_config_with_memory):
