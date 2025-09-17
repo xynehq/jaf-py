@@ -541,11 +541,12 @@ class ToolCallStartEventData:
     args: Any
     trace_id: TraceId
     run_id: RunId
+    call_id: Optional[str] = None
 
 @dataclass(frozen=True)
 class ToolCallStartEvent:
     type: Literal['tool_call_start'] = 'tool_call_start'
-    data: ToolCallStartEventData = field(default_factory=lambda: ToolCallStartEventData("", None, TraceId(""), RunId("")))
+    data: ToolCallStartEventData = field(default_factory=lambda: ToolCallStartEventData("", None, TraceId(""), RunId(""), None))
 
 @dataclass(frozen=True)
 class ToolCallEndEventData:
@@ -556,11 +557,12 @@ class ToolCallEndEventData:
     run_id: RunId
     tool_result: Optional[Any] = None
     status: Optional[str] = None
+    call_id: Optional[str] = None
 
 @dataclass(frozen=True)
 class ToolCallEndEvent:
     type: Literal['tool_call_end'] = 'tool_call_end'
-    data: ToolCallEndEventData = field(default_factory=lambda: ToolCallEndEventData("", "", TraceId(""), RunId("")))
+    data: ToolCallEndEventData = field(default_factory=lambda: ToolCallEndEventData("", "", TraceId(""), RunId(""), None, None))
 
 @dataclass(frozen=True)
 class HandoffEventData:

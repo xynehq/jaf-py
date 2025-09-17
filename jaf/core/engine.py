@@ -865,7 +865,8 @@ async def _execute_tool_calls(
                 tool_name=tool_call.function.name,
                 args=_try_parse_json(tool_call.function.arguments),
                 trace_id=state.trace_id,
-                run_id=state.run_id
+                run_id=state.run_id,
+                call_id=tool_call.id
             ))))
 
         try:
@@ -891,7 +892,8 @@ async def _execute_tool_calls(
                         trace_id=state.trace_id,
                         run_id=state.run_id,
                         status='error',
-                        tool_result={'error': 'tool_not_found'}
+                        tool_result={'error': 'tool_not_found'},
+                        call_id=tool_call.id
                     ))))
 
                 return {
@@ -925,7 +927,8 @@ async def _execute_tool_calls(
                         trace_id=state.trace_id,
                         run_id=state.run_id,
                         status='error',
-                        tool_result={'error': 'validation_error', 'details': e.errors()}
+                        tool_result={'error': 'validation_error', 'details': e.errors()},
+                        call_id=tool_call.id
                     ))))
 
                 return {
@@ -1063,7 +1066,8 @@ async def _execute_tool_calls(
                         trace_id=state.trace_id,
                         run_id=state.run_id,
                         status='timeout',
-                        tool_result={'error': 'timeout_error'}
+                        tool_result={'error': 'timeout_error'},
+                        call_id=tool_call.id
                     ))))
 
                 return {
@@ -1115,7 +1119,8 @@ async def _execute_tool_calls(
                     trace_id=state.trace_id,
                     run_id=state.run_id,
                     tool_result=tool_result,
-                    status='success'
+                    status='success',
+                    call_id=tool_call.id
                 ))))
 
             # Check for handoff
@@ -1153,7 +1158,8 @@ async def _execute_tool_calls(
                     trace_id=state.trace_id,
                     run_id=state.run_id,
                     status='error',
-                    tool_result={'error': 'execution_error', 'detail': str(error)}
+                    tool_result={'error': 'execution_error', 'detail': str(error)},
+                    call_id=tool_call.id
                 ))))
 
             return {

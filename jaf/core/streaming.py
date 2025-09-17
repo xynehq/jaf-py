@@ -209,20 +209,37 @@ async def run_streaming(
         trace_id=initial_state.trace_id
     )
 
-    tool_call_ids = {} # To map tool calls to their IDs
+    tool_call_ids: Dict[str, str] = {}  # Map call_id -> tool_name for in-flight tool calls
 
     def event_handler(event: TraceEvent) -> None:
         """Handle trace events and put them into the queue."""
         nonlocal tool_call_ids
         streaming_event = None
+        payload = event.data
+
+        def _get_event_value(keys: List[str]) -> Any:
+            for key in keys:
+                if isinstance(payload, dict) and key in payload:
+                    return payload[key]
+                if hasattr(payload, key):
+                    return getattr(payload, key)
+            return None
+
         if event.type == 'tool_call_start':
-            # Generate a unique ID for the tool call
-            call_id = f"call_{uuid.uuid4().hex[:8]}"
-            tool_call_ids[event.data.tool_name] = call_id
-            
+            tool_name = _get_event_value(['tool_name', 'toolName']) or 'unknown'
+            args = _get_event_value(['args', 'arguments'])
+            call_id = _get_event_value(['call_id', 'tool_call_id', 'toolCallId'])
+
+            if not call_id:
+                call_id = f"call_{uuid.uuid4().hex[:8]}"
+                if isinstance(payload, dict):
+                    payload['call_id'] = call_id
+
+            tool_call_ids[call_id] = tool_name
+
             tool_call = StreamingToolCall(
-                tool_name=event.data.tool_name,
-                arguments=event.data.args,
+                tool_name=tool_name,
+                arguments=args,
                 call_id=call_id,
                 status='started'
             )
@@ -233,18 +250,26 @@ async def run_streaming(
                 trace_id=initial_state.trace_id
             )
         elif event.type == 'tool_call_end':
-            if event.data.tool_name not in tool_call_ids:
-                raise RuntimeError(
-                    f"Tool call end event received for unknown tool '{event.data.tool_name}'. "
-                    f"Known tool calls: {list(tool_call_ids.keys())}. "
-                    f"This may indicate a missing tool_call_start event or a bug in the streaming implementation."
-                )
-            call_id = tool_call_ids[event.data.tool_name]
+            tool_name = _get_event_value(['tool_name', 'toolName']) or 'unknown'
+            call_id = _get_event_value(['call_id', 'tool_call_id', 'toolCallId'])
+
+            if not call_id:
+                # Fallback to locate a pending tool call with the same tool name
+                matching_call_id = next((cid for cid, name in tool_call_ids.items() if name == tool_name), None)
+                if matching_call_id:
+                    call_id = matching_call_id
+                else:
+                    raise RuntimeError(
+                        f"Tool call end event received for unknown tool '{tool_name}'. "
+                        f"Pending call IDs: {list(tool_call_ids.keys())}."
+                    )
+
+            tool_call_ids.pop(call_id, None)
             tool_result = StreamingToolResult(
-                tool_name=event.data.tool_name,
+                tool_name=tool_name,
                 call_id=call_id,
-                result=event.data.result,
-                status=event.data.status or 'completed'
+                result=_get_event_value(['result']),
+                status=_get_event_value(['status']) or 'completed'
             )
             streaming_event = StreamingEvent(
                 type=StreamingEventType.TOOL_RESULT,

@@ -10,6 +10,7 @@ import json
 import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Protocol
+import uuid
 
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -652,28 +653,36 @@ class LangfuseTraceCollector:
                 # Start a span for tool calls with detailed input information
                 tool_name = event.data.get('tool_name', 'unknown')
                 tool_args = event.data.get("args", {})
+                call_id = event.data.get("call_id")
+                if not call_id:
+                    call_id = f"{tool_name}-{uuid.uuid4().hex[:8]}"
+                    try:
+                        event.data["call_id"] = call_id
+                    except TypeError:
+                        # event.data may be immutable; log and rely on synthetic ID tracking downstream
+                        print(f"[LANGFUSE] Generated synthetic call_id for tool start: {call_id}")
                 
-                print(f"[LANGFUSE] Starting span for tool call: {tool_name}")
+                print(f"[LANGFUSE] Starting span for tool call: {tool_name} ({call_id})")
                 
                 # Track this tool call for the trace
                 tool_call_data = {
                     "tool_name": tool_name,
                     "arguments": tool_args,
-                    "call_id": event.data.get("call_id"),
+                    "call_id": call_id,
                     "timestamp": datetime.now().isoformat()
                 }
                 
                 # Ensure trace_id exists in tracking
                 if trace_id not in self.trace_tool_calls:
                     self.trace_tool_calls[trace_id] = []
-                
+
                 self.trace_tool_calls[trace_id].append(tool_call_data)
                 
                 # Create comprehensive input data for the tool call
                 tool_input = {
                     "tool_name": tool_name,
                     "arguments": tool_args,
-                    "call_id": event.data.get("call_id"),
+                    "call_id": call_id,
                     "timestamp": datetime.now().isoformat()
                 }
                 
@@ -682,7 +691,7 @@ class LangfuseTraceCollector:
                     input=tool_input,
                     metadata={
                         "tool_name": tool_name,
-                        "call_id": event.data.get("call_id"),
+                        "call_id": call_id,
                         "framework": "jaf",
                         "event_type": "tool_call"
                     }
@@ -696,14 +705,15 @@ class LangfuseTraceCollector:
                 if span_id in self.active_spans:
                     tool_name = event.data.get('tool_name', 'unknown')
                     tool_result = event.data.get("result")
+                    call_id = event.data.get("call_id")
                     
-                    print(f"[LANGFUSE] Ending span for tool call: {tool_name}")
+                    print(f"[LANGFUSE] Ending span for tool call: {tool_name} ({call_id})")
                     
                     # Track this tool result for the trace
                     tool_result_data = {
                         "tool_name": tool_name,
                         "result": tool_result,
-                        "call_id": event.data.get("call_id"),
+                        "call_id": call_id,
                         "timestamp": datetime.now().isoformat(),
                         "status": event.data.get("status", "completed"),
                         "tool_result": event.data.get("tool_result")
@@ -718,7 +728,7 @@ class LangfuseTraceCollector:
                     tool_output = {
                         "tool_name": tool_name,
                         "result": tool_result,
-                        "call_id": event.data.get("call_id"),
+                        "call_id": call_id,
                         "timestamp": datetime.now().isoformat(),
                         "status": event.data.get("status", "completed")
                     }
@@ -729,7 +739,7 @@ class LangfuseTraceCollector:
                         output=tool_output,
                         metadata={
                             "tool_name": tool_name,
-                            "call_id": event.data.get("call_id"),
+                            "call_id": call_id,
                             "result_length": len(str(tool_result)) if tool_result else 0,
                             "framework": "jaf",
                             "event_type": "tool_call_end"
@@ -791,6 +801,9 @@ class LangfuseTraceCollector:
         
         # Use consistent identifiers that don't depend on timestamp
         if event.type.startswith('tool_call'):
+            call_id = event.data.get('call_id') or event.data.get('tool_call_id')
+            if call_id:
+                return f"tool-{trace_id}-{call_id}"
             tool_name = event.data.get('tool_name') or event.data.get('toolName', 'unknown')
             return f"tool-{tool_name}-{trace_id}"
         elif event.type.startswith('llm_call'):
