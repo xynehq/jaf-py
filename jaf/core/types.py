@@ -288,6 +288,7 @@ class Agent(Generic[Ctx, Out]):
     output_codec: Optional[Any] = None  # Type that can validate Out (like Pydantic model or Zod equivalent)
     handoffs: Optional[List[str]] = None
     model_config: Optional[ModelConfig] = None
+    advanced_config: Optional['AdvancedConfig'] = None
 
     def as_tool(
         self,
@@ -330,6 +331,74 @@ class Agent(Generic[Ctx, Out]):
 
 # Guardrail type
 Guardrail = Callable[[Any], Union[ValidationResult, Awaitable[ValidationResult]]]
+
+@dataclass(frozen=True)
+class AdvancedGuardrailsConfig:
+    """Configuration for advanced guardrails with LLM-based validation."""
+    input_prompt: Optional[str] = None
+    output_prompt: Optional[str] = None
+    require_citations: bool = False
+    fast_model: Optional[str] = None
+    fail_safe: Literal['allow', 'block'] = 'allow'
+    execution_mode: Literal['parallel', 'sequential'] = 'parallel'
+    timeout_ms: int = 30000
+
+    def __post_init__(self):
+        """Validate configuration."""
+        if self.timeout_ms < 1000:
+            object.__setattr__(self, 'timeout_ms', 1000)
+
+@dataclass(frozen=True)
+class AdvancedConfig:
+    """Advanced agent configuration including guardrails."""
+    guardrails: Optional[AdvancedGuardrailsConfig] = None
+
+def validate_guardrails_config(config: Optional[AdvancedGuardrailsConfig]) -> AdvancedGuardrailsConfig:
+    """Validate and provide defaults for guardrails configuration."""
+    if config is None:
+        return AdvancedGuardrailsConfig()
+    
+    return AdvancedGuardrailsConfig(
+        input_prompt=config.input_prompt.strip() if isinstance(config.input_prompt, str) and config.input_prompt else None,
+        output_prompt=config.output_prompt.strip() if isinstance(config.output_prompt, str) and config.output_prompt else None,
+        require_citations=config.require_citations,
+        fast_model=config.fast_model.strip() if isinstance(config.fast_model, str) and config.fast_model else None,
+        fail_safe=config.fail_safe,
+        execution_mode=config.execution_mode,
+        timeout_ms=max(1000, config.timeout_ms)
+    )
+
+def json_parse_llm_output(text: str) -> Optional[Dict[str, Any]]:
+    """Parse JSON from LLM output, handling common formatting issues."""
+    import json
+    import re
+    
+    if not text:
+        return None
+    
+    # Try direct parsing first
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    
+    # Try to extract JSON from markdown code blocks
+    json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', text, re.DOTALL)
+    if json_match:
+        try:
+            return json.loads(json_match.group(1))
+        except json.JSONDecodeError:
+            pass
+    
+    # Try to find the first JSON object in the text
+    json_match = re.search(r'\{.*?\}', text, re.DOTALL)
+    if json_match:
+        try:
+            return json.loads(json_match.group(0))
+        except json.JSONDecodeError:
+            pass
+    
+    return None
 
 @dataclass(frozen=True)
 class ApprovalValue:
@@ -601,6 +670,17 @@ class GuardrailEvent:
     data: GuardrailEventData = field(default_factory=lambda: GuardrailEventData(""))
 
 @dataclass(frozen=True)
+class GuardrailViolationEventData:
+    """Data for guardrail violation events."""
+    stage: Literal['input', 'output']
+    reason: str
+
+@dataclass(frozen=True)
+class GuardrailViolationEvent:
+    type: Literal['guardrail_violation'] = 'guardrail_violation'
+    data: GuardrailViolationEventData = field(default_factory=lambda: GuardrailViolationEventData("input", ""))
+
+@dataclass(frozen=True)
 class MemoryEventData:
     """Data for memory operation events."""
     operation: Literal['load', 'store']
@@ -632,6 +712,7 @@ class OutputParseEvent:
 TraceEvent = Union[
     RunStartEvent,
     GuardrailEvent,
+    GuardrailViolationEvent,
     MemoryEvent,
     OutputParseEvent,
     LLMCallStartEvent,
@@ -710,7 +791,8 @@ class RunConfig(Generic[Ctx]):
     initial_input_guardrails: Optional[List[Guardrail]] = None
     final_output_guardrails: Optional[List[Guardrail]] = None
     on_event: Optional[Callable[[TraceEvent], None]] = None
-    memory: Optional['MemoryConfig'] = None
+    memory: Optional[Any] = None  # MemoryConfig - avoiding circular import
     conversation_id: Optional[str] = None
+    default_fast_model: Optional[str] = None  # Default model for fast operations like guardrails
     default_tool_timeout: Optional[float] = 300.0  # Default timeout for tool execution in seconds
     approval_storage: Optional['ApprovalStorage'] = None  # Storage for approval decisions
