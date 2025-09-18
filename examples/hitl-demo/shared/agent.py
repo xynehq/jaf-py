@@ -52,7 +52,10 @@ Available operations:
 - listFiles: List files and directories
 - readFile: Read file contents  
 - deleteFile: Delete a file
-- editFile: Edit or create a file"""
+- editFile: Edit or create a file
+
+if you are sent an image attachment, then process it and base you decision on it.
+"""
 
 
 # File system agent
