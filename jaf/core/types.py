@@ -559,6 +559,7 @@ class RunStartEventData:
     session_id: Optional[str] = None
     context: Optional[Any] = None
     messages: Optional[List[Message]] = None
+    agent_name: Optional[str] = None
 
 @dataclass(frozen=True)
 class RunStartEvent:
@@ -609,11 +610,12 @@ class ToolCallStartEventData:
     args: Any
     trace_id: TraceId
     run_id: RunId
+    call_id: Optional[str] = None
 
 @dataclass(frozen=True)
 class ToolCallStartEvent:
     type: Literal['tool_call_start'] = 'tool_call_start'
-    data: ToolCallStartEventData = field(default_factory=lambda: ToolCallStartEventData("", None, TraceId(""), RunId("")))
+    data: ToolCallStartEventData = field(default_factory=lambda: ToolCallStartEventData("", None, TraceId(""), RunId(""), None))
 
 @dataclass(frozen=True)
 class ToolCallEndEventData:
@@ -624,11 +626,12 @@ class ToolCallEndEventData:
     run_id: RunId
     tool_result: Optional[Any] = None
     status: Optional[str] = None
+    call_id: Optional[str] = None
 
 @dataclass(frozen=True)
 class ToolCallEndEvent:
     type: Literal['tool_call_end'] = 'tool_call_end'
-    data: ToolCallEndEventData = field(default_factory=lambda: ToolCallEndEventData("", "", TraceId(""), RunId("")))
+    data: ToolCallEndEventData = field(default_factory=lambda: ToolCallEndEventData("", "", TraceId(""), RunId(""), None, None))
 
 @dataclass(frozen=True)
 class HandoffEventData:
@@ -790,6 +793,6 @@ class RunConfig(Generic[Ctx]):
     on_event: Optional[Callable[[TraceEvent], None]] = None
     memory: Optional[Any] = None  # MemoryConfig - avoiding circular import
     conversation_id: Optional[str] = None
-    default_tool_timeout: Optional[float] = 30.0  # Default timeout for tool execution in seconds
     default_fast_model: Optional[str] = None  # Default model for fast operations like guardrails
+    default_tool_timeout: Optional[float] = 300.0  # Default timeout for tool execution in seconds
     approval_storage: Optional['ApprovalStorage'] = None  # Storage for approval decisions

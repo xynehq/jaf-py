@@ -10,6 +10,7 @@ import json
 import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Protocol
+import uuid
 
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -419,11 +420,24 @@ class LangfuseTraceCollector:
                     for i in range(len(messages) - 1, -1, -1):
                         msg = messages[i]
                         
+                        # Extract message data comprehensively
+                        msg_data = {}
+                        
                         if isinstance(msg, dict):
                             role = msg.get("role")
                             content = msg.get("content", "")
+                            # Capture all additional fields from dict messages
+                            msg_data = {
+                                "role": role,
+                                "content": content,
+                                "tool_calls": msg.get("tool_calls"),
+                                "tool_call_id": msg.get("tool_call_id"),
+                                "name": msg.get("name"),
+                                "function_call": msg.get("function_call"),
+                                "timestamp": msg.get("timestamp", datetime.now().isoformat())
+                            }
                         elif hasattr(msg, 'role'):
-                            role = msg.role
+                            role = getattr(msg, 'role', None)
                             content = getattr(msg, 'content', "")
                             # Handle both string content and complex content structures
                             if not isinstance(content, str):
@@ -436,8 +450,24 @@ class LangfuseTraceCollector:
                                         content = str(content)
                                 else:
                                     content = str(content)
+                            
+                            # Capture all additional fields from object messages
+                            msg_data = {
+                                "role": role,
+                                "content": content,
+                                "tool_calls": getattr(msg, 'tool_calls', None),
+                                "tool_call_id": getattr(msg, 'tool_call_id', None),
+                                "name": getattr(msg, 'name', None),
+                                "function_call": getattr(msg, 'function_call', None),
+                                "timestamp": getattr(msg, 'timestamp', datetime.now().isoformat())
+                            }
                         else:
+                            # Handle messages that don't have expected structure
+                            print(f"[LANGFUSE DEBUG] Skipping message with unexpected structure: {type(msg)}")
                             continue
+                        
+                        # Clean up None values from msg_data
+                        msg_data = {k: v for k, v in msg_data.items() if v is not None}
                         
                         # If we haven't found the current user message yet and this is a user message
                         if not current_user_message_found and (role == "user" or role == 'user'):
@@ -446,14 +476,28 @@ class LangfuseTraceCollector:
                             print(f"[LANGFUSE DEBUG] Found current user query: {user_query}")
                         elif current_user_message_found:
                             # Add to conversation history (excluding the current user message)
-                            conversation_history.insert(0, {
-                                "role": role,
-                                "content": content,
-                                "timestamp": datetime.now().isoformat() if not hasattr(msg, 'timestamp') else getattr(msg, 'timestamp', datetime.now().isoformat())
-                            })
+                            # Include ALL message types: assistant, tool, system, function, etc.
+                            conversation_history.insert(0, msg_data)
+                            print(f"[LANGFUSE DEBUG] Added to conversation history: role={role}, content_length={len(str(content))}, has_tool_calls={bool(msg_data.get('tool_calls'))}")
                 
                 print(f"[LANGFUSE DEBUG] Final extracted - user_query: {user_query}, user_id: {user_id}")
                 print(f"[LANGFUSE DEBUG] Conversation history length: {len(conversation_history)}")
+                
+                # Debug: Log the roles and types captured in conversation history
+                if conversation_history:
+                    roles_summary = {}
+                    for msg in conversation_history:
+                        role = msg.get("role", "unknown")
+                        roles_summary[role] = roles_summary.get(role, 0) + 1
+                    print(f"[LANGFUSE DEBUG] Conversation history roles breakdown: {roles_summary}")
+                    
+                    # Log first few messages for verification
+                    for i, msg in enumerate(conversation_history[:3]):
+                        role = msg.get("role", "unknown")
+                        content_preview = str(msg.get("content", ""))[:100]
+                        has_tool_calls = bool(msg.get("tool_calls"))
+                        has_tool_call_id = bool(msg.get("tool_call_id"))
+                        print(f"[LANGFUSE DEBUG] History msg {i}: role={role}, content='{content_preview}...', tool_calls={has_tool_calls}, tool_call_id={has_tool_call_id}")
                 
                 # Create comprehensive input data for the trace
                 trace_input = {
@@ -495,6 +539,7 @@ class LangfuseTraceCollector:
                     print(f"[LANGFUSE] Ending trace for run: {trace_id}")
                     
                     # Update the trace metadata with final tool calls and results
+                    conversation_history = getattr(self.trace_spans[trace_id], '_conversation_history', [])
                     final_metadata = {
                         "framework": "jaf",
                         "event_type": "run_end",
@@ -502,7 +547,7 @@ class LangfuseTraceCollector:
                         "user_query": getattr(self.trace_spans[trace_id], '_user_query', None),
                         "user_id": getattr(self.trace_spans[trace_id], '_user_id', None),
                         "agent_name": event.data.get("agent_name", "analytics_agent_jaf"),
-                        "conversation_history": getattr(self.trace_spans[trace_id], '_conversation_history', []),
+                        "conversation_history": conversation_history,
                         "tool_calls": self.trace_tool_calls.get(trace_id, []),
                         "tool_results": self.trace_tool_results.get(trace_id, [])
                     }
@@ -608,28 +653,36 @@ class LangfuseTraceCollector:
                 # Start a span for tool calls with detailed input information
                 tool_name = event.data.get('tool_name', 'unknown')
                 tool_args = event.data.get("args", {})
+                call_id = event.data.get("call_id")
+                if not call_id:
+                    call_id = f"{tool_name}-{uuid.uuid4().hex[:8]}"
+                    try:
+                        event.data["call_id"] = call_id
+                    except TypeError:
+                        # event.data may be immutable; log and rely on synthetic ID tracking downstream
+                        print(f"[LANGFUSE] Generated synthetic call_id for tool start: {call_id}")
                 
-                print(f"[LANGFUSE] Starting span for tool call: {tool_name}")
+                print(f"[LANGFUSE] Starting span for tool call: {tool_name} ({call_id})")
                 
                 # Track this tool call for the trace
                 tool_call_data = {
                     "tool_name": tool_name,
                     "arguments": tool_args,
-                    "call_id": event.data.get("call_id"),
+                    "call_id": call_id,
                     "timestamp": datetime.now().isoformat()
                 }
                 
                 # Ensure trace_id exists in tracking
                 if trace_id not in self.trace_tool_calls:
                     self.trace_tool_calls[trace_id] = []
-                
+
                 self.trace_tool_calls[trace_id].append(tool_call_data)
                 
                 # Create comprehensive input data for the tool call
                 tool_input = {
                     "tool_name": tool_name,
                     "arguments": tool_args,
-                    "call_id": event.data.get("call_id"),
+                    "call_id": call_id,
                     "timestamp": datetime.now().isoformat()
                 }
                 
@@ -638,7 +691,7 @@ class LangfuseTraceCollector:
                     input=tool_input,
                     metadata={
                         "tool_name": tool_name,
-                        "call_id": event.data.get("call_id"),
+                        "call_id": call_id,
                         "framework": "jaf",
                         "event_type": "tool_call"
                     }
@@ -652,14 +705,15 @@ class LangfuseTraceCollector:
                 if span_id in self.active_spans:
                     tool_name = event.data.get('tool_name', 'unknown')
                     tool_result = event.data.get("result")
+                    call_id = event.data.get("call_id")
                     
-                    print(f"[LANGFUSE] Ending span for tool call: {tool_name}")
+                    print(f"[LANGFUSE] Ending span for tool call: {tool_name} ({call_id})")
                     
                     # Track this tool result for the trace
                     tool_result_data = {
                         "tool_name": tool_name,
                         "result": tool_result,
-                        "call_id": event.data.get("call_id"),
+                        "call_id": call_id,
                         "timestamp": datetime.now().isoformat(),
                         "status": event.data.get("status", "completed"),
                         "tool_result": event.data.get("tool_result")
@@ -674,7 +728,7 @@ class LangfuseTraceCollector:
                     tool_output = {
                         "tool_name": tool_name,
                         "result": tool_result,
-                        "call_id": event.data.get("call_id"),
+                        "call_id": call_id,
                         "timestamp": datetime.now().isoformat(),
                         "status": event.data.get("status", "completed")
                     }
@@ -685,7 +739,7 @@ class LangfuseTraceCollector:
                         output=tool_output,
                         metadata={
                             "tool_name": tool_name,
-                            "call_id": event.data.get("call_id"),
+                            "call_id": call_id,
                             "result_length": len(str(tool_result)) if tool_result else 0,
                             "framework": "jaf",
                             "event_type": "tool_call_end"
@@ -747,6 +801,9 @@ class LangfuseTraceCollector:
         
         # Use consistent identifiers that don't depend on timestamp
         if event.type.startswith('tool_call'):
+            call_id = event.data.get('call_id') or event.data.get('tool_call_id')
+            if call_id:
+                return f"tool-{trace_id}-{call_id}"
             tool_name = event.data.get('tool_name') or event.data.get('toolName', 'unknown')
             return f"tool-{tool_name}-{trace_id}"
         elif event.type.startswith('llm_call'):

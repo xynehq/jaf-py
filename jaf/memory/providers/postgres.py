@@ -261,16 +261,22 @@ async def create_postgres_provider(config: PostgresConfig) -> Result[PostgresPro
             # but we can continue and hope the database already exists.
             print(f"Could not ensure database exists: {e}")
 
-        # Now connect to the target database
+        # Now connect to the target database using connection pool with max_connections
         if config.connection_string:
-            client = await asyncpg.connect(dsn=config.connection_string)
+            client = await asyncpg.create_pool(
+                dsn=config.connection_string,
+                min_size=1,
+                max_size=config.max_connections
+            )
         else:
-            client = await asyncpg.connect(
+            client = await asyncpg.create_pool(
                 host=config.host,
                 port=config.port,
                 user=config.username,
                 password=config.password,
-                database=config.database
+                database=config.database,
+                min_size=1,
+                max_size=config.max_connections
             )
 
         table_name = config.table_name or "conversations"

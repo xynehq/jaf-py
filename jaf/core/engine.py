@@ -185,16 +185,18 @@ async def run(
         from .agent_tool import set_current_run_config
         set_current_run_config(config)
         
+        state_with_memory = await _load_conversation_history(initial_state, config)
+        
+        # Emit RunStartEvent AFTER loading conversation history so we have complete context
         if config.on_event:
             config.on_event(RunStartEvent(data=to_event_data(RunStartEventData(
                 run_id=initial_state.run_id,
                 trace_id=initial_state.trace_id,
                 session_id=config.conversation_id,
-                context=initial_state.context,
-                messages=initial_state.messages
+                context=state_with_memory.context,
+                messages=state_with_memory.messages,  # Now includes full conversation history
+                agent_name=state_with_memory.current_agent_name
             ))))
-
-        state_with_memory = await _load_conversation_history(initial_state, config)
         
         # Load approvals from storage if configured
         if config.approval_storage:
@@ -594,12 +596,15 @@ async def _run_internal(
                     if len(partial_tool_calls) > 0:
                         message_tool_calls = []
                         for i, tc in enumerate(partial_tool_calls):
+                            arguments = tc["function"]["arguments"]
+                            if isinstance(arguments, str):
+                                arguments = _normalize_tool_call_arguments(arguments)
                             message_tool_calls.append({
                                 "id": tc["id"] or f"call_{i}",
                                 "type": "function",
                                 "function": {
                                     "name": tc["function"]["name"] or "",
-                                    "arguments": tc["function"]["arguments"]
+                                    "arguments": arguments
                                 }
                             })
 
@@ -612,7 +617,7 @@ async def _run_internal(
                                 type="function",
                                 function=ToolCallFunction(
                                     name=mc["function"]["name"],
-                                    arguments=mc["function"]["arguments"],
+                                    arguments=_normalize_tool_call_arguments(mc["function"]["arguments"])
                                 ),
                             ) for mc in message_tool_calls
                         ],
@@ -631,12 +636,15 @@ async def _run_internal(
             if len(partial_tool_calls) > 0:
                 final_tool_calls = []
                 for i, tc in enumerate(partial_tool_calls):
+                    arguments = tc["function"]["arguments"]
+                    if isinstance(arguments, str):
+                        arguments = _normalize_tool_call_arguments(arguments)
                     final_tool_calls.append({
                         "id": tc["id"] or f"call_{i}",
                         "type": "function",
                         "function": {
                             "name": tc["function"]["name"] or "",
-                            "arguments": tc["function"]["arguments"]
+                            "arguments": arguments
                         }
                     })
 
@@ -946,11 +954,32 @@ def _convert_tool_calls(tool_calls: Optional[List[Dict[str, Any]]]) -> Optional[
             type='function',
             function=ToolCallFunction(
                 name=tc['function']['name'],
-                arguments=tc['function']['arguments']
+                arguments=_normalize_tool_call_arguments(tc['function']['arguments'])
             )
         )
         for tc in tool_calls
     ]
+
+
+def _normalize_tool_call_arguments(arguments: Any) -> Any:
+    """Strip trailing streaming artifacts so arguments remain valid JSON strings."""
+    if not arguments or not isinstance(arguments, str):
+        return arguments
+
+    decoder = json.JSONDecoder()
+    try:
+        obj, end = decoder.raw_decode(arguments)
+    except json.JSONDecodeError:
+        return arguments
+
+    remainder = arguments[end:].strip()
+    if remainder:
+        try:
+            return json.dumps(obj)
+        except (TypeError, ValueError):
+            return arguments
+
+    return arguments
 
 async def _execute_tool_calls(
     tool_calls: List[ToolCall],
@@ -967,7 +996,8 @@ async def _execute_tool_calls(
                 tool_name=tool_call.function.name,
                 args=_try_parse_json(tool_call.function.arguments),
                 trace_id=state.trace_id,
-                run_id=state.run_id
+                run_id=state.run_id,
+                call_id=tool_call.id
             ))))
 
         try:
@@ -993,7 +1023,8 @@ async def _execute_tool_calls(
                         trace_id=state.trace_id,
                         run_id=state.run_id,
                         status='error',
-                        tool_result={'error': 'tool_not_found'}
+                        tool_result={'error': 'tool_not_found'},
+                        call_id=tool_call.id
                     ))))
 
                 return {
@@ -1027,7 +1058,8 @@ async def _execute_tool_calls(
                         trace_id=state.trace_id,
                         run_id=state.run_id,
                         status='error',
-                        tool_result={'error': 'validation_error', 'details': e.errors()}
+                        tool_result={'error': 'validation_error', 'details': e.errors()},
+                        call_id=tool_call.id
                     ))))
 
                 return {
@@ -1121,7 +1153,7 @@ async def _execute_tool_calls(
             else:
                 timeout = None
             if timeout is None:
-                timeout = config.default_tool_timeout if config.default_tool_timeout is not None else 30.0
+                timeout = config.default_tool_timeout if config.default_tool_timeout is not None else 300.0
 
             # Merge additional context if provided through approval
             additional_context = approval_status.additional_context if approval_status else None
@@ -1165,7 +1197,8 @@ async def _execute_tool_calls(
                         trace_id=state.trace_id,
                         run_id=state.run_id,
                         status='timeout',
-                        tool_result={'error': 'timeout_error'}
+                        tool_result={'error': 'timeout_error'},
+                        call_id=tool_call.id
                     ))))
 
                 return {
@@ -1217,7 +1250,8 @@ async def _execute_tool_calls(
                     trace_id=state.trace_id,
                     run_id=state.run_id,
                     tool_result=tool_result,
-                    status='success'
+                    status='success',
+                    call_id=tool_call.id
                 ))))
 
             # Check for handoff
@@ -1255,7 +1289,8 @@ async def _execute_tool_calls(
                     trace_id=state.trace_id,
                     run_id=state.run_id,
                     status='error',
-                    tool_result={'error': 'execution_error', 'detail': str(error)}
+                    tool_result={'error': 'execution_error', 'detail': str(error)},
+                    call_id=tool_call.id
                 ))))
 
             return {
