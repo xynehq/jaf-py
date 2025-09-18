@@ -5,6 +5,7 @@ fastapi>=0.104.0
 uvicorn[standard]>=0.35.0
 pydantic>=2.0.0
 openai>=1.0.0  # Required by JAF's LiteLLM provider
+dotenv>=0.9.9
 
 # Optional: For Redis memory provider
 redis>=5.0.0
