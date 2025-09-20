@@ -845,11 +845,155 @@ def create_composite_trace_collector(*collectors: TraceCollector) -> TraceCollec
         collector_list.append(langfuse_collector)
 
     class CompositeTraceCollector:
+        """
+        Composite collector that also enforces sensitive-tool redaction before forwarding events.
+        Redaction rules:
+        - Automatically redact when a tool is marked sensitive (ToolSchema.sensitive True),
+          detected via ToolCallStartEvent/ToolCallEndEvent sensitive flag or by tracking call_id.
+        - Additionally respect run-level flag redact_sensitive_tools_in_traces when present on run_start.
+        - Sanitizes:
+          * tool_call_start.args
+          * tool_call_end.result and tool_result
+          * messages lists on run_start and llm_call_start (and any event carrying messages),
+            by redacting content of tool messages associated with sensitive call_ids or content marked sensitive.
+        """
         def __init__(self, collectors_list: List[TraceCollector]):
             self.collectors = collectors_list
+            # Per-trace settings/state
+            self._redact_flag_by_trace: Dict[str, bool] = {}
+            self._sensitive_calls_by_trace: Dict[str, set] = {}
+
+        def _get_trace_id_from_event(self, event: TraceEvent) -> Optional[str]:
+            data = getattr(event, "data", None)
+            if not isinstance(data, dict):
+                return None
+            if "trace_id" in data:
+                return str(data["trace_id"])
+            if "traceId" in data:
+                return str(data["traceId"])
+            # Fallback to run id (still groups state per run, useful for mapping)
+            if "run_id" in data:
+                return str(data["run_id"])
+            if "runId" in data:
+                return str(data["runId"])
+            return None
+
+        def _init_trace_state(self, trace_id: str) -> None:
+            if trace_id not in self._redact_flag_by_trace:
+                self._redact_flag_by_trace[trace_id] = False
+            if trace_id not in self._sensitive_calls_by_trace:
+                self._sensitive_calls_by_trace[trace_id] = set()
+
+        def _mark_sensitive_call(self, trace_id: str, call_id: Optional[str], is_sensitive: bool) -> None:
+            if not call_id or not is_sensitive:
+                return
+            self._sensitive_calls_by_trace.setdefault(trace_id, set()).add(call_id)
+
+        def _is_call_sensitive(self, trace_id: str, call_id: Optional[str], event_sensitive: Optional[bool]) -> bool:
+            if event_sensitive:
+                return True
+            if not call_id:
+                return False
+            return call_id in self._sensitive_calls_by_trace.get(trace_id, set())
+
+        def _maybe_parse_json(self, text: Any) -> Optional[Dict[str, Any]]:
+            if not isinstance(text, str):
+                return None
+            try:
+                return json.loads(text)
+            except Exception:
+                return None
+
+        def _sanitize_messages(self, trace_id: str, messages: Any) -> Any:
+            """
+            Redact content of tool messages that are sensitive. Messages are expected in list-of-dict form.
+            """
+            if not isinstance(messages, list):
+                return messages
+            sanitized = []
+            for msg in messages:
+                if not isinstance(msg, dict):
+                    sanitized.append(msg)
+                    continue
+                role = msg.get("role")
+                # Treat 'tool' role case-insensitively to avoid enum dependency
+                if isinstance(role, str) and role.lower() == "tool":
+                    call_id = msg.get("tool_call_id") or msg.get("toolCallId")
+                    content = msg.get("content")
+                    payload = self._maybe_parse_json(content)
+                    is_sensitive_content = bool(payload and payload.get("sensitive") is True)
+                    should_redact = is_sensitive_content or self._is_call_sensitive(trace_id, call_id, None)
+                    if should_redact:
+                        # Replace content with redaction marker
+                        msg = dict(msg)  # shallow copy
+                        msg["content"] = "[REDACTED]"
+                sanitized.append(msg)
+            return sanitized
+
+        def _sanitize_event_in_place(self, event: TraceEvent) -> None:
+            data = getattr(event, "data", None)
+            if not isinstance(data, dict):
+                return
+            trace_id = self._get_trace_id_from_event(event)
+            if not trace_id:
+                return
+            self._init_trace_state(trace_id)
+
+            etype = getattr(event, "type", None)
+
+            # Run-level flag capture and message sanitization
+            if etype == "run_start":
+                # Capture run-level preference; default False
+                redact_flag = bool(data.get("redact_sensitive_tools_in_traces", False))
+                self._redact_flag_by_trace[trace_id] = redact_flag
+                # Sanitize any historical messages immediately
+                if "messages" in data:
+                    data["messages"] = self._sanitize_messages(trace_id, data.get("messages"))
+
+            # Sanitize generation inputs (messages)
+            if etype == "llm_call_start":
+                if "messages" in data:
+                    data["messages"] = self._sanitize_messages(trace_id, data.get("messages"))
+                # Also sanitize any prompt-like arrays (some providers attach under different keys)
+                if "prompt" in data and isinstance(data.get("prompt"), list):
+                    data["prompt"] = self._sanitize_messages(trace_id, data.get("prompt"))
+
+            # Sanitize tool start: record sensitivity and redact args if sensitive
+            if etype == "tool_call_start":
+                event_sensitive = bool(data.get("sensitive")) if "sensitive" in data else False
+                call_id = data.get("call_id") or data.get("tool_call_id") or data.get("toolCallId")
+                # Auto-mark as sensitive when tool name hints at secrecy even if event flag missing
+                tool_name = (data.get("tool_name") or data.get("toolName") or "").lower()
+                heuristic_sensitive = ("secret" in tool_name) or ("pii" in tool_name) or ("password" in tool_name)
+                is_sensitive_start = event_sensitive or heuristic_sensitive
+                if is_sensitive_start:
+                    self._mark_sensitive_call(trace_id, call_id, True)
+                    # Redact args payload
+                    if "args" in data:
+                        data["args"] = "[REDACTED]"
+
+            # Sanitize tool end: redact result/tool_result if this call is sensitive
+            if etype == "tool_call_end":
+                call_id = data.get("call_id") or data.get("tool_call_id") or data.get("toolCallId")
+                event_sensitive = bool(data.get("sensitive")) if "sensitive" in data else False
+                is_sensitive = self._is_call_sensitive(trace_id, call_id, event_sensitive)
+                if is_sensitive:
+                    if "result" in data:
+                        data["result"] = "[REDACTED]"
+                    if "tool_result" in data:
+                        data["tool_result"] = None
+
+            # Generic path: if any event carries messages, sanitize them
+            if "messages" in data and etype not in ("run_start", "llm_call_start"):
+                data["messages"] = self._sanitize_messages(trace_id, data.get("messages"))
 
         def collect(self, event: TraceEvent) -> None:
-            """Forward event to all collectors."""
+            """Sanitize and forward event to all collectors."""
+            try:
+                self._sanitize_event_in_place(event)
+            except Exception as e:
+                # Do not break tracing on sanitizer errors
+                print(f"Warning: redaction sanitizer error: {e}")
             for collector in self.collectors:
                 try:
                     collector.collect(event)
