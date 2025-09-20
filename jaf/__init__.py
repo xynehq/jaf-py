@@ -178,6 +178,25 @@ try:
 except ImportError:
     _VISUALIZATION_AVAILABLE = False
 
+# Prebuilt tools (optional import)
+try:
+    from .tools import (
+        CalculateArgs,
+        PercentOfArgs,
+        PercentageArgs,
+        RatioArgs,
+        DateDiffArgs,
+        calculate_tool,
+        percent_of_tool,
+        percentage_tool,
+        ratio_tool,
+        date_diff_tool,
+        create_math_tools,
+    )
+    _TOOLS_AVAILABLE = True
+except ImportError:
+    _TOOLS_AVAILABLE = False
+
 import uuid
 
 from .core.types import RunId, TraceId, create_run_id, create_trace_id
@@ -276,4 +295,11 @@ __all__ = [
         "generate_agent_graph", "generate_tool_graph", "generate_runner_graph",
         "GraphOptions", "GraphResult", "get_graph_dot", "validate_graph_options"
     ] if _VISUALIZATION_AVAILABLE else []
+) + (
+    # Prebuilt tools (conditional)
+    [
+        "CalculateArgs", "PercentOfArgs", "PercentageArgs", "RatioArgs", "DateDiffArgs",
+        "calculate_tool", "percent_of_tool", "percentage_tool", "ratio_tool", "date_diff_tool",
+        "create_math_tools"
+    ] if '_TOOLS_AVAILABLE' in globals() and _TOOLS_AVAILABLE else []
 )
