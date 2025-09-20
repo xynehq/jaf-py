@@ -243,6 +243,7 @@ class ToolSchema(Generic[Args]):
     description: str
     parameters: Any  # Should be a type that can validate Args (like Pydantic model or Zod equivalent)
     timeout: Optional[float] = None  # Optional timeout in seconds for tool execution
+    sensitive: Optional[bool] = False  # Optional: mark tool as sensitive; used to redact traces
 
 @runtime_checkable
 class Tool(Protocol[Args, Ctx]):
@@ -273,6 +274,7 @@ class FunctionToolConfig(TypedDict):
     metadata: Optional[Dict[str, Any]]  # Optional metadata
     source: Optional[ToolSource]  # Optional source tracking
     timeout: Optional[float]  # Optional timeout in seconds for tool execution
+    sensitive: Optional[bool]  # Optional: mark tool as sensitive; default False
 
 
 # Type alias for tool execution functions
@@ -491,6 +493,9 @@ class RunStartEventData:
     context: Optional[Any] = None
     messages: Optional[List[Message]] = None
     agent_name: Optional[str] = None
+    # When True, tracing collectors must redact sensitive tool inputs/outputs and any sensitive
+    # tool content from LLM input/history. Optional and defaults to False when not provided.
+    redact_sensitive_tools_in_traces: Optional[bool] = None
 
 @dataclass(frozen=True)
 class RunStartEvent:
@@ -542,6 +547,8 @@ class ToolCallStartEventData:
     trace_id: TraceId
     run_id: RunId
     call_id: Optional[str] = None
+    # True if this tool is marked sensitive; enables redaction in tracing
+    sensitive: Optional[bool] = None
 
 @dataclass(frozen=True)
 class ToolCallStartEvent:
@@ -558,6 +565,8 @@ class ToolCallEndEventData:
     tool_result: Optional[Any] = None
     status: Optional[str] = None
     call_id: Optional[str] = None
+    # True if this tool is marked sensitive; enables redaction in tracing
+    sensitive: Optional[bool] = None
 
 @dataclass(frozen=True)
 class ToolCallEndEvent:
@@ -714,3 +723,6 @@ class RunConfig(Generic[Ctx]):
     conversation_id: Optional[str] = None
     default_tool_timeout: Optional[float] = 300.0  # Default timeout for tool execution in seconds
     approval_storage: Optional['ApprovalStorage'] = None  # Storage for approval decisions
+    # Optional, defaults to False: when True, tracing must not record sensitive tool inputs/outputs
+    # and must also redact sensitive tool content from any traced LLM input/history.
+    redact_sensitive_tools_in_traces: Optional[bool] = False

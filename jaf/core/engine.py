@@ -184,7 +184,8 @@ async def run(
                 session_id=config.conversation_id,
                 context=state_with_memory.context,
                 messages=state_with_memory.messages,  # Now includes full conversation history
-                agent_name=state_with_memory.current_agent_name
+                agent_name=state_with_memory.current_agent_name,
+                redact_sensitive_tools_in_traces=getattr(config, "redact_sensitive_tools_in_traces", False)
             ))))
         
         # Load approvals from storage if configured
@@ -887,13 +888,24 @@ async def _execute_tool_calls(
 
     async def execute_single_tool_call(tool_call: ToolCall) -> Dict[str, Any]:
         print(f'[JAF:TOOL-EXEC] Starting execute_single_tool_call for {tool_call.function.name}')
+        # Pre-compute sensitivity for this tool call (do not block execution if tool is missing)
+        is_sensitive = False
+        try:
+            if agent.tools:
+                for t in agent.tools:
+                    if t.schema.name == tool_call.function.name:
+                        is_sensitive = bool(getattr(t.schema, 'sensitive', False))
+                        break
+        except Exception:
+            is_sensitive = False
         if config.on_event:
             config.on_event(ToolCallStartEvent(data=to_event_data(ToolCallStartEventData(
                 tool_name=tool_call.function.name,
                 args=_try_parse_json(tool_call.function.arguments),
                 trace_id=state.trace_id,
                 run_id=state.run_id,
-                call_id=tool_call.id
+                call_id=tool_call.id,
+                sensitive=is_sensitive
             ))))
 
         try:
@@ -911,7 +923,7 @@ async def _execute_tool_calls(
                     'message': f'Tool {tool_call.function.name} not found',
                     'tool_name': tool_call.function.name,
                 })
-
+ 
                 if config.on_event:
                     config.on_event(ToolCallEndEvent(data=to_event_data(ToolCallEndEventData(
                         tool_name=tool_call.function.name,
@@ -920,7 +932,8 @@ async def _execute_tool_calls(
                         run_id=state.run_id,
                         status='error',
                         tool_result={'error': 'tool_not_found'},
-                        call_id=tool_call.id
+                        call_id=tool_call.id,
+                        sensitive=is_sensitive
                     ))))
 
                 return {
@@ -946,7 +959,7 @@ async def _execute_tool_calls(
                     'tool_name': tool_call.function.name,
                     'validation_errors': e.errors()
                 })
-
+ 
                 if config.on_event:
                     config.on_event(ToolCallEndEvent(data=to_event_data(ToolCallEndEventData(
                         tool_name=tool_call.function.name,
@@ -955,7 +968,8 @@ async def _execute_tool_calls(
                         run_id=state.run_id,
                         status='error',
                         tool_result={'error': 'validation_error', 'details': e.errors()},
-                        call_id=tool_call.id
+                        call_id=tool_call.id,
+                        sensitive=is_sensitive
                     ))))
 
                 return {
@@ -1009,10 +1023,13 @@ async def _execute_tool_calls(
                 )
                 
                 # Return interrupted result with halted message
-                halted_result = json.dumps({
+                halted_payload = {
                     'status': 'halted',
                     'message': f'Tool {tool_call.function.name} requires approval.',
-                })
+                }
+                if is_sensitive:
+                    halted_payload['sensitive'] = True
+                halted_result = json.dumps(halted_payload)
                 
                 return {
                     'message': Message(
@@ -1085,7 +1102,7 @@ async def _execute_tool_calls(
                     'tool_name': tool_call.function.name,
                     'timeout_seconds': timeout
                 })
-
+ 
                 if config.on_event:
                     config.on_event(ToolCallEndEvent(data=to_event_data(ToolCallEndEventData(
                         tool_name=tool_call.function.name,
@@ -1094,7 +1111,8 @@ async def _execute_tool_calls(
                         run_id=state.run_id,
                         status='timeout',
                         tool_result={'error': 'timeout_error'},
-                        call_id=tool_call.id
+                        call_id=tool_call.id,
+                        sensitive=is_sensitive
                     ))))
 
                 return {
@@ -1116,29 +1134,33 @@ async def _execute_tool_calls(
                 print(f'[JAF:ENGINE] Converted to string:', result_string)
 
             # Wrap tool result with status information for approval context
+            final_payload: Dict[str, Any] = {}
             if approval_status and approval_status.additional_context:
-                final_content = json.dumps({
+                final_payload = {
                     'status': 'approved_and_executed',
                     'result': result_string,
                     'tool_name': tool_call.function.name,
                     'approval_context': approval_status.additional_context,
                     'message': 'Tool was approved and executed successfully with additional context.'
-                })
+                }
             elif needs_approval:
-                final_content = json.dumps({
+                final_payload = {
                     'status': 'approved_and_executed',
                     'result': result_string,
                     'tool_name': tool_call.function.name,
                     'message': 'Tool was approved and executed successfully.'
-                })
+                }
             else:
-                final_content = json.dumps({
+                final_payload = {
                     'status': 'executed',
                     'result': result_string,
                     'tool_name': tool_call.function.name,
                     'message': 'Tool executed successfully.'
-                })
-
+                }
+            if is_sensitive:
+                final_payload['sensitive'] = True
+            final_content = json.dumps(final_payload)
+ 
             if config.on_event:
                 config.on_event(ToolCallEndEvent(data=to_event_data(ToolCallEndEventData(
                     tool_name=tool_call.function.name,
@@ -1147,7 +1169,8 @@ async def _execute_tool_calls(
                     run_id=state.run_id,
                     tool_result=tool_result,
                     status='success',
-                    call_id=tool_call.id
+                    call_id=tool_call.id,
+                    sensitive=is_sensitive
                 ))))
 
             # Check for handoff
@@ -1177,7 +1200,7 @@ async def _execute_tool_calls(
                 'message': str(error),
                 'tool_name': tool_call.function.name,
             })
-
+ 
             if config.on_event:
                 config.on_event(ToolCallEndEvent(data=to_event_data(ToolCallEndEventData(
                     tool_name=tool_call.function.name,
@@ -1186,7 +1209,8 @@ async def _execute_tool_calls(
                     run_id=state.run_id,
                     status='error',
                     tool_result={'error': 'execution_error', 'detail': str(error)},
-                    call_id=tool_call.id
+                    call_id=tool_call.id,
+                    sensitive=is_sensitive
                 ))))
 
             return {

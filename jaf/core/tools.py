@@ -105,7 +105,8 @@ def create_function_tool(config: FunctionToolConfig) -> Tool:
         name=config['name'],
         description=config['description'],
         parameters=config['parameters'],
-        timeout=config.get('timeout')
+        timeout=config.get('timeout'),
+        sensitive=config.get('sensitive', False)
     )
     
     # Create a new wrapper function for this tool to avoid conflicts when multiple tools use the same base function
@@ -328,7 +329,8 @@ def function_tool(
     description: Optional[str] = None,
     metadata: Optional[Dict[str, Any]] = None,
     source: Optional[ToolSource] = None,
-    timeout: Optional[float] = None
+    timeout: Optional[float] = None,
+    sensitive: Optional[bool] = None
 ):
     """
     Decorator to automatically create a tool from a function.
@@ -385,7 +387,8 @@ def function_tool(
             name=func_name,
             description=func_description,
             parameters=parameters,
-            timeout=timeout
+            timeout=timeout,
+            sensitive=sensitive if sensitive is not None else False
         )
         
         # Add tool properties and methods to the function
