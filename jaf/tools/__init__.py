@@ -75,6 +75,12 @@ from .knowledge_base import (
     create_knowledge_base_tools,
 )
 
+from .web_search import (
+    web_search,
+    fetch_url,
+    create_web_search_tools,
+)
+
 __all__ = [
     "CalculateArgs",
     "PercentOfArgs",
@@ -119,4 +125,8 @@ __all__ = [
     "kb_search",
     "kb_ingest_texts",
     "create_knowledge_base_tools",
+    # Web search tools
+    "web_search",
+    "fetch_url",
+    "create_web_search_tools",
 ]
