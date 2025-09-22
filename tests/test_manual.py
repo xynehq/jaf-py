@@ -86,7 +86,7 @@ async def test_gemini():
     # Gemini provider (consumer API)
     gemini_provider = make_litellm_sdk_provider(
         api_key=google_key,
-        model="gemini-2.5-pro"
+        model="gemini/gemini-2.5-pro"
     )
     
     print("✅ Gemini provider created")

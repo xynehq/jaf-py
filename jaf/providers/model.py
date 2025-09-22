@@ -536,9 +536,10 @@ def make_litellm_sdk_provider(
             }
 
             # Convert messages to OpenAI format
-            messages = [system_message] + [
-                _convert_message(msg) for msg in state.messages
-            ]
+            messages = [system_message]
+            for msg in state.messages:
+                converted_msg = await _convert_message(msg)
+                messages.append(converted_msg)
 
             # Convert tools to OpenAI format
             tools = None
@@ -646,9 +647,10 @@ def make_litellm_sdk_provider(
             }
 
             # Convert messages to OpenAI format
-            messages = [system_message] + [
-                _convert_message(msg) for msg in state.messages
-            ]
+            messages = [system_message]
+            for msg in state.messages:
+                converted_msg = await _convert_message(msg)
+                messages.append(converted_msg)
 
             # Convert tools to OpenAI format
             tools = None
