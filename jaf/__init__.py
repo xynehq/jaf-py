@@ -192,6 +192,14 @@ try:
         ratio_tool,
         date_diff_tool,
         create_math_tools,
+        # File I/O tools
+        read_text,
+        write_text,
+        read_json,
+        write_json,
+        read_csv,
+        write_csv,
+        create_file_io_tools,
     )
     _TOOLS_AVAILABLE = True
 except ImportError:
@@ -300,6 +308,8 @@ __all__ = [
     [
         "CalculateArgs", "PercentOfArgs", "PercentageArgs", "RatioArgs", "DateDiffArgs",
         "calculate_tool", "percent_of_tool", "percentage_tool", "ratio_tool", "date_diff_tool",
-        "create_math_tools"
+        "create_math_tools",
+        "read_text", "write_text", "read_json", "write_json", "read_csv", "write_csv",
+        "create_file_io_tools",
     ] if '_TOOLS_AVAILABLE' in globals() and _TOOLS_AVAILABLE else []
 )
