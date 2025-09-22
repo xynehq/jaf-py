@@ -88,6 +88,13 @@ from .notifications import (
     create_notification_tools,
 )
 
+from .data_cleaning import (
+    normalize_email,
+    normalize_phone,
+    normalize_csv_rows,
+    create_data_cleaning_tools,
+)
+
 from .summarizer import (
     summarize_text,
     create_summarizer_tools,
