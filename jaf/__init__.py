@@ -210,6 +210,11 @@ try:
         table_from_csv,
         chart_from_csv,
         create_table_chart_tools,
+        # Unit conversion tools
+        convert_measurement,
+        list_supported_units,
+        convert_currency,
+        create_unit_conversion_tools,
     )
     _TOOLS_AVAILABLE = True
 except ImportError:
@@ -324,5 +329,6 @@ __all__ = [
         "extract_emails", "extract_invoice_numbers", "extract_order_ids", "extract_regex",
         "create_text_extractor_tools",
         "table_from_csv", "chart_from_csv", "create_table_chart_tools",
+        "convert_measurement", "list_supported_units", "convert_currency", "create_unit_conversion_tools",
     ] if '_TOOLS_AVAILABLE' in globals() and _TOOLS_AVAILABLE else []
 )

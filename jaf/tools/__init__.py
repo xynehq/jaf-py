@@ -53,7 +53,12 @@ from .table_chart import (
     create_table_chart_tools,
 )
 
-# (duplicate import block removed)
+from .unit_conversion import (
+    convert_measurement,
+    list_supported_units,
+    convert_currency,
+    create_unit_conversion_tools,
+)
 
 __all__ = [
     "CalculateArgs",
@@ -83,4 +88,9 @@ __all__ = [
     "table_from_csv",
     "chart_from_csv",
     "create_table_chart_tools",
+    # Unit conversion tools
+    "convert_measurement",
+    "list_supported_units",
+    "convert_currency",
+    "create_unit_conversion_tools",
 ]
