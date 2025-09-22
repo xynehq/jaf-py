@@ -230,6 +230,11 @@ try:
         web_search,
         fetch_url,
         create_web_search_tools,
+        # Notification tools
+        send_email,
+        send_slack_message,
+        send_webhook,
+        create_notification_tools,
     )
     _TOOLS_AVAILABLE = True
 except ImportError:
@@ -348,5 +353,6 @@ __all__ = [
         "get_current_datetime", "parse_datetime", "adjust_datetime", "format_datetime", "diff_datetimes", "create_date_time_tools",
         "kb_search", "kb_ingest_texts", "create_knowledge_base_tools",
         "web_search", "fetch_url", "create_web_search_tools",
+        "send_email", "send_slack_message", "send_webhook", "create_notification_tools",
     ] if '_TOOLS_AVAILABLE' in globals() and _TOOLS_AVAILABLE else []
 )

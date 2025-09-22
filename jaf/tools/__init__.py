@@ -81,6 +81,13 @@ from .web_search import (
     create_web_search_tools,
 )
 
+from .notifications import (
+    send_email,
+    send_slack_message,
+    send_webhook,
+    create_notification_tools,
+)
+
 __all__ = [
     "CalculateArgs",
     "PercentOfArgs",
@@ -129,4 +136,9 @@ __all__ = [
     "web_search",
     "fetch_url",
     "create_web_search_tools",
+    # Notification tools
+    "send_email",
+    "send_slack_message",
+    "send_webhook",
+    "create_notification_tools",
 ]
