@@ -200,6 +200,12 @@ try:
         read_csv,
         write_csv,
         create_file_io_tools,
+        # Text extractor tools
+        extract_emails,
+        extract_invoice_numbers,
+        extract_order_ids,
+        extract_regex,
+        create_text_extractor_tools,
     )
     _TOOLS_AVAILABLE = True
 except ImportError:
@@ -311,5 +317,7 @@ __all__ = [
         "create_math_tools",
         "read_text", "write_text", "read_json", "write_json", "read_csv", "write_csv",
         "create_file_io_tools",
+        "extract_emails", "extract_invoice_numbers", "extract_order_ids", "extract_regex",
+        "create_text_extractor_tools",
     ] if '_TOOLS_AVAILABLE' in globals() and _TOOLS_AVAILABLE else []
 )

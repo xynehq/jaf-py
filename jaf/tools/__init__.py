@@ -39,6 +39,14 @@ from .file_io import (
     write_csv,
 )
 
+from .text_extractor import (
+    extract_emails,
+    extract_invoice_numbers,
+    extract_order_ids,
+    extract_regex,
+    create_text_extractor_tools,
+)
+
 __all__ = [
     "CalculateArgs",
     "PercentOfArgs",
@@ -57,4 +65,10 @@ __all__ = [
     "write_json",
     "read_csv",
     "write_csv",
+    # Text extractor tools
+    "extract_emails",
+    "extract_invoice_numbers",
+    "extract_order_ids",
+    "extract_regex",
+    "create_text_extractor_tools",
 ]
