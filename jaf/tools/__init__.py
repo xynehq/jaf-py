@@ -47,6 +47,14 @@ from .text_extractor import (
     create_text_extractor_tools,
 )
 
+from .table_chart import (
+    table_from_csv,
+    chart_from_csv,
+    create_table_chart_tools,
+)
+
+# (duplicate import block removed)
+
 __all__ = [
     "CalculateArgs",
     "PercentOfArgs",
@@ -71,4 +79,8 @@ __all__ = [
     "extract_order_ids",
     "extract_regex",
     "create_text_extractor_tools",
+    # Table & chart tools
+    "table_from_csv",
+    "chart_from_csv",
+    "create_table_chart_tools",
 ]

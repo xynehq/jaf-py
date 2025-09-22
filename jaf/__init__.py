@@ -206,6 +206,10 @@ try:
         extract_order_ids,
         extract_regex,
         create_text_extractor_tools,
+        # Table & chart tools
+        table_from_csv,
+        chart_from_csv,
+        create_table_chart_tools,
     )
     _TOOLS_AVAILABLE = True
 except ImportError:
@@ -319,5 +323,6 @@ __all__ = [
         "create_file_io_tools",
         "extract_emails", "extract_invoice_numbers", "extract_order_ids", "extract_regex",
         "create_text_extractor_tools",
+        "table_from_csv", "chart_from_csv", "create_table_chart_tools",
     ] if '_TOOLS_AVAILABLE' in globals() and _TOOLS_AVAILABLE else []
 )
