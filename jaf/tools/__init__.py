@@ -60,6 +60,15 @@ from .unit_conversion import (
     create_unit_conversion_tools,
 )
 
+from .date_time import (
+    get_current_datetime,
+    parse_datetime,
+    adjust_datetime,
+    format_datetime,
+    diff_datetimes,
+    create_date_time_tools,
+)
+
 __all__ = [
     "CalculateArgs",
     "PercentOfArgs",
@@ -93,4 +102,11 @@ __all__ = [
     "list_supported_units",
     "convert_currency",
     "create_unit_conversion_tools",
+    # Date & time tools
+    "get_current_datetime",
+    "parse_datetime",
+    "adjust_datetime",
+    "format_datetime",
+    "diff_datetimes",
+    "create_date_time_tools",
 ]

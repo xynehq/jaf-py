@@ -215,6 +215,13 @@ try:
         list_supported_units,
         convert_currency,
         create_unit_conversion_tools,
+        # Date & time tools
+        get_current_datetime,
+        parse_datetime,
+        adjust_datetime,
+        format_datetime,
+        diff_datetimes,
+        create_date_time_tools,
     )
     _TOOLS_AVAILABLE = True
 except ImportError:
@@ -330,5 +337,6 @@ __all__ = [
         "create_text_extractor_tools",
         "table_from_csv", "chart_from_csv", "create_table_chart_tools",
         "convert_measurement", "list_supported_units", "convert_currency", "create_unit_conversion_tools",
+        "get_current_datetime", "parse_datetime", "adjust_datetime", "format_datetime", "diff_datetimes", "create_date_time_tools",
     ] if '_TOOLS_AVAILABLE' in globals() and _TOOLS_AVAILABLE else []
 )
