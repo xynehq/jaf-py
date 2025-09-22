@@ -1,6 +1,11 @@
 # Model Providers
 
-JAF integrates with Large Language Models (LLMs) through a flexible provider system. The primary provider is LiteLLM, which offers unified access to multiple LLM services including OpenAI, Anthropic, Google, and local models.
+JAF integrates with Large Language Models (LLMs) through a flexible provider system. JAF offers two LiteLLM-based providers:
+
+1. **LiteLLM SDK Provider** (Recommended) - Direct SDK integration with 100+ providers using just API keys
+2. **LiteLLM Server Provider** - Server-based proxy for shared infrastructure scenarios
+
+Both providers offer unified access to multiple LLM services including OpenAI, Anthropic, Google, Azure, and local models.
 
 ## Overview
 
@@ -11,9 +16,179 @@ Model providers in JAF handle the communication between your agents and LLM serv
 - Manage model configuration and parameters
 - Provide a consistent interface across different LLM providers
 
-## LiteLLM Provider
+## LiteLLM SDK Provider (Recommended)
 
-LiteLLM is the recommended and primary model provider for JAF. It acts as a proxy that translates requests to different LLM APIs using a unified interface.
+JAF now includes direct LiteLLM SDK integration, allowing you to connect to 100+ AI providers with just an API key. This eliminates the need to run a separate LiteLLM server.
+
+### Quick Start
+
+```python
+from jaf.providers import make_litellm_sdk_provider
+
+# OpenAI
+provider = make_litellm_sdk_provider(
+    api_key="sk-your-openai-key",
+    model="gpt-4"
+)
+
+# Anthropic Claude
+provider = make_litellm_sdk_provider(
+    api_key="sk-ant-your-anthropic-key",
+    model="claude-3-sonnet-20240229"
+)
+
+# Google Gemini (consumer API)
+provider = make_litellm_sdk_provider(
+    api_key="your-google-api-key",
+    model="gemini-2.5-pro"
+)
+
+# Google Vertex AI (enterprise)
+provider = make_litellm_sdk_provider(
+    model="vertex_ai/gemini-2.5-pro",
+    vertex_project="your-project-id",
+    vertex_location="us-central1"
+)
+
+# Use with JAF
+config = RunConfig(
+    agent_registry={"MyAgent": my_agent},
+    model_provider=provider
+)
+```
+
+### Supported Providers (100+)
+
+The LiteLLM SDK provider automatically supports all providers that LiteLLM supports:
+
+#### Major Cloud Providers
+- **OpenAI**: `gpt-4`, `gpt-3.5-turbo`, `gpt-4-turbo`
+- **Anthropic**: `claude-3-sonnet`, `claude-3-opus`, `claude-3-haiku`
+- **Google Gemini**: `gemini-pro`, `gemini-2.5-pro`, `gemini-1.5-pro`
+- **Google Vertex AI**: `vertex_ai/gemini-pro`, `vertex_ai/text-bison`
+- **Azure OpenAI**: `azure/gpt-4`, `azure/gpt-3.5-turbo`
+- **AWS Bedrock**: `bedrock/anthropic.claude-v2`
+
+#### Other Popular Providers
+- **Cohere**: `cohere/command-r-plus`
+- **Hugging Face**: `huggingface/microsoft/DialoGPT-medium`
+- **Together AI**: `together_ai/togethercomputer/llama-2-70b-chat`
+- **Replicate**: `replicate/meta/llama-2-70b-chat:latest`
+- **Groq**: `groq/llama2-70b-4096`
+- **Ollama** (local): `ollama/llama2`, `ollama/mistral`
+
+### Environment Variable Configuration
+
+For security and convenience, store API keys in environment variables:
+
+```bash
+# .env file
+OPENAI_API_KEY=sk-your-openai-key
+ANTHROPIC_API_KEY=sk-ant-your-anthropic-key
+GOOGLE_API_KEY=your-google-api-key
+VERTEX_PROJECT=your-google-cloud-project
+VERTEX_LOCATION=us-central1
+```
+
+```python
+# Use environment variables automatically
+provider = make_litellm_sdk_provider(model="gpt-4")  # Uses OPENAI_API_KEY
+provider = make_litellm_sdk_provider(model="claude-3-sonnet")  # Uses ANTHROPIC_API_KEY
+provider = make_litellm_sdk_provider(model="gemini-pro")  # Uses GOOGLE_API_KEY
+```
+
+### Advanced Configuration Examples
+
+#### Azure OpenAI
+```python
+provider = make_litellm_sdk_provider(
+    model="azure/gpt-4",
+    api_key="your-azure-key",
+    azure_deployment="gpt-4-deployment",
+    api_base="https://your-resource.openai.azure.com"
+)
+```
+
+#### Ollama (Local Models)
+```python
+provider = make_litellm_sdk_provider(
+    model="ollama/llama2",
+    base_url="http://localhost:11434"
+)
+```
+
+#### Custom Provider
+```python
+provider = make_litellm_sdk_provider(
+    model="custom_provider/my-model",
+    api_key="your-custom-key",
+    custom_llm_provider="my_provider_name",
+    api_base="https://api.myprovider.com"
+)
+```
+
+### Testing Multiple Providers
+
+You can easily test multiple providers:
+
+```python
+from jaf.providers import make_litellm_sdk_provider
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+async def test_providers():
+    providers = []
+    
+    # Test OpenAI if available
+    if os.getenv("OPENAI_API_KEY"):
+        openai_provider = make_litellm_sdk_provider(model="gpt-3.5-turbo")
+        providers.append(("OpenAI", openai_provider))
+    
+    # Test Anthropic if available
+    if os.getenv("ANTHROPIC_API_KEY"):
+        claude_provider = make_litellm_sdk_provider(model="claude-3-sonnet")
+        providers.append(("Anthropic", claude_provider))
+    
+    # Test Vertex AI if available
+    if os.getenv("VERTEX_PROJECT"):
+        vertex_provider = make_litellm_sdk_provider(
+            model="vertex_ai/gemini-2.5-pro",
+            vertex_project=os.getenv("VERTEX_PROJECT"),
+            vertex_location=os.getenv("VERTEX_LOCATION", "us-central1")
+        )
+        providers.append(("Vertex AI", vertex_provider))
+    
+    return providers
+```
+
+### Streaming Support
+
+The LiteLLM SDK provider includes full streaming support:
+
+```python
+provider = make_litellm_sdk_provider(api_key="...", model="gpt-4")
+
+# Streaming is automatically handled by JAF's engine
+# No additional configuration needed
+```
+
+### Error Handling
+
+The provider includes built-in error handling and helpful error messages:
+
+```python
+try:
+    result = await provider.get_completion(state, agent, config)
+except Exception as e:
+    print(f"Provider error: {e}")
+    # LiteLLM provides detailed error information
+```
+
+## LiteLLM Server Provider
+
+For cases where you prefer to run LiteLLM as a separate server (useful for shared infrastructure), you can use the server-based provider. This acts as a proxy that translates requests to different LLM APIs using a unified interface.
 
 ### Basic Setup
 

@@ -14,6 +14,7 @@ import base64
 
 from openai import OpenAI
 from pydantic import BaseModel
+import litellm
 
 from ..core.types import (
     Agent, ContentRole, Message, ModelProvider, RunConfig, RunState, 
@@ -444,6 +445,316 @@ def make_litellm_provider(
                     yield item
 
     return LiteLLMProvider()
+
+def make_litellm_sdk_provider(
+    api_key: Optional[str] = None,
+    model: str = "gpt-3.5-turbo",
+    base_url: Optional[str] = None,
+    default_timeout: Optional[float] = None,
+    **litellm_kwargs: Any
+) -> ModelProvider[Ctx]:
+    """
+    Create a LiteLLM SDK-based model provider with universal provider support.
+    
+    LiteLLM automatically detects the provider from the model name and handles
+    API key management through environment variables or direct parameters.
+    
+    Args:
+        api_key: API key for the provider (optional, can use env vars)
+        model: Model name (e.g., "gpt-4", "claude-3-sonnet", "gemini-pro", "llama2", etc.)
+        base_url: Optional base URL for custom endpoints
+        default_timeout: Default timeout for model API calls in seconds
+        **litellm_kwargs: Additional arguments passed to litellm.completion()
+                         Common examples:
+                         - vertex_project: "your-project" (for Google models)
+                         - vertex_location: "us-central1" (for Google models)
+                         - azure_deployment: "your-deployment" (for Azure OpenAI)
+                         - api_base: "https://your-endpoint.com" (custom endpoint)
+                         - custom_llm_provider: "custom_provider_name"
+        
+    Returns:
+        ModelProvider instance
+        
+    Examples:
+        # OpenAI
+        make_litellm_sdk_provider(api_key="sk-...", model="gpt-4")
+        
+        # Anthropic Claude
+        make_litellm_sdk_provider(api_key="sk-ant-...", model="claude-3-sonnet-20240229")
+        
+        # Google Gemini
+        make_litellm_sdk_provider(model="gemini-pro", vertex_project="my-project")
+        
+        # Ollama (local)
+        make_litellm_sdk_provider(model="ollama/llama2", base_url="http://localhost:11434")
+        
+        # Azure OpenAI
+        make_litellm_sdk_provider(
+            model="azure/gpt-4",
+            api_key="your-azure-key",
+            azure_deployment="gpt-4-deployment",
+            api_base="https://your-resource.openai.azure.com"
+        )
+        
+        # Hugging Face
+        make_litellm_sdk_provider(
+            model="huggingface/microsoft/DialoGPT-medium",
+            api_key="hf_..."
+        )
+        
+        # Any custom provider
+        make_litellm_sdk_provider(
+            model="custom_provider/model-name",
+            api_key="your-key",
+            custom_llm_provider="your_provider"
+        )
+    """
+
+    class LiteLLMSDKProvider:
+        def __init__(self):
+            self.api_key = api_key
+            self.model = model
+            self.base_url = base_url
+            self.default_timeout = default_timeout
+            self.litellm_kwargs = litellm_kwargs
+
+        async def get_completion(
+            self,
+            state: RunState[Ctx],
+            agent: Agent[Ctx, Any],
+            config: RunConfig[Ctx]
+        ) -> Dict[str, Any]:
+            """Get completion from the model using LiteLLM SDK."""
+
+            # Determine model to use
+            model_name = config.model_override or self.model
+
+            # Create system message
+            system_message = {
+                "role": "system",
+                "content": agent.instructions(state)
+            }
+
+            # Convert messages to OpenAI format
+            messages = [system_message] + [
+                _convert_message(msg) for msg in state.messages
+            ]
+
+            # Convert tools to OpenAI format
+            tools = None
+            if agent.tools:
+                tools = [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": tool.schema.name,
+                            "description": tool.schema.description,
+                            "parameters": _pydantic_to_json_schema(tool.schema.parameters),
+                        }
+                    }
+                    for tool in agent.tools
+                ]
+
+            # Prepare request parameters for LiteLLM
+            request_params = {
+                "model": model_name,
+                "messages": messages,
+                **self.litellm_kwargs
+            }
+
+            # Add API key if provided
+            if self.api_key:
+                request_params["api_key"] = self.api_key
+
+            # Add optional parameters
+            if agent.model_config:
+                if agent.model_config.temperature is not None:
+                    request_params["temperature"] = agent.model_config.temperature
+                if agent.model_config.max_tokens is not None:
+                    request_params["max_tokens"] = agent.model_config.max_tokens
+
+            if tools:
+                request_params["tools"] = tools
+                request_params["tool_choice"] = "auto"
+
+            if agent.output_codec:
+                request_params["response_format"] = {"type": "json_object"}
+
+            # LiteLLM will use api_base from kwargs or base_url parameter
+            if self.base_url:
+                request_params["api_base"] = self.base_url
+
+            # Make the API call using litellm
+            response = await litellm.acompletion(**request_params)
+
+            # Return in the expected format that the engine expects
+            choice = response.choices[0]
+
+            # Convert tool_calls to dict format if present
+            tool_calls = None
+            if choice.message.tool_calls:
+                tool_calls = [
+                    {
+                        'id': tc.id,
+                        'type': tc.type,
+                        'function': {
+                            'name': tc.function.name,
+                            'arguments': tc.function.arguments
+                        }
+                    }
+                    for tc in choice.message.tool_calls
+                ]
+
+            # Extract usage data
+            usage_data = None
+            if response.usage:
+                usage_data = {
+                    "prompt_tokens": response.usage.prompt_tokens,
+                    "completion_tokens": response.usage.completion_tokens,
+                    "total_tokens": response.usage.total_tokens,
+                }
+
+            return {
+                'id': response.id,
+                'created': response.created,
+                'model': response.model,
+                'system_fingerprint': getattr(response, 'system_fingerprint', None),
+                'message': {
+                    'content': choice.message.content,
+                    'tool_calls': tool_calls
+                },
+                'usage': usage_data,
+                'prompt': messages
+            }
+
+        async def get_completion_stream(
+            self,
+            state: RunState[Ctx],
+            agent: Agent[Ctx, Any],
+            config: RunConfig[Ctx]
+        ) -> AsyncIterator[CompletionStreamChunk]:
+            """
+            Stream completion chunks from the model provider using LiteLLM SDK.
+            """
+            # Determine model to use
+            model_name = config.model_override or self.model
+
+            # Create system message
+            system_message = {
+                "role": "system",
+                "content": agent.instructions(state)
+            }
+
+            # Convert messages to OpenAI format
+            messages = [system_message] + [
+                _convert_message(msg) for msg in state.messages
+            ]
+
+            # Convert tools to OpenAI format
+            tools = None
+            if agent.tools:
+                tools = [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": tool.schema.name,
+                            "description": tool.schema.description,
+                            "parameters": _pydantic_to_json_schema(tool.schema.parameters),
+                        }
+                    }
+                    for tool in agent.tools
+                ]
+
+            # Prepare request parameters for LiteLLM streaming
+            request_params: Dict[str, Any] = {
+                "model": model_name,
+                "messages": messages,
+                "stream": True,
+                **self.litellm_kwargs
+            }
+
+            # Add API key if provided
+            if self.api_key:
+                request_params["api_key"] = self.api_key
+
+            # Add optional parameters
+            if agent.model_config:
+                if agent.model_config.temperature is not None:
+                    request_params["temperature"] = agent.model_config.temperature
+                if agent.model_config.max_tokens is not None:
+                    request_params["max_tokens"] = agent.model_config.max_tokens
+
+            if tools:
+                request_params["tools"] = tools
+                request_params["tool_choice"] = "auto"
+
+            if agent.output_codec:
+                request_params["response_format"] = {"type": "json_object"}
+
+            # LiteLLM will use api_base from kwargs or base_url parameter
+            if self.base_url:
+                request_params["api_base"] = self.base_url
+
+            # Stream using litellm
+            stream = await litellm.acompletion(**request_params)
+            
+            async for chunk in stream:
+                try:
+                    # Best-effort extraction of raw for debugging
+                    try:
+                        raw_obj = chunk.model_dump() if hasattr(chunk, 'model_dump') else None
+                    except Exception:
+                        raw_obj = None
+
+                    choice = None
+                    if getattr(chunk, "choices", None):
+                        choice = chunk.choices[0]
+
+                    if choice is None:
+                        continue
+
+                    delta = getattr(choice, "delta", None)
+                    finish_reason = getattr(choice, "finish_reason", None)
+
+                    # Text content delta
+                    if delta is not None:
+                        content_delta = getattr(delta, "content", None)
+                        if content_delta:
+                            yield CompletionStreamChunk(delta=content_delta, raw=raw_obj)
+
+                        # Tool call deltas
+                        tool_calls = getattr(delta, "tool_calls", None)
+                        if isinstance(tool_calls, list):
+                            for tc in tool_calls:
+                                try:
+                                    idx = getattr(tc, "index", 0) or 0
+                                    tc_id = getattr(tc, "id", None)
+                                    fn = getattr(tc, "function", None)
+                                    fn_name = getattr(fn, "name", None) if fn is not None else None
+                                    args_delta = getattr(fn, "arguments", None) if fn is not None else None
+
+                                    yield CompletionStreamChunk(
+                                        tool_call_delta=ToolCallDelta(
+                                            index=idx,
+                                            id=tc_id,
+                                            type='function',
+                                            function=ToolCallFunctionDelta(
+                                                name=fn_name,
+                                                arguments_delta=args_delta
+                                            )
+                                        ),
+                                        raw=raw_obj
+                                    )
+                                except Exception:
+                                    continue
+
+                    # Completion ended
+                    if finish_reason:
+                        yield CompletionStreamChunk(is_done=True, finish_reason=finish_reason, raw=raw_obj)
+                except Exception:
+                    continue
+
+    return LiteLLMSDKProvider()
 
 async def _convert_message(msg: Message) -> Dict[str, Any]:
     """Convert JAF Message to OpenAI message format with attachment support."""
