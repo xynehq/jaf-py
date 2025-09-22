@@ -69,6 +69,12 @@ from .date_time import (
     create_date_time_tools,
 )
 
+from .knowledge_base import (
+    kb_search,
+    kb_ingest_texts,
+    create_knowledge_base_tools,
+)
+
 __all__ = [
     "CalculateArgs",
     "PercentOfArgs",
@@ -109,4 +115,8 @@ __all__ = [
     "format_datetime",
     "diff_datetimes",
     "create_date_time_tools",
+    # Knowledge base tools
+    "kb_search",
+    "kb_ingest_texts",
+    "create_knowledge_base_tools",
 ]
