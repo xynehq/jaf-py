@@ -235,6 +235,9 @@ try:
         send_slack_message,
         send_webhook,
         create_notification_tools,
+        # Summarizer tools
+        summarize_text,
+        create_summarizer_tools,
     )
     _TOOLS_AVAILABLE = True
 except ImportError:
@@ -354,5 +357,6 @@ __all__ = [
         "kb_search", "kb_ingest_texts", "create_knowledge_base_tools",
         "web_search", "fetch_url", "create_web_search_tools",
         "send_email", "send_slack_message", "send_webhook", "create_notification_tools",
+        "summarize_text", "create_summarizer_tools",
     ] if '_TOOLS_AVAILABLE' in globals() and _TOOLS_AVAILABLE else []
 )
