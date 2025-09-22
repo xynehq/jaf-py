@@ -238,6 +238,12 @@ try:
         # Summarizer tools
         summarize_text,
         create_summarizer_tools,
+        # Task manager tools
+        create_jira_issue,
+        update_jira_issue,
+        create_trello_card,
+        update_trello_card,
+        create_task_manager_tools,
         # Data cleaning tools
         normalize_email,
         normalize_phone,
@@ -364,5 +370,6 @@ __all__ = [
         "send_email", "send_slack_message", "send_webhook", "create_notification_tools",
         "summarize_text", "create_summarizer_tools",
         "normalize_email", "normalize_phone", "normalize_csv_rows", "create_data_cleaning_tools",
+        "create_jira_issue", "update_jira_issue", "create_trello_card", "update_trello_card", "create_task_manager_tools",
     ] if '_TOOLS_AVAILABLE' in globals() and _TOOLS_AVAILABLE else []
 )

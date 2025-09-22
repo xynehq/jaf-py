@@ -100,6 +100,14 @@ from .summarizer import (
     create_summarizer_tools,
 )
 
+from .task_manager import (
+    create_jira_issue,
+    update_jira_issue,
+    create_trello_card,
+    update_trello_card,
+    create_task_manager_tools,
+)
+
 __all__ = [
     "CalculateArgs",
     "PercentOfArgs",
@@ -153,7 +161,18 @@ __all__ = [
     "send_slack_message",
     "send_webhook",
     "create_notification_tools",
+    # Data cleaning tools
+    "normalize_email",
+    "normalize_phone",
+    "normalize_csv_rows",
+    "create_data_cleaning_tools",
     # Summarizer tools
     "summarize_text",
     "create_summarizer_tools",
+    # Task manager tools
+    "create_jira_issue",
+    "update_jira_issue",
+    "create_trello_card",
+    "update_trello_card",
+    "create_task_manager_tools",
 ]
