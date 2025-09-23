@@ -788,6 +788,11 @@ async def _convert_message(msg: Message) -> Dict[str, Any]:
                 for tc in msg.tool_calls
             ]
         return result
+    elif msg.role == 'system' or msg.role == ContentRole.SYSTEM:
+        return {
+            "role": "system",
+            "content": get_text_content(msg.content)
+        }
     elif msg.role == ContentRole.TOOL:
         return {
             "role": "tool",

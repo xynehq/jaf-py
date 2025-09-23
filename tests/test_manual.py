@@ -204,6 +204,78 @@ async def test_vertex_ai():
         print("4. Verify you have access to the specified model in your region")
         return False
 
+async def test_azure_openai():
+    print("\n🧪 Testing Azure OpenAI with LiteLLM SDK Provider...")
+
+    # Check if Azure configuration is available
+    azure_api_key = os.getenv("AZURE_API_KEY")
+    azure_api_base = os.getenv("AZURE_API_BASE")
+    azure_deployment = os.getenv("AZURE_DEPLOYMENT")
+    azure_api_version = os.getenv("AZURE_API_VERSION", "2024-02-15-preview")
+
+    if not azure_api_key or not azure_api_base or not azure_deployment:
+        print("⏭️  Skipping Azure OpenAI test - Missing required environment variables")
+        print("     Required: AZURE_API_KEY, AZURE_API_BASE, AZURE_DEPLOYMENT")
+        return None
+
+    # Azure OpenAI provider using LiteLLM SDK
+    azure_provider = make_litellm_sdk_provider(
+        model=f"azure/{azure_deployment}",  # Use azure/deployment-name format
+        api_key=azure_api_key,
+        api_base=azure_api_base,
+        api_version=azure_api_version
+    )
+
+    print("✅ Azure OpenAI provider created")
+
+    # Create a test conversation
+    state = RunState(
+        run_id=generate_run_id(),
+        trace_id=generate_trace_id(),
+        messages=[
+            Message(role=ContentRole.USER, content="Explain the concept of neural networks in detail.")
+        ],
+        current_agent_name="AzureAgent",
+        context={},
+        turn_count=1
+    )
+
+    agent = Agent(
+        name="AzureAgent",
+        instructions=lambda s: "You are a helpful AI assistant powered by Azure OpenAI.",
+        tools=[]
+    )
+
+    config = RunConfig(
+        agent_registry={"AzureAgent": agent},
+        model_provider=azure_provider
+    )
+
+    # Test completion
+    try:
+        print("📤 Sending message to Azure OpenAI...")
+        result = await azure_provider.get_completion(state, agent, config)
+
+        print("✅ Azure OpenAI API call successful!")
+        print(f"📥 Response: {result['message']['content']}")
+        print(f"🔧 Model used: {result.get('model', 'unknown')}")
+
+        if result.get('usage'):
+            usage = result['usage']
+            print(f"📊 Token usage: {usage.get('prompt_tokens', 0)} prompt + {usage.get('completion_tokens', 0)} completion = {usage.get('total_tokens', 0)} total")
+
+        return True
+
+    except Exception as e:
+        print(f"❌ Azure OpenAI API call failed: {e}")
+        print("\n🔧 Troubleshooting:")
+        print("1. Check that AZURE_API_KEY in .env file is valid")
+        print("2. Verify AZURE_API_BASE is correct (e.g., https://your-resource.openai.azure.com)")
+        print("3. Ensure AZURE_DEPLOYMENT matches your deployment name")
+        print("4. Check AZURE_API_VERSION is supported")
+        print("5. Verify your Azure OpenAI resource has the deployment enabled")
+        return False
+
 async def run_all_tests():
     print("🚀 Testing LiteLLM SDK Provider with Multiple AI Providers")
     print("=" * 60)
@@ -211,19 +283,22 @@ async def run_all_tests():
     # Test all providers
     results = []
     
-    print("\n1️⃣ OpenAI Test:")
-    results.append(await test_openai())
+    # print("\n1️⃣ OpenAI Test:")
+    # results.append(await test_openai())
     
-    print("\n2️⃣ Google Gemini Test:")
-    results.append(await test_gemini())
+    # print("\n2️⃣ Google Gemini Test:")
+    # results.append(await test_gemini())
     
-    print("\n3️⃣ Vertex AI Test:")
-    results.append(await test_vertex_ai())
-    
+    # print("\n3️⃣ Vertex AI Test:")
+    # results.append(await test_vertex_ai())
+
+    print("\n4️⃣ Azure OpenAI Test:")
+    results.append(await test_azure_openai())
+
     # Summary
     print("\n" + "="*60)
     print("🎯 Test Results Summary:")
-    providers = ["OpenAI", "Google Gemini", "Vertex AI"]
+    providers = ["OpenAI", "Google Gemini", "Vertex AI", "Azure OpenAI"]
     
     tested_count = 0
     passed_count = 0
