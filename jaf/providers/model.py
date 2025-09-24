@@ -759,8 +759,14 @@ def make_litellm_sdk_provider(
     return LiteLLMSDKProvider()
 
 async def _convert_message(msg: Message) -> Dict[str, Any]:
-    """Convert JAF Message to OpenAI message format with attachment support."""
-    if msg.role == 'user':
+    """
+    Handles all possible role types (string and enum) and content formats.
+    """
+    # Normalize role to handle both string and enum values
+    role_value = msg.role.value if hasattr(msg.role, 'value') else str(msg.role).lower()
+
+    # Handle user messages
+    if role_value in ('user', ContentRole.USER.value if hasattr(ContentRole, 'USER') else 'user'):
         if isinstance(msg.content, list):
             # Multi-part content
             return {
@@ -770,12 +776,16 @@ async def _convert_message(msg: Message) -> Dict[str, Any]:
         else:
             # Build message with attachments if available
             return await _build_chat_message_with_attachments('user', msg)
-    elif msg.role == 'assistant':
+
+    # Handle assistant messages
+    elif role_value in ('assistant', ContentRole.ASSISTANT.value if hasattr(ContentRole, 'ASSISTANT') else 'assistant'):
         result = {
             "role": "assistant",
-            "content": get_text_content(msg.content),
+            "content": get_text_content(msg.content) or "",  # Ensure content is never None
         }
-        if msg.tool_calls:
+
+        # Add tool calls if present
+        if msg.tool_calls and len(msg.tool_calls) > 0:
             result["tool_calls"] = [
                 {
                     "id": tc.id,
@@ -786,21 +796,48 @@ async def _convert_message(msg: Message) -> Dict[str, Any]:
                     }
                 }
                 for tc in msg.tool_calls
+                if tc.id and tc.function and tc.function.name  # Validate tool call structure
             ]
+
         return result
-    elif msg.role == 'system' or msg.role == ContentRole.SYSTEM:
+
+    # Handle system messages
+    elif role_value in ('system', ContentRole.SYSTEM.value if hasattr(ContentRole, 'SYSTEM') else 'system'):
         return {
             "role": "system",
-            "content": get_text_content(msg.content)
+            "content": get_text_content(msg.content) or ""
         }
-    elif msg.role == ContentRole.TOOL:
+
+    # Handle tool messages
+    elif role_value in ('tool', ContentRole.TOOL.value if hasattr(ContentRole, 'TOOL') else 'tool'):
+        if not msg.tool_call_id:
+            raise ValueError(f"Tool message must have tool_call_id. Message: {msg}")
+
         return {
             "role": "tool",
-            "content": get_text_content(msg.content),
+            "content": get_text_content(msg.content) or "",
             "tool_call_id": msg.tool_call_id
         }
+
+    # Handle function messages (legacy support)
+    elif role_value == 'function':
+        if not msg.tool_call_id:
+            raise ValueError(f"Function message must have tool_call_id. Message: {msg}")
+
+        return {
+            "role": "function",
+            "content": get_text_content(msg.content) or "",
+            "name": getattr(msg, 'name', 'unknown_function')
+        }
+
+    # Unknown role - provide helpful error message
     else:
-        raise ValueError(f"Unknown message role: {msg.role}")
+        available_roles = ['user', 'assistant', 'system', 'tool', 'function']
+        raise ValueError(
+            f"Unknown message role: {msg.role} (type: {type(msg.role)}). "
+            f"Supported roles: {available_roles}. "
+            f"Message content: {get_text_content(msg.content)[:100] if msg.content else 'None'}"
+        )
 
 
 def _convert_content_part(part: MessageContentPart) -> Dict[str, Any]:
