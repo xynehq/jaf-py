@@ -399,15 +399,15 @@ class LangfuseTraceCollector:
                                 print(f"[LANGFUSE DEBUG] Found user_query from history: {user_query}")
                                 break
                     
-                    # Try to extract user_id from token_response
-                    if hasattr(context, 'token_response'):
-                        token_response = context.token_response
-                        print(f"[LANGFUSE DEBUG] Found token_response: {type(token_response)}")
-                        if isinstance(token_response, dict):
-                            user_id = token_response.get("email") or token_response.get("username")
+                    # Try to extract user_id from user_info
+                    if hasattr(context, 'user_info'):
+                        user_info = context.user_info
+                        print(f"[LANGFUSE DEBUG] Found user_info: {type(user_info)}")
+                        if isinstance(user_info, dict):
+                            user_id = user_info.get("email") or user_info.get("username")
                             print(f"[LANGFUSE DEBUG] Extracted user_id: {user_id}")
-                        elif hasattr(token_response, 'email'):
-                            user_id = token_response.email
+                        elif hasattr(user_info, 'email'):
+                            user_id = user_info.email
                             print(f"[LANGFUSE DEBUG] Extracted user_id from attr: {user_id}")
                 
                 # Extract conversation history and current user query from messages
@@ -524,7 +524,8 @@ class LangfuseTraceCollector:
                         "agent_name": event.data.get("agent_name", "analytics_agent_jaf"),
                         "conversation_history": conversation_history,
                         "tool_calls": [],
-                        "tool_results": []
+                        "tool_results": [],
+                        "user_info": event.data.get("context").user_info if event.data.get("context") and hasattr(event.data.get("context"), 'user_info') else None
                     }
                 )
                 self.trace_spans[trace_id] = trace
