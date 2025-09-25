@@ -57,6 +57,9 @@ tracing = [
     "opentelemetry-exporter-otlp>=1.22.0",
     "langfuse<3.0.0",
 ]
+sensitive = [
+    "llm-guard>=0.3.0",
+]
 attachments = [
     "PyPDF2>=3.0.0",
     "python-docx>=1.1.0",
@@ -88,7 +91,7 @@ visualization = [
     "graphviz>=0.20.0",
 ]
 all = [
-    "jaf-py[dev,server,memory,visualization,tracing,attachments]",
+    "jaf-py[dev,server,memory,visualization,tracing,attachments,sensitive]",
 ]
 
 [project.urls]

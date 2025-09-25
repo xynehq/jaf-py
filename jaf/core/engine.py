@@ -16,6 +16,7 @@ from pydantic import ValidationError, BaseModel
 
 from ..memory.types import Failure
 from .tool_results import tool_result_to_string
+from .sensitive import get_sensitive_detector, is_content_sensitive, SensitiveContentConfig
 from .types import (
     Agent,
     AgentNotFound,
@@ -885,17 +886,40 @@ async def _execute_tool_calls(
     config: RunConfig[Ctx]
 ) -> List[Dict[str, Any]]:
     """Execute tool calls and return results."""
+    
+    # Initialize sensitive content detector with config if provided
+    if config.sensitive_content_config:
+        get_sensitive_detector(config.sensitive_content_config)
 
     async def execute_single_tool_call(tool_call: ToolCall) -> Dict[str, Any]:
         print(f'[JAF:TOOL-EXEC] Starting execute_single_tool_call for {tool_call.function.name}')
         # Pre-compute sensitivity for this tool call (do not block execution if tool is missing)
         is_sensitive = False
+        tool_args_str = ""
         try:
             if agent.tools:
                 for t in agent.tools:
                     if t.schema.name == tool_call.function.name:
+                        # Check explicit sensitivity marking
                         is_sensitive = bool(getattr(t.schema, 'sensitive', False))
                         break
+                        
+            # Additionally check for automatic sensitivity detection on tool arguments
+            if not is_sensitive:
+                tool_args = _try_parse_json(tool_call.function.arguments)
+                if isinstance(tool_args, dict):
+                    # Convert arguments to string for sensitivity scanning
+                    tool_args_str = json.dumps(tool_args)
+                elif isinstance(tool_args, str):
+                    tool_args_str = tool_args
+                else:
+                    tool_args_str = str(tool_args) if tool_args else ""
+                    
+                # Check if content is sensitive using automatic detection
+                if tool_args_str:
+                    is_sensitive = is_content_sensitive(tool_args_str, tool_call.function.name, is_input=True)
+                    if is_sensitive:
+                        print(f'[JAF:SENSITIVE] Tool {tool_call.function.name} automatically detected as sensitive due to input content')
         except Exception:
             is_sensitive = False
         if config.on_event:
@@ -1132,6 +1156,13 @@ async def _execute_tool_calls(
                 result_string = tool_result_to_string(tool_result)
                 print(f'[JAF:ENGINE] Tool {tool_call.function.name} returned ToolResult:', tool_result)
                 print(f'[JAF:ENGINE] Converted to string:', result_string)
+
+            # Check if the output is sensitive (if not already marked as sensitive from input)
+            if not is_sensitive and result_string:
+                output_is_sensitive = is_content_sensitive(result_string, tool_call.function.name, is_input=False)
+                if output_is_sensitive:
+                    is_sensitive = True
+                    print(f'[JAF:SENSITIVE] Tool {tool_call.function.name} automatically detected as sensitive due to output content')
 
             # Wrap tool result with status information for approval context
             final_payload: Dict[str, Any] = {}

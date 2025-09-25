@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from .tool_results import ToolResult
     from ..memory.approval_storage import ApprovalStorage
     from ..memory.types import MemoryConfig
+    from .sensitive import SensitiveContentConfig
 
 
 # Comprehensive enums for type safety and improved developer experience
@@ -726,3 +727,5 @@ class RunConfig(Generic[Ctx]):
     # Optional, defaults to False: when True, tracing must not record sensitive tool inputs/outputs
     # and must also redact sensitive tool content from any traced LLM input/history.
     redact_sensitive_tools_in_traces: Optional[bool] = False
+    # Configuration for automatic sensitive content detection
+    sensitive_content_config: Optional['SensitiveContentConfig'] = None
