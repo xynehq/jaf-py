@@ -7,7 +7,7 @@ from .mcp import (
     create_mcp_sse_tools,
     create_mcp_http_tools,
 )
-from .model import make_litellm_provider
+from .model import make_litellm_provider, make_litellm_sdk_provider
 
 # Back-compat for renamed/removed exports (do not add to __all__)
 import warnings as _warnings
@@ -57,4 +57,5 @@ __all__ = [
     "create_mcp_sse_tools",
     "create_mcp_http_tools",
     "make_litellm_provider",
+    "make_litellm_sdk_provider",
 ]
