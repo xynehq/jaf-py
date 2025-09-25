@@ -5,6 +5,12 @@ from .errors import JAFError
 from .tool_results import *
 from .tracing import ConsoleTraceCollector, TraceCollector
 from .types import *
+from .sensitive import (
+    SensitiveContentDetector,
+    SensitiveContentConfig,
+    get_sensitive_detector,
+    is_content_sensitive,
+)
 from .agent_tool import (
     create_agent_tool,
     create_default_output_extractor,
@@ -39,6 +45,8 @@ __all__ = [
     "RunId",
     "RunResult",
     "RunState",
+    "SensitiveContentConfig",
+    "SensitiveContentDetector",
     "Tool",
     "ToolErrorCodes",
     "ToolResponse",
@@ -61,6 +69,8 @@ __all__ = [
     "create_trace_id",
     "get_current_run_config",
     "get_default_proxy_config",
+    "get_sensitive_detector",
+    "is_content_sensitive",
     "require_permissions",
     "run",
     "set_current_run_config",
