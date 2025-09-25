@@ -341,7 +341,7 @@ class LangfuseTraceCollector:
             public_key=public_key,
             secret_key=secret_key,
             host=host,
-            release="jaf-py-v2.1.1"
+            release="jaf-py-v2.4.8"
         )
         self.active_spans: Dict[str, Any] = {}
         self.trace_spans: Dict[TraceId, Any] = {}
