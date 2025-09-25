@@ -44,9 +44,113 @@ class ToolSource(str, Enum):
     EXTERNAL = 'external'
 ```
 
+**Usage:**
+```python
+tool = create_function_tool({
+    "name": "my_tool",
+    "description": "My custom tool",
+    "execute": my_function,
+    "parameters": MyArgs,
+    "source": ToolSource.NATIVE
+})
+```
+
 ### Model
 
-Supported model identifiers.
+Supported model identifiers for LLM integration.
+
+```python
+from jaf import Model
+
+class Model(str, Enum):
+    GEMINI_2_0_FLASH = 'gemini-2.0-flash'
+    GEMINI_2_5_PRO = 'gemini-2.5-pro'
+    GEMINI_PRO = 'gemini-pro'
+    GPT_4 = 'gpt-4'
+    GPT_4_TURBO = 'gpt-4-turbo'
+    GPT_3_5_TURBO = 'gpt-3.5-turbo'
+    CLAUDE_3_SONNET = 'claude-3-sonnet'
+    CLAUDE_3_HAIKU = 'claude-3-haiku'
+    CLAUDE_3_OPUS = 'claude-3-opus'
+```
+
+**Usage:**
+```python
+agent = Agent(
+    name="my_agent",
+    model=Model.GPT_4,
+    instructions="You are a helpful assistant"
+)
+```
+
+### ToolParameterType
+
+Parameter types for tool schema definition.
+
+```python
+from jaf import ToolParameterType
+
+class ToolParameterType(str, Enum):
+    STRING = 'string'
+    NUMBER = 'number'
+    INTEGER = 'integer'
+    BOOLEAN = 'boolean'
+    ARRAY = 'array'
+    OBJECT = 'object'
+    NULL = 'null'
+```
+
+### PartType
+
+Message part types for multi-modal content.
+
+```python
+from jaf import PartType
+
+class PartType(str, Enum):
+    TEXT = 'text'
+    IMAGE = 'image'
+    AUDIO = 'audio'
+    VIDEO = 'video'
+    FILE = 'file'
+```
+
+### StreamingEventType
+
+Event types for streaming responses.
+
+```python
+from jaf import StreamingEventType
+
+class StreamingEventType(str, Enum):
+    ASSISTANT_MESSAGE = 'assistant_message'
+    TOOL_CALL = 'tool_call'
+    TOOL_RESULT = 'tool_result'
+    ERROR = 'error'
+    COMPLETE = 'complete'
+```
+
+### WorkflowStatus and StepStatus  
+
+Status enums for workflow orchestration.
+
+```python
+from jaf import WorkflowStatus, StepStatus
+
+class WorkflowStatus(str, Enum):
+    PENDING = 'pending'
+    RUNNING = 'running'
+    COMPLETED = 'completed'
+    FAILED = 'failed'
+    CANCELLED = 'cancelled'
+
+class StepStatus(str, Enum):
+    PENDING = 'pending'
+    RUNNING = 'running'
+    COMPLETED = 'completed'
+    FAILED = 'failed'
+    SKIPPED = 'skipped'
+```
 
 ```python
 from jaf import Model
@@ -176,12 +280,33 @@ TypedDict defining the configuration structure for object-based tool creation.
 from jaf.core.types import FunctionToolConfig
 
 class FunctionToolConfig(TypedDict):
-    name: str
-    description: str
-    execute: ToolExecuteFunction
-    parameters: Any
-    metadata: Optional[Dict[str, Any]]
-    source: Optional[ToolSource]
+    name: str                           # Tool name
+    description: str                    # Tool description  
+    execute: ToolExecuteFunction        # Function to execute
+    parameters: Any                     # Pydantic model for validation
+    metadata: Optional[Dict[str, Any]]  # Optional metadata
+    source: Optional[ToolSource]        # Tool source (defaults to NATIVE)
+    timeout: Optional[float]            # Optional timeout in seconds
+```
+
+**Usage:**
+```python
+from jaf import create_function_tool, FunctionToolConfig, ToolSource
+from pydantic import BaseModel
+
+class MyArgs(BaseModel):
+    text: str
+
+config = FunctionToolConfig(
+    name="process_text",
+    description="Process text input",
+    execute=lambda args, ctx: f"Processed: {args.text}",
+    parameters=MyArgs,
+    source=ToolSource.NATIVE,
+    timeout=30.0
+)
+
+tool = create_function_tool(config)
 ```
 
 ## Core Functions
@@ -194,6 +319,96 @@ Main execution function for running agents with functional purity and immutable 
 
 **Parameters:**
 - `initial_state: RunState[Ctx]` - Initial state containing messages, context, and agent info
+- `config: RunConfig[Ctx]` - Configuration for the run including agents, model provider, and limits
+
+**Returns:**
+- `RunResult[Out]` - Result containing final state, outcome, and any output
+
+**Example:**
+```python
+from jaf import run, Agent, RunState, RunConfig, Message, generate_run_id, generate_trace_id
+
+# Create agent
+agent = Agent(
+    name="assistant",
+    instructions=lambda state: "You are a helpful assistant",
+    tools=[calculator_tool]
+)
+
+# Create initial state
+initial_state = RunState(
+    run_id=generate_run_id(),
+    trace_id=generate_trace_id(),
+    messages=[Message(role="user", content="Hello!")],
+    current_agent_name="assistant",
+    context={},
+    turn_count=0
+)
+
+# Create configuration
+config = RunConfig(
+    agent_registry={"assistant": agent},
+    model_provider=model_provider,
+    max_turns=10
+)
+
+# Run the agent
+result = await run(initial_state, config)
+print(result.final_state.messages[-1].content)
+```
+
+#### `run_streaming(initial_state: RunState[Ctx], config: RunConfig[Ctx]) -> AsyncIterator[StreamingEvent]`
+
+Stream agent execution results in real-time for better user experience.
+
+**Parameters:**
+- Same as `run()` function
+
+**Returns:**  
+- `AsyncIterator[StreamingEvent]` - Stream of events during execution
+
+**Example:**
+```python
+from jaf import run_streaming, StreamingEventType
+
+async for event in run_streaming(initial_state, config):
+    if event.type == StreamingEventType.ASSISTANT_MESSAGE:
+        print(f"Assistant: {event.data['content']}")
+    elif event.type == StreamingEventType.TOOL_CALL:
+        print(f"Calling tool: {event.data['tool_name']}")
+    elif event.type == StreamingEventType.COMPLETE:
+        print("Execution complete")
+```
+
+#### `run_server(agents: Dict[str, Agent], host: str = "0.0.0.0", port: int = 8000, **kwargs)`
+
+Launch a FastAPI server hosting multiple agents with HTTP endpoints.
+
+**Parameters:**
+- `agents: Dict[str, Agent]` - Dictionary mapping agent names to Agent instances
+- `host: str` - Server host address (default: "0.0.0.0")  
+- `port: int` - Server port (default: 8000)
+- `**kwargs` - Additional uvicorn server options
+
+**Example:**
+```python
+from jaf import run_server, Agent
+
+agents = {
+    "math": math_agent,
+    "chat": chat_agent,
+    "general": general_agent
+}
+
+# Launch server
+run_server(agents, host="0.0.0.0", port=8000)
+
+# Server provides:
+# POST /chat - Chat with any agent
+# GET /agents - List available agents  
+# GET /health - Health check
+# GET /docs - Interactive API documentation
+```
 - `config: RunConfig[Ctx]` - Configuration including agents, model provider, and guardrails
 
 **Returns:**

@@ -4,7 +4,7 @@ Tools are the primary way agents interact with the external world in JAF. This g
 
 ## Overview
 
-JAF tools are Python functions decorated with `@function_tool` that implement capabilities for agents to perform actions beyond text generation. Tools can:
+JAF tools are Python functions that implement capabilities for agents to perform actions beyond text generation. Tools can:
 
 - Perform calculations
 - Make API calls
@@ -15,24 +15,31 @@ JAF tools are Python functions decorated with `@function_tool` that implement ca
 
 ## Tool Architecture
 
-### Modern Tool Creation with @function_tool
+### Modern Tool Creation with create_function_tool
 
-The recommended way to create tools uses the `@function_tool` decorator for clean, type-safe definitions:
+The recommended way to create tools uses the `create_function_tool` function with object configuration for clean, type-safe definitions:
 
 ```python
-from jaf import function_tool
+from jaf import create_function_tool, FunctionToolConfig, ToolSource
+from pydantic import BaseModel
 from typing import Optional
 
-@function_tool
-async def my_tool(param1: str, param2: int = 0, context=None) -> str:
-    """Tool description for agents.
-    
-    Args:
-        param1: Description of parameter
-        param2: Optional parameter with default
-    """
-    # Tool implementation here
-    return f"Processed {param1} with value {param2}"
+class MyToolArgs(BaseModel):
+    param1: str
+    param2: int = 0
+
+async def my_tool_impl(args: MyToolArgs, context) -> str:
+    """Tool implementation."""
+    return f"Processed {args.param1} with value {args.param2}"
+
+# Create the tool
+my_tool = create_function_tool(FunctionToolConfig(
+    name="my_tool",
+    description="Tool description for agents to understand its purpose",
+    execute=my_tool_impl,
+    parameters=MyToolArgs,
+    source=ToolSource.NATIVE
+))
 ```
 
 ### Tool Timeouts

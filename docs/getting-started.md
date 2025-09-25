@@ -7,7 +7,7 @@ Welcome to **JAF (Juspay Agent Framework)** - a production-ready, functionally p
 By completing this guide, you will have:
 
 - **Installed and configured** JAF with all necessary dependencies
-- **Built your first functional agent** using modern object-based APIs
+- **Built your first functional agent** using the current object-based APIs
 - **Mastered core architectural concepts** including immutable state and pure functions
 - **Implemented a complete working example** ready for production extension
 - **Understanding of best practices** for scalable agent development
@@ -17,7 +17,7 @@ By completing this guide, you will have:
 ### Technical Requirements
 
 - **Python 3.10 or higher** (Python 3.11+ recommended for optimal performance and latest features)
-- **LiteLLM proxy server** for LLM integration, or direct access to LLM APIs
+- **LLM API access** (OpenAI, Google Gemini, Anthropic Claude, etc.) via LiteLLM
 - **Development environment** with package management (pip, conda, or poetry)
 - **Basic understanding** of Python asyncio, type hints, and functional programming concepts
 
@@ -32,13 +32,13 @@ This guide assumes familiarity with:
 
 ## Installation and Setup
 
-### Production Installation
+### Basic Installation
 
-For production environments, install JAF with all dependencies:
+Install JAF from PyPI:
 
 ```bash
-# Complete installation with all features
-pip install "jaf-py[all] @ git+https://github.com/xynehq/jaf-py.git"
+# Core installation
+pip install jaf-py
 
 # Verify installation
 python -c "import jaf; print('JAF installed successfully')"
@@ -49,26 +49,29 @@ python -c "import jaf; print('JAF installed successfully')"
 Install only the components you need for optimized deployments:
 
 ```bash
-# Core framework only
-pip install git+https://github.com/xynehq/jaf-py.git
-
 # Server capabilities (FastAPI, uvicorn)
-pip install "jaf-py[server] @ git+https://github.com/xynehq/jaf-py.git"
+pip install "jaf-py[server]"
 
-# Memory providers (Redis, PostgreSQL)
-pip install "jaf-py[memory] @ git+https://github.com/xynehq/jaf-py.git"
+# Memory providers (Redis, PostgreSQL)  
+pip install "jaf-py[memory]"
 
 # Visualization tools (Graphviz, diagrams)
-pip install "jaf-py[visualization] @ git+https://github.com/xynehq/jaf-py.git"
+pip install "jaf-py[visualization]"
 
 # Tracing and observability (OpenTelemetry, Langfuse)
-pip install "jaf-py[tracing] @ git+https://github.com/xynehq/jaf-py.git"
+pip install "jaf-py[tracing]"
+
+# Attachment processing (PDF, DOCX, etc.)
+pip install "jaf-py[attachments]"
 
 # Development tools (testing, linting, type checking)
-pip install "jaf-py[dev] @ git+https://github.com/xynehq/jaf-py.git"
+pip install "jaf-py[dev]"
+
+# Complete installation with all features
+pip install "jaf-py[all]"
 
 # Combine multiple feature sets
-pip install "jaf-py[server,memory,visualization,tracing] @ git+https://github.com/xynehq/jaf-py.git"
+pip install "jaf-py[server,memory,tracing]"
 ```
 
 ### Development Environment Setup
@@ -80,14 +83,12 @@ For contributors and advanced development:
 git clone https://github.com/xynehq/jaf-py.git
 cd jaf-py
 
-# Make virtual environment
+# Create virtual environment
 python -m venv .venv
-source .venv/bin/activate
-
-# Rename .env.default to .env and update the file with your api's.
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Install in development mode with all dependencies
-pip install -e ".[dev,server,memory,visualization,tracing]"
+pip install -e ".[dev,server,memory,visualization,tracing,attachments]"
 
 # Verify development setup
 python -m pytest tests/ --tb=short
@@ -114,7 +115,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install JAF
-RUN pip install git+https://github.com/xynehq/jaf-py.git
+RUN pip install "jaf-py[server]"
 
 # Copy your agent code
 COPY . .
@@ -140,8 +141,8 @@ docker build -t my-jaf-agent .
 docker run -d \
   --name jaf-agent \
   -p 8000:8000 \
-  -e LITELLM_URL=http://your-llm-server:4000 \
-  -e LITELLM_API_KEY=your-api-key \
+  -e OPENAI_API_KEY=your-openai-key \
+  -e ANTHROPIC_API_KEY=your-anthropic-key \
   my-jaf-agent
 ```
 
@@ -349,65 +350,39 @@ JAF_A2A_CLEANUP_BATCH_SIZE=100
 
 ## Building Your First Production Agent
 
-This section demonstrates JAF's core concepts through a comprehensive calculator agent example. You'll learn about context definition, tool creation using the modern object-based API, agent configuration, and execution patterns.
+This section demonstrates JAF's core concepts through a comprehensive calculator agent example. You'll learn about tool creation using the modern object-based API, agent configuration, and execution patterns.
 
-### Step 1: Context Definition and Type Safety
+### Step 1: Define Tool Parameters with Pydantic
 
-Context objects in JAF are immutable data structures that carry state throughout the agent execution lifecycle. They provide type safety and ensure predictable behavior.
+JAF uses Pydantic models for type-safe tool parameter validation:
 
 ```python
 # calculator_agent.py
-from dataclasses import dataclass
-from typing import List, Optional, Dict, Any
-from datetime import datetime
+from pydantic import BaseModel, Field
+from typing import Optional
 
-@dataclass(frozen=True)  # Immutable context
-class CalculatorContext:
-    """
-    Immutable context for calculator agent operations.
-    
-    This context carries user-specific configuration and permissions
-    throughout the agent execution lifecycle.
-    """
-    user_id: str
-    session_id: str
-    allowed_operations: List[str]
-    max_result: float = 1000000.0
-    precision: int = 10
-    user_permissions: List[str] = None
-    session_metadata: Optional[Dict[str, Any]] = None
-    created_at: datetime = None
-    
-    def __post_init__(self):
-        if self.user_permissions is None:
-            object.__setattr__(self, 'user_permissions', ['basic_math'])
-        if self.created_at is None:
-            object.__setattr__(self, 'created_at', datetime.utcnow())
-    
-    def has_permission(self, operation: str) -> bool:
-        """Check if user has permission for specific operation."""
-        return operation in self.user_permissions
-    
-    def can_perform_operation(self, operation: str) -> bool:
-        """Check if operation is allowed in current context."""
-        return operation in self.allowed_operations
+class CalculatorArgs(BaseModel):
+    """Arguments for calculator operations with validation."""
+    expression: str = Field(
+        description="Mathematical expression to evaluate (e.g., '2 + 2', '10 * 5')",
+        min_length=1,
+        max_length=200
+    )
 ```
 
 ### Step 2: Tool Implementation with Modern Object-Based API
 
-JAF's modern tool creation API prioritizes type safety, functional composition, and developer experience. This section demonstrates both the recommended object-based approach and the traditional class-based approach for comparison.
-
-#### Object-Based API (Production Recommended)
-
-The object-based API leverages TypedDict configurations and functional programming principles for superior maintainability and extensibility:
+JAF's modern tool creation API prioritizes type safety and secure execution:
 
 ```python
-from jaf import function_tool
+from jaf import create_function_tool, FunctionToolConfig, ToolSource
 import ast
 import operator
+from typing import Any
 
-def _safe_eval(node, context):
-    """Safely evaluate AST node with limited operations."""
+def safe_eval_expression(expression: str) -> float:
+    """Safely evaluate mathematical expressions using AST parsing."""
+    # Define allowed operations
     safe_operators = {
         ast.Add: operator.add,
         ast.Sub: operator.sub,
@@ -415,88 +390,82 @@ def _safe_eval(node, context):
         ast.Div: operator.truediv,
         ast.USub: operator.neg,
         ast.UAdd: operator.pos,
+        ast.Pow: operator.pow,
     }
     
-    if isinstance(node, ast.Constant):  # Python 3.8+
-        return node.value
-    elif isinstance(node, ast.Num):  # Python < 3.8
-        return node.n
-    elif isinstance(node, ast.BinOp):
-        if type(node.op) not in safe_operators:
-            raise ValueError(f"Unsupported operation: {type(node.op).__name__}")
-        left = _safe_eval(node.left, context)
-        right = _safe_eval(node.right, context)
-        return safe_operators[type(node.op)](left, right)
-    elif isinstance(node, ast.UnaryOp):
-        if type(node.op) not in safe_operators:
-            raise ValueError(f"Unsupported unary operation: {type(node.op).__name__}")
-        operand = _safe_eval(node.operand, context)
-        return safe_operators[type(node.op)](operand)
-    else:
-        raise ValueError(f"Unsupported AST node type: {type(node).__name__}")
-
-@function_tool
-async def calculate(expression: str, context: 'CalculatorContext') -> str:
-    """Safely evaluate mathematical expressions using AST parsing.
+    def eval_node(node):
+        if isinstance(node, ast.Constant):
+            return node.value
+        elif isinstance(node, ast.BinOp):
+            if type(node.op) not in safe_operators:
+                raise ValueError(f"Unsupported operation: {type(node.op).__name__}")
+            left = eval_node(node.left)
+            right = eval_node(node.right)
+            return safe_operators[type(node.op)](left, right)
+        elif isinstance(node, ast.UnaryOp):
+            if type(node.op) not in safe_operators:
+                raise ValueError(f"Unsupported operation: {type(node.op).__name__}")
+            operand = eval_node(node.operand)
+            return safe_operators[type(node.op)](operand)
+        else:
+            raise ValueError(f"Unsupported expression: {ast.dump(node)}")
     
-    This function implements secure expression evaluation using AST parsing
-    instead of direct eval() to prevent code injection attacks.
+    # Parse and evaluate safely
+    tree = ast.parse(expression, mode='eval')
+    return eval_node(tree.body)
+
+async def calculate_expression(args: CalculatorArgs, context: Any) -> str:
+    """Safely evaluate mathematical expressions.
     
     Args:
-        expression: Mathematical expression to evaluate (e.g., '2 + 2', '(10 * 5) / 2')
+        args: Calculator arguments containing the expression to evaluate
+        context: Execution context (unused in this example)
+        
+    Returns:
+        String result of the calculation or error message
     """
     try:
         # Input validation
-        if not expression or len(expression.strip()) == 0:
+        if not args.expression.strip():
             return "Error: Expression cannot be empty"
         
-        if len(expression) > 200:
-            return "Error: Expression too long (max 200 characters)"
-        
-        # Check for potentially dangerous patterns
-        dangerous_patterns = [
-            '__', 'import', 'exec', 'eval', 'open', 'file',
-            'input', 'raw_input', 'compile', 'globals', 'locals'
-        ]
-        
-        cleaned = expression.replace(' ', '')
+        # Check for dangerous patterns
+        dangerous_patterns = ['__', 'import', 'exec', 'eval', 'open']
+        expression_lower = args.expression.lower()
         for pattern in dangerous_patterns:
-            if pattern in cleaned.lower():
+            if pattern in expression_lower:
                 return f"Error: Expression contains prohibited pattern: {pattern}"
         
-        # Only allow safe mathematical characters
+        # Only allow safe mathematical characters and spaces
         allowed_chars = set('0123456789+-*/.() ')
-        if not all(c in allowed_chars for c in expression):
+        if not all(c in allowed_chars for c in args.expression):
             return "Error: Expression contains invalid characters"
         
-        # Permission check
-        if not context.has_permission('basic_math'):
-            return "Error: Mathematical operations require basic_math permission"
+        # Evaluate the expression safely
+        result = safe_eval_expression(args.expression)
         
-        # Parse expression safely using AST
-        try:
-            tree = ast.parse(expression, mode='eval')
-            result = _safe_eval(tree.body, context)
-        except (SyntaxError, ValueError) as e:
-            return f"Error: Invalid mathematical expression: {str(e)}"
+        # Format the result
+        if isinstance(result, float) and result.is_integer():
+            result = int(result)
         
-        # Apply context limits
-        if abs(result) > context.max_result:
-            return f"Error: Result {result} exceeds maximum allowed value ({context.max_result})"
+        return f"The result is: {args.expression} = {result}"
         
-        # Format result with context precision
-        if isinstance(result, float):
-            result = round(result, context.precision)
-        
-        return f"Result: {expression} = {result}"
-        
+    except ZeroDivisionError:
+        return "Error: Division by zero"
+    except (SyntaxError, ValueError) as e:
+        return f"Error: Invalid expression - {str(e)}"
     except Exception as e:
-        return f"Error: Failed to evaluate expression: {str(e)}"
+        return f"Error: Calculation failed - {str(e)}"
+
+# Create the calculator tool using the modern API
+calculator_tool = create_function_tool(FunctionToolConfig(
+    name="calculate",
+    description="Safely evaluate mathematical expressions like addition, subtraction, multiplication, division, and exponentiation",
+    execute=calculate_expression,
+    parameters=CalculatorArgs,
+    source=ToolSource.NATIVE
+))
 ```
-
-#### Class-Based API (Legacy Support)
-
-While the modern `@function_tool` decorator is recommended for new development, JAF maintains full backward compatibility with the traditional class-based approach for existing codebases:
 
 ```python
 from jaf import function_tool
@@ -532,103 +501,226 @@ async def calculate_legacy(expression: str, context: 'CalculatorContext') -> str
         
     except Exception as e:
         return f"Error: Calculation error: {str(e)}"
-```
+### Step 3: Create Your Agent
 
-**Key Advantages of Object-Based API:**
-
-- **Enhanced Type Safety**: Complete TypedDict support with full IDE autocomplete and static analysis
-- **Superior Extensibility**: Seamless addition of metadata, source tracking, versioning, and custom configurations
-- **Functional Composition**: Native integration with higher-order functions and composition patterns
-- **Future-Proof Architecture**: Primary target for new features, optimizations, and enhancements
-- **Production Readiness**: Designed for enterprise-scale deployments with comprehensive error handling
-
-### Step 3: Define Your Agent
+JAF agents are immutable configurations that define behavior, tools, and model settings:
 
 ```python
 from jaf import Agent
 
-def create_calculator_agent() -> Agent:
-    """Create a calculator agent with mathematical capabilities."""
-    
-    def instructions(state):
-        """Dynamic instructions based on current state."""
-        calc_count = len([m for m in state.messages if 'calculate' in m.content.lower()])
-        
-        base_instruction = """You are a helpful calculator assistant. You can perform mathematical calculations safely.
-        
-Available operations: addition (+), subtraction (-), multiplication (*), division (/), parentheses ()
-
-Rules:
-- Always use the calculate tool for mathematical expressions
-- Explain your calculations clearly
-- Results are limited to values under 1,000,000"""
-        
-        if calc_count > 3:
-            base_instruction += "\n\nNote: You've performed several calculations. Consider summarizing results if helpful."
-        
-        return base_instruction
-    
-    return Agent(
-        name='Calculator',
-        instructions=instructions,
-        tools=[calculate]
-    )
+# Create the calculator agent
+calculator_agent = Agent(
+    name="calculator_assistant",
+    instructions="You are a helpful calculator assistant. Use the calculate tool to perform mathematical operations. Always explain your calculations clearly to the user.",
+    tools=[calculator_tool]
+)
 ```
 
 ### Step 4: Run Your Agent
 
+Now let's run the agent with a mathematical question:
+
 ```python
 import asyncio
-from jaf import run, make_litellm_provider
-from jaf import RunState, RunConfig, Message, generate_run_id, generate_trace_id
+from jaf import run, make_litellm_provider, RunState, RunConfig, Message
+from jaf import generate_run_id, generate_trace_id
 
 async def main():
-    """Main function to run the calculator agent."""
+    """Main function to demonstrate the calculator agent."""
     
-    # Set up model provider
-    import os
-    litellm_url = os.getenv('LITELLM_URL', 'http://localhost:4000/')
-    litellm_api_key = os.getenv('LITELLM_API_KEY', 'anything')
-    model_provider = make_litellm_provider(litellm_url, litellm_api_key)
+    # Set up model provider (using LiteLLM)
+    model_provider = make_litellm_provider(
+        base_url="https://api.openai.com/v1",  # Or your LiteLLM proxy URL
+        api_key="your-openai-api-key"  # Or your API key
+    )
     
-    # Create the agent
-    calculator_agent = create_calculator_agent()
+    # Create initial state
+    initial_state = RunState(
+        run_id=generate_run_id(),
+        trace_id=generate_trace_id(), 
+        messages=[Message(role="user", content="What is 15 * 8 + 32? Please show your work.")],
+        current_agent_name="calculator_assistant",
+        context={},  # Simple context for this example
+        turn_count=0
+    )
     
     # Configure the run
     config = RunConfig(
-        agent_registry={'Calculator': calculator_agent},
+        agent_registry={"calculator_assistant": calculator_agent},
         model_provider=model_provider,
-        max_turns=10,
-        on_event=lambda event: print(f"[{event.type}] {event.data}"),  # Simple tracing
-    )
-    
-    # Set up initial state
-    initial_state = RunState(
-        run_id=generate_run_id(),
-        trace_id=generate_trace_id(),
-        messages=[Message(role='user', content='What is 15 * 8 + 32?')],
-        current_agent_name='Calculator',
-        context=CalculatorContext(
-            user_id='demo_user',
-            session_id='demo_session',
-            allowed_operations=['add', 'subtract', 'multiply', 'divide']
-        ),
-        turn_count=0,
+        max_turns=5
     )
     
     # Run the agent
     print("🤖 Running Calculator Agent...")
     result = await run(initial_state, config)
     
-    # Handle the result
-    if result.outcome.status == 'completed':
-        print(f"\nSuccess! Final output:\n{result.outcome.output}")
-    else:
-        print(f"\nError: {result.outcome.error}")
+    # Display the conversation
+    print("\n📝 Conversation:")
+    for i, message in enumerate(result.final_state.messages):
+        role = message.role.title()
+        content = message.content[:200] + "..." if len(message.content) > 200 else message.content
+        print(f"{i+1}. {role}: {content}")
     
     return result
 
 # Run the example
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+### Step 5: Expected Output
+
+When you run this example, you should see output similar to:
+
+```
+🤖 Running Calculator Agent...
+
+📝 Conversation:
+1. User: What is 15 * 8 + 32? Please show your work.
+2. Assistant: I'll help you solve that mathematical expression step by step. Let me calculate 15 * 8 + 32 for you.
+3. Tool: The result is: 15 * 8 + 32 = 152
+4. Assistant: The answer is 152.
+
+Here's how I solved it step by step:
+- First, I performed the multiplication: 15 × 8 = 120
+- Then, I added 32: 120 + 32 = 152
+
+So 15 * 8 + 32 = 152
+```
+
+### Complete Example File
+
+Here's the complete working example you can save as `calculator_agent.py`:
+
+```python
+import asyncio
+import ast
+import operator
+from typing import Any
+from pydantic import BaseModel, Field
+
+from jaf import (
+    Agent, run, create_function_tool, FunctionToolConfig, ToolSource,
+    make_litellm_provider, RunState, RunConfig, Message,
+    generate_run_id, generate_trace_id
+)
+
+# Tool parameters
+class CalculatorArgs(BaseModel):
+    expression: str = Field(
+        description="Mathematical expression to evaluate",
+        min_length=1,
+        max_length=200
+    )
+
+# Safe evaluation function
+def safe_eval_expression(expression: str) -> float:
+    safe_operators = {
+        ast.Add: operator.add,
+        ast.Sub: operator.sub, 
+        ast.Mult: operator.mul,
+        ast.Div: operator.truediv,
+        ast.USub: operator.neg,
+        ast.UAdd: operator.pos,
+    }
+    
+    def eval_node(node):
+        if isinstance(node, ast.Constant):
+            return node.value
+        elif isinstance(node, ast.BinOp):
+            if type(node.op) not in safe_operators:
+                raise ValueError(f"Unsupported operation: {type(node.op).__name__}")
+            left = eval_node(node.left)
+            right = eval_node(node.right)
+            return safe_operators[type(node.op)](left, right)
+        elif isinstance(node, ast.UnaryOp):
+            if type(node.op) not in safe_operators:
+                raise ValueError(f"Unsupported operation: {type(node.op).__name__}")
+            operand = eval_node(node.operand)
+            return safe_operators[type(node.op)](operand)
+        else:
+            raise ValueError(f"Unsupported expression type")
+    
+    tree = ast.parse(expression, mode='eval')
+    return eval_node(tree.body)
+
+# Tool implementation
+async def calculate_expression(args: CalculatorArgs, context: Any) -> str:
+    try:
+        # Input validation
+        if not args.expression.strip():
+            return "Error: Expression cannot be empty"
+        
+        # Check for safe characters only
+        allowed_chars = set('0123456789+-*/.() ')
+        if not all(c in allowed_chars for c in args.expression):
+            return "Error: Expression contains invalid characters"
+        
+        # Evaluate safely
+        result = safe_eval_expression(args.expression)
+        
+        if isinstance(result, float) and result.is_integer():
+            result = int(result)
+        
+        return f"The result is: {args.expression} = {result}"
+        
+    except ZeroDivisionError:
+        return "Error: Division by zero"
+    except Exception as e:
+        return f"Error: Calculation failed - {str(e)}"
+
+# Create tool
+calculator_tool = create_function_tool(FunctionToolConfig(
+    name="calculate",
+    description="Safely evaluate mathematical expressions",
+    execute=calculate_expression,
+    parameters=CalculatorArgs,
+    source=ToolSource.NATIVE
+))
+
+# Create agent
+calculator_agent = Agent(
+    name="calculator_assistant",
+    instructions="You are a helpful calculator assistant. Use the calculate tool for math operations and explain your work clearly.",
+    tools=[calculator_tool]
+)
+
+async def main():
+    # Setup model provider - replace with your API key
+    model_provider = make_litellm_provider(
+        base_url="https://api.openai.com/v1", 
+        api_key="your-api-key-here"
+    )
+    
+    # Create initial state  
+    initial_state = RunState(
+        run_id=generate_run_id(),
+        trace_id=generate_trace_id(),
+        messages=[Message(role="user", content="What is 25 * 4 + 15?")],
+        current_agent_name="calculator_assistant", 
+        context={},
+        turn_count=0
+    )
+    
+    # Configure run
+    config = RunConfig(
+        agent_registry={"calculator_assistant": calculator_agent},
+        model_provider=model_provider,
+        max_turns=5
+    )
+    
+    # Execute
+    result = await run(initial_state, config)
+    
+    # Show results
+    print("📝 Conversation:")
+    for message in result.final_state.messages:
+        print(f"{message.role.title()}: {message.content}")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
 if __name__ == "__main__":
     asyncio.run(main())
 ```

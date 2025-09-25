@@ -71,58 +71,79 @@ async def add_message(state: RunState[Ctx], message: Message) -> RunState[Ctx]:
 Agents define how to respond to messages and what tools are available:
 
 ```python
-@dataclass(frozen=True)
-class Agent(Generic[Ctx]):
-    """Agent definition with instructions and capabilities."""
-    name: str
-    instructions: Callable[[RunState[Ctx]], str]  # Dynamic instructions
-    tools: List[Tool[Ctx]] = field(default_factory=list)
-    handoffs: Optional[List[str]] = None         # Allowed handoff targets
-    output_codec: Optional[type] = None         # Expected output codec
-```
+from jaf import Agent
+from typing import List
 
-**Dynamic Instructions:**
-Instructions are functions that receive the current state, enabling context-aware behavior:
+# Simple agent with static instructions  
+calculator_agent = Agent(
+    name="calculator",
+    instructions="You are a helpful calculator assistant. Use the calculate tool for all mathematical operations.",
+    tools=[calculator_tool]
+)
 
-```python
-def math_tutor_instructions(state: RunState[StudentContext]) -> str:
+# Advanced agent with dynamic instructions
+def math_tutor_instructions(state):
+    """Dynamic instructions based on conversation state."""
     problem_count = len([m for m in state.messages if 'calculate' in m.content])
     
     base = "You are a patient math tutor."
     
     if problem_count > 3:
         return base + " The student has solved several problems. Offer encouragement!"
-    elif state.context.difficulty_level == "beginner":
+    elif hasattr(state.context, 'difficulty_level') and state.context.difficulty_level == "beginner":
         return base + " Use simple explanations and encourage step-by-step thinking."
     else:
         return base + " Challenge the student with follow-up questions."
+
+advanced_agent = Agent(
+    name="math_tutor",
+    instructions=math_tutor_instructions,  # Function for dynamic behavior
+    tools=[calculator_tool, graphing_tool],
+    handoffs=["homework_helper", "concept_explainer"]  # Can hand off to other agents
+)
 ```
+
+**Agent Properties:**
+- **Immutable**: Agent definitions cannot be modified after creation
+- **Instructions**: Can be static strings or functions that generate dynamic instructions based on current state
+- **Tools**: List of available capabilities the agent can use
+- **Handoffs**: Optional list of other agents this agent can transfer control to
+- **Type-Safe**: Generic types ensure context consistency across the agent system
 
 ### 3. Tool - Executable Capabilities
 
-Tools encapsulate external capabilities that agents can use:
+Tools encapsulate external capabilities that agents can use. JAF uses the modern object-based API for creating tools:
 
 ```python
-from jaf import function_tool
+from jaf import create_function_tool, FunctionToolConfig, ToolSource
+from pydantic import BaseModel
 
-@function_tool
-async def get_weather(location: str, units: str = "metric", context=None) -> str:
-    """Get current weather for a location.
-    
-    Args:
-        location: The location to get weather for
-        units: Temperature units (metric/imperial)
-    """
+class WeatherArgs(BaseModel):
+    location: str
+    units: str = "metric"
+
+async def get_weather(args: WeatherArgs, context) -> str:
+    """Get current weather for a location."""
     # Implementation here
-    weather_data = await fetch_weather_api(location, units)
-    return f"Weather in {location}: {weather_data['temperature']}°"
+    weather_data = await fetch_weather_api(args.location, args.units)
+    return f"Weather in {args.location}: {weather_data['temperature']}° {args.units}"
+
+# Create the tool using modern API
+weather_tool = create_function_tool(FunctionToolConfig(
+    name="get_weather",
+    description="Get current weather information for any location",
+    execute=get_weather,
+    parameters=WeatherArgs,
+    source=ToolSource.NATIVE
+))
 ```
 
 **Tool Properties:**
-- **Schema-Driven**: Pydantic models define arguments
-- **Context-Aware**: Access to run context for authorization/customization
-- **Async**: Built for modern Python async/await patterns
-- **Type-Safe**: Full typing support with generics
+- **Schema-Driven**: Pydantic models define and validate arguments
+- **Context-Aware**: Access to run context for authorization and customization
+- **Async-First**: Built for modern Python async/await patterns
+- **Type-Safe**: Full typing support with runtime validation
+- **Configurable**: Metadata, source tracking, and timeout support
 
 ### 4. RunConfig - Execution Parameters
 

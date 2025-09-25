@@ -65,11 +65,17 @@ nav:
     - Memory System: memory-system.md
     - Model Providers: model-providers.md
     - Function Composition: function-composition.md
+    - Agent as Tool: agent-as-tool.md
+    - Tracing: tracing.md
     - MCP Integration:
       - Overview: mcp.md
       - Examples: mcp-examples.md
       - Transport Configuration: mcp-transports.md
-  - Production Features:
+      - Security: mcp-security.md
+      - Performance: mcp-performance.md
+  - Advanced Features:
+    - Parallel Agent Execution: parallel-agent-execution.md
+    - Parallel Agent Tools: parallel-agent-tools.md
     - ADK Overview: adk-overview.md
     - Schema Validation: adk-schema-validation.md
     - Security Framework: security-framework.md
@@ -99,6 +105,7 @@ nav:
     - Validation Suite: validation-suite.md
   - Reference:
     - API Reference: api-reference.md
+    - Parallel Agents API Reference: parallel-agents-api-reference.md
     - Troubleshooting: troubleshooting.md
     - Style Guide: STYLE_GUIDE.md
 
