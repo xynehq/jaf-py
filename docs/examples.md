@@ -4,100 +4,443 @@ This guide provides comprehensive walkthroughs of JAF example applications, demo
 
 ## Overview
 
-JAF includes several example applications that showcase different aspects of the framework:
+JAF includes extensive example applications that showcase different aspects of the framework:
 
-1. **Server Demo** - Multi-agent HTTP server with tools and memory
-2. **RAG Example** - Retrieval-Augmented Generation with knowledge base
-3. **Iterative Search Agent** - Advanced callback system showcase with ReAct patterns
-4. **Custom Tools** - Advanced tool implementation patterns
-5. **Memory Integration** - Persistent conversation examples
+### Core Examples
+1. **Simple Multi-Agent Server** - HTTP server with multiple specialized agents
+2. **Function Tool Examples** - Comprehensive tool creation patterns
+3. **Agent as Tool** - Hierarchical agent composition
+4. **Comprehensive Features Demo** - Showcase of all JAF capabilities
 
-## Server Demo Walkthrough
+### Advanced Features
+5. **Parallel Agent Execution** - Concurrent agent processing
+6. **Streaming Responses** - Real-time content delivery
+7. **Performance Monitoring** - Built-in analytics and metrics
+8. **Error Handling** - Circuit breakers and resilience patterns
 
-The server demo (`examples/server_demo.py`) demonstrates a complete production-ready JAF server with multiple specialized agents, custom tools, and memory persistence.
+### Integration Examples
+9. **MCP Integration** - Model Context Protocol tool integration
+10. **Tracing Demos** - OpenTelemetry and Langfuse integration
+11. **Attachment Processing** - File and document handling
+12. **Proxy Server** - Agent proxy and load balancing
 
-### Architecture Overview
+### Production Examples
+13. **Guardrails Server** - Input/output validation and security
+14. **Human-in-the-Loop** - Interactive approval workflows
+15. **Deployment Patterns** - Production deployment configurations
 
-```python
-# Three specialized agents
-MathTutor    # Mathematical calculations and explanations
-ChatBot      # Friendly conversation and greetings  
-Assistant    # General-purpose with all tools
+## Simple Multi-Agent Server
 
-# Two custom tools
-Calculator   # Safe mathematical expression evaluation
-Greeting     # Personalized greeting generation
-
-# Memory support
-InMemory     # Development
-Redis        # Production caching
-PostgreSQL   # Production persistence
-```
-
-### Key Components
-
-#### 1. Context Definition
+The `simple_multi_agent_server.py` example demonstrates a production-ready JAF server with multiple specialized agents.
 
 ```python
-@dataclass
-class MyContext:
-    user_id: str
-    permissions: list[str]
-```
+from jaf import Agent, run_server, create_function_tool, FunctionToolConfig
+from pydantic import BaseModel
+import uvicorn
 
-The context provides user information and permissions to agents and tools, enabling security and personalization.
+# Define tools
+class CalculatorArgs(BaseModel):
+    expression: str
 
-#### 2. Tool Implementation
-
-**Calculator Tool with Security**:
-```python
-@function_tool
-async def calculator(expression: str, context=None) -> str:
-    """Safely evaluate mathematical expressions with input sanitization.
-    
-    Args:
-        expression: Mathematical expression to evaluate (e.g., "2 + 3", "15 * 7")
-    """
-    # Input sanitization - only allow safe characters
-    sanitized = ''.join(c for c in expression if c in '0123456789+-*/(). ')
-    if sanitized != expression:
-        return f"Error: Invalid characters in expression. Only numbers, +, -, *, /, and () are allowed."
-    
+def calculate(args: CalculatorArgs, context) -> str:
+    """Safe mathematical expression evaluator."""
     try:
-        expression_for_eval = sanitized.replace(' ', '')
-        result = eval(expression_for_eval)  # Safe due to sanitization
-        return f"{expression} = {result}"
+        # In production, use a safer evaluator
+        result = eval(args.expression)
+        return f"Result: {result}"
     except Exception as e:
-        return f"Error: Failed to evaluate expression: {str(e)}"
+        return f"Error: {e}"
+
+calculator = create_function_tool(FunctionToolConfig(
+    name="calculate",
+    description="Perform mathematical calculations",
+    execute=calculate,
+    parameters=CalculatorArgs
+))
+
+# Create specialized agents
+math_agent = Agent(
+    name="math_tutor",
+    instructions="You are a helpful math tutor. Use the calculator for computations.",
+    tools=[calculator]
+)
+
+general_agent = Agent(
+    name="general_assistant", 
+    instructions="You are a helpful general assistant.",
+    tools=[calculator]
+)
+
+# Run server
+if __name__ == "__main__":
+    run_server(
+        agents={
+            "math": math_agent,
+            "general": general_agent
+        },
+        host="0.0.0.0",
+        port=8000
+    )
 ```
 
-**Greeting Tool with Validation**:
-```python
-@function_tool
-async def greeting(name: str, context=None) -> str:
-    """Generate a personalized greeting with input validation.
-    
-    Args:
-        name: Name of the person to greet
-    """
-    # Input validation
-    if not name or name.strip() == "":
-        return "Error: Name cannot be empty"
-    
-    # Length validation
-    if len(name) > 100:
-        return f"Error: Name is too long (max 100 characters, got {len(name)})"
-    
-    greeting = f"Hello, {name.strip()}! Nice to meet you. I'm a helpful AI assistant running on the JAF framework."
-    return greeting
+**Run the example:**
+```bash
+cd examples
+python simple_multi_agent_server.py
 ```
 
-#### 3. Agent Specialization
+**Try it out:**
+- Visit `http://localhost:8000/docs` for interactive API documentation
+- POST to `/chat` with `{"agent_name": "math", "message": "What is 15 * 23?"}`
 
-**Math Tutor Agent**:
+## Function Tool Examples
+
+The `function_tool_examples.py` shows comprehensive patterns for creating tools.
+
+### Basic Tool Creation
+
 ```python
-def create_math_agent() -> Agent[MyContext, str]:
-    def instructions(state: RunState[MyContext]) -> str:
+from jaf import create_function_tool, FunctionToolConfig
+from pydantic import BaseModel
+
+class WeatherArgs(BaseModel):
+    city: str
+    units: str = "celsius"
+
+def get_weather(args: WeatherArgs, context):
+    """Get weather information for a city."""
+    # In a real implementation, call a weather API
+    return f"The weather in {args.city} is sunny, 22°{args.units[0].upper()}"
+
+weather_tool = create_function_tool(FunctionToolConfig(
+    name="get_weather",
+    description="Get current weather for a city",
+    execute=get_weather,
+    parameters=WeatherArgs
+))
+```
+
+### Advanced Tool with Validation
+
+```python
+from pydantic import BaseModel, field_validator
+
+class EmailArgs(BaseModel):
+    to: str
+    subject: str
+    body: str
+    
+    @field_validator('to')
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        if '@' not in v:
+            raise ValueError('Invalid email address')
+        return v.lower()
+
+def send_email(args: EmailArgs, context):
+    """Send an email with validation."""
+    # Simulate email sending
+    return f"Email sent to {args.to} with subject: {args.subject}"
+
+email_tool = create_function_tool(FunctionToolConfig(
+    name="send_email",
+    description="Send an email with validation",
+    execute=send_email,
+    parameters=EmailArgs
+))
+```
+
+## Agent as Tool Example
+
+The `agent_as_tool_example.py` demonstrates hierarchical agent composition.
+
+```python
+from jaf import Agent, run
+
+# Specialized agents
+researcher = Agent(
+    name="researcher",
+    instructions="Research topics thoroughly and provide detailed information.",
+    tools=[search_tool, web_scraper]
+)
+
+writer = Agent(
+    name="writer",
+    instructions="Write clear, engaging content based on research.",
+    tools=[grammar_check, style_guide]
+)
+
+# Orchestrator using agents as tools
+content_creator = Agent(
+    name="content_creator", 
+    instructions="Create high-quality content by coordinating research and writing.",
+    tools=[
+        researcher.as_tool(tool_name="research_topic"),
+        writer.as_tool(tool_name="write_content")
+    ]
+)
+
+# Use the orchestrator
+result = run(
+    agent=content_creator,
+    messages=[{"role": "user", "content": "Create an article about renewable energy"}]
+)
+```
+
+## Parallel Agent Execution
+
+Multiple examples showcase concurrent agent processing:
+
+### Simple Parallel Agents (`simple_parallel_agents_example.py`)
+
+```python
+from jaf.core.parallel_agents import create_simple_parallel_tool
+
+# Create parallel processing tool
+parallel_tool = create_simple_parallel_tool(
+    agents=[math_agent, science_agent, history_agent],
+    group_name="expert_panel",
+    tool_name="consult_experts",
+    shared_input=True,
+    result_aggregation="combine"
+)
+
+coordinator = Agent(
+    name="coordinator",
+    instructions="Use the expert panel to provide comprehensive answers.",
+    tools=[parallel_tool]
+)
+```
+
+### Advanced Parallel Demo (`advanced_parallel_agents_demo.py`)
+
+```python
+from jaf.core.parallel_agents import create_language_specialists_tool
+
+# Language-specific agents
+translation_tool = create_language_specialists_tool(
+    language_agents={
+        "spanish": spanish_agent,
+        "french": french_agent, 
+        "german": german_agent
+    },
+    tool_name="translate_text",
+    timeout=30.0
+)
+```
+
+## Streaming Responses
+
+Real-time content delivery with Server-Sent Events:
+
+```python
+from jaf import run_streaming
+from jaf.server import run_server
+
+async def stream_response(agent, message):
+    async for event in run_streaming(
+        agent=agent,
+        messages=[{"role": "user", "content": message}]
+    ):
+        if event.type == "assistant_message":
+            yield f"data: {event.data['content']}\n\n"
+
+# FastAPI streaming endpoint
+@app.get("/stream")
+async def stream_chat(message: str):
+    return StreamingResponse(
+        stream_response(agent, message),
+        media_type="text/event-stream"
+    )
+```
+
+## MCP Integration Examples
+
+Model Context Protocol integration for external tools:
+
+### STDIO MCP (`mcp_client_example.py`)
+
+```python
+from jaf.providers.mcp import create_mcp_stdio_tools
+
+# Connect to MCP server via STDIO
+mcp_tools = create_mcp_stdio_tools(
+    command=["node", "mcp-server.js"],
+    args=["--config", "config.json"]
+)
+
+agent = Agent(
+    name="mcp_agent",
+    instructions="Use MCP tools to help users.",
+    tools=mcp_tools
+)
+```
+
+### SSE MCP (`mcp_sse_example.py`)
+
+```python
+from jaf.providers.mcp import create_mcp_sse_tools
+
+# Connect to MCP server via Server-Sent Events
+sse_tools = create_mcp_sse_tools(
+    url="http://localhost:3000/sse",
+    headers={"Authorization": "Bearer your-token"}
+)
+```
+
+## Tracing and Observability
+
+### OpenTelemetry Integration (`otel_tracing_demo.py`)
+
+```python
+from jaf.core.tracing import OpenTelemetryTraceCollector
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+# Configure OpenTelemetry
+trace.set_tracer_provider(TracerProvider())
+otlp_exporter = OTLPSpanExporter(endpoint="http://localhost:4317")
+span_processor = BatchSpanProcessor(otlp_exporter)
+trace.get_tracer_provider().add_span_processor(span_processor)
+
+# Use with JAF
+otel_collector = OpenTelemetryTraceCollector()
+result = run(
+    agent=agent,
+    messages=messages,
+    trace_collector=otel_collector
+)
+```
+
+### Langfuse Integration (`langfuse_tracing_demo.py`)
+
+```python
+from jaf.core.tracing import LangfuseTraceCollector
+
+langfuse_collector = LangfuseTraceCollector(
+    public_key="pk-...",
+    secret_key="sk-...",
+    host="https://cloud.langfuse.com"
+)
+
+result = run(
+    agent=agent,
+    messages=messages,
+    trace_collector=langfuse_collector
+)
+```
+
+## Attachment Processing
+
+Handle files and documents with the attachment system:
+
+```python
+from jaf.utils.attachments import make_file_attachment, make_image_attachment
+from jaf.utils.document_processor import extract_document_content
+
+# Process document attachments
+def process_document(file_path: str):
+    # Create attachment
+    attachment = make_file_attachment(file_path)
+    
+    # Extract content
+    doc = extract_document_content(file_path)
+    
+    return {
+        "attachment": attachment,
+        "content": doc.content,
+        "metadata": doc.metadata
+    }
+
+# Agent with document processing
+doc_agent = Agent(
+    name="document_processor",
+    instructions="Process and analyze documents provided by users.",
+    tools=[document_tool]
+)
+```
+
+## Production Features
+
+### Guardrails Server (`guardrails_server.py`)
+
+```python
+from jaf.policies.validation import create_length_guardrail, create_content_filter
+
+# Input validation
+input_guardrails = [
+    create_length_guardrail(max_length=1000),
+    create_content_filter(blocked_patterns=["harmful", "inappropriate"])
+]
+
+# Output validation
+output_guardrails = [
+    create_length_guardrail(max_length=2000),
+    create_json_validation_guardrail(ResponseSchema)
+]
+
+secure_agent = Agent(
+    name="secure_assistant",
+    instructions="Provide helpful responses within security guidelines.",
+    input_guardrails=input_guardrails,
+    output_guardrails=output_guardrails,
+    tools=[secure_tools]
+)
+```
+
+### Human-in-the-Loop (`hitl-demo/`)
+
+Interactive approval workflows for sensitive operations:
+
+```python
+from jaf.memory.approval_storage import create_approval_storage
+
+approval_storage = create_approval_storage()
+
+# Tool requiring approval
+def sensitive_operation(args, context):
+    approval = approval_storage.request_approval(
+        operation="delete_data",
+        details=f"Delete {args.count} records",
+        user_id=context.user_id
+    )
+    
+    if approval.status == "approved":
+        return perform_deletion(args.count)
+    else:
+        return f"Operation pending approval: {approval.id}"
+```
+
+## Running the Examples
+
+Each example can be run independently:
+
+```bash
+# Clone the repository
+git clone https://github.com/xynehq/jaf-py.git
+cd jaf-py
+
+# Install dependencies
+pip install -e .
+
+# Run specific examples
+python examples/simple_multi_agent_server.py
+python examples/function_tool_examples.py
+python examples/parallel_agents_demo.py
+```
+
+## Next Steps
+
+After exploring these examples:
+
+1. **[API Reference](api-reference.md)** - Detailed API documentation
+2. **[Tools Guide](tools.md)** - Advanced tool creation patterns
+3. **[Deployment](deployment.md)** - Production deployment strategies
+4. **[Performance Monitoring](performance-monitoring.md)** - Optimization and monitoring
+
+Each example includes detailed comments and can serve as a starting point for your own applications.
         return 'You are a helpful math tutor. Use the calculator tool to perform calculations and explain math concepts clearly.'
     
     return Agent(
