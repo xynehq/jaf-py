@@ -204,9 +204,9 @@ async def call_real_llm_with_tools(
                                         break
                             if tool:
                                 tool_result = {
-                                    'success': event['data'].get('status', 'success') == 'success',
+                                    'success': event['data'].get('execution_status', 'success') == 'success',
                                     'data': event['data']['result'],
-                                    'error': None if event['data'].get('status', 'success') == 'success' else event['data']['result']
+                                    'error': None if event['data'].get('execution_status', 'success') == 'success' else event['data']['result']
                                 }
                                 await callbacks.on_after_tool_execution(tool, tool_result)
                 
@@ -454,8 +454,8 @@ async def execute_agent(
                             'id': function_call['id'],
                             'name': function_call['name'],
                             'response': matching_end_event['data']['result'],
-                            'success': matching_end_event['data'].get('status', 'success') == 'success',
-                            'error': None if matching_end_event['data'].get('status', 'success') == 'success' else matching_end_event['data']['result']
+                            'success': matching_end_event['data'].get('execution_status', 'success') == 'success',
+                            'error': None if matching_end_event['data'].get('execution_status', 'success') == 'success' else matching_end_event['data']['result']
                         }
                         tool_responses.append(function_response)
                         

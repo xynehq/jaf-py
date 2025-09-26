@@ -242,7 +242,7 @@ class TestAdvancedControlFlow:
                 end_event.data = {
                     'tool_name': 'search_tool',
                     'result': '{"results": "data"}',
-                    'status': 'success'
+                    'execution_status': 'success'
                 }
                 type(end_event).__name__ = 'ToolCallEndEvent'
                 run_config.on_event(end_event)
@@ -430,7 +430,7 @@ class TestAgentHooks:
                 end_event.data = {
                     'tool_name': 'search_tool',
                     'result': '{"results": "data", "contexts": [{"id": "original_ctx", "content": "Original content"}]}',
-                    'status': 'success'
+                    'execution_status': 'success'
                 }
                 type(end_event).__name__ = 'ToolCallEndEvent'
                 run_config.on_event(end_event)
