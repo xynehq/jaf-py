@@ -94,6 +94,11 @@ class RunId(str):
     def __new__(cls, value: str) -> 'RunId':
         return str.__new__(cls, value)
 
+class MessageId(str):
+    """Branded string type for message IDs."""
+    def __new__(cls, value: str) -> 'MessageId':
+        return str.__new__(cls, value)
+
 def create_trace_id(id_str: str) -> TraceId:
     """Create a TraceId from a string."""
     return TraceId(id_str)
@@ -101,6 +106,10 @@ def create_trace_id(id_str: str) -> TraceId:
 def create_run_id(id_str: str) -> RunId:
     """Create a RunId from a string."""
     return RunId(id_str)
+
+def create_message_id(id_str: str) -> MessageId:
+    """Create a MessageId from a string."""
+    return MessageId(id_str)
 
 def generate_run_id() -> RunId:
     """Generate a new unique run ID."""
@@ -113,6 +122,12 @@ def generate_trace_id() -> TraceId:
     import time
     import uuid
     return TraceId(f"trace_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}")
+
+def generate_message_id() -> MessageId:
+    """Generate a new unique message ID."""
+    import time
+    import uuid
+    return MessageId(f"msg_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}")
 
 # Type variables for generic contexts and outputs
 Ctx = TypeVar('Ctx')
@@ -180,11 +195,15 @@ class Message:
     - Direct access to .content returns the original string when created with string
     - Use .text_content property for guaranteed string access in all cases
     - Use get_text_content() function to extract text from any content type
+    - message_id is optional for backward compatibility
     
     Examples:
         # Original usage - still works exactly the same
         msg = Message(role='user', content='Hello')
         text = msg.content  # Returns 'Hello' as string
+        
+        # New usage with message ID
+        msg = Message(role='user', content='Hello', message_id='msg_123')
         
         # Guaranteed string access (recommended for new code)
         text = msg.text_content  # Always returns string
@@ -197,6 +216,12 @@ class Message:
     attachments: Optional[List[Attachment]] = None
     tool_call_id: Optional[str] = None
     tool_calls: Optional[List[ToolCall]] = None
+    message_id: Optional[MessageId] = None  # Optional for backward compatibility
+    
+    def __post_init__(self):
+        """Auto-generate message ID if not provided."""
+        if self.message_id is None:
+            object.__setattr__(self, 'message_id', generate_message_id())
     
     @property
     def text_content(self) -> str:
@@ -210,7 +235,8 @@ class Message:
         content: str,
         attachments: Optional[List[Attachment]] = None,
         tool_call_id: Optional[str] = None,
-        tool_calls: Optional[List[ToolCall]] = None
+        tool_calls: Optional[List[ToolCall]] = None,
+        message_id: Optional[MessageId] = None
     ) -> 'Message':
         """Create a message with string content and optional attachments."""
         return cls(
@@ -218,7 +244,8 @@ class Message:
             content=content,
             attachments=attachments,
             tool_call_id=tool_call_id,
-            tool_calls=tool_calls
+            tool_calls=tool_calls,
+            message_id=message_id
         )
 
 def get_text_content(content: Union[str, List[MessageContentPart]]) -> str:
@@ -796,3 +823,42 @@ class RunConfig(Generic[Ctx]):
     default_fast_model: Optional[str] = None  # Default model for fast operations like guardrails
     default_tool_timeout: Optional[float] = 300.0  # Default timeout for tool execution in seconds
     approval_storage: Optional['ApprovalStorage'] = None  # Storage for approval decisions
+
+# Regeneration types for conversation management
+@dataclass(frozen=True)
+class RegenerationRequest:
+    """Request to regenerate a conversation from a specific message."""
+    conversation_id: str
+    message_id: MessageId  # ID of the message to regenerate from
+    context: Optional[Dict[str, Any]] = None  # Optional context override
+
+@dataclass(frozen=True)
+class RegenerationContext:
+    """Context information for a regeneration operation."""
+    original_message_count: int
+    truncated_at_index: int
+    regenerated_message_id: MessageId
+    regeneration_id: str  # Unique ID for this regeneration operation
+    timestamp: int  # Unix timestamp in milliseconds
+
+# Message utility functions
+def find_message_index(messages: List[Message], message_id: MessageId) -> Optional[int]:
+    """Find the index of a message by its ID."""
+    for i, msg in enumerate(messages):
+        if msg.message_id == message_id:
+            return i
+    return None
+
+def truncate_messages_after(messages: List[Message], message_id: MessageId) -> List[Message]:
+    """Truncate messages after (and including) the specified message ID."""
+    index = find_message_index(messages, message_id)
+    if index is None:
+        return messages  # Message not found, return unchanged
+    return messages[:index]
+
+def get_message_by_id(messages: List[Message], message_id: MessageId) -> Optional[Message]:
+    """Get a message by its ID."""
+    for msg in messages:
+        if msg.message_id == message_id:
+            return msg
+    return None
