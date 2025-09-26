@@ -641,13 +641,13 @@ class ToolCallEndEventData:
     run_id: RunId
     tool_result: Optional[Any] = None
     execution_status: Optional[str] = None  # success/error/timeout - indicates if tool executed successfully
+    status: Optional[str] = None  # DEPRECATED: maintained for backward-compatible initialization/serialization
     call_id: Optional[str] = None
 
-    @property
-    def status(self) -> Optional[str]:
-        """DEPRECATED: Use execution_status instead. Provided for backward compatibility."""
-        return self.execution_status
-
+    def __post_init__(self) -> None:
+        canonical = self.execution_status or self.status
+        object.__setattr__(self, 'execution_status', canonical)
+        object.__setattr__(self, 'status', canonical)
 @dataclass(frozen=True)
 class ToolCallEndEvent:
     type: Literal['tool_call_end'] = 'tool_call_end'
