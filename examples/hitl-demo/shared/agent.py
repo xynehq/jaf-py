@@ -17,22 +17,8 @@ from .tools import (
     edit_file_tool
 )
 
-
-def load_env_file():
-    """Load environment variables from .env file if it exists."""
-    env_path = Path(__file__).parent.parent / ".env"
-    if env_path.exists():
-        with open(env_path, 'r') as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith('#') and '=' in line:
-                    key, value = line.split('=', 1)
-                    if key and value and not os.getenv(key):
-                        os.environ[key] = value
-
-
-# Load environment variables
-load_env_file()
+from dotenv import load_dotenv
+load_dotenv()
 
 # Environment configuration - prefer LiteLLM for flexibility
 LITELLM_BASE_URL = os.getenv('LITELLM_BASE_URL') or os.getenv('LITELLM_URL', 'http://localhost:4000')
@@ -52,7 +38,10 @@ Available operations:
 - listFiles: List files and directories
 - readFile: Read file contents  
 - deleteFile: Delete a file
-- editFile: Edit or create a file"""
+- editFile: Edit or create a file
+
+if you are sent an image attachment, then process it and base you decision on it.
+"""
 
 
 # File system agent

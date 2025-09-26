@@ -108,12 +108,60 @@ When running `api_demo.py`, you get both terminal interaction AND HTTP endpoints
         }'
    ```
 
-5. **Reject via curl (simple):**
+5. **Approve with image context (base64 data):**
+   ```bash
+   curl -X POST http://localhost:3001/approve/SESSION_ID/TOOL_CALL_ID \
+        -H "Content-Type: application/json" \
+        -d '{
+          "additionalContext": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Analyze this image and make your decision based on it",
+                "attachments": [
+                  {
+                    "kind": "image",
+                    "mime_type": "image/png",
+                    "name": "test-pixel.png",
+                    "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+                  }
+                ]
+              }
+            ]
+          }
+        }'
+   ```
+
+6. **Approve with image context (URL):**
+   ```bash
+   curl -X POST http://localhost:3001/approve/SESSION_ID/TOOL_CALL_ID \
+        -H "Content-Type: application/json" \
+        -d '{
+          "additionalContext": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Here is the image for context",
+                "attachments": [
+                  {
+                    "kind": "image",
+                    "mime_type": "image/jpeg",
+                    "name": "example.jpg",
+                    "url": "https://fastly.picsum.photos/id/21/1920/1080.jpg?hmac=1BnxKswnhchVaU4-xZpgObgnwGLLb7hnugRQ9vwwUFY"
+                  }
+                ]
+              }
+            ]
+          }
+        }'
+   ```
+
+7. **Reject via curl (simple):**
    ```bash
    curl -X POST http://localhost:3001/reject/SESSION_ID/TOOL_CALL_ID
    ```
 
-6. **Reject with additional context:**
+8. **Reject with additional context:**
    ```bash
    curl -X POST http://localhost:3001/reject/SESSION_ID/TOOL_CALL_ID \
         -H "Content-Type: application/json" \
@@ -124,6 +172,27 @@ When running `api_demo.py`, you get both terminal interaction AND HTTP endpoints
           }
         }'
    ```
+
+### Image Context Support
+
+The approval API now supports **image attachments** as additional context! This allows users to provide visual context when approving/rejecting tool calls.
+
+**Supported image formats:**
+- **Base64 data**: Include image data directly in the request
+- **Remote URLs**: Reference images hosted elsewhere
+- **MIME types**: `image/png`, `image/jpeg`, `image/gif`, `image/webp`, etc.
+
+**How it works:**
+1. Include images in `additionalContext.messages[].attachments`
+2. JAF automatically processes and adds images to the conversation
+3. Vision-capable LLMs (GPT-4V, Claude 3, Gemini Pro Vision) can analyze the images
+4. The LLM makes informed decisions based on visual context
+
+**Example use cases:**
+- Approve file deletion after reviewing a screenshot
+- Validate changes by showing before/after images
+- Provide visual instructions or clarifications
+- Share error screenshots for better context
 
 ### Configuration
 
