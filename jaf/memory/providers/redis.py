@@ -8,7 +8,7 @@ Best for production environments with shared state and persistence across restar
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
-from ...core.types import Message
+from ...core.types import Message, MessageId, find_message_index
 from ..types import (
     ConversationMemory,
     Failure,
@@ -204,6 +204,206 @@ class RedisProvider(MemoryProvider):
             })
         except Exception as e:
             return Failure(MemoryConnectionError(provider="Redis", message="Redis health check failed", cause=e))
+
+    async def truncate_conversation_after(
+        self,
+        conversation_id: str,
+        message_id: MessageId
+    ) -> Result[int, Union[MemoryNotFoundError, MemoryStorageError]]:
+        """
+        Truncate conversation after (and including) the specified message ID.
+        Returns the number of messages removed.
+        """
+        try:
+            # Get the conversation
+            conv_result = await self.get_conversation(conversation_id)
+            if isinstance(conv_result, Failure):
+                return conv_result
+            
+            if not conv_result.data:
+                return Failure(MemoryNotFoundError(
+                    message=f"Conversation {conversation_id} not found",
+                    provider="Redis",
+                    conversation_id=conversation_id
+                ))
+            
+            conversation = conv_result.data
+            messages = list(conversation.messages)
+            truncate_index = find_message_index(messages, message_id)
+            
+            if truncate_index is None:
+                # Message not found, nothing to truncate
+                return Success(0)
+            
+            # Truncate messages from the found index onwards
+            original_count = len(messages)
+            truncated_messages = messages[:truncate_index]
+            removed_count = original_count - len(truncated_messages)
+            
+            # Update conversation with truncated messages
+            now = datetime.now()
+            updated_metadata = {
+                **conversation.metadata,
+                "updated_at": now,
+                "last_activity": now,
+                "total_messages": len(truncated_messages),
+                "regeneration_truncated": True,
+                "truncated_at": now.isoformat(),
+                "messages_removed": removed_count
+            }
+            
+            # Store updated conversation
+            updated_conversation = ConversationMemory(
+                conversation_id=conversation_id,
+                user_id=conversation.user_id,
+                messages=truncated_messages,
+                metadata=updated_metadata
+            )
+            
+            key = self._get_key(conversation_id)
+            await self.redis_client.set(key, self._serialize(updated_conversation), ex=self.config.ttl)
+            
+            print(f"[MEMORY:Redis] Truncated conversation {conversation_id}: removed {removed_count} messages after message {message_id}")
+            return Success(removed_count)
+            
+        except Exception as e:
+            return Failure(MemoryStorageError(
+                message=f"Failed to truncate conversation: {e}",
+                provider="Redis",
+                operation="truncate_conversation_after",
+                cause=e
+            ))
+
+    async def get_conversation_until_message(
+        self,
+        conversation_id: str,
+        message_id: MessageId
+    ) -> Result[Optional[ConversationMemory], Union[MemoryNotFoundError, MemoryStorageError]]:
+        """
+        Get conversation history up to (but not including) the specified message ID.
+        Useful for regeneration scenarios.
+        """
+        try:
+            # Get the conversation
+            conv_result = await self.get_conversation(conversation_id)
+            if isinstance(conv_result, Failure):
+                return conv_result
+            
+            if not conv_result.data:
+                return Success(None)
+            
+            conversation = conv_result.data
+            messages = list(conversation.messages)
+            until_index = find_message_index(messages, message_id)
+            
+            if until_index is None:
+                # Message not found, return empty conversation to indicate no match
+                print(f"[MEMORY:Redis] Message {message_id} not found in conversation {conversation_id}")
+                return Success(ConversationMemory(
+                    conversation_id=conversation.conversation_id,
+                    user_id=conversation.user_id,
+                    messages=[],
+                    metadata={
+                        **conversation.metadata,
+                        "truncated_for_regeneration": True,
+                        "truncated_until_message": str(message_id),
+                        "message_not_found": True,
+                        "original_message_count": len(messages),
+                        "truncated_message_count": 0
+                    }
+                ))
+            
+            # Return conversation up to (but not including) the specified message
+            truncated_messages = messages[:until_index]
+            
+            # Create a copy of the conversation with truncated messages
+            truncated_conversation = ConversationMemory(
+                conversation_id=conversation.conversation_id,
+                user_id=conversation.user_id,
+                messages=truncated_messages,
+                metadata={
+                    **conversation.metadata,
+                    "truncated_for_regeneration": True,
+                    "truncated_until_message": str(message_id),
+                    "original_message_count": len(messages),
+                    "truncated_message_count": len(truncated_messages)
+                }
+            )
+            
+            print(f"[MEMORY:Redis] Retrieved conversation {conversation_id} until message {message_id}: {len(truncated_messages)} messages")
+            return Success(truncated_conversation)
+            
+        except Exception as e:
+            return Failure(MemoryStorageError(
+                message=f"Failed to get conversation until message: {e}",
+                provider="Redis",
+                operation="get_conversation_until_message",
+                cause=e
+            ))
+
+    async def mark_regeneration_point(
+        self,
+        conversation_id: str,
+        message_id: MessageId,
+        regeneration_metadata: Dict[str, Any]
+    ) -> Result[None, Union[MemoryNotFoundError, MemoryStorageError]]:
+        """
+        Mark a regeneration point in the conversation for audit purposes.
+        """
+        try:
+            # Get the conversation
+            conv_result = await self.get_conversation(conversation_id)
+            if isinstance(conv_result, Failure):
+                return conv_result
+            
+            if not conv_result.data:
+                return Failure(MemoryNotFoundError(
+                    message=f"Conversation {conversation_id} not found",
+                    provider="Redis",
+                    conversation_id=conversation_id
+                ))
+            
+            conversation = conv_result.data
+            
+            # Add regeneration point to metadata
+            regeneration_points = conversation.metadata.get("regeneration_points", [])
+            regeneration_point = {
+                "message_id": str(message_id),
+                "timestamp": datetime.now().isoformat(),
+                **regeneration_metadata
+            }
+            regeneration_points.append(regeneration_point)
+            
+            # Update conversation metadata
+            updated_metadata = {
+                **conversation.metadata,
+                "regeneration_points": regeneration_points,
+                "last_regeneration": regeneration_point,
+                "updated_at": datetime.now(),
+                "regeneration_count": len(regeneration_points)
+            }
+            
+            # Store updated conversation
+            updated_conversation = ConversationMemory(
+                conversation_id=conversation.conversation_id,
+                user_id=conversation.user_id,
+                messages=conversation.messages,
+                metadata=updated_metadata
+            )
+            
+            key = self._get_key(conversation_id)
+            await self.redis_client.set(key, self._serialize(updated_conversation), ex=self.config.ttl)
+            
+            print(f"[MEMORY:Redis] Marked regeneration point for conversation {conversation_id} at message {message_id}")
+            return Success(None)
+            
+        except Exception as e:
+            return Failure(MemoryStorageError(
+                message=f"Failed to mark regeneration point: {e}",
+                provider="Redis",
+                operation="mark_regeneration_point",
+                cause=e
+            ))
 
     async def close(self) -> Result[None, MemoryConnectionError]:
         try:

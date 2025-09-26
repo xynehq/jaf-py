@@ -18,6 +18,7 @@ from fastapi.responses import StreamingResponse
 
 from ..core.engine import run
 from ..core.streaming import run_streaming
+from ..core.regeneration import regenerate_conversation, get_regeneration_points
 from ..core.types import (
     ApprovalValue,
     CompletedOutcome,
@@ -29,6 +30,8 @@ from ..core.types import (
     RunState,
     create_run_id,
     create_trace_id,
+    create_message_id,
+    RegenerationRequest,
 )
 from ..memory.types import MemoryConfig
 from .types import (
@@ -52,8 +55,15 @@ from .types import (
     PendingApprovalData,
     PendingApprovalsData,
     PendingApprovalsResponse,
+    RegenerationHttpRequest,
+    RegenerationData,
+    RegenerationResponse,
+    RegenerationPointData,
+    RegenerationHistoryData,
+    RegenerationHistoryResponse,
     ServerConfig,
     ToolCallInterruption,
+    validate_regeneration_request,
 )
 
 Ctx = TypeVar('Ctx')
@@ -853,5 +863,158 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
                 "Access-Control-Allow-Headers": "*"
             }
         )
+
+    # Regeneration endpoints
+    if config.default_memory_provider:
+        @app.post("/conversations/{conversation_id}/regenerate", response_model=RegenerationResponse)
+        async def regenerate_conversation_endpoint(conversation_id: str, request: RegenerationHttpRequest):
+            """Regenerate conversation from a specific message."""
+            request_start_time = time.time()
+            
+            try:
+                # Validate agent exists
+                if request.agent_name not in config.agent_registry:
+                    return RegenerationResponse(
+                        success=False,
+                        error=f"Agent '{request.agent_name}' not found. Available agents: {', '.join(config.agent_registry.keys())}"
+                    )
+                
+                # Create regeneration request
+                regen_request = RegenerationRequest(
+                    conversation_id=conversation_id,
+                    message_id=create_message_id(request.message_id),
+                    context=request.context
+                )
+                
+                # Create run config with memory
+                memory_config = MemoryConfig(
+                    provider=config.default_memory_provider,
+                    auto_store=True,
+                    store_on_completion=True
+                )
+                
+                run_config_with_memory = replace(
+                    config.run_config,
+                    memory=memory_config,
+                    conversation_id=conversation_id,
+                    max_turns=request.max_turns or 10
+                )
+                
+                # Execute regeneration
+                result = await regenerate_conversation(
+                    regen_request,
+                    run_config_with_memory,
+                    request.context or {},
+                    request.agent_name
+                )
+                
+                # Convert result to HTTP format
+                http_messages = [_convert_core_message_to_http(msg) for msg in result.final_state.messages]
+                
+                # Create outcome data
+                if isinstance(result.outcome, CompletedOutcome):
+                    outcome_data = BaseOutcomeData(
+                        status='completed',
+                        output=result.outcome.output
+                    )
+                elif isinstance(result.outcome, ErrorOutcome):
+                    error_info = result.outcome.error
+                    outcome_data = BaseOutcomeData(
+                        status='error',
+                        error={
+                            'type': error_info.__class__.__name__,
+                            'message': str(error_info)
+                        }
+                    )
+                elif isinstance(result.outcome, InterruptedOutcome):
+                    interruptions = []
+                    for interruption in result.outcome.interruptions:
+                        if hasattr(interruption, 'tool_call') and hasattr(interruption, 'type'):
+                            tool_call_data = ToolCallInterruption(
+                                id=interruption.tool_call.id,
+                                function={
+                                    'name': interruption.tool_call.function.name,
+                                    'arguments': interruption.tool_call.function.arguments
+                                }
+                            )
+                            interruptions.append(InterruptionData(
+                                type='tool_approval',
+                                tool_call=tool_call_data,
+                                session_id=interruption.session_id or str(result.final_state.run_id)
+                            ))
+                    
+                    outcome_data = InterruptedOutcomeData(
+                        status='interrupted',
+                        interruptions=interruptions
+                    )
+                else:
+                    outcome_data = BaseOutcomeData(status='error', error='Unknown outcome type')
+                
+                # Get regeneration metadata from conversation
+                conversation_result = await config.default_memory_provider.get_conversation(conversation_id)
+                regeneration_id = f"regen_{int(time.time() * 1000)}_{request.message_id}"
+                original_message_count = 0
+                truncated_at_index = 0
+                
+                if hasattr(conversation_result, 'data') and conversation_result.data:
+                    conversation_data = conversation_result.data
+                    regeneration_points = conversation_data.metadata.get('regeneration_points', []) if conversation_data.metadata else []
+                    if regeneration_points:
+                        latest_regen = regeneration_points[-1]
+                        original_message_count = latest_regen.get('original_message_count', len(conversation_data.messages))
+                        truncated_at_index = latest_regen.get('truncated_at_index', 0)
+                        regeneration_id = latest_regen.get('regeneration_id', regeneration_id)
+                
+                return RegenerationResponse(
+                    success=True,
+                    data=RegenerationData(
+                        regeneration_id=regeneration_id,
+                        conversation_id=conversation_id,
+                        original_message_count=original_message_count,
+                        truncated_at_index=truncated_at_index,
+                        regenerated_message_id=request.message_id,
+                        messages=http_messages,
+                        outcome=outcome_data,
+                        turn_count=result.final_state.turn_count,
+                        execution_time_ms=int((time.time() - request_start_time) * 1000)
+                    )
+                )
+                
+            except Exception as e:
+                return RegenerationResponse(success=False, error=str(e))
+
+        @app.get("/conversations/{conversation_id}/regeneration-history", response_model=RegenerationHistoryResponse)
+        async def get_regeneration_history(conversation_id: str):
+            """Get regeneration history for a conversation."""
+            try:
+                regeneration_points = await get_regeneration_points(conversation_id, config.run_config)
+                
+                if regeneration_points is None:
+                    return RegenerationHistoryResponse(
+                        success=False,
+                        error="Failed to get regeneration history"
+                    )
+                
+                # Convert to response format
+                regeneration_data = []
+                for point in regeneration_points:
+                    regeneration_data.append(RegenerationPointData(
+                        regeneration_id=point.get('regeneration_id', ''),
+                        message_id=point.get('message_id', ''),
+                        timestamp=point.get('timestamp', 0),
+                        original_message_count=point.get('original_message_count', 0),
+                        truncated_at_index=point.get('truncated_at_index', 0)
+                    ))
+                
+                return RegenerationHistoryResponse(
+                    success=True,
+                    data=RegenerationHistoryData(
+                        conversation_id=conversation_id,
+                        regeneration_points=regeneration_data
+                    )
+                )
+                
+            except Exception as e:
+                return RegenerationHistoryResponse(success=False, error=str(e))
 
     return app
