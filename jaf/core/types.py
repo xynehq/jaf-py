@@ -619,13 +619,28 @@ class ToolCallStartEvent:
 
 @dataclass(frozen=True)
 class ToolCallEndEventData:
-    """Data for tool call end events."""
+    """
+    Data for tool call end events.
+
+    IMPORTANT: There are two different status concepts:
+    1. execution_status (this field): Indicates whether the tool execution itself succeeded or failed
+       - 'success': Tool executed without errors
+       - 'error': Tool execution failed due to validation, not found, or runtime errors
+       - 'timeout': Tool execution timed out
+
+    2. hitl_status (in result JSON): Indicates HITL workflow status
+       - 'executed': Tool ran normally (no approval needed)
+       - 'approved_and_executed': Tool required approval, was approved, and executed
+       - 'pending_approval': Tool requires approval and is waiting
+       - 'rejected': Tool was rejected by user
+       - 'execution_error', 'validation_error', etc.: Various error states
+    """
     tool_name: str
     result: str
     trace_id: TraceId
     run_id: RunId
     tool_result: Optional[Any] = None
-    status: Optional[str] = None
+    execution_status: Optional[str] = None  # success/error/timeout - indicates if tool executed successfully
     call_id: Optional[str] = None
 
 @dataclass(frozen=True)

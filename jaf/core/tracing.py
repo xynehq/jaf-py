@@ -716,7 +716,7 @@ class LangfuseTraceCollector:
                         "result": tool_result,
                         "call_id": call_id,
                         "timestamp": datetime.now().isoformat(),
-                        "status": event.data.get("status", "completed"),
+                        "execution_status": event.data.get("execution_status", "completed"),
                         "tool_result": event.data.get("tool_result")
                     }
                     
@@ -731,7 +731,7 @@ class LangfuseTraceCollector:
                         "result": tool_result,
                         "call_id": call_id,
                         "timestamp": datetime.now().isoformat(),
-                        "status": event.data.get("status", "completed")
+                        "execution_status": event.data.get("execution_status", "completed")
                     }
                     
                     # End the span with detailed output
