@@ -279,8 +279,9 @@ async def _load_conversation_history(state: RunState[Ctx], config: RunConfig[Ctx
                 try:
                     content = json.loads(msg.content)
                     status = content.get('status')
-                    # Filter out ALL halted messages (they're for audit only)
-                    if status == 'halted':
+                    hitl_status = content.get('hitl_status')
+                    # Filter out ALL halted/pending approval messages (they're for audit only)
+                    if status == 'halted' or hitl_status == 'pending_approval':
                         filtered_count += 1
                         continue  # Skip this halted message
                     else:
@@ -765,7 +766,7 @@ async def _run_internal(
                 else:
                     try:
                         content = json.loads(msg.content)
-                        if content.get('status') == 'halted':
+                        if content.get('status') == 'halted' or content.get('hitl_status') == 'pending_approval':
                             # Remove this halted message if we have a new result for the same tool_call_id
                             if not any(result['message'].tool_call_id == msg.tool_call_id for result in tool_results):
                                 cleaned_new_messages.append(msg)
@@ -793,7 +794,7 @@ async def _run_internal(
             else:
                 try:
                     content = json.loads(msg.content)
-                    if content.get('status') == 'halted':
+                    if content.get('status') == 'halted' or content.get('hitl_status') == 'pending_approval':
                         # Remove this halted message if we have a new result for the same tool_call_id
                         if not any(result['message'].tool_call_id == msg.tool_call_id for result in tool_results):
                             cleaned_new_messages.append(msg)

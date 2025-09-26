@@ -717,6 +717,7 @@ class LangfuseTraceCollector:
                         "call_id": call_id,
                         "timestamp": datetime.now().isoformat(),
                         "execution_status": event.data.get("execution_status", "completed"),
+                        "status": event.data.get("execution_status", "completed"),  # DEPRECATED: backward compatibility
                         "tool_result": event.data.get("tool_result")
                     }
                     
@@ -731,7 +732,8 @@ class LangfuseTraceCollector:
                         "result": tool_result,
                         "call_id": call_id,
                         "timestamp": datetime.now().isoformat(),
-                        "execution_status": event.data.get("execution_status", "completed")
+                        "execution_status": event.data.get("execution_status", "completed"),
+                        "status": event.data.get("execution_status", "completed")  # DEPRECATED: backward compatibility
                     }
                     
                     # End the span with detailed output

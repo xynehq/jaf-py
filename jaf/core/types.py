@@ -643,6 +643,11 @@ class ToolCallEndEventData:
     execution_status: Optional[str] = None  # success/error/timeout - indicates if tool executed successfully
     call_id: Optional[str] = None
 
+    @property
+    def status(self) -> Optional[str]:
+        """DEPRECATED: Use execution_status instead. Provided for backward compatibility."""
+        return self.execution_status
+
 @dataclass(frozen=True)
 class ToolCallEndEvent:
     type: Literal['tool_call_end'] = 'tool_call_end'
