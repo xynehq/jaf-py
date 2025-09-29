@@ -619,15 +619,43 @@ class ToolCallStartEvent:
 
 @dataclass(frozen=True)
 class ToolCallEndEventData:
-    """Data for tool call end events."""
+    """
+    Data for tool call end events.
+
+    IMPORTANT: There are two different status concepts:
+    1. execution_status (this field): Indicates whether the tool execution itself succeeded or failed
+       - 'success': Tool executed without errors
+       - 'error': Tool execution failed due to validation, not found, or runtime errors
+       - 'timeout': Tool execution timed out
+
+    2. hitl_status (in result JSON): Indicates HITL workflow status
+       - 'executed': Tool ran normally (no approval needed)
+       - 'approved_and_executed': Tool required approval, was approved, and executed
+       - 'pending_approval': Tool requires approval and is waiting
+       - 'rejected': Tool was rejected by user
+       - 'execution_error', 'validation_error', etc.: Various error states
+    """
     tool_name: str
     result: str
     trace_id: TraceId
     run_id: RunId
     tool_result: Optional[Any] = None
-    status: Optional[str] = None
+    execution_status: Optional[str] = None  # success/error/timeout - indicates if tool executed successfully
+    status: Optional[str] = None  # DEPRECATED: maintained for backward-compatible initialization/serialization
     call_id: Optional[str] = None
 
+    def __post_init__(self) -> None:
+        # Handle backward compatibility with explicit conflict detection
+        if self.execution_status is not None and self.status is not None and self.execution_status != self.status:
+            raise ValueError(
+                f"Conflicting values for execution_status ('{self.execution_status}') and status ('{self.status}'). "
+                f"Please use only execution_status for new code."
+            )
+
+        # Prefer execution_status (new field) over status (deprecated field)
+        canonical = self.execution_status if self.execution_status is not None else self.status
+        object.__setattr__(self, 'execution_status', canonical)
+        object.__setattr__(self, 'status', canonical)
 @dataclass(frozen=True)
 class ToolCallEndEvent:
     type: Literal['tool_call_end'] = 'tool_call_end'

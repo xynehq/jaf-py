@@ -341,7 +341,7 @@ class LangfuseTraceCollector:
             public_key=public_key,
             secret_key=secret_key,
             host=host,
-            release="jaf-py-v2.4.8"
+            release="jaf-py-v2.5.0"
         )
         self.active_spans: Dict[str, Any] = {}
         self.trace_spans: Dict[TraceId, Any] = {}
@@ -716,7 +716,8 @@ class LangfuseTraceCollector:
                         "result": tool_result,
                         "call_id": call_id,
                         "timestamp": datetime.now().isoformat(),
-                        "status": event.data.get("status", "completed"),
+                        "execution_status": event.data.get("execution_status", "completed"),
+                        "status": event.data.get("execution_status", "completed"),  # DEPRECATED: backward compatibility
                         "tool_result": event.data.get("tool_result")
                     }
                     
@@ -731,7 +732,8 @@ class LangfuseTraceCollector:
                         "result": tool_result,
                         "call_id": call_id,
                         "timestamp": datetime.now().isoformat(),
-                        "status": event.data.get("status", "completed")
+                        "execution_status": event.data.get("execution_status", "completed"),
+                        "status": event.data.get("execution_status", "completed")  # DEPRECATED: backward compatibility
                     }
                     
                     # End the span with detailed output
