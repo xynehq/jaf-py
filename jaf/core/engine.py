@@ -1198,7 +1198,7 @@ async def _execute_tool_calls(
                         trace_id=state.trace_id,
                         run_id=state.run_id,
                         execution_status='timeout',  # Tool execution timed out
-                        tool_result={'error': 'timeout_error'},
+                        tool_result={'error': 'timeout'},
                         call_id=tool_call.id
                     ))))
 
