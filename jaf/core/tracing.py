@@ -511,7 +511,7 @@ class LangfuseTraceCollector:
                 }
                 
                 # Extract agent_name for tagging
-                agent_name = event.data.get("agent_name", "analytics_agent_jaf")
+                agent_name = event.data.get("agent_name") or "analytics_agent_jaf"
 
                 trace = self.langfuse.trace(
                     name=f"jaf-run-{trace_id}",
@@ -537,6 +537,7 @@ class LangfuseTraceCollector:
                 trace._user_id = user_id or event.data.get("user_id")
                 trace._user_query = user_query
                 trace._conversation_history = conversation_history
+                trace._agent_name = agent_name
                 print(f"[LANGFUSE] Created trace with user query: {user_query[:100] if user_query else 'None'}...")
                 
             elif event.type == "run_end":
@@ -546,7 +547,7 @@ class LangfuseTraceCollector:
                     # Update the trace metadata with final tool calls and results
                     conversation_history = getattr(self.trace_spans[trace_id], '_conversation_history', [])
                     # Extract agent_name for consistency
-                    agent_name = event.data.get("agent_name", "analytics_agent_jaf")
+                    agent_name = getattr(self.trace_spans[trace_id], '_agent_name', None) or event.data.get("agent_name") or "analytics_agent_jaf"
 
                     final_metadata = {
                         "framework": "jaf",
