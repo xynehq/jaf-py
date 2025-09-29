@@ -245,7 +245,22 @@ class Message:
     message_id: Optional[MessageId] = None  # Optional for backward compatibility
     
     def __post_init__(self):
-        """Auto-generate message ID if not provided."""
+        """
+        Auto-generate message ID if not provided.
+        
+        This implementation uses object.__setattr__ to bypass frozen dataclass restrictions,
+        which is a recommended pattern for one-time initialization of computed fields in
+        frozen dataclasses. This ensures:
+        
+        1. Backward compatibility - existing code with message_id=None continues to work
+        2. Immutability - the dataclass remains frozen after initialization
+        3. Guaranteed unique IDs - every message gets a unique identifier
+        4. Clean API - users don't need to manually generate IDs in most cases
+        
+        This pattern is preferred over using field(default_factory=...) because it
+        maintains the Optional[MessageId] type hint for backward compatibility while
+        ensuring the field is never actually None after object creation.
+        """
         if self.message_id is None:
             object.__setattr__(self, 'message_id', generate_message_id())
     
