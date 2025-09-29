@@ -297,21 +297,9 @@ class RedisProvider(MemoryProvider):
             until_index = find_message_index(messages, message_id)
             
             if until_index is None:
-                # Message not found, return empty conversation to indicate no match
+                # Message not found, return None as lightweight indicator
                 print(f"[MEMORY:Redis] Message {message_id} not found in conversation {conversation_id}")
-                return Success(ConversationMemory(
-                    conversation_id=conversation.conversation_id,
-                    user_id=conversation.user_id,
-                    messages=[],
-                    metadata={
-                        **conversation.metadata,
-                        "truncated_for_regeneration": True,
-                        "truncated_until_message": str(message_id),
-                        "message_not_found": True,
-                        "original_message_count": len(messages),
-                        "truncated_message_count": 0
-                    }
-                ))
+                return Success(None)
             
             # Return conversation up to (but not including) the specified message
             truncated_messages = messages[:until_index]

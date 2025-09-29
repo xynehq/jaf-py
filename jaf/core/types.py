@@ -107,9 +107,35 @@ def create_run_id(id_str: str) -> RunId:
     """Create a RunId from a string."""
     return RunId(id_str)
 
-def create_message_id(id_str: str) -> MessageId:
-    """Create a MessageId from a string."""
-    return MessageId(id_str)
+def create_message_id(id_str: Union[str, MessageId]) -> MessageId:
+    """
+    Create a MessageId from a string or return existing MessageId.
+    
+    Args:
+        id_str: Either a string to convert to MessageId or an existing MessageId
+        
+    Returns:
+        MessageId: A validated MessageId instance
+        
+    Raises:
+        ValueError: If the input is invalid or empty
+    """
+    # Handle None input
+    if id_str is None:
+        raise ValueError("Message ID cannot be None")
+    
+    # If already a MessageId, return as-is
+    if isinstance(id_str, MessageId):
+        return id_str
+    
+    # Convert string to MessageId with validation
+    if isinstance(id_str, str):
+        if not id_str.strip():
+            raise ValueError("Message ID cannot be empty or whitespace")
+        return MessageId(id_str.strip())
+    
+    # Handle any other type
+    raise ValueError(f"Message ID must be a string or MessageId, got {type(id_str)}")
 
 def generate_run_id() -> RunId:
     """Generate a new unique run ID."""

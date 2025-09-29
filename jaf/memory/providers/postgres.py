@@ -346,8 +346,9 @@ class PostgresProvider(MemoryProvider):
             until_index = find_message_index(messages, message_id)
             
             if until_index is None:
-                # Message not found, return full conversation
-                return Success(conversation)
+                # Message not found, return None as lightweight indicator
+                print(f"[MEMORY:Postgres] Message {message_id} not found in conversation {conversation_id}")
+                return Success(None)
             
             # Return conversation up to (but not including) the specified message
             truncated_messages = messages[:until_index]
