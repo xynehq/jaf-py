@@ -645,7 +645,15 @@ class ToolCallEndEventData:
     call_id: Optional[str] = None
 
     def __post_init__(self) -> None:
-        canonical = self.execution_status or self.status
+        # Handle backward compatibility with explicit conflict detection
+        if self.execution_status is not None and self.status is not None and self.execution_status != self.status:
+            raise ValueError(
+                f"Conflicting values for execution_status ('{self.execution_status}') and status ('{self.status}'). "
+                f"Please use only execution_status for new code."
+            )
+
+        # Prefer execution_status (new field) over status (deprecated field)
+        canonical = self.execution_status if self.execution_status is not None else self.status
         object.__setattr__(self, 'execution_status', canonical)
         object.__setattr__(self, 'status', canonical)
 @dataclass(frozen=True)
