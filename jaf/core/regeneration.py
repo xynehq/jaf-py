@@ -109,7 +109,7 @@ async def regenerate_conversation(
                 messages=original_messages,
                 current_agent_name=agent_name,
                 context=context,
-                turn_count=len([m for m in original_messages if m.role.value == 'assistant'])
+                turn_count=len([m for m in original_messages if (m.role.value if hasattr(m.role, 'value') else m.role) == 'assistant'])
             ),
             outcome=ErrorOutcome(error=ModelBehaviorError(
                 detail=f"Message {regeneration_request.message_id} not found in conversation"
@@ -126,32 +126,108 @@ async def regenerate_conversation(
                 messages=original_messages,
                 current_agent_name=agent_name,
                 context=context,
-                turn_count=len([m for m in original_messages if m.role.value == 'assistant'])
+                turn_count=len([m for m in original_messages if (m.role.value if hasattr(m.role, 'value') else m.role) == 'assistant'])
             ),
             outcome=ErrorOutcome(error=ModelBehaviorError(
                 detail=f"Failed to find index for message {regeneration_request.message_id}"
             ))
         )
 
-    # Truncate messages after (and including) the regeneration point
-    truncated_messages = original_messages[:regenerate_index]
+    def determine_regeneration_type(messages, regenerate_index, context):
+        """Determine if this is pure regeneration or edit scenario."""
+        if context and context.get("replace_user_message"):
+            return "edit"
+        
+        regenerate_message = messages[regenerate_index]
+        if regenerate_message.role in ['assistant', 'ASSISTANT']:
+            for i in range(regenerate_index - 1, -1, -1):
+                if messages[i].role in ['user', 'USER']:
+                    return "pure"
+        return "edit"
+
+    # Determine regeneration type
+    regen_type = determine_regeneration_type(original_messages, regenerate_index, regeneration_request.context or {})
+    print(f"[JAF:REGENERATION] Detected regeneration type: {regen_type}")
+
+    if regen_type == "pure":
+        # For pure regeneration, find the user message that started this conversation turn
+        user_message_index = None
+        for i in range(regenerate_index - 1, -1, -1):
+            if original_messages[i].role in ['user', 'USER']:
+                user_message_index = i
+                break
+        
+        if user_message_index is not None:
+            # Truncate AFTER the user message (keeps user message, removes tool calls/outputs)
+            truncated_messages = original_messages[:user_message_index + 1]
+            print(f"[JAF:REGENERATION] Pure regeneration: truncated to user message at index {user_message_index}")
+        else:
+            truncated_messages = original_messages[:regenerate_index]
+            print(f"[JAF:REGENERATION] Pure regeneration fallback: no user message found")
+    else:
+        # Edit regeneration: truncate at the specified point and add replacement query
+        truncated_messages = original_messages[:regenerate_index]
+        
+        if (regeneration_request.context and 
+            regeneration_request.context.get("replace_user_message")):
+            
+            from .types import ContentRole, Message
+            replacement_user_message = Message(
+                role=ContentRole.USER,
+                content=regeneration_request.context.get("replace_user_message")
+            )
+            truncated_messages.append(replacement_user_message)
+            print(f"[JAF:REGENERATION] Edit regeneration: replaced user query with: {regeneration_request.context.get('replace_user_message')}")
     
-    # CRITICAL: Update the conversation in memory with truncated messages BEFORE running the engine
-    # This ensures the engine starts with the correct message history
+    print(f"[JAF:REGENERATION] Truncated conversation to {len(truncated_messages)} messages")
+    
+
+    print(f"[JAF:REGENERATION] About to store {len(truncated_messages)} truncated messages to memory")
+    
+    def serialize_metadata(metadata):
+        import json
+        import datetime
+        
+        def json_serializer(obj):
+            if isinstance(obj, datetime.datetime):
+                return obj.isoformat()
+            elif isinstance(obj, datetime.date):
+                return obj.isoformat()
+            elif hasattr(obj, '__dict__'):
+                return obj.__dict__
+            return str(obj)
+        
+        try:
+            json_str = json.dumps(metadata, default=json_serializer)
+            return json.loads(json_str)
+        except Exception as e:
+            print(f"[JAF:REGENERATION] Warning: Metadata serialization failed: {e}")
+            return {
+                "regeneration_truncated": True,
+                "regeneration_point": str(regeneration_request.message_id),
+                "original_message_count": len(original_messages),
+                "truncated_at_index": regenerate_index,
+                "turn_count": len([m for m in truncated_messages if (m.role.value if hasattr(m.role, 'value') else m.role) == 'assistant'])
+            }
+    
+    metadata = serialize_metadata({
+        **conversation_memory.metadata,
+        "regeneration_truncated": True,
+        "regeneration_point": str(regeneration_request.message_id),
+        "original_message_count": len(original_messages),
+        "truncated_at_index": regenerate_index,
+        "turn_count": len([m for m in truncated_messages if (m.role.value if hasattr(m.role, 'value') else m.role) == 'assistant'])
+    })
+    
     store_result = await config.memory.provider.store_messages(
         regeneration_request.conversation_id,
         truncated_messages,
-        {
-            **conversation_memory.metadata,
-            "regeneration_truncated": True,
-            "regeneration_point": regeneration_request.message_id,
-            "original_message_count": len(original_messages),
-            "truncated_at_index": regenerate_index,
-            "turn_count": len([m for m in truncated_messages if m.role.value == 'assistant'])
-        }
+        metadata
     )
     
+    print(f"[JAF:REGENERATION] Store result type: {type(store_result)}")
     if isinstance(store_result, Failure):
+        print(f"[JAF:REGENERATION] Store failed with error: {store_result.error}")
         return RunResult(
             final_state=RunState(
                 run_id=generate_run_id(),
@@ -159,12 +235,14 @@ async def regenerate_conversation(
                 messages=original_messages,
                 current_agent_name=agent_name,
                 context=context,
-                turn_count=len([m for m in original_messages if m.role.value == 'assistant'])
+                turn_count=len([m for m in original_messages if (m.role.value if hasattr(m.role, 'value') else m.role) == 'assistant'])
             ),
             outcome=ErrorOutcome(error=ModelBehaviorError(
                 detail=f"Failed to store truncated conversation: {store_result.error}"
             ))
         )
+    else:
+        print(f"[JAF:REGENERATION] Store successful, proceeding to engine execution")
 
     # Create regeneration context for later use
     regeneration_context = RegenerationContext(
@@ -176,22 +254,10 @@ async def regenerate_conversation(
     )
 
     # Calculate turn count from truncated messages
-    truncated_turn_count = len([m for m in truncated_messages if m.role.value == 'assistant'])
+    truncated_turn_count = len([m for m in truncated_messages if (m.role.value if hasattr(m.role, 'value') else m.role) == 'assistant'])
     
-    # Merge context if provided in regeneration request
     final_context = context
-    if regeneration_request.context:
-        if hasattr(context, '__dict__'):
-            # For dataclass contexts, merge the additional context
-            context_dict = {**context.__dict__, **regeneration_request.context}
-            final_context = type(context)(**{k: v for k, v in context_dict.items() if k in context.__dict__})
-            # Add any extra fields as attributes
-            for key, value in regeneration_request.context.items():
-                if not hasattr(final_context, key):
-                    setattr(final_context, key, value)
-        else:
-            # For dict contexts, merge normally
-            final_context = {**context, **regeneration_request.context}
+    print(f"[JAF:REGENERATION] Using provided context: {type(context).__name__}")
 
     # Create initial state for regeneration with truncated conversation
     initial_state = RunState(
@@ -216,9 +282,16 @@ async def regenerate_conversation(
     )
 
     # Execute the regeneration through the normal engine flow
+    print(f"[JAF:REGENERATION] About to execute engine with {len(truncated_messages)} messages")
+    print(f"[JAF:REGENERATION] Final message: {truncated_messages[-1] if truncated_messages else 'None'}")
+    
     result = await engine_run(initial_state, regeneration_config)
 
     print(f"[JAF:REGENERATION] Regeneration completed with status: {result.outcome.status}")
+    if hasattr(result, 'final_state') and hasattr(result.final_state, 'messages'):
+        print(f"[JAF:REGENERATION] Final state has {len(result.final_state.messages)} messages")
+        assistant_msgs = [m for m in result.final_state.messages if m.role in ['assistant', 'ASSISTANT']]
+        print(f"[JAF:REGENERATION] Found {len(assistant_msgs)} assistant messages in result")
     
     # After successful regeneration, mark the regeneration point and preserve metadata
     if result.outcome.status == 'completed' and config.memory and config.memory.provider:
