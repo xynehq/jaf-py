@@ -510,18 +510,22 @@ class LangfuseTraceCollector:
                     }
                 }
                 
+                # Extract agent_name for tagging
+                agent_name = event.data.get("agent_name", "analytics_agent_jaf")
+
                 trace = self.langfuse.trace(
                     name=f"jaf-run-{trace_id}",
                     user_id=user_id or event.data.get("user_id"),
                     session_id=event.data.get("session_id"),
                     input=trace_input,
+                    tags=[agent_name],  # Add agent_name as a tag for dashboard filtering
                     metadata={
                         "framework": "jaf",
                         "event_type": "run_start",
                         "trace_id": str(trace_id),
                         "user_query": user_query,
                         "user_id": user_id or event.data.get("user_id"),
-                        "agent_name": event.data.get("agent_name", "analytics_agent_jaf"),
+                        "agent_name": agent_name,
                         "conversation_history": conversation_history,
                         "tool_calls": [],
                         "tool_results": [],
@@ -541,13 +545,16 @@ class LangfuseTraceCollector:
                     
                     # Update the trace metadata with final tool calls and results
                     conversation_history = getattr(self.trace_spans[trace_id], '_conversation_history', [])
+                    # Extract agent_name for consistency
+                    agent_name = event.data.get("agent_name", "analytics_agent_jaf")
+
                     final_metadata = {
                         "framework": "jaf",
                         "event_type": "run_end",
                         "trace_id": str(trace_id),
                         "user_query": getattr(self.trace_spans[trace_id], '_user_query', None),
                         "user_id": getattr(self.trace_spans[trace_id], '_user_id', None),
-                        "agent_name": event.data.get("agent_name", "analytics_agent_jaf"),
+                        "agent_name": agent_name,
                         "conversation_history": conversation_history,
                         "tool_calls": self.trace_tool_calls.get(trace_id, []),
                         "tool_results": self.trace_tool_results.get(trace_id, [])
