@@ -98,7 +98,7 @@ class HandoffTool:
 
         Parameters:
             args (HandoffInput): The handoff input arguments.
-            context (Any): Required by the Tool interface but intentionally unused in this implementation.
+            context (Any): Context containing current agent and run state information.
         """
         # Extract arguments
         if hasattr(args, 'agent_name'):
@@ -110,14 +110,26 @@ class HandoffTool:
         else:
             return json.dumps({
                 "error": "invalid_handoff_args",
-                "message": "Invalid handoff arguments provided"
+                "message": "Invalid handoff arguments provided",
+                "usage": "handoff(agent_name='target_agent', message='optional context')"
             })
 
         if not agent_name:
             return json.dumps({
                 "error": "missing_agent_name",
-                "message": "Agent name is required for handoff"
+                "message": "Agent name is required for handoff",
+                "usage": "handoff(agent_name='target_agent', message='optional context')"
             })
+
+        # Add agent validation if we have access to current agent info
+        if context and hasattr(context, 'current_agent'):
+            current_agent = context.current_agent
+            if current_agent.handoffs and agent_name not in current_agent.handoffs:
+                return json.dumps({
+                    "error": "handoff_not_allowed",
+                    "message": f"Agent {current_agent.name} cannot handoff to {agent_name}",
+                    "allowed_handoffs": current_agent.handoffs
+                })
 
         # Return the special handoff JSON that the engine recognizes
         return _create_handoff_json(agent_name, message)
