@@ -154,16 +154,53 @@ class FastMCPTool:
         
         return args_dict
 
+    def _extract_clean_data(self, result) -> str:
+        """
+        Extract clean JSON data from MCP response, removing nested TextContent wrappers.
+
+        This handles the complex nested structure where the actual data is wrapped in
+        TextContent objects and multiple layers of JSON encoding.
+        """
+        import json
+
+        # If we have structured content, prefer that
+        if result.structuredContent:
+            return str(result.structuredContent)
+
+        # Otherwise, extract from content array
+        if result.content and len(result.content) > 0:
+            content_item = result.content[0]
+
+            # Handle TextContent objects
+            if hasattr(content_item, 'text'):
+                text_content = content_item.text
+
+                # Try to parse if it looks like JSON
+                try:
+                    parsed = json.loads(text_content)
+                    # Return clean JSON string
+                    return json.dumps(parsed, indent=2)
+                except (json.JSONDecodeError, TypeError):
+                    # Return as-is if not valid JSON
+                    return text_content
+
+            # Handle direct string content
+            elif isinstance(content_item, str):
+                return content_item
+
+        # Fallback to string representation
+        return str(result.content)
+
     async def execute(self, args: MCPToolArgs, context: Ctx) -> ToolResult:
         client = Client(self.transport, client_info=self.client_info)
         try:
             async with client:
                 # Only include fields that were explicitly set, not defaults
                 args_dict = args.model_dump(exclude_none=True, exclude_unset=True)
-                
+
                 # Apply tool-specific argument transformations
                 args_dict = self._transform_arguments_for_tool(args_dict)
-                
+
                 result = await client.call_tool_mcp(self.tool_name, arguments=args_dict)
 
                 if result.isError:
@@ -179,16 +216,19 @@ class FastMCPTool:
                             details={"mcp_error": result.structuredContent}
                         )
                     )
-                
-                data = result.structuredContent if result.structuredContent else str(result.content)
-                
-                # Create proper ToolMetadata object
+
+                # Extract clean data using the helper function
+                clean_data = self._extract_clean_data(result)
+
+                # Create proper ToolMetadata object with minimal response info
                 from ..core.tool_results import ToolMetadata
-                tool_metadata = ToolMetadata(extra={"mcp_response": str(result)})
-                
+                tool_metadata = ToolMetadata(extra={
+                    "mcp_response": f"meta={result.meta} content={len(result.content) if result.content else 0} items structuredContent={'present' if result.structuredContent else 'None'} isError={result.isError}"
+                })
+
                 return ToolResult(
                     status=ToolResultStatus.SUCCESS,
-                    data=str(data),
+                    data=clean_data,
                     metadata=tool_metadata
                 )
 
