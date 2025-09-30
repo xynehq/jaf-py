@@ -73,8 +73,13 @@ class HandoffTool:
         self.metadata = {"type": "handoff", "system": True}
 
     async def execute(self, args: HandoffInput, context: Any) -> str:
-        """Execute the handoff."""
-        # Note: context parameter required by Tool interface but not used for handoffs
+        """
+        Execute the handoff.
+
+        Parameters:
+            args (HandoffInput): The handoff input arguments.
+            context (Any): Required by the Tool interface but intentionally unused in this implementation.
+        """
         # Extract arguments
         if hasattr(args, 'agent_name'):
             agent_name = args.agent_name
