@@ -248,7 +248,9 @@ if __name__ == "__main__":
     print("   - Handoffs to French/German specialists")
     print("   - Tool usage by specialist agents")
     print("   - Complete conversation flows")
-    print(f"\nUsing model: {os.getenv('LITELLM_MODEL')}")
-    print(f"Base URL: {os.getenv('LITELLM_BASE_URL')}")
+    model = os.getenv('LITELLM_MODEL')
+    base_url = os.getenv('LITELLM_BASE_URL')
+    print(f"\nUsing model: {model if model is not None else 'Not set'}")
+    print(f"Base URL: {base_url if base_url is not None else 'Not set'}")
 
     asyncio.run(main())

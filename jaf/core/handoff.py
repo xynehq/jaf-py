@@ -20,15 +20,35 @@ except ImportError:
 Ctx = TypeVar('Ctx')
 
 
-class HandoffInput(BaseModel if BaseModel else object):
-    """Input parameters for handoff tool."""
-    agent_name: str = Field(description="Name of the agent to hand off to")
-    message: str = Field(description="Message or context to pass to the target agent")
+def _create_handoff_json(agent_name: str, message: str = "") -> str:
+    """Create the JSON structure for handoff requests."""
+    return json.dumps({
+        "handoff_to": agent_name,
+        "message": message or f"Handing off to {agent_name}",
+        "type": "handoff"
+    })
 
-    if not BaseModel:
-        def __init__(self, agent_name: str, message: str):
+
+if BaseModel is not None and Field is not None:
+    class _HandoffInput(BaseModel):
+        """Input parameters for handoff tool (Pydantic model)."""
+        agent_name: str = Field(description="Name of the agent to hand off to")
+        message: str = Field(description="Message or context to pass to the target agent")
+else:
+    class _HandoffInput(object):
+        """Plain-Python fallback for handoff input when Pydantic is unavailable.
+
+        This class intentionally does not call Field() so it is safe to import
+        when Pydantic is not installed.
+        """
+        agent_name: str
+        message: str
+
+        def __init__(self, agent_name: str, message: str = ""):
             self.agent_name = agent_name
             self.message = message
+
+HandoffInput = _HandoffInput
 
 
 @dataclass
@@ -100,11 +120,7 @@ class HandoffTool:
             })
 
         # Return the special handoff JSON that the engine recognizes
-        return json.dumps({
-            "handoff_to": agent_name,
-            "message": message or f"Handing off to {agent_name}",
-            "type": "handoff"
-        })
+        return _create_handoff_json(agent_name, message)
 
 
 def create_handoff_tool() -> Tool:
@@ -124,11 +140,7 @@ def handoff(agent_name: str, message: str = "") -> str:
     Returns:
         JSON string that triggers a handoff
     """
-    return json.dumps({
-        "handoff_to": agent_name,
-        "message": message or f"Handing off to {agent_name}",
-        "type": "handoff"
-    })
+    return _create_handoff_json(agent_name, message)
 
 
 def is_handoff_request(result: str) -> bool:
