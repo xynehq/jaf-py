@@ -11,7 +11,7 @@ from collections import OrderedDict
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
-from ...core.types import Message
+from ...core.types import Message, RunId, ApprovalValue
 from ..types import (
     ConversationMemory,
     Failure,
@@ -37,6 +37,7 @@ class InMemoryProvider(MemoryProvider):
     def __init__(self, config: InMemoryConfig):
         self.config = config
         self._conversations: OrderedDict[str, ConversationMemory] = OrderedDict()
+        self._approvals: Dict[str, Dict[str, ApprovalValue]] = {}  # run_id -> {tool_call_id: approval}
         self._lock = asyncio.Lock()
 
         print(f"[MEMORY:InMemory] Initialized with max {config.max_conversations} conversations, {config.max_messages_per_conversation} messages each")
@@ -307,11 +308,144 @@ class InMemoryProvider(MemoryProvider):
                 cause=e
             ))
 
+    # Approval storage methods
+    def _get_run_key(self, run_id: RunId) -> str:
+        """Convert run_id to string key."""
+        return str(run_id)
+
+    async def store_approval(
+        self,
+        run_id: RunId,
+        tool_call_id: str,
+        approval: ApprovalValue,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Result[None, MemoryStorageError]:
+        """Store an approval decision for a tool call."""
+        try:
+            async with self._lock:
+                run_key = self._get_run_key(run_id)
+
+                if run_key not in self._approvals:
+                    self._approvals[run_key] = {}
+
+                self._approvals[run_key][tool_call_id] = approval
+
+            return Success(None)
+        except Exception as e:
+            return Failure(MemoryStorageError(f"Failed to store approval: {e}"))
+
+    async def get_approval(
+        self,
+        run_id: RunId,
+        tool_call_id: str
+    ) -> Result[Optional[ApprovalValue], MemoryStorageError]:
+        """Retrieve approval for a specific tool call. Returns None if not found."""
+        try:
+            async with self._lock:
+                run_key = self._get_run_key(run_id)
+
+                if run_key not in self._approvals:
+                    return Success(None)
+
+                approval = self._approvals[run_key].get(tool_call_id)
+                return Success(approval)
+        except Exception as e:
+            return Failure(MemoryStorageError(f"Failed to get approval: {e}"))
+
+    async def get_run_approvals(
+        self,
+        run_id: RunId
+    ) -> Result[Dict[str, ApprovalValue], MemoryStorageError]:
+        """Get all approvals for a run as a Dict[str, ApprovalValue]."""
+        try:
+            async with self._lock:
+                run_key = self._get_run_key(run_id)
+                run_approvals = self._approvals.get(run_key, {}).copy()
+                return Success(run_approvals)
+        except Exception as e:
+            return Failure(MemoryStorageError(f"Failed to get run approvals: {e}"))
+
+    async def update_approval(
+        self,
+        run_id: RunId,
+        tool_call_id: str,
+        updates: Dict[str, Any]
+    ) -> Result[None, MemoryStorageError]:
+        """Update approval with new data."""
+        try:
+            async with self._lock:
+                run_key = self._get_run_key(run_id)
+
+                if run_key not in self._approvals or tool_call_id not in self._approvals[run_key]:
+                    return Failure(MemoryStorageError(f"Approval not found for tool_call_id: {tool_call_id}"))
+
+                # Update approval fields
+                current_approval = self._approvals[run_key][tool_call_id]
+
+                # Create updated approval with new values
+                updated_approval = ApprovalValue(
+                    status=updates.get('status', current_approval.status),
+                    approved=updates.get('approved', current_approval.approved),
+                    additional_context={
+                        **current_approval.additional_context,
+                        **updates.get('additional_context', {})
+                    }
+                )
+
+                self._approvals[run_key][tool_call_id] = updated_approval
+
+            return Success(None)
+        except Exception as e:
+            return Failure(MemoryStorageError(f"Failed to update approval: {e}"))
+
+    async def delete_approval(
+        self,
+        run_id: RunId,
+        tool_call_id: str
+    ) -> Result[bool, MemoryStorageError]:
+        """Delete approval for a tool call. Returns True if it existed."""
+        try:
+            async with self._lock:
+                run_key = self._get_run_key(run_id)
+
+                if run_key not in self._approvals:
+                    return Success(False)
+
+                deleted = self._approvals[run_key].pop(tool_call_id, None) is not None
+
+                # Clean up empty run maps
+                if not self._approvals[run_key]:
+                    del self._approvals[run_key]
+
+            return Success(deleted)
+        except Exception as e:
+            return Failure(MemoryStorageError(f"Failed to delete approval: {e}"))
+
+    async def clear_run_approvals(
+        self,
+        run_id: RunId
+    ) -> Result[int, MemoryStorageError]:
+        """Clear all approvals for a run. Returns count of deleted approvals."""
+        try:
+            async with self._lock:
+                run_key = self._get_run_key(run_id)
+
+                if run_key not in self._approvals:
+                    return Success(0)
+
+                count = len(self._approvals[run_key])
+                del self._approvals[run_key]
+
+            return Success(count)
+        except Exception as e:
+            return Failure(MemoryStorageError(f"Failed to clear run approvals: {e}"))
+
     async def close(self) -> Result[None, MemoryConnectionError]:
         """Close/cleanup the provider."""
         async with self._lock:
             self._conversations.clear()
-            print("[MEMORY:InMemory] Closed provider, cleared all conversations")
+            self._approvals.clear()
+            print("[MEMORY:InMemory] Closed provider, cleared all conversations and approvals")
             return Success(None)
 
 def create_in_memory_provider(config: Optional[InMemoryConfig] = None) -> InMemoryProvider:

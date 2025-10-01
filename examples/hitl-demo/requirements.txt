@@ -1,9 +1,7 @@
 # Core JAF dependencies (should be installed with `pip install -e .` from project root)
 
 # Demo-specific dependencies
-fastapi>=0.104.0
 uvicorn[standard]>=0.35.0
-pydantic>=2.0.0
 openai>=1.0.0  # Required by JAF's LiteLLM provider
 dotenv>=0.9.9
 
@@ -13,6 +11,3 @@ redis>=5.0.0
 # Optional: For PostgreSQL memory provider
 psycopg2-binary>=2.9.0
 # OR asyncpg>=0.28.0
-
-# Optional: For enhanced features
-python-multipart>=0.0.6  # For form data parsing

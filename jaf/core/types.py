@@ -29,7 +29,6 @@ from enum import Enum
 
 if TYPE_CHECKING:
     from .tool_results import ToolResult
-    from ..memory.approval_storage import ApprovalStorage
     from ..memory.types import MemoryConfig
 
 
@@ -823,4 +822,3 @@ class RunConfig(Generic[Ctx]):
     conversation_id: Optional[str] = None
     default_fast_model: Optional[str] = None  # Default model for fast operations like guardrails
     default_tool_timeout: Optional[float] = 300.0  # Default timeout for tool execution in seconds
-    approval_storage: Optional['ApprovalStorage'] = None  # Storage for approval decisions

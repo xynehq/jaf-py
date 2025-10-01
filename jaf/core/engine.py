@@ -199,7 +199,7 @@ async def run(
             ))))
         
         # Load approvals from storage if configured
-        if config.approval_storage:
+        if config.memory and config.memory.provider:
             print(f'[JAF:ENGINE] Loading approvals for runId {state_with_memory.run_id}')
             from .state import load_approvals_into_state
             state_with_memory = await load_approvals_into_state(state_with_memory, config)
@@ -363,8 +363,8 @@ async def _store_conversation_history(state: RunState[Ctx], config: RunConfig[Ct
     if state.approvals:
         approval_metadata = {
             "approval_count": len(state.approvals),
-            "approved_tools": [tool_id for tool_id, approval in state.approvals.items() if approval.approved],
-            "rejected_tools": [tool_id for tool_id, approval in state.approvals.items() if not approval.approved],
+            "approved_tools": [tool_id for tool_id, approval in state.approvals.items() if getattr(approval, 'approved', approval.get('approved') if isinstance(approval, dict) else False)],
+            "rejected_tools": [tool_id for tool_id, approval in state.approvals.items() if not getattr(approval, 'approved', approval.get('approved') if isinstance(approval, dict) else False)],
             "has_approvals": True
         }
     
@@ -1084,23 +1084,28 @@ async def _execute_tool_calls(
             if not approval_status:
                 signature = f"{tool_call.function.name}:{tool_call.function.arguments}"
                 for _, approval in state.approvals.items():
-                    if approval.additional_context and approval.additional_context.get('signature') == signature:
+                    additional_context = getattr(approval, 'additional_context', approval.get('additional_context') if isinstance(approval, dict) else None)
+                    if additional_context and additional_context.get('signature') == signature:
                         approval_status = approval
                         break
             
             derived_status = None
             if approval_status:
                 # Use explicit status if available
-                if approval_status.status:
-                    derived_status = approval_status.status
+                status = getattr(approval_status, 'status', approval_status.get('status') if isinstance(approval_status, dict) else None)
+                if status:
+                    derived_status = status
                 # Fall back to approved boolean if status not set
-                elif approval_status.approved is True:
-                    derived_status = 'approved'
-                elif approval_status.approved is False:
-                    if approval_status.additional_context and approval_status.additional_context.get('status') == 'pending':
-                        derived_status = 'pending'
-                    else:
-                        derived_status = 'rejected'
+                else:
+                    approved = getattr(approval_status, 'approved', approval_status.get('approved') if isinstance(approval_status, dict) else None)
+                    if approved is True:
+                        derived_status = 'approved'
+                    elif approved is False:
+                        additional_context = getattr(approval_status, 'additional_context', approval_status.get('additional_context') if isinstance(approval_status, dict) else None)
+                        if additional_context and additional_context.get('status') == 'pending':
+                            derived_status = 'pending'
+                        else:
+                            derived_status = 'rejected'
 
             is_pending = derived_status == 'pending'
 
@@ -1130,13 +1135,19 @@ async def _execute_tool_calls(
 
             # If approval was explicitly rejected, return rejection message
             if derived_status == 'rejected':
-                rejection_reason = approval_status.additional_context.get('rejection_reason', 'User declined the action') if approval_status.additional_context else 'User declined the action'
+                approval_context = getattr(approval_status, 'additional_context', approval_status.get('additional_context') if isinstance(approval_status, dict) else None) if approval_status else None
+                rejection_reason = approval_context.get('rejection_reason', 'User declined the action') if approval_context else 'User declined the action'
+                context_message = approval_context.get('message', '') if approval_context else ''
+
+                base_message = f'Action was not approved. {rejection_reason}. Please ask if you can help with something else or suggest an alternative approach.'
+                full_message = f'{base_message} IMPORTANT: {context_message}' if context_message else base_message
+
                 rejection_result = json.dumps({
                     'hitl_status': 'rejected',  # HITL workflow status: user rejected the action
-                    'message': f'Action was not approved. {rejection_reason}. Please ask if you can help with something else or suggest an alternative approach.',
+                    'message': full_message,
                     'tool_name': tool_call.function.name,
                     'rejection_reason': rejection_reason,
-                    'additional_context': approval_status.additional_context if approval_status else None
+                    'additional_context': approval_context
                 })
                 
                 return {
@@ -1157,7 +1168,7 @@ async def _execute_tool_calls(
                 timeout = config.default_tool_timeout if config.default_tool_timeout is not None else 300.0
 
             # Merge additional context if provided through approval
-            additional_context = approval_status.additional_context if approval_status else None
+            additional_context = getattr(approval_status, 'additional_context', approval_status.get('additional_context') if isinstance(approval_status, dict) else None) if approval_status else None
             context_with_additional = state.context
             if additional_context:
                 # Create a copy of context with additional fields from approval
@@ -1221,13 +1232,15 @@ async def _execute_tool_calls(
                 print(f'[JAF:ENGINE] Converted to string:', result_string)
 
             # Wrap tool result with status information for approval context
-            if approval_status and approval_status.additional_context:
+            if approval_status and getattr(approval_status, 'additional_context', approval_status.get('additional_context') if isinstance(approval_status, dict) else None):
+                approval_context = getattr(approval_status, 'additional_context', approval_status.get('additional_context') if isinstance(approval_status, dict) else None)
+                context_message = approval_context.get('message', '') if approval_context else ''
                 final_content = json.dumps({
                     'hitl_status': 'approved_and_executed',  # HITL workflow status: approved by user and executed
                     'result': result_string,
                     'tool_name': tool_call.function.name,
-                    'approval_context': approval_status.additional_context,
-                    'message': 'Tool was approved and executed successfully with additional context.'
+                    'approval_context': approval_context,
+                    'message': f'Tool was approved and executed successfully. IMPORTANT: {context_message}' if context_message else 'Tool was approved and executed successfully with additional context.'
                 })
             elif needs_approval:
                 final_content = json.dumps({

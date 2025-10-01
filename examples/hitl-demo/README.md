@@ -27,7 +27,7 @@ cd /path/to/jaf-py
 2. **Python Dependencies**: Install required dependencies:
 ```bash
 pip install -e .
-pip install fastapi uvicorn  # For API demo
+pip install uvicorn  # For JAF server demo
 ```
 
 3. **Model Provider Configuration**: 
@@ -59,84 +59,123 @@ This runs the interactive file system demo where you can:
 - See approval context flow to tool execution
 - Experience persistent approval storage across sessions
 
-#### 🌐 API Demo with HTTP Endpoints
+#### 🌐 JAF Server Demo with HTTP Endpoints
 ```bash
 python examples/hitl-demo/api_demo.py
 ```
 
-This runs both terminal interaction AND HTTP endpoints for approvals.
+This runs the JAF server with standard HTTP endpoints for chat and approval management.
 
-## 🌐 API Demo Usage
+## 🌐 JAF Server Demo Usage
 
-When running `api_demo.py`, you get both terminal interaction AND HTTP endpoints:
+When running `api_demo.py`, you get a full JAF server with standard endpoints:
 
-### API Endpoints
+### JAF Server Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/pending` | List all pending tool approvals |
-| `POST` | `/approve/{sessionId}/{toolCallId}` | Approve a specific tool call |
-| `POST` | `/reject/{sessionId}/{toolCallId}` | Reject a specific tool call |
-| `GET` | `/health` | Health check and pending count |
-| `GET` | `/approvals/stream?conversationId=...` | SSE stream for real-time updates |
+| `GET` | `/health` | Health check |
+| `GET` | `/agents` | List available agents |
+| `POST` | `/chat` | Send chat messages to agents |
+| `GET` | `/approvals/pending?conversationId=...` | List pending tool approvals |
+| `GET` | `/approvals/stream?conversationId=...` | SSE stream for real-time approval updates |
+| `POST` | `/approvals/approve` | Approve a tool call with optional additional context |
+| `POST` | `/approvals/reject` | Reject a tool call with optional reason and context |
 
 ### Example Workflow
 
-1. **Start the API demo:**
+1. **Start the JAF server:**
    ```bash
    python examples/hitl-demo/api_demo.py
    ```
 
-2. **Check pending approvals via curl:**
+2. **Check available agents:**
    ```bash
-   curl http://localhost:3001/pending
+   curl http://localhost:3001/agents
    ```
 
-3. **Approve via curl (simple):**
+3. **Send a chat message to an agent:**
    ```bash
-   curl -X POST http://localhost:3001/approve/SESSION_ID/TOOL_CALL_ID
-   ```
-
-4. **Approve with additional context:**
-   ```bash
-   curl -X POST http://localhost:3001/approve/SESSION_ID/TOOL_CALL_ID \
+   curl -X POST http://localhost:3001/chat \
         -H "Content-Type: application/json" \
         -d '{
-          "additionalContext": {
-            "message": "your-additional-context"
-          }
+          "agent_name": "FileSystemAgent",
+          "messages": [
+            {
+              "role": "user",
+              "content": "list files in the current directory"
+            }
+          ]
         }'
    ```
 
-5. **Approve with image context (base64 data):**
+4. **Send a message that requires approval:**
    ```bash
-   curl -X POST http://localhost:3001/approve/SESSION_ID/TOOL_CALL_ID \
+   curl -X POST http://localhost:3001/chat \
         -H "Content-Type: application/json" \
         -d '{
-          "additionalContext": {
-            "messages": [
-              {
-                "role": "user",
-                "content": "Analyze this image and make your decision based on it",
-                "attachments": [
-                  {
-                    "kind": "image",
-                    "mime_type": "image/png",
-                    "name": "test-pixel.png",
-                    "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
-                  }
-                ]
-              }
-            ]
-          }
+          "agent_name": "FileSystemAgent",
+          "messages": [{"role": "user", "content": "delete the config.json file"}],
+          "conversation_id": "YOUR_CONVERSATION_ID"
         }'
    ```
 
-6. **Approve with image context (URL):**
+5. **Check pending approvals:**
    ```bash
-   curl -X POST http://localhost:3001/approve/SESSION_ID/TOOL_CALL_ID \
+   curl "http://localhost:3001/approvals/pending?conversation_id=YOUR_CONVERSATION_ID"
+   ```
+
+### Additional Context Support
+
+The JAF server supports providing additional context when approving tool calls, including image attachments and custom metadata. Use the standard JAF approval endpoints with additional context payload:
+
+```bash
+# Approve with additional context
+curl -X POST "http://localhost:3001/approvals/approve" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "conversationId": "YOUR_CONVERSATION_ID",
+       "toolCallId": "TOOL_CALL_ID",
+       "additionalContext": {
+         "message": "Approved after review"
+       }
+     }'
+```
+
+```bash
+# Approve with image context
+curl -X POST "http://localhost:3001/approvals/approve" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "conversationId": "YOUR_CONVERSATION_ID",
+       "toolCallId": "TOOL_CALL_ID",
+       "additionalContext": {
+         "messages": [
+           {
+             "role": "user",
+             "content": "Please review this image before proceeding",
+             "attachments": [
+               {
+                 "kind": "image",
+                 "mime_type": "image/png",
+                 "name": "context.png",
+                 "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+               }
+             ]
+           }
+         ]
+       }
+     }'
+```
+   ```
+
+7. **Approve with image context (URL):**
+   ```bash
+   curl -X POST "http://localhost:3001/approvals/approve" \
         -H "Content-Type: application/json" \
         -d '{
+          "conversationId": "YOUR_CONVERSATION_ID",
+          "toolCallId": "TOOL_CALL_ID",
           "additionalContext": {
             "messages": [
               {
@@ -156,16 +195,23 @@ When running `api_demo.py`, you get both terminal interaction AND HTTP endpoints
         }'
    ```
 
-7. **Reject via curl (simple):**
+8. **Reject via curl (simple):**
    ```bash
-   curl -X POST http://localhost:3001/reject/SESSION_ID/TOOL_CALL_ID
-   ```
-
-8. **Reject with additional context:**
-   ```bash
-   curl -X POST http://localhost:3001/reject/SESSION_ID/TOOL_CALL_ID \
+   curl -X POST "http://localhost:3001/approvals/reject" \
         -H "Content-Type: application/json" \
         -d '{
+          "conversationId": "YOUR_CONVERSATION_ID",
+          "toolCallId": "TOOL_CALL_ID"
+        }'
+   ```
+
+9. **Reject with additional context:**
+   ```bash
+   curl -X POST "http://localhost:3001/approvals/reject" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "conversationId": "YOUR_CONVERSATION_ID",
+          "toolCallId": "TOOL_CALL_ID",
           "reason": "not authorized",
           "additionalContext": {
             "rejectedBy": "your-name"

@@ -9,6 +9,7 @@ import time
 import uuid
 import asyncio
 import json
+from datetime import datetime
 from dataclasses import asdict, replace
 from typing import TypeVar, Dict, Set
 
@@ -36,6 +37,8 @@ from .types import (
     AgentListData,
     AgentListResponse,
     ApprovalMessage,
+    ApprovalRequest,
+    ApprovalResponse,
     BaseOutcomeData,
     ChatRequest,
     ChatResponse,
@@ -52,6 +55,7 @@ from .types import (
     PendingApprovalData,
     PendingApprovalsData,
     PendingApprovalsResponse,
+    RejectRequest,
     ServerConfig,
     ToolCallInterruption,
 )
@@ -202,12 +206,27 @@ def _convert_core_message_to_http(core_msg: Message) -> HttpMessage:
             for att in core_msg.attachments
         ]
 
+    # Convert ToolCall dataclasses to dictionaries for HttpMessage
+    http_tool_calls = None
+    if core_msg.tool_calls:
+        http_tool_calls = [
+            {
+                "id": tc.id,
+                "type": tc.type,
+                "function": {
+                    "name": tc.function.name,
+                    "arguments": tc.function.arguments
+                }
+            }
+            for tc in core_msg.tool_calls
+        ]
+
     return HttpMessage(
         role=core_msg.role,
         content=content,
         attachments=attachments,
         tool_call_id=core_msg.tool_call_id,
-        tool_calls=core_msg.tool_calls
+        tool_calls=http_tool_calls
     )
 
 def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
@@ -346,20 +365,29 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
         
         approvals_list = validated_request.approvals or []
         
-        async def persist_approval(conv_id: str, appr: ApprovalMessage):
+        async def persist_approval(conv_id: str, appr):
             """Persist approval to memory provider with metadata (matching TypeScript)."""
             if not config.default_memory_provider:
                 return
-            
+
             provider = config.default_memory_provider
+
+            # Handle both ApprovalMessage objects and dict representations
+            session_id = getattr(appr, 'session_id', None) or appr.get('session_id')
+            tool_call_id = getattr(appr, 'tool_call_id', None) or appr.get('tool_call_id')
+            approved = getattr(appr, 'approved', None)
+            if approved is None:
+                approved = appr.get('approved')
+            additional_context = getattr(appr, 'additional_context', None) or appr.get('additional_context')
+
             # Keyed by previous run/session id + toolCallId for uniqueness (matching TypeScript)
-            approval_key = f"{appr.session_id}:{appr.tool_call_id}"
+            approval_key = f"{session_id}:{tool_call_id}"
             base_entry = {
-                'approved': appr.approved,
-                'status': 'approved' if appr.approved else 'rejected',
-                'additionalContext': appr.additional_context,
-                'sessionId': appr.session_id,
-                'toolCallId': appr.tool_call_id,
+                'approved': approved,
+                'status': 'approved' if approved else 'rejected',
+                'additionalContext': additional_context,
+                'sessionId': session_id,
+                'toolCallId': tool_call_id,
             }
             
             try:
@@ -371,7 +399,7 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
                         for i in range(len(msgs) - 1, -1, -1):
                             m = msgs[i]
                             if m.role == 'assistant' and hasattr(m, 'tool_calls') and m.tool_calls:
-                                match = next((tc for tc in m.tool_calls if tc.id == appr.tool_call_id), None)
+                                match = next((tc for tc in m.tool_calls if tc.id == tool_call_id), None)
                                 if match:
                                     base_entry['toolName'] = match.function.name
                                     base_entry['signature'] = compute_tool_call_signature(match)
@@ -426,22 +454,43 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
             try:
                 broadcast_approval_decision({
                     'conversationId': conv_id,
-                    'sessionId': appr.session_id,
-                    'toolCallId': appr.tool_call_id,
-                    'status': 'approved' if appr.approved else 'rejected',
-                    'additionalContext': appr.additional_context
+                    'sessionId': session_id,
+                    'toolCallId': tool_call_id,
+                    'status': 'approved' if approved else 'rejected',
+                    'additionalContext': additional_context
                 })
             except Exception:
                 pass  # ignore
         
         if len(approvals_list) > 0:
             for approval in approvals_list:
-                if approval.session_id:  # Matching TypeScript condition
-                    initial_approvals[approval.tool_call_id] = {
-                        'status': 'approved' if approval.approved else 'rejected',
-                        'approved': approval.approved,
-                        'additionalContext': approval.additional_context
-                    }
+                # Handle both ApprovalMessage objects and dict representations
+                session_id = getattr(approval, 'session_id', None) or (approval.get('session_id') if hasattr(approval, 'get') else None)
+                tool_call_id = getattr(approval, 'tool_call_id', None) or (approval.get('tool_call_id') if hasattr(approval, 'get') else None)
+                approved = getattr(approval, 'approved', None)
+                if approved is None:
+                    approved = approval.get('approved') if hasattr(approval, 'get') else None
+                additional_context = getattr(approval, 'additional_context', None) or (approval.get('additional_context') if hasattr(approval, 'get') else None)
+
+                if session_id:  # Matching TypeScript condition
+                    approval_value = ApprovalValue(
+                        status='approved' if approved else 'rejected',
+                        approved=approved,
+                        additional_context=additional_context or {}
+                    )
+                    initial_approvals[tool_call_id] = approval_value
+
+                    # Store approval in memory provider for persistence
+                    if config.default_memory_provider:
+                        try:
+                            await config.default_memory_provider.store_approval(
+                                session_id,  # run_id
+                                tool_call_id,
+                                approval_value
+                            )
+                            print(f"[JAF:SERVER] Stored approval in memory provider: {tool_call_id}")
+                        except Exception as e:
+                            print(f"[JAF:SERVER] Failed to store approval in memory provider: {e}")
                 await persist_approval(conversation_id, approval)
         
         # Seed approvals from persisted conversation metadata
@@ -493,7 +542,7 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
                                     initial_approvals[target_id] = ApprovalValue(
                                         status=status,
                                         approved=approval_entry.get('approved', False),
-                                        additional_context=approval_entry.get('additional_context')
+                                        additional_context=approval_entry.get('additionalContext')
                                     )
                                         
             except Exception as e:
@@ -740,33 +789,49 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
                     data=PendingApprovalsData(pending=[])
                 )
             
-            # Check which tool calls have already been executed
+            # Check which tool calls have already been executed (not just responded to)
             tool_ids = {tc.id for tc in assistant_msg.tool_calls}
             executed = set()
+            pending_approval = set()
+
             for j in range(assistant_index + 1, len(messages)):
                 msg = messages[j]
                 if hasattr(msg, 'role') and msg.role == 'tool' and hasattr(msg, 'tool_call_id'):
                     if msg.tool_call_id in tool_ids:
-                        executed.add(msg.tool_call_id)
+                        # Check if tool response indicates pending approval
+                        try:
+                            import json
+                            content = json.loads(msg.content) if isinstance(msg.content, str) else msg.content
+                            if isinstance(content, dict) and content.get('hitl_status') == 'pending_approval':
+                                pending_approval.add(msg.tool_call_id)
+                            else:
+                                executed.add(msg.tool_call_id)
+                        except (json.JSONDecodeError, TypeError):
+                            # If we can't parse the content, assume it's executed
+                            executed.add(msg.tool_call_id)
             
             # Build pending approvals list
             pending_approvals = []
             for tc in assistant_msg.tool_calls:
                 if tc.id in executed:
                     continue  # Already executed
-                
-                # Check approval status
-                approval_key = f"{conversation.conversation_id}:{tc.id}"
-                approval_entry = approvals_meta.get(approval_key)
-                
-                status = 'pending'
-                if approval_entry:
-                    status = approval_entry.get('status', 'pending')
-                    if approval_entry.get('approved') is True:
-                        status = 'approved'
-                    elif approval_entry.get('approved') is False:
-                        status = 'rejected'
-                
+
+                # If tool is waiting for approval, include it regardless of metadata
+                if tc.id in pending_approval:
+                    status = 'pending'
+                else:
+                    # Check approval status from metadata
+                    approval_key = f"{conversation.conversation_id}:{tc.id}"
+                    approval_entry = approvals_meta.get(approval_key)
+
+                    status = 'pending'
+                    if approval_entry:
+                        status = approval_entry.get('status', 'pending')
+                        if approval_entry.get('approved') is True:
+                            status = 'approved'
+                        elif approval_entry.get('approved') is False:
+                            status = 'rejected'
+
                 if status == 'pending':
                     pending_approvals.append(PendingApprovalData(
                         conversation_id=conversation_id,
@@ -853,5 +918,151 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
                 "Access-Control-Allow-Headers": "*"
             }
         )
+
+    @app.post("/approvals/approve", response_model=ApprovalResponse)
+    async def approve_tool_call(request: ApprovalRequest):
+        """Approve a tool call with optional additional context."""
+        try:
+            # Use the existing chat endpoint with approval data
+            if not config.default_memory_provider:
+                return ApprovalResponse(
+                    success=False,
+                    error="Memory provider not configured"
+                )
+
+            conv_result = await config.default_memory_provider.get_conversation(request.conversationId)
+            if not (hasattr(conv_result, 'data') and conv_result.data):
+                return ApprovalResponse(
+                    success=False,
+                    error="Conversation not found"
+                )
+
+            conversation = conv_result.data
+            agent_name = conversation.metadata.get('agent_name') if conversation.metadata else None
+
+            if not agent_name:
+                return ApprovalResponse(
+                    success=False,
+                    error="Could not determine agent name from conversation"
+                )
+
+            # Continue conversation with approval via existing chat endpoint
+            from .types import ApprovalMessage
+
+            approval_message = ApprovalMessage(
+                type="approval",
+                session_id=conversation.metadata.get('run_id') if conversation.metadata else request.conversationId,
+                tool_call_id=request.toolCallId,
+                approved=True,
+                additional_context=request.additionalContext or {}
+            )
+
+            chat_request = ChatRequest(
+                agent_name=agent_name,
+                conversation_id=request.conversationId,
+                messages=[],  # Empty messages - just continue the conversation
+                approvals=[approval_message]
+            )
+
+            chat_response = await chat_completion(chat_request)
+
+            if chat_response.success:
+                return ApprovalResponse(
+                    success=True,
+                    data={
+                        "message": "Tool call approved and executed",
+                        "toolCallId": request.toolCallId,
+                        "conversationId": request.conversationId,
+                        "chat_response": chat_response.data
+                    }
+                )
+            else:
+                return ApprovalResponse(
+                    success=False,
+                    error=chat_response.error
+                )
+
+        except Exception as e:
+            import traceback
+            print(f"[JAF:APPROVAL] Error in approve_tool_call: {traceback.format_exc()}")
+            return ApprovalResponse(
+                success=False,
+                error=f"Failed to approve tool call: {str(e)}"
+            )
+
+    @app.post("/approvals/reject", response_model=ApprovalResponse)
+    async def reject_tool_call(request: RejectRequest):
+        """Reject a tool call with optional reason."""
+        try:
+            # Use the existing chat endpoint with rejection data
+            if not config.default_memory_provider:
+                return ApprovalResponse(
+                    success=False,
+                    error="Memory provider not configured"
+                )
+
+            conv_result = await config.default_memory_provider.get_conversation(request.conversationId)
+            if not (hasattr(conv_result, 'data') and conv_result.data):
+                return ApprovalResponse(
+                    success=False,
+                    error="Conversation not found"
+                )
+
+            conversation = conv_result.data
+            agent_name = conversation.metadata.get('agent_name') if conversation.metadata else None
+
+            if not agent_name:
+                return ApprovalResponse(
+                    success=False,
+                    error="Could not determine agent name from conversation"
+                )
+
+            # Continue conversation with rejection via existing chat endpoint
+            from .types import ApprovalMessage
+
+            approval_message = ApprovalMessage(
+                type="approval",
+                session_id=conversation.metadata.get('run_id') if conversation.metadata else request.conversationId,
+                tool_call_id=request.toolCallId,
+                approved=False,
+                additional_context={
+                    **(request.additionalContext or {}),
+                    "rejection_reason": request.reason or "User declined the action"
+                }
+            )
+
+            chat_request = ChatRequest(
+                agent_name=agent_name,
+                conversation_id=request.conversationId,
+                messages=[],  # Empty messages - just continue the conversation
+                approvals=[approval_message]
+            )
+
+            chat_response = await chat_completion(chat_request)
+
+            if chat_response.success:
+                return ApprovalResponse(
+                    success=True,
+                    data={
+                        "message": "Tool call rejected",
+                        "toolCallId": request.toolCallId,
+                        "conversationId": request.conversationId,
+                        "reason": request.reason,
+                        "chat_response": chat_response.data
+                    }
+                )
+            else:
+                return ApprovalResponse(
+                    success=False,
+                    error=chat_response.error
+                )
+
+        except Exception as e:
+            import traceback
+            print(f"[JAF:APPROVAL] Error in reject_tool_call: {traceback.format_exc()}")
+            return ApprovalResponse(
+                success=False,
+                error=f"Failed to reject tool call: {str(e)}"
+            )
 
     return app
