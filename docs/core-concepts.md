@@ -290,31 +290,57 @@ def create_file_manager_agent() -> Agent[FileContext]:
 
 ### Agent Handoffs
 
-Agents can transfer control to other specialized agents:
+JAF provides a built-in handoff system that allows agents to seamlessly transfer control to other specialized agents. This enables creating sophisticated multi-agent systems with clear separation of concerns.
+
+**How Handoffs Work:**
+
+1. Import the `handoff_tool` from `jaf.core.handoff`
+2. Add it to your agent's tools list
+3. Define allowed handoff targets in the `handoffs` parameter
+4. The agent uses the handoff tool naturally through conversation
 
 ```python
-from jaf import function_tool
-
-@function_tool
-async def route_customer(query: str, context=None) -> str:
-    """Route customer to appropriate specialist based on query analysis."""
-    if "technical" in query.lower() or "bug" in query.lower():
-        return handoff_to_agent("TechnicalSupport", context=context)
-    elif "billing" in query.lower() or "payment" in query.lower():
-        return handoff_to_agent("Billing", context=context)
-    elif "sales" in query.lower() or "purchase" in query.lower():
-        return handoff_to_agent("Sales", context=context)
-    else:
-        return "I'll help you with your general inquiry."
+from jaf import Agent
+from jaf.core.handoff import handoff_tool
 
 def create_triage_agent() -> Agent[CustomerContext]:
+    """Triage agent that routes customers to specialists."""
+
+    def triage_instructions(state):
+        return """You are a customer support triage agent.
+
+Route customers to the right specialist:
+- Technical issues → use handoff tool to transfer to "TechnicalSupport"
+- Billing questions → use handoff tool to transfer to "Billing"
+- Sales inquiries → use handoff tool to transfer to "Sales"
+
+When using the handoff tool:
+- agent_name: The name of the target agent
+- message: Brief summary of the customer's needs"""
+
     return Agent(
         name="TriageAgent",
-        instructions=lambda state: "Route customers to appropriate specialists",
-        tools=[route_customer],  # Modern handoff capability
-        handoffs=["TechnicalSupport", "Billing", "Sales"]  # Allowed targets
+        instructions=triage_instructions,
+        tools=[handoff_tool],  # Enables agent handoff capability
+        handoffs=["TechnicalSupport", "Billing", "Sales"]  # Allowed targets only
+    )
+
+# Specialist agents can also handoff between each other
+def create_technical_support_agent() -> Agent[CustomerContext]:
+    return Agent(
+        name="TechnicalSupport",
+        instructions=lambda state: "Handle technical support issues. If billing-related, handoff to Billing.",
+        tools=[handoff_tool, debug_tool, restart_tool],
+        handoffs=["Billing"]  # Can escalate to billing if needed
     )
 ```
+
+**Key Features:**
+
+- **Type-Safe**: Handoffs are validated against the `handoffs` list at runtime
+- **Traceable**: All handoffs are logged in trace events for observability
+- **Stateful**: Conversation context is preserved across handoffs
+- **Secure**: Agents can only handoff to explicitly allowed targets
 
 ### Agent-as-Tool Composition
 

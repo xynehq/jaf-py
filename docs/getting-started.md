@@ -854,6 +854,77 @@ cat traces/calculator_traces.jsonl | jq 'select(.type == "tool_call_start")'
 - **[Performance Monitoring](performance-monitoring.md)** - Optimize agent performance
 - **[Production Deployment](deployment.md)** - Deploy with observability
 
+## Agent Handoffs - Multi-Agent Systems
+
+JAF provides a powerful handoff system that enables agents to transfer control to specialized agents. This is useful for building triage systems, routing requests, and creating multi-agent workflows.
+
+### Quick Handoff Example
+
+```python
+from jaf import Agent
+from jaf.core.handoff import handoff_tool
+
+# Create a triage agent that routes to specialists
+def create_triage_agent():
+    def instructions(state):
+        return """You are a support triage agent. Route users based on their needs:
+
+- Math problems → handoff to "MathAgent"
+- File operations → handoff to "FileAgent"
+- General questions → answer directly
+
+Use the handoff tool with:
+- agent_name: Name of the target agent
+- message: Brief summary for the specialist"""
+
+    return Agent(
+        name='TriageAgent',
+        instructions=instructions,
+        tools=[handoff_tool],  # Enables handoff capability
+        handoffs=['MathAgent', 'FileAgent']  # Allowed handoff targets
+    )
+
+# Create specialist agents
+math_agent = Agent(
+    name='MathAgent',
+    instructions=lambda state: 'You are a math specialist. Help with calculations.',
+    tools=[calculate]  # Your calculation tools
+)
+
+file_agent = Agent(
+    name='FileAgent',
+    instructions=lambda state: 'You are a file management specialist.',
+    tools=[read_file, write_file]  # Your file tools
+)
+
+# Use in RunConfig
+config = RunConfig(
+    agent_registry={
+        'TriageAgent': create_triage_agent(),
+        'MathAgent': math_agent,
+        'FileAgent': file_agent
+    },
+    model_provider=model_provider,
+    max_turns=10
+)
+```
+
+### How Handoffs Work
+
+1. **Add handoff_tool**: Import and add to agent's tools list
+2. **Define allowed targets**: Specify which agents can be handed off to via the `handoffs` parameter
+3. **Natural conversation**: The agent uses the handoff tool through natural language
+4. **Automatic routing**: JAF engine handles the transfer and context preservation
+
+### Key Benefits
+
+- **Separation of Concerns**: Each agent focuses on its specialty
+- **Type-Safe**: Handoffs are validated against allowed targets
+- **Traceable**: All handoffs appear in trace events
+- **Stateful**: Conversation context flows across agents
+
+See [Core Concepts - Agent Handoffs](core-concepts.md#agent-handoffs) for detailed examples and patterns.
+
 ## Next Steps
 
 Now that you have a working agent, explore these topics:
