@@ -341,7 +341,7 @@ class LangfuseTraceCollector:
             public_key=public_key,
             secret_key=secret_key,
             host=host,
-            release="jaf-py-v2.4.8"
+            release="jaf-py-v2.5.1"
         )
         self.active_spans: Dict[str, Any] = {}
         self.trace_spans: Dict[TraceId, Any] = {}
@@ -509,19 +509,23 @@ class LangfuseTraceCollector:
                         "user_id": user_id or event.data.get("user_id")
                     }
                 }
-                
+
+                # Extract agent_name for tagging
+                agent_name = event.data.get("agent_name") or "analytics_agent_jaf"
+
                 trace = self.langfuse.trace(
-                    name=f"jaf-run-{trace_id}",
+                    name=agent_name,
                     user_id=user_id or event.data.get("user_id"),
                     session_id=event.data.get("session_id"),
                     input=trace_input,
+                    tags=[agent_name],  # Add agent_name as a tag for dashboard filtering
                     metadata={
                         "framework": "jaf",
                         "event_type": "run_start",
                         "trace_id": str(trace_id),
                         "user_query": user_query,
                         "user_id": user_id or event.data.get("user_id"),
-                        "agent_name": event.data.get("agent_name", "analytics_agent_jaf"),
+                        "agent_name": agent_name,
                         "conversation_history": conversation_history,
                         "tool_calls": [],
                         "tool_results": [],
@@ -716,7 +720,8 @@ class LangfuseTraceCollector:
                         "result": tool_result,
                         "call_id": call_id,
                         "timestamp": datetime.now().isoformat(),
-                        "status": event.data.get("status", "completed"),
+                        "execution_status": event.data.get("execution_status", "completed"),
+                        "status": event.data.get("execution_status", "completed"),  # DEPRECATED: backward compatibility
                         "tool_result": event.data.get("tool_result")
                     }
                     
@@ -731,7 +736,8 @@ class LangfuseTraceCollector:
                         "result": tool_result,
                         "call_id": call_id,
                         "timestamp": datetime.now().isoformat(),
-                        "status": event.data.get("status", "completed")
+                        "execution_status": event.data.get("execution_status", "completed"),
+                        "status": event.data.get("execution_status", "completed")  # DEPRECATED: backward compatibility
                     }
                     
                     # End the span with detailed output

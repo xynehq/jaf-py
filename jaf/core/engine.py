@@ -279,8 +279,9 @@ async def _load_conversation_history(state: RunState[Ctx], config: RunConfig[Ctx
                 try:
                     content = json.loads(msg.content)
                     status = content.get('status')
-                    # Filter out ALL halted messages (they're for audit only)
-                    if status == 'halted':
+                    hitl_status = content.get('hitl_status')
+                    # Filter out ALL halted/pending approval messages (they're for audit only)
+                    if status == 'halted' or hitl_status == 'pending_approval':
                         filtered_count += 1
                         continue  # Skip this halted message
                     else:
@@ -765,7 +766,7 @@ async def _run_internal(
                 else:
                     try:
                         content = json.loads(msg.content)
-                        if content.get('status') == 'halted':
+                        if content.get('status') == 'halted' or content.get('hitl_status') == 'pending_approval':
                             # Remove this halted message if we have a new result for the same tool_call_id
                             if not any(result['message'].tool_call_id == msg.tool_call_id for result in tool_results):
                                 cleaned_new_messages.append(msg)
@@ -793,7 +794,7 @@ async def _run_internal(
             else:
                 try:
                     content = json.loads(msg.content)
-                    if content.get('status') == 'halted':
+                    if content.get('status') == 'halted' or content.get('hitl_status') == 'pending_approval':
                         # Remove this halted message if we have a new result for the same tool_call_id
                         if not any(result['message'].tool_call_id == msg.tool_call_id for result in tool_results):
                             cleaned_new_messages.append(msg)
@@ -1011,7 +1012,7 @@ async def _execute_tool_calls(
 
             if not tool:
                 error_result = json.dumps({
-                    'status': 'tool_not_found',
+                    'hitl_status': 'tool_not_found',  # HITL workflow status
                     'message': f'Tool {tool_call.function.name} not found',
                     'tool_name': tool_call.function.name,
                 })
@@ -1022,7 +1023,7 @@ async def _execute_tool_calls(
                         result=error_result,
                         trace_id=state.trace_id,
                         run_id=state.run_id,
-                        status='error',
+                        execution_status='error',  # Tool execution failed
                         tool_result={'error': 'tool_not_found'},
                         call_id=tool_call.id
                     ))))
@@ -1045,7 +1046,7 @@ async def _execute_tool_calls(
                     validated_args = raw_args
             except ValidationError as e:
                 error_result = json.dumps({
-                    'status': 'validation_error',
+                    'hitl_status': 'validation_error',  # HITL workflow status
                     'message': f'Invalid arguments for {tool_call.function.name}: {e!s}',
                     'tool_name': tool_call.function.name,
                     'validation_errors': e.errors()
@@ -1057,7 +1058,7 @@ async def _execute_tool_calls(
                         result=error_result,
                         trace_id=state.trace_id,
                         run_id=state.run_id,
-                        status='error',
+                        execution_status='error',  # Tool execution failed due to validation
                         tool_result={'error': 'validation_error', 'details': e.errors()},
                         call_id=tool_call.id
                     ))))
@@ -1114,7 +1115,7 @@ async def _execute_tool_calls(
                 
                 # Return interrupted result with halted message
                 halted_result = json.dumps({
-                    'status': 'halted',
+                    'hitl_status': 'pending_approval',  # HITL workflow status: waiting for approval
                     'message': f'Tool {tool_call.function.name} requires approval.',
                 })
                 
@@ -1131,7 +1132,7 @@ async def _execute_tool_calls(
             if derived_status == 'rejected':
                 rejection_reason = approval_status.additional_context.get('rejection_reason', 'User declined the action') if approval_status.additional_context else 'User declined the action'
                 rejection_result = json.dumps({
-                    'status': 'approval_denied',
+                    'hitl_status': 'rejected',  # HITL workflow status: user rejected the action
                     'message': f'Action was not approved. {rejection_reason}. Please ask if you can help with something else or suggest an alternative approach.',
                     'tool_name': tool_call.function.name,
                     'rejection_reason': rejection_reason,
@@ -1184,7 +1185,7 @@ async def _execute_tool_calls(
                 )
             except asyncio.TimeoutError:
                 timeout_error_result = json.dumps({
-                    'error': 'timeout_error',
+                    'hitl_status': 'execution_timeout',  # HITL workflow status
                     'message': f'Tool {tool_call.function.name} timed out after {timeout} seconds',
                     'tool_name': tool_call.function.name,
                     'timeout_seconds': timeout
@@ -1196,8 +1197,8 @@ async def _execute_tool_calls(
                         result=timeout_error_result,
                         trace_id=state.trace_id,
                         run_id=state.run_id,
-                        status='timeout',
-                        tool_result={'error': 'timeout_error'},
+                        execution_status='timeout',  # Tool execution timed out
+                        tool_result={'error': 'timeout'},
                         call_id=tool_call.id
                     ))))
 
@@ -1222,7 +1223,7 @@ async def _execute_tool_calls(
             # Wrap tool result with status information for approval context
             if approval_status and approval_status.additional_context:
                 final_content = json.dumps({
-                    'status': 'approved_and_executed',
+                    'hitl_status': 'approved_and_executed',  # HITL workflow status: approved by user and executed
                     'result': result_string,
                     'tool_name': tool_call.function.name,
                     'approval_context': approval_status.additional_context,
@@ -1230,14 +1231,14 @@ async def _execute_tool_calls(
                 })
             elif needs_approval:
                 final_content = json.dumps({
-                    'status': 'approved_and_executed',
+                    'hitl_status': 'approved_and_executed',  # HITL workflow status: approved by user and executed
                     'result': result_string,
                     'tool_name': tool_call.function.name,
                     'message': 'Tool was approved and executed successfully.'
                 })
             else:
                 final_content = json.dumps({
-                    'status': 'executed',
+                    'hitl_status': 'executed',  # HITL workflow status: executed normally (no approval needed)
                     'result': result_string,
                     'tool_name': tool_call.function.name,
                     'message': 'Tool executed successfully.'
@@ -1250,7 +1251,7 @@ async def _execute_tool_calls(
                     trace_id=state.trace_id,
                     run_id=state.run_id,
                     tool_result=tool_result,
-                    status='success',
+                    execution_status='success',  # Tool execution succeeded
                     call_id=tool_call.id
                 ))))
 
@@ -1277,7 +1278,7 @@ async def _execute_tool_calls(
 
         except Exception as error:
             error_result = json.dumps({
-                'status': 'execution_error',
+                'hitl_status': 'execution_error',  # HITL workflow status
                 'message': str(error),
                 'tool_name': tool_call.function.name,
             })
@@ -1288,7 +1289,7 @@ async def _execute_tool_calls(
                     result=error_result,
                     trace_id=state.trace_id,
                     run_id=state.run_id,
-                    status='error',
+                    execution_status='error',  # Tool execution failed with exception
                     tool_result={'error': 'execution_error', 'detail': str(error)},
                     call_id=tool_call.id
                 ))))

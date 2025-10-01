@@ -22,6 +22,7 @@ from .parallel_agents import (
     create_domain_experts_tool,
 )
 from .proxy import ProxyConfig, ProxyAuth, create_proxy_config, get_default_proxy_config
+from .handoff import handoff_tool, handoff, create_handoff_tool, is_handoff_request, extract_handoff_target
 
 __all__ = [
     "Agent",
@@ -52,6 +53,7 @@ __all__ = [
     "create_conditional_enabler",
     "create_default_output_extractor",
     "create_domain_experts_tool",
+    "create_handoff_tool",
     "create_json_output_extractor",
     "create_language_specialists_tool",
     "create_parallel_agents_tool",
@@ -59,8 +61,12 @@ __all__ = [
     "create_run_id",
     "create_simple_parallel_tool",
     "create_trace_id",
+    "extract_handoff_target",
     "get_current_run_config",
     "get_default_proxy_config",
+    "handoff",
+    "handoff_tool",
+    "is_handoff_request",
     "require_permissions",
     "run",
     "set_current_run_config",
