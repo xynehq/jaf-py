@@ -884,6 +884,48 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#agent-handoffs-multi-agent-systems" class="md-nav__link">
+    <span class="md-ellipsis">
+      Agent Handoffs - Multi-Agent Systems
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Agent Handoffs - Multi-Agent Systems">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#quick-handoff-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      Quick Handoff Example
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-handoffs-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      How Handoffs Work
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-benefits" class="md-nav__link">
+    <span class="md-ellipsis">
+      Key Benefits
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next-steps" class="md-nav__link">
     <span class="md-ellipsis">
       Next Steps
@@ -2535,6 +2577,48 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#agent-handoffs-multi-agent-systems" class="md-nav__link">
+    <span class="md-ellipsis">
+      Agent Handoffs - Multi-Agent Systems
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Agent Handoffs - Multi-Agent Systems">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#quick-handoff-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      Quick Handoff Example
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-handoffs-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      How Handoffs Work
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-benefits" class="md-nav__link">
+    <span class="md-ellipsis">
+      Key Benefits
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next-steps" class="md-nav__link">
     <span class="md-ellipsis">
       Next Steps
@@ -3350,6 +3434,71 @@
 <li><strong><a href="../performance-monitoring/">Performance Monitoring</a></strong> - Optimize agent performance</li>
 <li><strong><a href="../deployment/">Production Deployment</a></strong> - Deploy with observability</li>
 </ul>
+<h2 id="agent-handoffs-multi-agent-systems">Agent Handoffs - Multi-Agent Systems<a class="headerlink" href="#agent-handoffs-multi-agent-systems" title="Anchor link to this section for reference">&para;</a></h2>
+<p>JAF provides a powerful handoff system that enables agents to transfer control to specialized agents. This is useful for building triage systems, routing requests, and creating multi-agent workflows.</p>
+<h3 id="quick-handoff-example">Quick Handoff Example<a class="headerlink" href="#quick-handoff-example" title="Anchor link to this section for reference">&para;</a></h3>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">jaf</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span>
+</span><span id="__span-25-2"><a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">jaf.core.handoff</span><span class="w"> </span><span class="kn">import</span> <span class="n">handoff_tool</span>
+</span><span id="__span-25-3"><a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>
+</span><span id="__span-25-4"><a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="c1"># Create a triage agent that routes to specialists</span>
+</span><span id="__span-25-5"><a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a><span class="k">def</span><span class="w"> </span><span class="nf">create_triage_agent</span><span class="p">():</span>
+</span><span id="__span-25-6"><a id="__codelineno-25-6" name="__codelineno-25-6" href="#__codelineno-25-6"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">instructions</span><span class="p">(</span><span class="n">state</span><span class="p">):</span>
+</span><span id="__span-25-7"><a id="__codelineno-25-7" name="__codelineno-25-7" href="#__codelineno-25-7"></a>        <span class="k">return</span> <span class="s2">&quot;&quot;&quot;You are a support triage agent. Route users based on their needs:</span>
+</span><span id="__span-25-8"><a id="__codelineno-25-8" name="__codelineno-25-8" href="#__codelineno-25-8"></a>
+</span><span id="__span-25-9"><a id="__codelineno-25-9" name="__codelineno-25-9" href="#__codelineno-25-9"></a><span class="s2">- Math problems → handoff to &quot;MathAgent&quot;</span>
+</span><span id="__span-25-10"><a id="__codelineno-25-10" name="__codelineno-25-10" href="#__codelineno-25-10"></a><span class="s2">- File operations → handoff to &quot;FileAgent&quot;</span>
+</span><span id="__span-25-11"><a id="__codelineno-25-11" name="__codelineno-25-11" href="#__codelineno-25-11"></a><span class="s2">- General questions → answer directly</span>
+</span><span id="__span-25-12"><a id="__codelineno-25-12" name="__codelineno-25-12" href="#__codelineno-25-12"></a>
+</span><span id="__span-25-13"><a id="__codelineno-25-13" name="__codelineno-25-13" href="#__codelineno-25-13"></a><span class="s2">Use the handoff tool with:</span>
+</span><span id="__span-25-14"><a id="__codelineno-25-14" name="__codelineno-25-14" href="#__codelineno-25-14"></a><span class="s2">- agent_name: Name of the target agent</span>
+</span><span id="__span-25-15"><a id="__codelineno-25-15" name="__codelineno-25-15" href="#__codelineno-25-15"></a><span class="s2">- message: Brief summary for the specialist&quot;&quot;&quot;</span>
+</span><span id="__span-25-16"><a id="__codelineno-25-16" name="__codelineno-25-16" href="#__codelineno-25-16"></a>
+</span><span id="__span-25-17"><a id="__codelineno-25-17" name="__codelineno-25-17" href="#__codelineno-25-17"></a>    <span class="k">return</span> <span class="n">Agent</span><span class="p">(</span>
+</span><span id="__span-25-18"><a id="__codelineno-25-18" name="__codelineno-25-18" href="#__codelineno-25-18"></a>        <span class="n">name</span><span class="o">=</span><span class="s1">&#39;TriageAgent&#39;</span><span class="p">,</span>
+</span><span id="__span-25-19"><a id="__codelineno-25-19" name="__codelineno-25-19" href="#__codelineno-25-19"></a>        <span class="n">instructions</span><span class="o">=</span><span class="n">instructions</span><span class="p">,</span>
+</span><span id="__span-25-20"><a id="__codelineno-25-20" name="__codelineno-25-20" href="#__codelineno-25-20"></a>        <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">handoff_tool</span><span class="p">],</span>  <span class="c1"># Enables handoff capability</span>
+</span><span id="__span-25-21"><a id="__codelineno-25-21" name="__codelineno-25-21" href="#__codelineno-25-21"></a>        <span class="n">handoffs</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;MathAgent&#39;</span><span class="p">,</span> <span class="s1">&#39;FileAgent&#39;</span><span class="p">]</span>  <span class="c1"># Allowed handoff targets</span>
+</span><span id="__span-25-22"><a id="__codelineno-25-22" name="__codelineno-25-22" href="#__codelineno-25-22"></a>    <span class="p">)</span>
+</span><span id="__span-25-23"><a id="__codelineno-25-23" name="__codelineno-25-23" href="#__codelineno-25-23"></a>
+</span><span id="__span-25-24"><a id="__codelineno-25-24" name="__codelineno-25-24" href="#__codelineno-25-24"></a><span class="c1"># Create specialist agents</span>
+</span><span id="__span-25-25"><a id="__codelineno-25-25" name="__codelineno-25-25" href="#__codelineno-25-25"></a><span class="n">math_agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span>
+</span><span id="__span-25-26"><a id="__codelineno-25-26" name="__codelineno-25-26" href="#__codelineno-25-26"></a>    <span class="n">name</span><span class="o">=</span><span class="s1">&#39;MathAgent&#39;</span><span class="p">,</span>
+</span><span id="__span-25-27"><a id="__codelineno-25-27" name="__codelineno-25-27" href="#__codelineno-25-27"></a>    <span class="n">instructions</span><span class="o">=</span><span class="k">lambda</span> <span class="n">state</span><span class="p">:</span> <span class="s1">&#39;You are a math specialist. Help with calculations.&#39;</span><span class="p">,</span>
+</span><span id="__span-25-28"><a id="__codelineno-25-28" name="__codelineno-25-28" href="#__codelineno-25-28"></a>    <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">calculate</span><span class="p">]</span>  <span class="c1"># Your calculation tools</span>
+</span><span id="__span-25-29"><a id="__codelineno-25-29" name="__codelineno-25-29" href="#__codelineno-25-29"></a><span class="p">)</span>
+</span><span id="__span-25-30"><a id="__codelineno-25-30" name="__codelineno-25-30" href="#__codelineno-25-30"></a>
+</span><span id="__span-25-31"><a id="__codelineno-25-31" name="__codelineno-25-31" href="#__codelineno-25-31"></a><span class="n">file_agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span>
+</span><span id="__span-25-32"><a id="__codelineno-25-32" name="__codelineno-25-32" href="#__codelineno-25-32"></a>    <span class="n">name</span><span class="o">=</span><span class="s1">&#39;FileAgent&#39;</span><span class="p">,</span>
+</span><span id="__span-25-33"><a id="__codelineno-25-33" name="__codelineno-25-33" href="#__codelineno-25-33"></a>    <span class="n">instructions</span><span class="o">=</span><span class="k">lambda</span> <span class="n">state</span><span class="p">:</span> <span class="s1">&#39;You are a file management specialist.&#39;</span><span class="p">,</span>
+</span><span id="__span-25-34"><a id="__codelineno-25-34" name="__codelineno-25-34" href="#__codelineno-25-34"></a>    <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">read_file</span><span class="p">,</span> <span class="n">write_file</span><span class="p">]</span>  <span class="c1"># Your file tools</span>
+</span><span id="__span-25-35"><a id="__codelineno-25-35" name="__codelineno-25-35" href="#__codelineno-25-35"></a><span class="p">)</span>
+</span><span id="__span-25-36"><a id="__codelineno-25-36" name="__codelineno-25-36" href="#__codelineno-25-36"></a>
+</span><span id="__span-25-37"><a id="__codelineno-25-37" name="__codelineno-25-37" href="#__codelineno-25-37"></a><span class="c1"># Use in RunConfig</span>
+</span><span id="__span-25-38"><a id="__codelineno-25-38" name="__codelineno-25-38" href="#__codelineno-25-38"></a><span class="n">config</span> <span class="o">=</span> <span class="n">RunConfig</span><span class="p">(</span>
+</span><span id="__span-25-39"><a id="__codelineno-25-39" name="__codelineno-25-39" href="#__codelineno-25-39"></a>    <span class="n">agent_registry</span><span class="o">=</span><span class="p">{</span>
+</span><span id="__span-25-40"><a id="__codelineno-25-40" name="__codelineno-25-40" href="#__codelineno-25-40"></a>        <span class="s1">&#39;TriageAgent&#39;</span><span class="p">:</span> <span class="n">create_triage_agent</span><span class="p">(),</span>
+</span><span id="__span-25-41"><a id="__codelineno-25-41" name="__codelineno-25-41" href="#__codelineno-25-41"></a>        <span class="s1">&#39;MathAgent&#39;</span><span class="p">:</span> <span class="n">math_agent</span><span class="p">,</span>
+</span><span id="__span-25-42"><a id="__codelineno-25-42" name="__codelineno-25-42" href="#__codelineno-25-42"></a>        <span class="s1">&#39;FileAgent&#39;</span><span class="p">:</span> <span class="n">file_agent</span>
+</span><span id="__span-25-43"><a id="__codelineno-25-43" name="__codelineno-25-43" href="#__codelineno-25-43"></a>    <span class="p">},</span>
+</span><span id="__span-25-44"><a id="__codelineno-25-44" name="__codelineno-25-44" href="#__codelineno-25-44"></a>    <span class="n">model_provider</span><span class="o">=</span><span class="n">model_provider</span><span class="p">,</span>
+</span><span id="__span-25-45"><a id="__codelineno-25-45" name="__codelineno-25-45" href="#__codelineno-25-45"></a>    <span class="n">max_turns</span><span class="o">=</span><span class="mi">10</span>
+</span><span id="__span-25-46"><a id="__codelineno-25-46" name="__codelineno-25-46" href="#__codelineno-25-46"></a><span class="p">)</span>
+</span></code></pre></div>
+<h3 id="how-handoffs-work">How Handoffs Work<a class="headerlink" href="#how-handoffs-work" title="Anchor link to this section for reference">&para;</a></h3>
+<ol>
+<li><strong>Add handoff_tool</strong>: Import and add to agent's tools list</li>
+<li><strong>Define allowed targets</strong>: Specify which agents can be handed off to via the <code>handoffs</code> parameter</li>
+<li><strong>Natural conversation</strong>: The agent uses the handoff tool through natural language</li>
+<li><strong>Automatic routing</strong>: JAF engine handles the transfer and context preservation</li>
+</ol>
+<h3 id="key-benefits">Key Benefits<a class="headerlink" href="#key-benefits" title="Anchor link to this section for reference">&para;</a></h3>
+<ul>
+<li><strong>Separation of Concerns</strong>: Each agent focuses on its specialty</li>
+<li><strong>Type-Safe</strong>: Handoffs are validated against allowed targets</li>
+<li><strong>Traceable</strong>: All handoffs appear in trace events</li>
+<li><strong>Stateful</strong>: Conversation context flows across agents</li>
+</ul>
+<p>See <a href="../core-concepts/#agent-handoffs">Core Concepts - Agent Handoffs</a> for detailed examples and patterns.</p>
 <h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Anchor link to this section for reference">&para;</a></h2>
 <p>Now that you have a working agent, explore these topics:</p>
 <ol>
@@ -3364,17 +3513,17 @@
 <h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Anchor link to this section for reference">&para;</a></h2>
 <h3 id="common-issues">Common Issues<a class="headerlink" href="#common-issues" title="Anchor link to this section for reference">&para;</a></h3>
 <p><strong>Import Error</strong>: If you get <code>ModuleNotFoundError: No module named 'jaf'</code>:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>pip<span class="w"> </span>install<span class="w"> </span>git+https://github.com/xynehq/jaf-py.git
-</span><span id="__span-25-2"><a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="c1"># Or for development:</span>
-</span><span id="__span-25-3"><a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>pip<span class="w"> </span>install<span class="w"> </span>git+https://github.com/xynehq/jaf-py.git
+</span><span id="__span-26-2"><a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="c1"># Or for development:</span>
+</span><span id="__span-26-3"><a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
 </span></code></pre></div></p>
 <p><strong>LiteLLM Connection Error</strong>: Ensure your LiteLLM proxy is running:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="c1"># Check if proxy is accessible</span>
-</span><span id="__span-26-2"><a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>curl<span class="w"> </span>http://localhost:4000/health
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="c1"># Check if proxy is accessible</span>
+</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>curl<span class="w"> </span>http://localhost:4000/health
 </span></code></pre></div></p>
 <p><strong>Type Checking Issues</strong>: JAF is fully typed. If you see mypy errors:
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>pip<span class="w"> </span>install<span class="w"> </span>mypy
-</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>mypy<span class="w"> </span>your_agent.py<span class="w"> </span>--ignore-missing-imports
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>pip<span class="w"> </span>install<span class="w"> </span>mypy
+</span><span id="__span-28-2"><a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>mypy<span class="w"> </span>your_agent.py<span class="w"> </span>--ignore-missing-imports
 </span></code></pre></div></p>
 <p><strong>Performance Issues</strong>: For high-throughput scenarios:
 - Use connection pooling with your model provider

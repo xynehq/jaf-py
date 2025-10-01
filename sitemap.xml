@@ -2,158 +2,170 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://xynehq.github.io/jaf-py/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/STYLE_GUIDE/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/a2a-api-reference/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/a2a-deployment/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/a2a-examples/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/a2a-protocol/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/a2a-specification/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/adk-overview/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/adk-schema-validation/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/agent-as-tool/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/analytics-system/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/api-reference/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/callback-system/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/core-concepts/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/deployment/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/error-handling/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/examples/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/flight-booking-example/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/function-composition/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/getting-started/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/infrastructure/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/mcp-examples/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/mcp-transports/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/mcp/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/memory-system/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/model-providers/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/monitoring/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
+    </url>
+    <url>
+         <loc>https://xynehq.github.io/jaf-py/parallel-agent-execution/</loc>
+         <lastmod>2025-10-01</lastmod>
+    </url>
+    <url>
+         <loc>https://xynehq.github.io/jaf-py/parallel-agent-tools/</loc>
+         <lastmod>2025-10-01</lastmod>
+    </url>
+    <url>
+         <loc>https://xynehq.github.io/jaf-py/parallel-agents-api-reference/</loc>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/performance-monitoring/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/plugin-system/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/security-framework/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/security/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/server-api/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/session-management/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/streaming-responses/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/tools/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/tracing/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/troubleshooting/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/validation-suite/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
     <url>
          <loc>https://xynehq.github.io/jaf-py/workflow-orchestration/</loc>
-         <lastmod>2025-09-01</lastmod>
+         <lastmod>2025-10-01</lastmod>
     </url>
 </urlset>
