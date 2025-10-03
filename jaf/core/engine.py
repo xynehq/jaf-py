@@ -269,9 +269,11 @@ async def _load_conversation_history(state: RunState[Ctx], config: RunConfig[Ctx
         all_memory_messages = conversation_data.messages[-max_messages:]
 
         # Filter out halted messages - they're for audit/database only, not for LLM context
+        # Also extract approval context from approved_and_executed messages for LLM visibility
         memory_messages = []
         filtered_count = 0
-        
+        extracted_approval_contexts = []
+
         for msg in all_memory_messages:
             if msg.role not in (ContentRole.TOOL, 'tool'):
                 memory_messages.append(msg)
@@ -280,15 +282,45 @@ async def _load_conversation_history(state: RunState[Ctx], config: RunConfig[Ctx
                     content = json.loads(msg.content)
                     status = content.get('status')
                     hitl_status = content.get('hitl_status')
+
                     # Filter out ALL halted/pending approval messages (they're for audit only)
                     if status == 'halted' or hitl_status == 'pending_approval':
                         filtered_count += 1
                         continue  # Skip this halted message
-                    else:
-                        memory_messages.append(msg)
+
+                    # Extract approval context from approved_and_executed messages
+                    if hitl_status == 'approved_and_executed':
+                        approval_context = content.get('approval_context')
+                        if approval_context:
+                            # Extract useful context information
+                            context_message = approval_context.get('message', '')
+                            if context_message:
+                                extracted_approval_contexts.append({
+                                    'tool_name': content.get('tool_name', 'unknown'),
+                                    'context_message': context_message,
+                                    'approval_context': approval_context
+                                })
+
+                    memory_messages.append(msg)
                 except (json.JSONDecodeError, TypeError):
                     # Keep non-JSON tool messages
                     memory_messages.append(msg)
+
+        # Inject extracted approval contexts as system messages for LLM visibility
+        if extracted_approval_contexts:
+            approval_context_messages = []
+            for ctx in extracted_approval_contexts:
+                context_text = f"Previous approval context for {ctx['tool_name']}: {ctx['context_message']}"
+
+                # Create a system message with the approval context
+                approval_msg = Message(
+                    role=ContentRole.SYSTEM,
+                    content=context_text
+                )
+                approval_context_messages.append(approval_msg)
+
+            # Insert approval context messages at the beginning for visibility
+            memory_messages = approval_context_messages + memory_messages
 
         # For HITL scenarios, append new messages to memory messages
         # This prevents duplication when resuming from interruptions
@@ -323,6 +355,9 @@ async def _load_conversation_history(state: RunState[Ctx], config: RunConfig[Ctx
             print(f'[JAF:MEMORY] Loaded {len(all_memory_messages)} messages from memory, filtered to {len(memory_messages)} for LLM context (removed {filtered_count} halted messages)')
         else:
             print(f'[JAF:MEMORY] Loaded {len(all_memory_messages)} messages from memory')
+
+        if extracted_approval_contexts:
+            print(f'[JAF:APPROVAL] Extracted {len(extracted_approval_contexts)} approval contexts for LLM visibility: {[ctx["tool_name"] for ctx in extracted_approval_contexts]}')
 
         return replace(
             state,
