@@ -7,10 +7,11 @@ This guide provides comprehensive walkthroughs of JAF example applications, demo
 JAF includes several example applications that showcase different aspects of the framework:
 
 1. **Server Demo** - Multi-agent HTTP server with tools and memory
-2. **RAG Example** - Retrieval-Augmented Generation with knowledge base
-3. **Iterative Search Agent** - Advanced callback system showcase with ReAct patterns
-4. **Custom Tools** - Advanced tool implementation patterns
-5. **Memory Integration** - Persistent conversation examples
+2. **Handoff System** - Language support with triage and specialist routing
+3. **RAG Example** - Retrieval-Augmented Generation with knowledge base
+4. **Iterative Search Agent** - Advanced callback system showcase with ReAct patterns
+5. **Custom Tools** - Advanced tool implementation patterns
+6. **Memory Integration** - Persistent conversation examples
 
 ## Server Demo Walkthrough
 
@@ -281,6 +282,349 @@ curl -X POST http://localhost:3000/chat \
 # Get conversation history
 curl http://localhost:3000/conversations/my-conversation
 ```
+
+## Handoff System - Language Support Example
+
+The handoff example (`examples/handoff_example.py`) demonstrates JAF's powerful agent handoff system through a language support scenario where a triage agent routes users to specialized language agents.
+
+### Architecture Overview
+
+```python
+# Three specialized agents
+TriageAgent         # Routes to language specialists
+FrenchAgent         # French language support
+GermanAgent         # German language support
+
+# Handoff capabilities
+TriageAgent    → FrenchAgent, GermanAgent
+FrenchAgent    → GermanAgent
+GermanAgent    → FrenchAgent
+```
+
+### Key Components
+
+#### 1. Handoff Tool Import
+
+```python
+from jaf.core.handoff import handoff_tool
+
+# handoff_tool is a pre-built tool that enables agent handoffs
+# Add it to any agent's tools list to enable handoff capability
+```
+
+#### 2. Triage Agent with Handoffs
+
+```python
+def create_triage_agent():
+    def instructions(state: RunState) -> str:
+        return """You are a language support triage agent.
+
+Your job is to understand what language the customer needs help with and route them to the right specialist:
+
+- If they mention "French", "français", or need French help → use handoff tool to transfer to "french_agent"
+- If they mention "German", "deutsch", or need German help → use handoff tool to transfer to "german_agent"
+- If they ask a simple question you can answer → respond directly
+
+When using handoff tool:
+- agent_name: "french_agent" or "german_agent"
+- message: Brief summary of what the customer needs
+
+Always be helpful and explain you're connecting them to the right language specialist."""
+
+    return Agent(
+        name="triage_agent",
+        instructions=instructions,
+        tools=[handoff_tool],  # Add handoff capability
+        handoffs=["french_agent", "german_agent"]  # Only these targets allowed
+    )
+```
+
+#### 3. Specialist Agents with Tools and Handoffs
+
+```python
+def create_french_agent():
+    def instructions(state: RunState) -> str:
+        return """You are a French language specialist agent.
+
+You help customers with:
+- French translations
+- French language questions
+- French cultural information
+
+You have tools:
+- translate: Translate text to French
+
+Be friendly and helpful. Speak some French when appropriate!
+If the customer needs help with other languages, use handoff tool to route them appropriately."""
+
+    return Agent(
+        name="french_agent",
+        instructions=instructions,
+        tools=[translate_tool, handoff_tool],  # Own tools + handoff
+        handoffs=["german_agent"]  # Can handoff to German specialist
+    )
+
+def create_german_agent():
+    # Similar structure for German specialist
+    return Agent(
+        name="german_agent",
+        instructions=german_instructions,
+        tools=[translate_tool, handoff_tool],
+        handoffs=["french_agent"]  # Can handoff to French specialist
+    )
+```
+
+#### 4. Translation Tool
+
+```python
+from pydantic import BaseModel
+
+class TranslateArgs(BaseModel):
+    text: str
+    target_language: str
+
+async def translate_text(args: TranslateArgs, context) -> str:
+    """Mock translation tool for demonstration."""
+    translations = {
+        "french": {
+            "hello": "bonjour",
+            "goodbye": "au revoir",
+            "thank you": "merci",
+        },
+        "german": {
+            "hello": "hallo",
+            "goodbye": "auf wiedersehen",
+            "thank you": "danke",
+        }
+    }
+
+    lang_dict = translations.get(args.target_language.lower(), {})
+    translated = lang_dict.get(args.text.lower(), f"[Translation of '{args.text}']")
+    return f"Translated '{args.text}' to {args.target_language}: '{translated}'"
+
+translate_tool = create_function_tool({
+    'name': 'translate',
+    'description': 'Translate text to specified language',
+    'execute': translate_text,
+    'parameters': TranslateArgs
+})
+```
+
+### Running the Example
+
+#### Run Demo Scenarios
+
+```bash
+cd examples
+python handoff_example.py
+```
+
+The example runs 5 demo scenarios:
+1. "I need help translating 'hello' to French"
+2. "Can you help me with German translations?"
+3. "How do you say 'thank you' in French?"
+4. "I want to learn some German phrases"
+5. "What's the weather like today?" (stays with triage)
+
+#### Expected Execution Flow
+
+**Scenario 1: French Translation Request**
+
+```
+User: "I need help translating 'hello' to French"
+
+1. TriageAgent receives request
+2. TriageAgent identifies "French" keyword
+3. TriageAgent uses handoff tool:
+   - agent_name: "french_agent"
+   - message: "Customer needs French translation help"
+4. FrenchAgent takes over
+5. FrenchAgent uses translate tool
+6. FrenchAgent responds: "Bonjour! I can help with that. 'Hello' in French is 'bonjour'."
+```
+
+**Scenario 2: Cross-Language Handoff**
+
+```
+User: "I was learning French but now I need German"
+
+1. FrenchAgent is active
+2. FrenchAgent identifies German request
+3. FrenchAgent uses handoff tool to "german_agent"
+4. GermanAgent takes over
+5. GermanAgent provides German language assistance
+```
+
+### Complete Working Example
+
+```python
+import asyncio
+from jaf import Agent, RunState, RunConfig, Message, generate_run_id, generate_trace_id
+from jaf.core.handoff import handoff_tool
+from jaf.core.engine import run
+from jaf.providers.model import make_litellm_provider
+
+async def demo_handoff(user_message: str):
+    """Demonstrate handoff with a single message."""
+
+    # Setup model provider
+    model_provider = make_litellm_provider(
+        base_url='http://localhost:4000',
+        api_key='your-key'
+    )
+
+    # Create agents
+    agent_registry = create_language_support_agents()
+
+    # Create initial state
+    initial_state = RunState(
+        run_id=generate_run_id(),
+        trace_id=generate_trace_id(),
+        messages=[Message(role='user', content=user_message)],
+        current_agent_name="triage_agent",
+        context={"user_id": "demo_user"},
+        turn_count=0
+    )
+
+    # Create run configuration
+    config = RunConfig(
+        agent_registry=agent_registry,
+        model_provider=model_provider,
+        max_turns=5,
+        on_event=lambda event: print(f"[{event.type}]")
+    )
+
+    # Run the conversation
+    result = await run(initial_state, config)
+
+    print(f"Status: {result.outcome.status}")
+    print(f"Final Agent: {result.final_state.current_agent_name}")
+    print(f"Output: {result.outcome.output}")
+
+# Run demo
+asyncio.run(demo_handoff("I need help with French translations"))
+```
+
+### Key Patterns and Best Practices
+
+#### 1. Clear Handoff Instructions
+
+Always provide clear instructions in the agent's system prompt about:
+- When to use handoff tool
+- What parameters to provide
+- What agents are available
+
+```python
+instructions = """Route customers to specialists:
+- French requests → handoff to "french_agent"
+- German requests → handoff to "german_agent"
+
+Use handoff tool with:
+- agent_name: Target agent name
+- message: Brief customer context"""
+```
+
+#### 2. Handoff Validation
+
+The `handoffs` parameter enforces which agents can be handed off to:
+
+```python
+Agent(
+    name="TriageAgent",
+    tools=[handoff_tool],
+    handoffs=["french_agent", "german_agent"]  # Whitelist only
+)
+
+# If agent tries to handoff to "spanish_agent", it will fail
+# since it's not in the handoffs list
+```
+
+#### 3. Bidirectional Handoffs
+
+Specialist agents can handoff between each other:
+
+```python
+french_agent = Agent(
+    name="french_agent",
+    tools=[translate_tool, handoff_tool],
+    handoffs=["german_agent"]  # Can route to German
+)
+
+german_agent = Agent(
+    name="german_agent",
+    tools=[translate_tool, handoff_tool],
+    handoffs=["french_agent"]  # Can route to French
+)
+```
+
+#### 4. Tracing Handoffs
+
+Handoffs generate trace events for monitoring:
+
+```python
+trace_collector = ConsoleTraceCollector()
+
+config = RunConfig(
+    agent_registry=agent_registry,
+    model_provider=model_provider,
+    on_event=trace_collector.collect  # See all handoffs in logs
+)
+
+# Output will include:
+# [handoff_initiated] from=triage_agent to=french_agent
+# [handoff_completed] success=True
+```
+
+### Common Use Cases
+
+1. **Customer Support Routing**: Triage → Technical/Billing/Sales
+2. **Multi-Language Support**: Router → Language Specialists
+3. **Skill-Based Routing**: Generalist → Domain Experts
+4. **Escalation Patterns**: L1 Support → L2/L3 Support
+5. **Workflow Orchestration**: Coordinator → Specialized Workers
+
+### File Location
+
+```bash
+examples/handoff_example.py  # Complete working example
+```
+
+### Running in Production
+
+For production deployments with handoffs:
+
+```python
+from jaf.core.tracing import create_composite_trace_collector
+
+# Enhanced tracing for handoff monitoring
+trace_collector = create_composite_trace_collector()
+
+config = RunConfig(
+    agent_registry={
+        'triage': triage_agent,
+        'tech_support': tech_support_agent,
+        'billing': billing_agent,
+        'sales': sales_agent
+    },
+    model_provider=model_provider,
+    max_turns=20,  # Allow for multi-hop handoffs
+    on_event=trace_collector.collect
+)
+```
+
+### Monitoring Handoffs with Langfuse
+
+When using Langfuse tracing, each agent is automatically tagged:
+
+```python
+# In Langfuse dashboard, filter by:
+Tags: agent_name = "triage_agent"
+Tags: agent_name = "french_agent"
+
+# View handoff patterns across your system
+```
+
+This example demonstrates how JAF's handoff system enables building sophisticated multi-agent systems with clear separation of concerns and automatic routing between specialized agents.
 
 ## RAG Example Walkthrough
 

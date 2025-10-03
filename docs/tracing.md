@@ -271,6 +271,90 @@ export LANGFUSE_SECRET_KEY=sk-lf-your-local-secret
 export LANGFUSE_HOST=http://localhost:3000
 ```
 
+### Agent Name Tagging
+
+JAF automatically tags all Langfuse traces with the agent name, enabling powerful filtering and analysis in the Langfuse dashboard. This feature (added in v2.5.1) provides enhanced observability for multi-agent systems.
+
+**Automatic Tagging:**
+
+Every trace in Langfuse includes the `agent_name` tag, allowing you to:
+- Filter traces by specific agents
+- Analyze performance per agent
+- Track agent usage patterns
+- Debug multi-agent workflows
+
+**Example Dashboard Filtering:**
+
+In your Langfuse dashboard, you can filter traces:
+```
+Tags: agent_name = "TechnicalSupport"
+Tags: agent_name = "TriageAgent"
+```
+
+**Multi-Agent Analysis:**
+
+```python
+from jaf import Agent, RunConfig
+from jaf.core.handoff import handoff_tool
+from jaf.core.tracing import create_composite_trace_collector
+
+# Create agents (each will be tagged separately)
+triage_agent = Agent(
+    name='TriageAgent',  # Tagged as "TriageAgent" in Langfuse
+    instructions=lambda state: "Route users to specialists",
+    tools=[handoff_tool],
+    handoffs=['TechnicalSupport', 'Billing']
+)
+
+tech_support = Agent(
+    name='TechnicalSupport',  # Tagged as "TechnicalSupport" in Langfuse
+    instructions=lambda state: "Handle technical issues",
+    tools=[debug_tool, restart_tool]
+)
+
+billing = Agent(
+    name='Billing',  # Tagged as "Billing" in Langfuse
+    instructions=lambda state: "Handle billing inquiries",
+    tools=[invoice_tool, payment_tool]
+)
+
+# Set up tracing with Langfuse
+trace_collector = create_composite_trace_collector()
+
+config = RunConfig(
+    agent_registry={
+        'TriageAgent': triage_agent,
+        'TechnicalSupport': tech_support,
+        'Billing': billing
+    },
+    model_provider=model_provider,
+    on_event=trace_collector.collect
+)
+
+# All traces will include agent_name tags automatically
+result = await run(initial_state, config)
+```
+
+**Dashboard Analysis:**
+
+In your Langfuse dashboard, you can now:
+
+1. **Filter by Agent**: View traces for specific agents
+2. **Compare Performance**: See which agents have higher latency or error rates
+3. **Track Handoffs**: Follow conversations as they move between agents
+4. **Optimize Costs**: Identify which agents consume the most tokens
+
+**Viewing Agent Metrics:**
+
+```
+Dashboard → Traces → Filter by Tag: agent_name
+- agent_name = "TriageAgent": 1,245 traces, avg latency 1.2s
+- agent_name = "TechnicalSupport": 856 traces, avg latency 2.5s
+- agent_name = "Billing": 623 traces, avg latency 1.8s
+```
+
+This automatic tagging works seamlessly with JAF's handoff system, allowing you to trace the complete journey of a user conversation across multiple specialized agents.
+
 ### Complete Langfuse Example
 
 ```python

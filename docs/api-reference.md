@@ -641,6 +641,296 @@ role_permissions = {
 handoff_policy = jaf.create_role_based_handoff_policy(agent_roles, role_permissions)
 ```
 
+## Handoff System
+
+JAF provides a built-in handoff system for seamless agent-to-agent communication and routing. The handoff system enables creating sophisticated multi-agent architectures with clear separation of concerns.
+
+### Handoff Tool
+
+#### `handoff_tool: Tool`
+
+Pre-built tool instance that enables agents to hand off control to other agents.
+
+**Import:**
+```python
+from jaf.core.handoff import handoff_tool
+```
+
+**Usage in Agent:**
+```python
+from jaf import Agent
+from jaf.core.handoff import handoff_tool
+
+triage_agent = Agent(
+    name='TriageAgent',
+    instructions=lambda state: "Route users to specialists using handoff tool",
+    tools=[handoff_tool],  # Add handoff capability
+    handoffs=['TechnicalSupport', 'Billing']  # Allowed targets
+)
+```
+
+**Tool Schema:**
+- **Name**: `handoff`
+- **Description**: Hand off the conversation to another agent
+- **Parameters**:
+  - `agent_name` (str, required): Name of the agent to hand off to
+  - `message` (str, required): Message or context to pass to the target agent
+
+### Handoff Functions
+
+#### `create_handoff_tool() -> Tool`
+
+Factory function to create a handoff tool instance. Equivalent to using the pre-built `handoff_tool` constant.
+
+**Returns:** A Tool instance that enables agent handoffs
+
+**Example:**
+```python
+from jaf.core.handoff import create_handoff_tool
+
+# Create custom handoff tool instance
+my_handoff_tool = create_handoff_tool()
+
+agent = Agent(
+    name='Router',
+    instructions=lambda state: "Route customers to specialists",
+    tools=[my_handoff_tool],
+    handoffs=['AgentA', 'AgentB']
+)
+```
+
+#### `handoff(agent_name: str, message: str = "") -> str`
+
+Programmatic function to create a handoff request. Useful for implementing custom handoff logic within tools.
+
+**Parameters:**
+- `agent_name` (str): Name of the agent to hand off to
+- `message` (str, optional): Context message for the target agent
+
+**Returns:** JSON string representing the handoff request
+
+**Example:**
+```python
+from jaf.core.handoff import handoff
+
+# Use in a custom tool
+async def custom_router(query: str, context) -> str:
+    if "billing" in query.lower():
+        return handoff("BillingAgent", "Customer needs billing help")
+    elif "technical" in query.lower():
+        return handoff("TechAgent", "Customer has technical issue")
+    return "I can help with that directly"
+```
+
+#### `is_handoff_request(result: str) -> bool`
+
+Check if a tool result is a handoff request.
+
+**Parameters:**
+- `result` (str): Tool execution result to check
+
+**Returns:** `True` if the result is a handoff request, `False` otherwise
+
+**Example:**
+```python
+from jaf.core.handoff import is_handoff_request
+
+tool_result = await some_tool.execute(args, context)
+if is_handoff_request(tool_result):
+    print("Tool requested a handoff")
+```
+
+#### `extract_handoff_target(result: str) -> Optional[str]`
+
+Extract the target agent name from a handoff result.
+
+**Parameters:**
+- `result` (str): Tool execution result containing a handoff request
+
+**Returns:** Target agent name if it's a handoff, `None` otherwise
+
+**Example:**
+```python
+from jaf.core.handoff import extract_handoff_target
+
+tool_result = await some_tool.execute(args, context)
+target = extract_handoff_target(tool_result)
+if target:
+    print(f"Handoff to: {target}")
+```
+
+### Handoff Types
+
+#### `HandoffInput`
+
+Pydantic model defining handoff tool input parameters.
+
+**Fields:**
+- `agent_name` (str): Name of the agent to hand off to
+- `message` (str): Message or context to pass to the target agent
+
+**Example:**
+```python
+from jaf.core.handoff import HandoffInput
+
+# Used internally by the handoff tool
+handoff_args = HandoffInput(
+    agent_name="SpecialistAgent",
+    message="Customer needs specialized assistance"
+)
+```
+
+#### `HandoffResult`
+
+Dataclass representing the result of a handoff operation.
+
+**Fields:**
+- `target_agent` (str): Name of the target agent
+- `message` (str): Message passed to the target agent
+- `success` (bool, default=True): Whether the handoff succeeded
+- `error` (Optional[str], default=None): Error message if handoff failed
+
+**Example:**
+```python
+from jaf.core.handoff import HandoffResult
+
+result = HandoffResult(
+    target_agent="TechnicalSupport",
+    message="Customer has login issues",
+    success=True
+)
+```
+
+### Handoff Configuration
+
+#### Agent.handoffs
+
+The `handoffs` parameter in Agent configuration specifies which agents can be handed off to.
+
+**Type:** `Optional[List[str]]`
+
+**Behavior:**
+- If `None` or empty: No handoffs allowed
+- If populated: Only listed agents can be handoff targets
+- Validation occurs at runtime during tool execution
+
+**Example:**
+```python
+# Agent with restricted handoffs
+support_agent = Agent(
+    name='SupportAgent',
+    instructions=lambda state: "Provide support, escalate when needed",
+    tools=[handoff_tool, support_tools],
+    handoffs=['TechnicalSupport', 'Billing']  # Can only handoff to these
+)
+
+# Agent with no handoff capability
+simple_agent = Agent(
+    name='SimpleAgent',
+    instructions=lambda state: "Answer simple questions",
+    tools=[basic_tools],
+    handoffs=None  # Cannot handoff
+)
+```
+
+### Complete Handoff Example
+
+```python
+from jaf import Agent, RunConfig, run, Message, generate_run_id, generate_trace_id
+from jaf.core.handoff import handoff_tool
+from jaf.providers.model import make_litellm_provider
+
+# Create triage agent
+triage = Agent(
+    name='Triage',
+    instructions=lambda state: """You route customers to specialists.
+
+    - Technical issues → handoff to "TechnicalSupport"
+    - Billing questions → handoff to "Billing"
+    - Sales inquiries → handoff to "Sales"
+
+    Use the handoff tool with agent_name and a brief message.""",
+    tools=[handoff_tool],
+    handoffs=['TechnicalSupport', 'Billing', 'Sales']
+)
+
+# Create specialist agents
+tech_support = Agent(
+    name='TechnicalSupport',
+    instructions=lambda state: "Solve technical problems",
+    tools=[diagnostic_tool, restart_tool]
+)
+
+billing = Agent(
+    name='Billing',
+    instructions=lambda state: "Handle billing inquiries",
+    tools=[invoice_tool, payment_tool]
+)
+
+sales = Agent(
+    name='Sales',
+    instructions=lambda state: "Help with sales and purchases",
+    tools=[product_catalog_tool, purchase_tool]
+)
+
+# Configure and run
+config = RunConfig(
+    agent_registry={
+        'Triage': triage,
+        'TechnicalSupport': tech_support,
+        'Billing': billing,
+        'Sales': sales
+    },
+    model_provider=make_litellm_provider('http://localhost:4000'),
+    max_turns=10
+)
+
+state = RunState(
+    run_id=generate_run_id(),
+    trace_id=generate_trace_id(),
+    messages=[Message(role='user', content='My app keeps crashing!')],
+    current_agent_name='Triage',  # Start with triage
+    context={},
+    turn_count=0
+)
+
+result = await run(state, config)
+# Triage will handoff to TechnicalSupport automatically
+```
+
+### Best Practices
+
+1. **Define Clear Handoff Policies**: Use the `handoffs` parameter to explicitly allow only necessary handoffs
+2. **Provide Context in Messages**: When handing off, include relevant context in the message parameter
+3. **Use Triage Patterns**: Create dedicated triage/routing agents for complex multi-agent systems
+4. **Monitor Handoffs**: Use trace events to track handoff patterns and optimize routing
+5. **Limit Handoff Chains**: Avoid creating circular handoff dependencies between agents
+
+### Handoff Trace Events
+
+Handoffs generate trace events for observability:
+
+```python
+# Example trace events for handoffs
+{
+    "type": "handoff_initiated",
+    "data": {
+        "from_agent": "TriageAgent",
+        "to_agent": "TechnicalSupport",
+        "message": "Customer needs login help"
+    }
+}
+
+{
+    "type": "handoff_completed",
+    "data": {
+        "from_agent": "TriageAgent",
+        "to_agent": "TechnicalSupport",
+        "success": True
+    }
+}
+```
+
 ## Server Functions
 
 ### Server Creation
