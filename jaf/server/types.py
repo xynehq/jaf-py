@@ -11,7 +11,7 @@ import base64
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from ..core.types import Agent, RunConfig, Attachment, MessageContentPart, get_text_content
+from ..core.types import Agent, RunConfig, Attachment, MessageContentPart, get_text_content, MessageId, RegenerationRequest
 from ..memory.types import MemoryProvider
 
 Ctx = TypeVar('Ctx')
@@ -267,8 +267,56 @@ class PendingApprovalsResponse(BaseModel):
     data: Optional[PendingApprovalsData] = None
     error: Optional[str] = None
 
+# Regeneration types
+class RegenerationHttpRequest(BaseModel):
+    """HTTP request format for conversation regeneration."""
+    message_id: str = Field(..., description="ID of the message to regenerate from")
+    agent_name: str = Field(..., description="Name of the agent to use for regeneration")
+    context: Optional[Dict[str, Any]] = Field(default=None, description="Optional context override for regeneration")
+    max_turns: Optional[int] = Field(default=10, description="Maximum number of turns for regeneration")
+
+class RegenerationData(BaseModel):
+    """Data for successful regeneration response."""
+    regeneration_id: str
+    conversation_id: str
+    original_message_count: int
+    truncated_at_index: int
+    regenerated_message_id: str
+    messages: List[HttpMessage]
+    outcome: BaseOutcomeData
+    turn_count: int
+    execution_time_ms: int
+
+class RegenerationResponse(BaseModel):
+    """Response format for regeneration endpoints."""
+    success: bool
+    data: Optional[RegenerationData] = None
+    error: Optional[str] = None
+
+class RegenerationPointData(BaseModel):
+    """Data for a regeneration point."""
+    regeneration_id: str
+    message_id: str
+    timestamp: int
+    original_message_count: int
+    truncated_at_index: int
+
+class RegenerationHistoryData(BaseModel):
+    """Data for regeneration history response."""
+    conversation_id: str
+    regeneration_points: List[RegenerationPointData]
+
+class RegenerationHistoryResponse(BaseModel):
+    """Response format for regeneration history endpoint."""
+    success: bool
+    data: Optional[RegenerationHistoryData] = None
+    error: Optional[str] = None
 
 # Validation schemas
 def validate_chat_request(data: Dict[str, Any]) -> ChatRequest:
     """Validate and parse a chat request."""
     return ChatRequest.model_validate(data)
+
+def validate_regeneration_request(data: Dict[str, Any]) -> RegenerationHttpRequest:
+    """Validate and parse a regeneration request."""
+    return RegenerationHttpRequest.model_validate(data)
