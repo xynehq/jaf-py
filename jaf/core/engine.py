@@ -158,12 +158,23 @@ async def try_resume_pending_tool_calls(
                         outcome=InterruptedOutcome(interruptions=interruptions)
                     )
                 
+                # Collect enhanced contexts from tool executions
+                enhanced_contexts = [r.get('enhanced_context') for r in tool_results if r.get('enhanced_context')]
+
+                # Merge enhanced contexts into state context if any were provided
+                final_context = state.context
+                if enhanced_contexts:
+                    print(f'[JAF:APPROVAL] Merging {len(enhanced_contexts)} enhanced contexts into state for resume')
+                    # Take the most recent enhanced context (last tool that provided enhancement)
+                    final_context = enhanced_contexts[-1]
+
                 # Continue with normal execution
                 next_state = replace(
                     state,
                     messages=list(state.messages) + [r['message'] for r in tool_results],
                     turn_count=state.turn_count,
-                    approvals=state.approvals
+                    approvals=state.approvals,
+                    context=final_context
                 )
                 return await _run_internal(next_state, config)
         
@@ -197,6 +208,8 @@ async def run(
                 messages=state_with_memory.messages,  # Now includes full conversation history
                 agent_name=state_with_memory.current_agent_name
             ))))
+
+        print(f'[JAF:ENGINE] Loaded context for runId {state_with_memory.run_id}: {state_with_memory.context}')
         
         # Load approvals from storage if configured
         if config.memory and config.memory.provider:
@@ -802,13 +815,24 @@ async def _run_internal(
                     except (json.JSONDecodeError, TypeError):
                         cleaned_new_messages.append(msg)
 
+            # Collect enhanced contexts from tool executions
+            enhanced_contexts = [r.get('enhanced_context') for r in tool_results if r.get('enhanced_context')]
+
+            # Merge enhanced contexts into state context if any were provided
+            final_context = state.context
+            if enhanced_contexts:
+                print(f'[JAF:APPROVAL] Merging {len(enhanced_contexts)} enhanced contexts into state for handoff')
+                # Take the most recent enhanced context (last tool that provided enhancement)
+                final_context = enhanced_contexts[-1]
+
             # Continue with new agent
             next_state = replace(
                 state,
                 messages=cleaned_new_messages + [r['message'] for r in tool_results],
                 current_agent_name=target_agent,
                 turn_count=state.turn_count + 1,
-                approvals=state.approvals
+                approvals=state.approvals,
+                context=final_context
             )
 
             return await _run_internal(next_state, config)
@@ -830,12 +854,23 @@ async def _run_internal(
                 except (json.JSONDecodeError, TypeError):
                     cleaned_new_messages.append(msg)
 
+        # Collect enhanced contexts from tool executions
+        enhanced_contexts = [r.get('enhanced_context') for r in tool_results if r.get('enhanced_context')]
+
+        # Merge enhanced contexts into state context if any were provided
+        final_context = state.context
+        if enhanced_contexts:
+            print(f'[JAF:APPROVAL] Merging {len(enhanced_contexts)} enhanced contexts into state')
+            # Take the most recent enhanced context (last tool that provided enhancement)
+            final_context = enhanced_contexts[-1]
+
         # Continue with tool results
         next_state = replace(
             state,
             messages=cleaned_new_messages + [r['message'] for r in tool_results],
             turn_count=state.turn_count + 1,
-            approvals=state.approvals
+            approvals=state.approvals,
+            context=final_context
         )
 
         return await _run_internal(next_state, config)
@@ -1197,6 +1232,7 @@ async def _execute_tool_calls(
             # Merge additional context if provided through approval
             additional_context = getattr(approval_status, 'additional_context', approval_status.get('additional_context') if isinstance(approval_status, dict) else None) if approval_status else None
             context_with_additional = state.context
+            context_was_enhanced = False
             if additional_context:
                 # Create a copy of context with additional fields from approval
                 if hasattr(state.context, '__dict__'):
@@ -1210,6 +1246,8 @@ async def _execute_tool_calls(
                 else:
                     # For dict contexts, merge normally
                     context_with_additional = {**state.context, **additional_context}
+                context_was_enhanced = True
+                print(f'[JAF:APPROVAL] Enhanced context for tool {tool_call.function.name} with additional context: {additional_context}')
             
             print(f'[JAF:ENGINE] About to execute tool: {tool_call.function.name}')
             print(f'[JAF:ENGINE] Tool args:', validated_args)
@@ -1308,13 +1346,20 @@ async def _execute_tool_calls(
                     'target_agent': handoff_check['handoff_to']
                 }
 
-            return {
+            result_dict = {
                 'message': Message(
                     role=ContentRole.TOOL,
                     content=final_content,
                     tool_call_id=tool_call.id
                 )
             }
+
+            # If context was enhanced with additional approval context, pass it back
+            if context_was_enhanced:
+                result_dict['enhanced_context'] = context_with_additional
+                print(f'[JAF:APPROVAL] Propagating enhanced context back from tool {tool_call.function.name}')
+
+            return result_dict
 
         except Exception as error:
             error_result = json.dumps({
