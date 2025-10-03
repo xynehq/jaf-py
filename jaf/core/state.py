@@ -133,14 +133,20 @@ async def approve(
         Updated run state with approval recorded
     """
     if interruption.type == 'tool_approval':
+        print(f"[JAF:APPROVAL] approve() called with additional_context: {additional_context}")
+
+        # Ensure user additional context is preserved and internal status is non-conflicting
+        merged_context = {**(additional_context or {})}
+        if 'status' not in merged_context:  # Only add status if user didn't provide it
+            merged_context['approval_status'] = 'approved'  # Use non-conflicting key
+
         approval_value = ApprovalValue(
             status='approved',
             approved=True,
-            additional_context={
-                **(additional_context or {}), 
-                'status': 'approved'
-            }
+            additional_context=merged_context
         )
+
+        print(f"[JAF:APPROVAL] Created approval_value with additional_context: {approval_value.additional_context}")
         
         # Store in approval storage if available
         if config and config.memory and config.memory.provider:
@@ -192,14 +198,20 @@ async def reject(
         Updated run state with rejection recorded
     """
     if interruption.type == 'tool_approval':
+        print(f"[JAF:APPROVAL] reject() called with additional_context: {additional_context}")
+
+        # Ensure user additional context is preserved and internal status is non-conflicting
+        merged_context = {**(additional_context or {})}
+        if 'status' not in merged_context:  # Only add status if user didn't provide it
+            merged_context['approval_status'] = 'rejected'  # Use non-conflicting key
+
         approval_value = ApprovalValue(
             status='rejected',
             approved=False,
-            additional_context={
-                **(additional_context or {}), 
-                'status': 'rejected'
-            }
+            additional_context=merged_context
         )
+
+        print(f"[JAF:APPROVAL] Created approval_value with additional_context: {approval_value.additional_context}")
         
         # Store in approval storage if available
         if config and config.memory and config.memory.provider:
