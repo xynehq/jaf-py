@@ -158,12 +158,23 @@ async def try_resume_pending_tool_calls(
                         outcome=InterruptedOutcome(interruptions=interruptions)
                     )
                 
+                # Collect enhanced contexts from tool executions
+                enhanced_contexts = [r.get('enhanced_context') for r in tool_results if r.get('enhanced_context')]
+
+                # Merge enhanced contexts into state context if any were provided
+                final_context = state.context
+                if enhanced_contexts:
+                    print(f'[JAF:APPROVAL] Merging {len(enhanced_contexts)} enhanced contexts into state for resume')
+                    # Take the most recent enhanced context (last tool that provided enhancement)
+                    final_context = enhanced_contexts[-1]
+
                 # Continue with normal execution
                 next_state = replace(
                     state,
                     messages=list(state.messages) + [r['message'] for r in tool_results],
                     turn_count=state.turn_count,
-                    approvals=state.approvals
+                    approvals=state.approvals,
+                    context=final_context
                 )
                 return await _run_internal(next_state, config)
         
@@ -197,9 +208,11 @@ async def run(
                 messages=state_with_memory.messages,  # Now includes full conversation history
                 agent_name=state_with_memory.current_agent_name
             ))))
+
+        print(f'[JAF:ENGINE] Loaded context for runId {state_with_memory.run_id}: {state_with_memory.context}')
         
         # Load approvals from storage if configured
-        if config.approval_storage:
+        if config.memory and config.memory.provider:
             print(f'[JAF:ENGINE] Loading approvals for runId {state_with_memory.run_id}')
             from .state import load_approvals_into_state
             state_with_memory = await load_approvals_into_state(state_with_memory, config)
@@ -269,9 +282,11 @@ async def _load_conversation_history(state: RunState[Ctx], config: RunConfig[Ctx
         all_memory_messages = conversation_data.messages[-max_messages:]
 
         # Filter out halted messages - they're for audit/database only, not for LLM context
+        # Also extract approval context from approved_and_executed messages for LLM visibility
         memory_messages = []
         filtered_count = 0
-        
+        extracted_approval_contexts = []
+
         for msg in all_memory_messages:
             if msg.role not in (ContentRole.TOOL, 'tool'):
                 memory_messages.append(msg)
@@ -280,28 +295,50 @@ async def _load_conversation_history(state: RunState[Ctx], config: RunConfig[Ctx
                     content = json.loads(msg.content)
                     status = content.get('status')
                     hitl_status = content.get('hitl_status')
+
                     # Filter out ALL halted/pending approval messages (they're for audit only)
                     if status == 'halted' or hitl_status == 'pending_approval':
                         filtered_count += 1
                         continue  # Skip this halted message
-                    else:
-                        memory_messages.append(msg)
+
+                    # Extract approval context from approved_and_executed messages
+                    if hitl_status == 'approved_and_executed':
+                        approval_context = content.get('approval_context')
+                        if approval_context:
+                            # Extract useful context information
+                            context_message = approval_context.get('message', '')
+                            if context_message:
+                                extracted_approval_contexts.append({
+                                    'tool_name': content.get('tool_name', 'unknown'),
+                                    'context_message': context_message,
+                                    'approval_context': approval_context
+                                })
+
+                    memory_messages.append(msg)
                 except (json.JSONDecodeError, TypeError):
                     # Keep non-JSON tool messages
                     memory_messages.append(msg)
 
+        # Inject extracted approval contexts as system messages for LLM visibility
+        if extracted_approval_contexts:
+            approval_context_messages = []
+            for ctx in extracted_approval_contexts:
+                context_text = f"Previous approval context for {ctx['tool_name']}: {ctx['context_message']}"
+
+                # Create a system message with the approval context
+                approval_msg = Message(
+                    role=ContentRole.SYSTEM,
+                    content=context_text
+                )
+                approval_context_messages.append(approval_msg)
+
+            # Insert approval context messages at the beginning for visibility
+            memory_messages = approval_context_messages + memory_messages
+
         # For HITL scenarios, append new messages to memory messages
         # This prevents duplication when resuming from interruptions
         if memory_messages:
-            combined_messages = memory_messages + [
-                msg for msg in state.messages 
-                if not any(
-                    mem_msg.role == msg.role and 
-                    mem_msg.content == msg.content and 
-                    getattr(mem_msg, 'tool_calls', None) == getattr(msg, 'tool_calls', None)
-                    for mem_msg in memory_messages
-                )
-            ]
+            combined_messages = memory_messages + list(state.messages)
         else:
             combined_messages = list(state.messages)
 
@@ -331,6 +368,9 @@ async def _load_conversation_history(state: RunState[Ctx], config: RunConfig[Ctx
             print(f'[JAF:MEMORY] Loaded {len(all_memory_messages)} messages from memory, filtered to {len(memory_messages)} for LLM context (removed {filtered_count} halted messages)')
         else:
             print(f'[JAF:MEMORY] Loaded {len(all_memory_messages)} messages from memory')
+
+        if extracted_approval_contexts:
+            print(f'[JAF:APPROVAL] Extracted {len(extracted_approval_contexts)} approval contexts for LLM visibility: {[ctx["tool_name"] for ctx in extracted_approval_contexts]}')
 
         return replace(
             state,
@@ -363,8 +403,8 @@ async def _store_conversation_history(state: RunState[Ctx], config: RunConfig[Ct
     if state.approvals:
         approval_metadata = {
             "approval_count": len(state.approvals),
-            "approved_tools": [tool_id for tool_id, approval in state.approvals.items() if approval.approved],
-            "rejected_tools": [tool_id for tool_id, approval in state.approvals.items() if not approval.approved],
+            "approved_tools": [tool_id for tool_id, approval in state.approvals.items() if getattr(approval, 'approved', approval.get('approved') if isinstance(approval, dict) else False)],
+            "rejected_tools": [tool_id for tool_id, approval in state.approvals.items() if not getattr(approval, 'approved', approval.get('approved') if isinstance(approval, dict) else False)],
             "has_approvals": True
         }
     
@@ -775,13 +815,24 @@ async def _run_internal(
                     except (json.JSONDecodeError, TypeError):
                         cleaned_new_messages.append(msg)
 
+            # Collect enhanced contexts from tool executions
+            enhanced_contexts = [r.get('enhanced_context') for r in tool_results if r.get('enhanced_context')]
+
+            # Merge enhanced contexts into state context if any were provided
+            final_context = state.context
+            if enhanced_contexts:
+                print(f'[JAF:APPROVAL] Merging {len(enhanced_contexts)} enhanced contexts into state for handoff')
+                # Take the most recent enhanced context (last tool that provided enhancement)
+                final_context = enhanced_contexts[-1]
+
             # Continue with new agent
             next_state = replace(
                 state,
                 messages=cleaned_new_messages + [r['message'] for r in tool_results],
                 current_agent_name=target_agent,
                 turn_count=state.turn_count + 1,
-                approvals=state.approvals
+                approvals=state.approvals,
+                context=final_context
             )
 
             return await _run_internal(next_state, config)
@@ -803,12 +854,23 @@ async def _run_internal(
                 except (json.JSONDecodeError, TypeError):
                     cleaned_new_messages.append(msg)
 
+        # Collect enhanced contexts from tool executions
+        enhanced_contexts = [r.get('enhanced_context') for r in tool_results if r.get('enhanced_context')]
+
+        # Merge enhanced contexts into state context if any were provided
+        final_context = state.context
+        if enhanced_contexts:
+            print(f'[JAF:APPROVAL] Merging {len(enhanced_contexts)} enhanced contexts into state')
+            # Take the most recent enhanced context (last tool that provided enhancement)
+            final_context = enhanced_contexts[-1]
+
         # Continue with tool results
         next_state = replace(
             state,
             messages=cleaned_new_messages + [r['message'] for r in tool_results],
             turn_count=state.turn_count + 1,
-            approvals=state.approvals
+            approvals=state.approvals,
+            context=final_context
         )
 
         return await _run_internal(next_state, config)
@@ -1084,23 +1146,28 @@ async def _execute_tool_calls(
             if not approval_status:
                 signature = f"{tool_call.function.name}:{tool_call.function.arguments}"
                 for _, approval in state.approvals.items():
-                    if approval.additional_context and approval.additional_context.get('signature') == signature:
+                    additional_context = getattr(approval, 'additional_context', approval.get('additional_context') if isinstance(approval, dict) else None)
+                    if additional_context and additional_context.get('signature') == signature:
                         approval_status = approval
                         break
             
             derived_status = None
             if approval_status:
                 # Use explicit status if available
-                if approval_status.status:
-                    derived_status = approval_status.status
+                status = getattr(approval_status, 'status', approval_status.get('status') if isinstance(approval_status, dict) else None)
+                if status:
+                    derived_status = status
                 # Fall back to approved boolean if status not set
-                elif approval_status.approved is True:
-                    derived_status = 'approved'
-                elif approval_status.approved is False:
-                    if approval_status.additional_context and approval_status.additional_context.get('status') == 'pending':
-                        derived_status = 'pending'
-                    else:
-                        derived_status = 'rejected'
+                else:
+                    approved = getattr(approval_status, 'approved', approval_status.get('approved') if isinstance(approval_status, dict) else None)
+                    if approved is True:
+                        derived_status = 'approved'
+                    elif approved is False:
+                        additional_context = getattr(approval_status, 'additional_context', approval_status.get('additional_context') if isinstance(approval_status, dict) else None)
+                        if additional_context and additional_context.get('status') == 'pending':
+                            derived_status = 'pending'
+                        else:
+                            derived_status = 'rejected'
 
             is_pending = derived_status == 'pending'
 
@@ -1130,13 +1197,19 @@ async def _execute_tool_calls(
 
             # If approval was explicitly rejected, return rejection message
             if derived_status == 'rejected':
-                rejection_reason = approval_status.additional_context.get('rejection_reason', 'User declined the action') if approval_status.additional_context else 'User declined the action'
+                approval_context = getattr(approval_status, 'additional_context', approval_status.get('additional_context') if isinstance(approval_status, dict) else None) if approval_status else None
+                rejection_reason = approval_context.get('rejection_reason', 'User declined the action') if approval_context else 'User declined the action'
+                context_message = approval_context.get('message', '') if approval_context else ''
+
+                base_message = f'Action was not approved. {rejection_reason}. Please ask if you can help with something else or suggest an alternative approach.'
+                full_message = f'{base_message} IMPORTANT: {context_message}' if context_message else base_message
+
                 rejection_result = json.dumps({
                     'hitl_status': 'rejected',  # HITL workflow status: user rejected the action
-                    'message': f'Action was not approved. {rejection_reason}. Please ask if you can help with something else or suggest an alternative approach.',
+                    'message': full_message,
                     'tool_name': tool_call.function.name,
                     'rejection_reason': rejection_reason,
-                    'additional_context': approval_status.additional_context if approval_status else None
+                    'additional_context': approval_context
                 })
                 
                 return {
@@ -1157,8 +1230,9 @@ async def _execute_tool_calls(
                 timeout = config.default_tool_timeout if config.default_tool_timeout is not None else 300.0
 
             # Merge additional context if provided through approval
-            additional_context = approval_status.additional_context if approval_status else None
+            additional_context = getattr(approval_status, 'additional_context', approval_status.get('additional_context') if isinstance(approval_status, dict) else None) if approval_status else None
             context_with_additional = state.context
+            context_was_enhanced = False
             if additional_context:
                 # Create a copy of context with additional fields from approval
                 if hasattr(state.context, '__dict__'):
@@ -1172,6 +1246,8 @@ async def _execute_tool_calls(
                 else:
                     # For dict contexts, merge normally
                     context_with_additional = {**state.context, **additional_context}
+                context_was_enhanced = True
+                print(f'[JAF:APPROVAL] Enhanced context for tool {tool_call.function.name} with additional context: {additional_context}')
             
             print(f'[JAF:ENGINE] About to execute tool: {tool_call.function.name}')
             print(f'[JAF:ENGINE] Tool args:', validated_args)
@@ -1221,13 +1297,15 @@ async def _execute_tool_calls(
                 print(f'[JAF:ENGINE] Converted to string:', result_string)
 
             # Wrap tool result with status information for approval context
-            if approval_status and approval_status.additional_context:
+            if approval_status and getattr(approval_status, 'additional_context', approval_status.get('additional_context') if isinstance(approval_status, dict) else None):
+                approval_context = getattr(approval_status, 'additional_context', approval_status.get('additional_context') if isinstance(approval_status, dict) else None)
+                context_message = approval_context.get('message', '') if approval_context else ''
                 final_content = json.dumps({
                     'hitl_status': 'approved_and_executed',  # HITL workflow status: approved by user and executed
                     'result': result_string,
                     'tool_name': tool_call.function.name,
-                    'approval_context': approval_status.additional_context,
-                    'message': 'Tool was approved and executed successfully with additional context.'
+                    'approval_context': approval_context,
+                    'message': f'Tool was approved and executed successfully. IMPORTANT: {context_message}' if context_message else 'Tool was approved and executed successfully with additional context.'
                 })
             elif needs_approval:
                 final_content = json.dumps({
@@ -1268,13 +1346,20 @@ async def _execute_tool_calls(
                     'target_agent': handoff_check['handoff_to']
                 }
 
-            return {
+            result_dict = {
                 'message': Message(
                     role=ContentRole.TOOL,
                     content=final_content,
                     tool_call_id=tool_call.id
                 )
             }
+
+            # If context was enhanced with additional approval context, pass it back
+            if context_was_enhanced:
+                result_dict['enhanced_context'] = context_with_additional
+                print(f'[JAF:APPROVAL] Propagating enhanced context back from tool {tool_call.function.name}')
+
+            return result_dict
 
         except Exception as error:
             error_result = json.dumps({

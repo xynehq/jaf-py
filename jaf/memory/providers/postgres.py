@@ -9,7 +9,7 @@ import json
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
-from ...core.types import Message
+from ...core.types import Message, RunId, ApprovalValue
 from ..types import (
     ConversationMemory,
     Failure,
@@ -238,6 +238,198 @@ class PostgresProvider(MemoryProvider):
             })
         except Exception as e:
             return Failure(MemoryConnectionError(provider="Postgres", message="Postgres health check failed", cause=e))
+
+    # Approval storage methods
+    async def _ensure_approval_table_exists(self):
+        """Ensure the approval table exists."""
+        query = f"""
+        CREATE TABLE IF NOT EXISTS {self.config.approval_table_name} (
+            id SERIAL PRIMARY KEY,
+            run_id VARCHAR(255) NOT NULL,
+            tool_call_id VARCHAR(255) NOT NULL,
+            status VARCHAR(50),
+            approved BOOLEAN NOT NULL,
+            additional_context JSONB,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(run_id, tool_call_id)
+        );
+        """
+        await self._db_execute(query)
+
+    async def store_approval(
+        self,
+        run_id: RunId,
+        tool_call_id: str,
+        approval: ApprovalValue,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Result[None, MemoryStorageError]:
+        """Store an approval decision for a tool call."""
+        try:
+            await self._ensure_approval_table_exists()
+
+            query = f"""
+            INSERT INTO {self.config.approval_table_name}
+            (run_id, tool_call_id, status, approved, additional_context, updated_at)
+            VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+            ON CONFLICT (run_id, tool_call_id)
+            DO UPDATE SET
+                status = EXCLUDED.status,
+                approved = EXCLUDED.approved,
+                additional_context = EXCLUDED.additional_context,
+                updated_at = CURRENT_TIMESTAMP
+            """
+
+            await self._db_execute(
+                query,
+                str(run_id),
+                tool_call_id,
+                approval.status,
+                approval.approved,
+                json.dumps(approval.additional_context)
+            )
+
+            return Success(None)
+        except Exception as e:
+            return Failure(MemoryStorageError(f"Failed to store approval: {e}"))
+
+    async def get_approval(
+        self,
+        run_id: RunId,
+        tool_call_id: str
+    ) -> Result[Optional[ApprovalValue], MemoryStorageError]:
+        """Retrieve approval for a specific tool call."""
+        try:
+            await self._ensure_approval_table_exists()
+
+            query = f"""
+            SELECT status, approved, additional_context
+            FROM {self.config.approval_table_name}
+            WHERE run_id = $1 AND tool_call_id = $2
+            """
+
+            row = await self._db_fetchrow(query, str(run_id), tool_call_id)
+
+            if row is None:
+                return Success(None)
+
+            approval = ApprovalValue(
+                status=row['status'],
+                approved=row['approved'],
+                additional_context=json.loads(row['additional_context']) if row['additional_context'] else {}
+            )
+
+            return Success(approval)
+        except Exception as e:
+            return Failure(MemoryStorageError(f"Failed to get approval: {e}"))
+
+    async def get_run_approvals(
+        self,
+        run_id: RunId
+    ) -> Result[Dict[str, ApprovalValue], MemoryStorageError]:
+        """Get all approvals for a run."""
+        try:
+            await self._ensure_approval_table_exists()
+
+            query = f"""
+            SELECT tool_call_id, status, approved, additional_context
+            FROM {self.config.approval_table_name}
+            WHERE run_id = $1
+            """
+
+            rows = await self._db_fetch(query, str(run_id))
+
+            approvals = {}
+            for row in rows:
+                approval = ApprovalValue(
+                    status=row['status'],
+                    approved=row['approved'],
+                    additional_context=json.loads(row['additional_context']) if row['additional_context'] else {}
+                )
+                approvals[row['tool_call_id']] = approval
+
+            return Success(approvals)
+        except Exception as e:
+            return Failure(MemoryStorageError(f"Failed to get run approvals: {e}"))
+
+    async def update_approval(
+        self,
+        run_id: RunId,
+        tool_call_id: str,
+        updates: Dict[str, Any]
+    ) -> Result[None, MemoryStorageError]:
+        """Update approval with new data."""
+        try:
+            await self._ensure_approval_table_exists()
+
+            # Get current approval
+            current_result = await self.get_approval(run_id, tool_call_id)
+            if hasattr(current_result, 'error'):
+                return current_result
+            if current_result.data is None:
+                return Failure(MemoryStorageError(f"Approval not found for tool_call_id: {tool_call_id}"))
+
+            current_approval = current_result.data
+
+            # Create updated approval
+            updated_approval = ApprovalValue(
+                status=updates.get('status', current_approval.status),
+                approved=updates.get('approved', current_approval.approved),
+                additional_context={
+                    **current_approval.additional_context,
+                    **updates.get('additional_context', {})
+                }
+            )
+
+            # Store updated approval
+            return await self.store_approval(run_id, tool_call_id, updated_approval)
+        except Exception as e:
+            return Failure(MemoryStorageError(f"Failed to update approval: {e}"))
+
+    async def delete_approval(
+        self,
+        run_id: RunId,
+        tool_call_id: str
+    ) -> Result[bool, MemoryStorageError]:
+        """Delete approval for a tool call."""
+        try:
+            await self._ensure_approval_table_exists()
+
+            query = f"""
+            DELETE FROM {self.config.approval_table_name}
+            WHERE run_id = $1 AND tool_call_id = $2
+            """
+
+            result = await self._db_execute(query, str(run_id), tool_call_id)
+            # PostgreSQL returns the number of affected rows
+            return Success(result is not None and result != 0)
+        except Exception as e:
+            return Failure(MemoryStorageError(f"Failed to delete approval: {e}"))
+
+    async def clear_run_approvals(
+        self,
+        run_id: RunId
+    ) -> Result[int, MemoryStorageError]:
+        """Clear all approvals for a run."""
+        try:
+            await self._ensure_approval_table_exists()
+
+            count_query = f"""
+            SELECT COUNT(*) FROM {self.config.approval_table_name}
+            WHERE run_id = $1
+            """
+            count_row = await self._db_fetchrow(count_query, str(run_id))
+            count = count_row['count'] if count_row else 0
+
+            delete_query = f"""
+            DELETE FROM {self.config.approval_table_name}
+            WHERE run_id = $1
+            """
+            await self._db_execute(delete_query, str(run_id))
+
+            return Success(count)
+        except Exception as e:
+            return Failure(MemoryStorageError(f"Failed to clear run approvals: {e}"))
 
     async def close(self) -> Result[None, MemoryConnectionError]:
         try:

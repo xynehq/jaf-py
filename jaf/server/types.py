@@ -268,6 +268,36 @@ class PendingApprovalsResponse(BaseModel):
     error: Optional[str] = None
 
 
+class ApprovalRequest(BaseModel):
+    """Request format for approval endpoints."""
+    conversationId: str = Field(alias="conversationId")
+    toolCallId: str = Field(alias="toolCallId")
+    additionalContext: Optional[Dict[str, Any]] = Field(None, alias="additionalContext")
+
+    class Config:
+        populate_by_name = True
+        allow_population_by_field_name = True
+
+
+class RejectRequest(BaseModel):
+    """Request format for rejection endpoints."""
+    conversationId: str = Field(alias="conversationId")
+    toolCallId: str = Field(alias="toolCallId")
+    reason: Optional[str] = None
+    additionalContext: Optional[Dict[str, Any]] = Field(None, alias="additionalContext")
+
+    class Config:
+        populate_by_name = True
+        allow_population_by_field_name = True
+
+
+class ApprovalResponse(BaseModel):
+    """Response format for approval/rejection endpoints."""
+    success: bool
+    data: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+
+
 # Validation schemas
 def validate_chat_request(data: Dict[str, Any]) -> ChatRequest:
     """Validate and parse a chat request."""

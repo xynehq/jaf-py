@@ -8,7 +8,7 @@ Best for production environments with shared state and persistence across restar
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
-from ...core.types import Message
+from ...core.types import Message, RunId, ApprovalValue
 from ..types import (
     ConversationMemory,
     Failure,
@@ -204,6 +204,142 @@ class RedisProvider(MemoryProvider):
             })
         except Exception as e:
             return Failure(MemoryConnectionError(provider="Redis", message="Redis health check failed", cause=e))
+
+    # Approval storage methods
+    def _get_approval_key(self, run_id: RunId) -> str:
+        """Get Redis key for approval storage."""
+        return f"{self.config.key_prefix}approvals:{run_id}"
+
+    def _serialize_approval(self, approval: ApprovalValue) -> str:
+        """Serialize approval to JSON."""
+        import json
+        return json.dumps({
+            'status': approval.status,
+            'approved': approval.approved,
+            'additional_context': approval.additional_context
+        })
+
+    def _deserialize_approval(self, data: str) -> ApprovalValue:
+        """Deserialize approval from JSON."""
+        import json
+        approval_dict = json.loads(data)
+        return ApprovalValue(
+            status=approval_dict['status'],
+            approved=approval_dict['approved'],
+            additional_context=approval_dict.get('additional_context', {})
+        )
+
+    async def store_approval(
+        self,
+        run_id: RunId,
+        tool_call_id: str,
+        approval: ApprovalValue,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Result[None, MemoryStorageError]:
+        """Store an approval decision for a tool call."""
+        try:
+            key = self._get_approval_key(run_id)
+            serialized_approval = self._serialize_approval(approval)
+            await self.redis_client.hset(key, tool_call_id, serialized_approval)
+            return Success(None)
+        except Exception as e:
+            return Failure(MemoryStorageError(f"Failed to store approval: {e}"))
+
+    async def get_approval(
+        self,
+        run_id: RunId,
+        tool_call_id: str
+    ) -> Result[Optional[ApprovalValue], MemoryStorageError]:
+        """Retrieve approval for a specific tool call."""
+        try:
+            key = self._get_approval_key(run_id)
+            data = await self.redis_client.hget(key, tool_call_id)
+
+            if data is None:
+                return Success(None)
+
+            approval = self._deserialize_approval(data)
+            return Success(approval)
+        except Exception as e:
+            return Failure(MemoryStorageError(f"Failed to get approval: {e}"))
+
+    async def get_run_approvals(
+        self,
+        run_id: RunId
+    ) -> Result[Dict[str, ApprovalValue], MemoryStorageError]:
+        """Get all approvals for a run."""
+        try:
+            key = self._get_approval_key(run_id)
+            approval_data = await self.redis_client.hgetall(key)
+
+            approvals = {}
+            for tool_call_id, data in approval_data.items():
+                approvals[tool_call_id] = self._deserialize_approval(data)
+
+            return Success(approvals)
+        except Exception as e:
+            return Failure(MemoryStorageError(f"Failed to get run approvals: {e}"))
+
+    async def update_approval(
+        self,
+        run_id: RunId,
+        tool_call_id: str,
+        updates: Dict[str, Any]
+    ) -> Result[None, MemoryStorageError]:
+        """Update approval with new data."""
+        try:
+            key = self._get_approval_key(run_id)
+
+            # Get current approval
+            current_data = await self.redis_client.hget(key, tool_call_id)
+            if current_data is None:
+                return Failure(MemoryStorageError(f"Approval not found for tool_call_id: {tool_call_id}"))
+
+            current_approval = self._deserialize_approval(current_data)
+
+            # Create updated approval
+            updated_approval = ApprovalValue(
+                status=updates.get('status', current_approval.status),
+                approved=updates.get('approved', current_approval.approved),
+                additional_context={
+                    **current_approval.additional_context,
+                    **updates.get('additional_context', {})
+                }
+            )
+
+            # Store updated approval
+            serialized_approval = self._serialize_approval(updated_approval)
+            await self.redis_client.hset(key, tool_call_id, serialized_approval)
+
+            return Success(None)
+        except Exception as e:
+            return Failure(MemoryStorageError(f"Failed to update approval: {e}"))
+
+    async def delete_approval(
+        self,
+        run_id: RunId,
+        tool_call_id: str
+    ) -> Result[bool, MemoryStorageError]:
+        """Delete approval for a tool call."""
+        try:
+            key = self._get_approval_key(run_id)
+            deleted = await self.redis_client.hdel(key, tool_call_id)
+            return Success(deleted > 0)
+        except Exception as e:
+            return Failure(MemoryStorageError(f"Failed to delete approval: {e}"))
+
+    async def clear_run_approvals(
+        self,
+        run_id: RunId
+    ) -> Result[int, MemoryStorageError]:
+        """Clear all approvals for a run."""
+        try:
+            key = self._get_approval_key(run_id)
+            count = await self.redis_client.hlen(key)
+            await self.redis_client.delete(key)
+            return Success(count)
+        except Exception as e:
+            return Failure(MemoryStorageError(f"Failed to clear run approvals: {e}"))
 
     async def close(self) -> Result[None, MemoryConnectionError]:
         try:

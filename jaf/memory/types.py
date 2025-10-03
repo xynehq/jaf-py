@@ -11,7 +11,7 @@ from typing import Any, Dict, Generic, List, Optional, Protocol, TypeVar, Union
 
 from pydantic import BaseModel, Field
 
-from ..core.types import Message, TraceId
+from ..core.types import Message, TraceId, RunId, ApprovalValue
 
 # Generic Result type for functional error handling
 T = TypeVar('T')
@@ -135,6 +135,56 @@ class MemoryProvider(Protocol):
         """Close/cleanup the provider."""
         ...
 
+    # Approval storage methods
+    async def store_approval(
+        self,
+        run_id: RunId,
+        tool_call_id: str,
+        approval: ApprovalValue,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Result[None, 'MemoryStorageError']:
+        """Store an approval decision for a tool call."""
+        ...
+
+    async def get_approval(
+        self,
+        run_id: RunId,
+        tool_call_id: str
+    ) -> Result[Optional[ApprovalValue], 'MemoryStorageError']:
+        """Retrieve approval for a specific tool call. Returns None if not found."""
+        ...
+
+    async def get_run_approvals(
+        self,
+        run_id: RunId
+    ) -> Result[Dict[str, ApprovalValue], 'MemoryStorageError']:
+        """Get all approvals for a run as a Dict[str, ApprovalValue]."""
+        ...
+
+    async def update_approval(
+        self,
+        run_id: RunId,
+        tool_call_id: str,
+        updates: Dict[str, Any]
+    ) -> Result[None, 'MemoryStorageError']:
+        """Update approval with new data."""
+        ...
+
+    async def delete_approval(
+        self,
+        run_id: RunId,
+        tool_call_id: str
+    ) -> Result[bool, 'MemoryStorageError']:
+        """Delete approval for a tool call. Returns True if it existed."""
+        ...
+
+    async def clear_run_approvals(
+        self,
+        run_id: RunId
+    ) -> Result[int, 'MemoryStorageError']:
+        """Clear all approvals for a run. Returns count of deleted approvals."""
+        ...
+
 # Configuration models using Pydantic for validation
 
 class InMemoryConfig(BaseModel):
@@ -165,6 +215,7 @@ class PostgresConfig(BaseModel):
     password: Optional[str] = None
     ssl: bool = Field(default=False)
     table_name: str = Field(default="conversations")
+    approval_table_name: str = Field(default="jaf_approvals")
     max_connections: int = Field(default=10, ge=1)
 
 # Union type for all provider configurations

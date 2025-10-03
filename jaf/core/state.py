@@ -133,25 +133,31 @@ async def approve(
         Updated run state with approval recorded
     """
     if interruption.type == 'tool_approval':
+        print(f"[JAF:APPROVAL] approve() called with additional_context: {additional_context}")
+
+        # Ensure user additional context is preserved and internal status is non-conflicting
+        merged_context = {**(additional_context or {})}
+        if 'status' not in merged_context:  # Only add status if user didn't provide it
+            merged_context['approval_status'] = 'approved'  # Use non-conflicting key
+
         approval_value = ApprovalValue(
             status='approved',
             approved=True,
-            additional_context={
-                **(additional_context or {}), 
-                'status': 'approved'
-            }
+            additional_context=merged_context
         )
+
+        print(f"[JAF:APPROVAL] Created approval_value with additional_context: {approval_value.additional_context}")
         
         # Store in approval storage if available
-        if config and config.approval_storage:
+        if config and config.memory and config.memory.provider:
             try:
                 print(f"[JAF:APPROVAL] Storing approval for tool_call_id {interruption.tool_call.id}: {approval_value}")
-                result = await config.approval_storage.store_approval(
+                result = await config.memory.provider.store_approval(
                     state.run_id,
                     interruption.tool_call.id,
                     approval_value
                 )
-                if not result.success:
+                if hasattr(result, 'error'):
                     print(f"[JAF:APPROVAL] Failed to store approval: {result.error}")
                     # Continue with in-memory fallback
                 else:
@@ -192,25 +198,31 @@ async def reject(
         Updated run state with rejection recorded
     """
     if interruption.type == 'tool_approval':
+        print(f"[JAF:APPROVAL] reject() called with additional_context: {additional_context}")
+
+        # Ensure user additional context is preserved and internal status is non-conflicting
+        merged_context = {**(additional_context or {})}
+        if 'status' not in merged_context:  # Only add status if user didn't provide it
+            merged_context['approval_status'] = 'rejected'  # Use non-conflicting key
+
         approval_value = ApprovalValue(
             status='rejected',
             approved=False,
-            additional_context={
-                **(additional_context or {}), 
-                'status': 'rejected'
-            }
+            additional_context=merged_context
         )
+
+        print(f"[JAF:APPROVAL] Created approval_value with additional_context: {approval_value.additional_context}")
         
         # Store in approval storage if available
-        if config and config.approval_storage:
+        if config and config.memory and config.memory.provider:
             try:
                 print(f"[JAF:APPROVAL] Storing approval for tool_call_id {interruption.tool_call.id}: {approval_value}")
-                result = await config.approval_storage.store_approval(
+                result = await config.memory.provider.store_approval(
                     state.run_id,
                     interruption.tool_call.id,
                     approval_value
                 )
-                if not result.success:
+                if hasattr(result, 'error'):
                     print(f"[JAF:APPROVAL] Failed to store approval: {result.error}")
                     # Continue with in-memory fallback
                 else:
@@ -246,18 +258,18 @@ async def load_approvals_into_state(
     Returns:
         Updated run state with loaded approvals
     """
-    if not config or not config.approval_storage:
+    if not config or not config.memory and config.memory.provider:
         print(f"[JAF:APPROVAL] No approval storage configured, using existing approvals: {state.approvals}")
         return state
     
     try:
         print(f"[JAF:APPROVAL] Loading approvals from storage for run_id: {state.run_id}")
-        result = await config.approval_storage.get_run_approvals(state.run_id)
-        if result.success and result.data:
+        result = await config.memory.provider.get_run_approvals(state.run_id)
+        if hasattr(result, 'data') and result.data:
             print(f"[JAF:APPROVAL] Loaded {len(result.data)} approvals from storage: {result.data}")
             return replace(state, approvals=result.data)
         else:
-            if not result.success:
+            if hasattr(result, 'error'):
                 print(f"[JAF:APPROVAL] Failed to load approvals: {result.error}")
             else:
                 print(f"[JAF:APPROVAL] No approvals found in storage for run_id: {state.run_id}")
