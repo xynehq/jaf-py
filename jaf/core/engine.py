@@ -556,6 +556,8 @@ async def _run_internal(
             aggregated_text = ""
             # Working array of partial tool calls
             partial_tool_calls: List[Dict[str, Any]] = []
+            # Track usage data from streaming chunks
+            usage_data: Optional[Dict[str, int]] = None
 
             async for chunk in get_stream(state, current_agent, config):  # type: ignore[arg-type]
                 # Text deltas
@@ -588,6 +590,13 @@ async def _run_internal(
                         args_delta = getattr(fn, "arguments_delta", None)
                         if args_delta:
                             target["function"]["arguments"] += args_delta
+
+                # Extract usage from raw chunk data (OpenAI sends it in the last chunk)
+                raw = getattr(chunk, "raw", None)
+                if raw and isinstance(raw, dict):
+                    chunk_usage = raw.get("usage")
+                    if chunk_usage:
+                        usage_data = chunk_usage
 
                 # Emit partial assistant message when something changed
                 if delta_text or tcd is not None:
@@ -653,7 +662,8 @@ async def _run_internal(
                 "message": {
                     "content": aggregated_text or None,
                     "tool_calls": final_tool_calls
-                }
+                },
+                "usage": usage_data
             }
         except Exception:
             # Fallback to non-streaming on error

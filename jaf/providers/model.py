@@ -347,8 +347,9 @@ def make_litellm_provider(
             if agent.output_codec:
                 request_params["response_format"] = {"type": "json_object"}
 
-            # Enable streaming
+            # Enable streaming with usage data
             request_params["stream"] = True
+            request_params["stream_options"] = {"include_usage": True}
 
             loop = asyncio.get_running_loop()
             queue: asyncio.Queue = asyncio.Queue(maxsize=256)
@@ -672,6 +673,7 @@ def make_litellm_sdk_provider(
                 "model": model_name,
                 "messages": messages,
                 "stream": True,
+                "stream_options": {"include_usage": True},
                 **self.litellm_kwargs
             }
 
