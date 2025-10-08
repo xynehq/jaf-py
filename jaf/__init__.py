@@ -178,6 +178,82 @@ try:
 except ImportError:
     _VISUALIZATION_AVAILABLE = False
 
+# Prebuilt tools (optional import)
+try:
+    from .tools import (
+        CalculateArgs,
+        PercentOfArgs,
+        PercentageArgs,
+        RatioArgs,
+        DateDiffArgs,
+        calculate_tool,
+        percent_of_tool,
+        percentage_tool,
+        ratio_tool,
+        date_diff_tool,
+        create_math_tools,
+        # File I/O tools
+        read_text,
+        write_text,
+        read_json,
+        write_json,
+        read_csv,
+        write_csv,
+        create_file_io_tools,
+        # Text extractor tools
+        extract_emails,
+        extract_invoice_numbers,
+        extract_order_ids,
+        extract_regex,
+        create_text_extractor_tools,
+        # Table & chart tools
+        table_from_csv,
+        chart_from_csv,
+        create_table_chart_tools,
+        # Unit conversion tools
+        convert_measurement,
+        list_supported_units,
+        convert_currency,
+        create_unit_conversion_tools,
+        # Date & time tools
+        get_current_datetime,
+        parse_datetime,
+        adjust_datetime,
+        format_datetime,
+        diff_datetimes,
+        create_date_time_tools,
+        # Knowledge base tools
+        kb_search,
+        kb_ingest_texts,
+        create_knowledge_base_tools,
+        # Web search tools
+        web_search,
+        fetch_url,
+        create_web_search_tools,
+        # Notification tools
+        send_email,
+        send_slack_message,
+        send_webhook,
+        create_notification_tools,
+        # Summarizer tools
+        summarize_text,
+        create_summarizer_tools,
+        # Task manager tools
+        create_jira_issue,
+        update_jira_issue,
+        create_trello_card,
+        update_trello_card,
+        create_task_manager_tools,
+        # Data cleaning tools
+        normalize_email,
+        normalize_phone,
+        normalize_csv_rows,
+        create_data_cleaning_tools,
+    )
+    _TOOLS_AVAILABLE = True
+except ImportError:
+    _TOOLS_AVAILABLE = False
+
 import uuid
 
 from .core.types import RunId, TraceId, create_run_id, create_trace_id
@@ -276,4 +352,24 @@ __all__ = [
         "generate_agent_graph", "generate_tool_graph", "generate_runner_graph",
         "GraphOptions", "GraphResult", "get_graph_dot", "validate_graph_options"
     ] if _VISUALIZATION_AVAILABLE else []
+) + (
+    # Prebuilt tools (conditional)
+    [
+        "CalculateArgs", "PercentOfArgs", "PercentageArgs", "RatioArgs", "DateDiffArgs",
+        "calculate_tool", "percent_of_tool", "percentage_tool", "ratio_tool", "date_diff_tool",
+        "create_math_tools",
+        "read_text", "write_text", "read_json", "write_json", "read_csv", "write_csv",
+        "create_file_io_tools",
+        "extract_emails", "extract_invoice_numbers", "extract_order_ids", "extract_regex",
+        "create_text_extractor_tools",
+        "table_from_csv", "chart_from_csv", "create_table_chart_tools",
+        "convert_measurement", "list_supported_units", "convert_currency", "create_unit_conversion_tools",
+        "get_current_datetime", "parse_datetime", "adjust_datetime", "format_datetime", "diff_datetimes", "create_date_time_tools",
+        "kb_search", "kb_ingest_texts", "create_knowledge_base_tools",
+        "web_search", "fetch_url", "create_web_search_tools",
+        "send_email", "send_slack_message", "send_webhook", "create_notification_tools",
+        "summarize_text", "create_summarizer_tools",
+        "normalize_email", "normalize_phone", "normalize_csv_rows", "create_data_cleaning_tools",
+        "create_jira_issue", "update_jira_issue", "create_trello_card", "update_trello_card", "create_task_manager_tools",
+    ] if '_TOOLS_AVAILABLE' in globals() and _TOOLS_AVAILABLE else []
 )
