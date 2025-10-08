@@ -255,7 +255,7 @@ export LANGFUSE_HOST=https://cloud.langfuse.com
 
 JAF supports proxy configuration for both Langfuse API calls and OpenTelemetry tracing.
 
-**Langfuse Proxy Configuration** (Added in v2.5.1, enhanced in v2.6.0):
+**Langfuse Proxy Configuration**:
 
 There are three ways to configure proxies for Langfuse:
 
@@ -487,7 +487,7 @@ export LANGFUSE_HOST=http://localhost:3000
 
 ### Agent Name Tagging
 
-JAF automatically tags all Langfuse traces with the agent name, enabling powerful filtering and analysis in the Langfuse dashboard. This feature (added in v2.5.1) provides enhanced observability for multi-agent systems.
+JAF automatically tags all Langfuse traces with the agent name, enabling powerful filtering and analysis in the Langfuse dashboard. This feature provides enhanced observability for multi-agent systems.
 
 **Automatic Tagging:**
 
