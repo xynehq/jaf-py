@@ -846,6 +846,7 @@ class LangfuseTraceCollector:
 
                     # Extract usage from the event data
                     usage = self._get_event_data(event, "usage", {})
+                    print(f"[LANGFUSE DEBUG] Received usage from event: {usage}")
                     
                     # Extract model information from choice data or event data
                     model = choice.get("model", "unknown")

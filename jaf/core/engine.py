@@ -556,6 +556,8 @@ async def _run_internal(
             aggregated_text = ""
             # Working array of partial tool calls
             partial_tool_calls: List[Dict[str, Any]] = []
+            # Track usage data from streaming chunks
+            usage_data: Optional[Dict[str, int]] = None
 
             async for chunk in get_stream(state, current_agent, config):  # type: ignore[arg-type]
                 # Text deltas
@@ -588,6 +590,16 @@ async def _run_internal(
                         args_delta = getattr(fn, "arguments_delta", None)
                         if args_delta:
                             target["function"]["arguments"] += args_delta
+
+                # Extract usage from raw chunk data (OpenAI sends it in the last chunk)
+                raw = getattr(chunk, "raw", None)
+                print(f"[JAF DEBUG] Chunk raw: {raw}")
+                if raw and isinstance(raw, dict):
+                    chunk_usage = raw.get("usage")
+                    print(f"[JAF DEBUG] Chunk usage: {chunk_usage}")
+                    if chunk_usage:
+                        usage_data = chunk_usage
+                        print(f"[JAF DEBUG] Usage data captured: {usage_data}")
 
                 # Emit partial assistant message when something changed
                 if delta_text or tcd is not None:
@@ -653,8 +665,10 @@ async def _run_internal(
                 "message": {
                     "content": aggregated_text or None,
                     "tool_calls": final_tool_calls
-                }
+                },
+                "usage": usage_data
             }
+            print(f"[JAF DEBUG] Final llm_response usage: {usage_data}")
         except Exception:
             # Fallback to non-streaming on error
             assistant_event_streamed = False
@@ -664,11 +678,13 @@ async def _run_internal(
 
     # Emit LLM call end event
     if config.on_event:
+        event_usage = llm_response.get("usage")
+        print(f"[JAF DEBUG] Emitting llm_call_end with usage: {event_usage}")
         config.on_event(LLMCallEndEvent(data=to_event_data(LLMCallEndEventData(
             choice=llm_response,
             trace_id=state.trace_id,
             run_id=state.run_id,
-            usage=llm_response.get("usage")
+            usage=event_usage
         ))))
 
     # Check if response has message
