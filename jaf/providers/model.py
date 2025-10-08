@@ -350,6 +350,7 @@ def make_litellm_provider(
             # Enable streaming with usage data
             request_params["stream"] = True
             request_params["stream_options"] = {"include_usage": True}
+            print(f"[LITELLM DEBUG] Streaming request with stream_options: {request_params.get('stream_options')}")
 
             loop = asyncio.get_running_loop()
             queue: asyncio.Queue = asyncio.Queue(maxsize=256)
@@ -382,6 +383,10 @@ def make_litellm_provider(
 
                             delta = getattr(choice, "delta", None)
                             finish_reason = getattr(choice, "finish_reason", None)
+
+                            # Debug: Check if chunk has usage
+                            if raw_obj and 'usage' in raw_obj:
+                                print(f"[LITELLM DEBUG] Found usage in chunk: {raw_obj.get('usage')}")
 
                             # Text content delta
                             if delta is not None:
