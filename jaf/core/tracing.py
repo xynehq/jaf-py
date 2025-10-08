@@ -556,6 +556,30 @@ class LangfuseTraceCollector:
             # Langfuse v2: Use event() method
             return parent_span.event(**kwargs)
 
+    def _end_span(self, span: Any, **kwargs) -> None:
+        """End a span/generation using the appropriate API for the Langfuse version."""
+        if self._is_langfuse_v3:
+            # Langfuse v3: Call update() first with output/metadata, then end()
+            update_params = {}
+            end_params = {}
+
+            # Separate parameters for update() vs end()
+            for key, value in kwargs.items():
+                if key in ['output', 'metadata', 'model', 'usage']:
+                    update_params[key] = value
+                elif key == 'end_time':
+                    end_params[key] = value
+
+            # Update first if there are parameters
+            if update_params:
+                span.update(**update_params)
+
+            # Then end
+            span.end(**end_params)
+        else:
+            # Langfuse v2: Call end() directly with all parameters
+            span.end(**kwargs)
+
     def collect(self, event: TraceEvent) -> None:
         """Collect a trace event and send it to Langfuse."""
         try:
@@ -847,8 +871,10 @@ class LangfuseTraceCollector:
                         print(f"[LANGFUSE] Usage data for automatic cost calculation: {langfuse_usage}")
 
                     # Include model information in the generation end - Langfuse will calculate costs automatically
-                    generation.end(
-                        output=choice, 
+                    # Use compatibility wrapper for ending spans/generations
+                    self._end_span(
+                        span=generation,
+                        output=choice,
                         usage=langfuse_usage,
                         model=model,  # Pass model directly for automatic cost calculation
                         metadata={
@@ -954,8 +980,10 @@ class LangfuseTraceCollector:
                     }
                     
                     # End the span with detailed output
+                    # Use compatibility wrapper for ending spans/generations
                     span = self.active_spans[span_id]
-                    span.end(
+                    self._end_span(
+                        span=span,
                         output=tool_output,
                         metadata={
                             "tool_name": tool_name,
