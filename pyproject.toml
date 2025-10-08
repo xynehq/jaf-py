@@ -47,7 +47,7 @@ dependencies = [
     "opentelemetry-api>=1.22.0",
     "opentelemetry-sdk>=1.22.0",
     "opentelemetry-exporter-otlp>=1.22.0",
-    "langfuse>=3.6.1,<4.0.0",
+    "langfuse<3.0.0",
     "litellm>=1.76.3"
 ]
 
