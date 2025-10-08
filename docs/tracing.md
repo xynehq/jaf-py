@@ -374,8 +374,7 @@ import requests
 
 httpx_client = httpx.Client(proxy="http://proxy.company.com:8080")
 requests_session = requests.Session()
-requests_session.proxies = {'http': 'http://proxy.company.com:8080', 'https': 'http://proxy.company.com:8080'}
-
+requests_session.proxies = {'http': 'http://proxy.company.com:8080', 'https': 'https://proxy.company.com:8080'}
 trace_collector = create_composite_trace_collector(
     httpx_client=httpx_client,  # For Langfuse
     otel_session=requests_session  # For OTEL

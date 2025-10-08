@@ -7,6 +7,7 @@ tool calls, and performance metrics.
 import os
 os.environ["LANGFUSE_ENABLE_OTEL"] = "false"
 import json
+import logging
 import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Protocol
@@ -60,8 +61,19 @@ def setup_otel_tracing(
 
     # Configure session with proxy if needed
     effective_session = session
+    # Configure session with proxy if needed
+    effective_session = session
     if effective_session is None and requests is not None:
         effective_proxy = proxy or os.environ.get("OTEL_PROXY")
+        if effective_proxy:
+            effective_session = requests.Session()
+            effective_session.proxies = {
+                'http': effective_proxy,
+                'https': effective_proxy,
+            }
+            print(f"[OTEL] Configuring proxy: {effective_proxy}")
+    elif effective_session is None and requests is None and (proxy or os.environ.get("OTEL_PROXY")):
+        print(f"[OTEL] Warning: Proxy configuration ignored - 'requests' package not installed")
         if effective_proxy:
             effective_session = requests.Session()
             effective_session.proxies = {
@@ -412,8 +424,17 @@ class LangfuseTraceCollector:
 
             if effective_proxy:
                 print(f"[LANGFUSE] Configuring proxy: {effective_proxy}")
-                client = httpx.Client(proxy=effective_proxy, timeout=effective_timeout)
-                self._owns_httpx_client = True
+                try:
+                    client = httpx.Client(proxy=effective_proxy, timeout=effective_timeout)
+                    self._owns_httpx_client = True
+                except httpx.InvalidURL as e:
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"[LANGFUSE] Invalid proxy URL '{effective_proxy}': {e}")
+                    raise
+                except Exception as e:
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"[LANGFUSE] Failed to create httpx.Client with proxy '{effective_proxy}': {e}")
+                    raise
             # If no proxy specified, httpx will still respect HTTP_PROXY/HTTPS_PROXY env vars
         elif proxy:
             print(f"[LANGFUSE] Warning: proxy parameter ignored because httpx_client is provided")
@@ -1006,5 +1027,21 @@ def create_composite_trace_collector(
                     collector.clear(trace_id)
                 except Exception as e:
                     print(f"Warning: Failed to clear trace collector: {e}")
+        
+        def close(self) -> None:
+            """Close all collectors that support cleanup."""
+            for collector in self.collectors:
+                if hasattr(collector, 'close'):
+                    try:
+                        collector.close()
+                    except Exception as e:
+                        print(f"Warning: Failed to close trace collector: {e}")
+        
+        def __enter__(self):
+            return self
+        
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            self.close()
+            return False
 
     return CompositeTraceCollector(collector_list)
