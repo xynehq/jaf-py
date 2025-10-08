@@ -251,6 +251,221 @@ export LANGFUSE_SECRET_KEY=sk-lf-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 export LANGFUSE_HOST=https://cloud.langfuse.com
 ```
 
+### Proxy Configuration
+
+JAF supports proxy configuration for both Langfuse API calls and OpenTelemetry tracing.
+
+**Langfuse Proxy Configuration** (Added in v2.5.1, enhanced in v2.6.0):
+
+There are three ways to configure proxies for Langfuse:
+
+1. **Environment Variables** (Recommended for production):
+```bash
+# Proxy configuration
+export LANGFUSE_PROXY=http://proxy.company.com:8080
+
+# Optional: Custom timeout (default: 10 seconds)
+export LANGFUSE_TIMEOUT=30
+
+# Standard HTTP proxy environment variables also work
+# (if LANGFUSE_PROXY is not set, httpx will check these)
+export HTTP_PROXY=http://proxy.company.com:8080
+export HTTPS_PROXY=https://proxy.company.com:8080
+```
+
+2. **Direct Configuration**:
+```python
+from jaf.core.tracing import create_composite_trace_collector
+
+# Pass proxy URL and timeout directly
+trace_collector = create_composite_trace_collector(
+    proxy="http://proxy.company.com:8080",
+    timeout=30  # seconds
+)
+```
+
+3. **Custom httpx Client** (For advanced configuration):
+```python
+import httpx
+from jaf.core.tracing import LangfuseTraceCollector, create_composite_trace_collector
+
+# Create httpx client with proxy, timeout, and custom headers
+# Note: httpx proxy parameter accepts a string URL (applies to all protocols)
+client = httpx.Client(
+    proxy="http://proxy.company.com:8080",  # Same proxy for HTTP and HTTPS
+    timeout=30.0,
+    headers={"Custom-Header": "value"}
+)
+
+# Option 1: Direct instantiation
+langfuse_collector = LangfuseTraceCollector(httpx_client=client)
+
+# Option 2: Via composite collector
+trace_collector = create_composite_trace_collector(httpx_client=client)
+```
+
+**Configuration Priority** (highest to lowest):
+1. Custom `httpx_client` parameter (if provided, proxy/timeout params ignored)
+2. Direct `proxy`/`timeout` parameters
+3. `LANGFUSE_PROXY` and `LANGFUSE_TIMEOUT` environment variables
+4. Standard `HTTP_PROXY`/`HTTPS_PROXY` environment variables (httpx default behavior)
+
+**OpenTelemetry Proxy Configuration**:
+
+OTEL supports proxy configuration in multiple ways:
+
+1. **Environment Variables**:
+```bash
+# JAF-specific OTEL proxy (recommended)
+export OTEL_PROXY=http://proxy.company.com:8080
+
+# Standard HTTP proxy environment variables (fallback)
+export HTTP_PROXY=http://proxy.company.com:8080
+export HTTPS_PROXY=https://proxy.company.com:8080
+
+# Optional: exclude certain hosts
+export NO_PROXY=localhost,127.0.0.1
+```
+
+2. **Direct Configuration**:
+```python
+from jaf.core.tracing import setup_otel_tracing
+
+# Pass proxy directly
+setup_otel_tracing(
+    collector_url="http://localhost:4318/v1/traces",
+    proxy="http://proxy.company.com:8080",
+    timeout=30  # seconds
+)
+```
+
+3. **Custom requests.Session** (For advanced configuration):
+```python
+import requests
+from jaf.core.tracing import setup_otel_tracing
+
+# Create session with proxy and custom headers
+session = requests.Session()
+session.proxies = {
+    'http': 'http://proxy.company.com:8080',
+    'https': 'https://proxy.company.com:8080',
+}
+session.headers.update({'Custom-Header': 'value'})
+
+setup_otel_tracing(
+    collector_url="http://localhost:4318/v1/traces",
+    session=session
+)
+```
+
+4. **Via Composite Collector**:
+```python
+from jaf.core.tracing import create_composite_trace_collector
+
+# Proxy applies to both OTEL and Langfuse
+trace_collector = create_composite_trace_collector(
+    proxy="http://proxy.company.com:8080",
+    timeout=30
+)
+
+# Or with custom clients/sessions for each
+import httpx
+import requests
+
+httpx_client = httpx.Client(proxy="http://proxy.company.com:8080")
+requests_session = requests.Session()
+requests_session.proxies = {'http': 'http://proxy.company.com:8080', 'https': 'http://proxy.company.com:8080'}
+
+trace_collector = create_composite_trace_collector(
+    httpx_client=httpx_client,  # For Langfuse
+    otel_session=requests_session  # For OTEL
+)
+```
+
+**Configuration Priority for OTEL** (highest to lowest):
+1. Custom `session` parameter (if provided, proxy parameter ignored)
+2. Direct `proxy` parameter
+3. `OTEL_PROXY` environment variable
+4. Standard `HTTP_PROXY`/`HTTPS_PROXY` environment variables
+
+**Combined Setup** (Both Langfuse and OTEL with proxies):
+
+Option 1: **Separate proxy configuration** (when using different proxies):
+```bash
+# Langfuse proxy and timeout
+export LANGFUSE_PROXY=http://langfuse-proxy.company.com:8080
+export LANGFUSE_TIMEOUT=30
+
+# OTEL proxy
+export OTEL_PROXY=http://otel-proxy.company.com:8080
+
+# Langfuse credentials
+export LANGFUSE_PUBLIC_KEY=pk-lf-your-public-key
+export LANGFUSE_SECRET_KEY=sk-lf-your-secret-key
+export LANGFUSE_HOST=https://cloud.langfuse.com
+
+# OTEL configuration
+export TRACE_COLLECTOR_URL=http://localhost:4318/v1/traces
+```
+
+Option 2: **Single proxy for both** (most common):
+```bash
+# Single proxy for both services
+export HTTP_PROXY=http://proxy.company.com:8080
+export HTTPS_PROXY=https://proxy.company.com:8080
+
+# Langfuse credentials
+export LANGFUSE_PUBLIC_KEY=pk-lf-your-public-key
+export LANGFUSE_SECRET_KEY=sk-lf-your-secret-key
+export LANGFUSE_HOST=https://cloud.langfuse.com
+
+# OTEL configuration
+export TRACE_COLLECTOR_URL=http://localhost:4318/v1/traces
+```
+
+Option 3: **Direct configuration in code**:
+```python
+from jaf.core.tracing import create_composite_trace_collector
+
+# Single proxy for both Langfuse and OTEL
+trace_collector = create_composite_trace_collector(
+    proxy="http://proxy.company.com:8080",
+    timeout=30
+)
+
+config = RunConfig(
+    agent_registry={"agent": agent},
+    model_provider=model_provider,
+    on_event=trace_collector.collect
+)
+```
+
+**Priority:** JAF-specific env vars (`LANGFUSE_PROXY`, `OTEL_PROXY`) take precedence over standard env vars (`HTTP_PROXY`, `HTTPS_PROXY`), allowing you to use different proxies for different services.
+
+**Note:** If using `LangfuseTraceCollector` directly with proxy, ensure cleanup:
+```python
+langfuse_collector.close()  # Closes httpx client if owned
+```
+
+**Resource Cleanup**:
+
+If you create a `LangfuseTraceCollector` with a proxy (not a custom httpx client), the collector manages an httpx client internally. This client is automatically closed when the collector is garbage collected, but you can also manually close it:
+
+```python
+from jaf.core.tracing import LangfuseTraceCollector
+
+langfuse_collector = LangfuseTraceCollector(proxy="http://proxy.example.com:8080")
+
+try:
+    # Use the collector...
+    pass
+finally:
+    # Explicitly close resources
+    langfuse_collector.close()
+```
+
+For `create_composite_trace_collector()`, cleanup is handled automatically.
+
 ### Self-Hosted Langfuse
 
 For self-hosted Langfuse instances:
