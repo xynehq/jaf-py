@@ -7,6 +7,7 @@ tool calls, and performance metrics.
 import os
 os.environ["LANGFUSE_ENABLE_OTEL"] = "false"
 import json
+import logging
 import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Protocol
@@ -18,6 +19,12 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from langfuse import Langfuse
+import httpx
+
+try:
+    import requests
+except ImportError:
+    requests = None  # type: ignore
 
 from .types import TraceEvent, TraceId
 
@@ -25,8 +32,25 @@ from .types import TraceEvent, TraceId
 provider = None
 tracer = None
 
-def setup_otel_tracing(service_name: str = "jaf-agent", collector_url: Optional[str] = None) -> None:
-    """Configure OpenTelemetry tracing."""
+def setup_otel_tracing(
+    service_name: str = "jaf-agent",
+    collector_url: Optional[str] = None,
+    proxy: Optional[str] = None,
+    session: Optional[Any] = None,
+    timeout: Optional[int] = None
+) -> None:
+    """Configure OpenTelemetry tracing.
+
+    Args:
+        service_name: Name of the service for tracing.
+        collector_url: OTLP collector endpoint URL.
+        proxy: Optional proxy URL (e.g., "http://proxy.example.com:8080").
+               Falls back to OTEL_PROXY environment variable.
+               If not provided, respects standard HTTP_PROXY/HTTPS_PROXY env vars.
+        session: Optional custom requests.Session for advanced configuration.
+                If provided, proxy parameter is ignored.
+        timeout: Optional timeout in seconds for OTLP requests.
+    """
     global provider, tracer
     if not collector_url:
         return
@@ -34,8 +58,38 @@ def setup_otel_tracing(service_name: str = "jaf-agent", collector_url: Optional[
     provider = TracerProvider(
         resource=Resource.create({"service.name": service_name})
     )
-    
-    exporter = OTLPSpanExporter(endpoint=collector_url)
+
+    # Configure session with proxy if needed
+    effective_session = session
+    # Configure session with proxy if needed
+    effective_session = session
+    if effective_session is None and requests is not None:
+        effective_proxy = proxy or os.environ.get("OTEL_PROXY")
+        if effective_proxy:
+            effective_session = requests.Session()
+            effective_session.proxies = {
+                'http': effective_proxy,
+                'https': effective_proxy,
+            }
+            print(f"[OTEL] Configuring proxy: {effective_proxy}")
+    elif effective_session is None and requests is None and (proxy or os.environ.get("OTEL_PROXY")):
+        print(f"[OTEL] Warning: Proxy configuration ignored - 'requests' package not installed")
+        if effective_proxy:
+            effective_session = requests.Session()
+            effective_session.proxies = {
+                'http': effective_proxy,
+                'https': effective_proxy,
+            }
+            print(f"[OTEL] Configuring proxy: {effective_proxy}")
+
+    # Create exporter with optional session and timeout
+    exporter_kwargs = {"endpoint": collector_url}
+    if effective_session is not None:
+        exporter_kwargs["session"] = effective_session
+    if timeout is not None:
+        exporter_kwargs["timeout"] = timeout
+
+    exporter = OTLPSpanExporter(**exporter_kwargs)
     provider.add_span_processor(BatchSpanProcessor(exporter))
     trace.set_tracer_provider(provider)
     tracer = trace.get_tracer(__name__)
@@ -326,28 +380,90 @@ class FileTraceCollector:
         self.in_memory.clear(trace_id)
 
 class LangfuseTraceCollector:
-    """Langfuse trace collector using v2 SDK."""
+    """Langfuse trace collector using v2 SDK.
 
-    def __init__(self):
+    Supports proxy configuration through:
+    1. Custom httpx.Client via httpx_client parameter
+    2. Proxy URL via proxy parameter or LANGFUSE_PROXY environment variable
+    3. Standard HTTP_PROXY/HTTPS_PROXY environment variables (httpx respects these automatically)
+    """
+
+    def __init__(
+        self,
+        httpx_client: Optional[httpx.Client] = None,
+        proxy: Optional[str] = None,
+        timeout: Optional[int] = None
+    ):
+        """Initialize Langfuse trace collector.
+
+        Args:
+            httpx_client: Optional custom httpx.Client with proxy configuration.
+                         If provided, this will be used for all API calls.
+            proxy: Optional proxy URL (e.g., "http://my.proxy.example.com:8080").
+                  Only used if httpx_client is not provided.
+                  Falls back to LANGFUSE_PROXY environment variable.
+            timeout: Optional timeout in seconds for HTTP requests. Defaults to 10.
+        """
         public_key = os.environ.get("LANGFUSE_PUBLIC_KEY")
         secret_key = os.environ.get("LANGFUSE_SECRET_KEY")
         host = os.environ.get("LANGFUSE_HOST")
-        
+
         print(f"[LANGFUSE] Initializing with host: {host}")
         print(f"[LANGFUSE] Public key: {public_key[:10]}..." if public_key else "[LANGFUSE] No public key set")
         print(f"[LANGFUSE] Secret key: {secret_key[:10]}..." if secret_key else "[LANGFUSE] No secret key set")
-        
+
+        # Track if we own the client for cleanup
+        self._owns_httpx_client = False
+
+        # Configure httpx client with proxy if needed
+        client = httpx_client
+        if client is None:
+            # Use provided proxy, environment variable, or None
+            effective_proxy = proxy or os.environ.get("LANGFUSE_PROXY")
+            effective_timeout = timeout or int(os.environ.get("LANGFUSE_TIMEOUT", "10"))
+
+            if effective_proxy:
+                print(f"[LANGFUSE] Configuring proxy: {effective_proxy}")
+                try:
+                    client = httpx.Client(proxy=effective_proxy, timeout=effective_timeout)
+                    self._owns_httpx_client = True
+                except httpx.InvalidURL as e:
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"[LANGFUSE] Invalid proxy URL '{effective_proxy}': {e}")
+                    raise
+                except Exception as e:
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"[LANGFUSE] Failed to create httpx.Client with proxy '{effective_proxy}': {e}")
+                    raise
+            # If no proxy specified, httpx will still respect HTTP_PROXY/HTTPS_PROXY env vars
+        elif proxy:
+            print(f"[LANGFUSE] Warning: proxy parameter ignored because httpx_client is provided")
+
         self.langfuse = Langfuse(
             public_key=public_key,
             secret_key=secret_key,
             host=host,
-            release="jaf-py-v2.5.1"
+            release="jaf-py-v2.5.2",
+            httpx_client=client
         )
+        self._httpx_client = client
         self.active_spans: Dict[str, Any] = {}
         self.trace_spans: Dict[TraceId, Any] = {}
         # Track tool calls and results for each trace
         self.trace_tool_calls: Dict[TraceId, List[Dict[str, Any]]] = {}
         self.trace_tool_results: Dict[TraceId, List[Dict[str, Any]]] = {}
+
+    def __del__(self) -> None:
+        """Cleanup resources on deletion."""
+        self.close()
+
+    def close(self) -> None:
+        """Close httpx client if we own it."""
+        if self._owns_httpx_client and self._httpx_client:
+            try:
+                self._httpx_client.close()
+            except Exception as e:
+                print(f"[LANGFUSE] Warning: Failed to close httpx client: {e}")
 
     def collect(self, event: TraceEvent) -> None:
         """Collect a trace event and send it to Langfuse."""
@@ -834,21 +950,50 @@ class LangfuseTraceCollector:
         pass
 
 
-def create_composite_trace_collector(*collectors: TraceCollector) -> TraceCollector:
-    """Create a composite trace collector that forwards events to multiple collectors."""
-    
+def create_composite_trace_collector(
+    *collectors: TraceCollector,
+    httpx_client: Optional[httpx.Client] = None,
+    otel_session: Optional[Any] = None,
+    proxy: Optional[str] = None,
+    timeout: Optional[int] = None
+) -> TraceCollector:
+    """Create a composite trace collector that forwards events to multiple collectors.
+
+    Args:
+        *collectors: Variable length list of trace collectors
+        httpx_client: Optional custom httpx.Client for Langfuse API calls.
+                     If provided, proxy and timeout parameters are ignored for Langfuse.
+        otel_session: Optional custom requests.Session for OTLP HTTP calls.
+                     If provided, proxy parameter is ignored for OTEL.
+        proxy: Optional proxy URL for both Langfuse and OTEL (e.g., "http://proxy.example.com:8080").
+               For Langfuse: Falls back to LANGFUSE_PROXY environment variable.
+               For OTEL: Falls back to OTEL_PROXY environment variable.
+               If not set, both respect standard HTTP_PROXY/HTTPS_PROXY environment variables.
+        timeout: Optional timeout in seconds for HTTP requests (applies to both Langfuse and OTEL).
+                For Langfuse: Falls back to LANGFUSE_TIMEOUT environment variable (default: 10).
+    """
     collector_list = list(collectors)
-    
+
     # Automatically add OTEL collector if URL is configured
     collector_url = os.getenv("TRACE_COLLECTOR_URL")
     if collector_url:
-        setup_otel_tracing(collector_url=collector_url)
+        # Pass proxy and timeout to OTEL setup
+        setup_otel_tracing(
+            collector_url=collector_url,
+            proxy=proxy,
+            session=otel_session,
+            timeout=timeout
+        )
         otel_collector = OtelTraceCollector()
         collector_list.append(otel_collector)
 
     # Automatically add Langfuse collector if keys are configured
     if os.getenv("LANGFUSE_PUBLIC_KEY") and os.getenv("LANGFUSE_SECRET_KEY"):
-        langfuse_collector = LangfuseTraceCollector()
+        langfuse_collector = LangfuseTraceCollector(
+            httpx_client=httpx_client,
+            proxy=proxy,
+            timeout=timeout
+        )
         collector_list.append(langfuse_collector)
 
     class CompositeTraceCollector:
@@ -882,5 +1027,21 @@ def create_composite_trace_collector(*collectors: TraceCollector) -> TraceCollec
                     collector.clear(trace_id)
                 except Exception as e:
                     print(f"Warning: Failed to clear trace collector: {e}")
+        
+        def close(self) -> None:
+            """Close all collectors that support cleanup."""
+            for collector in self.collectors:
+                if hasattr(collector, 'close'):
+                    try:
+                        collector.close()
+                    except Exception as e:
+                        print(f"Warning: Failed to close trace collector: {e}")
+        
+        def __enter__(self):
+            return self
+        
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            self.close()
+            return False
 
     return CompositeTraceCollector(collector_list)
