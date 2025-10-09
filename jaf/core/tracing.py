@@ -7,6 +7,7 @@ tool calls, and performance metrics.
 import os
 os.environ["LANGFUSE_ENABLE_OTEL"] = "false"
 import json
+import logging
 import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Protocol
@@ -18,6 +19,12 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from langfuse import Langfuse
+import httpx
+
+try:
+    import requests
+except ImportError:
+    requests = None  # type: ignore
 
 from .types import TraceEvent, TraceId
 
@@ -25,8 +32,25 @@ from .types import TraceEvent, TraceId
 provider = None
 tracer = None
 
-def setup_otel_tracing(service_name: str = "jaf-agent", collector_url: Optional[str] = None) -> None:
-    """Configure OpenTelemetry tracing."""
+def setup_otel_tracing(
+    service_name: str = "jaf-agent",
+    collector_url: Optional[str] = None,
+    proxy: Optional[str] = None,
+    session: Optional[Any] = None,
+    timeout: Optional[int] = None
+) -> None:
+    """Configure OpenTelemetry tracing.
+
+    Args:
+        service_name: Name of the service for tracing.
+        collector_url: OTLP collector endpoint URL.
+        proxy: Optional proxy URL (e.g., "http://proxy.example.com:8080").
+               Falls back to OTEL_PROXY environment variable.
+               If not provided, respects standard HTTP_PROXY/HTTPS_PROXY env vars.
+        session: Optional custom requests.Session for advanced configuration.
+                If provided, proxy parameter is ignored.
+        timeout: Optional timeout in seconds for OTLP requests.
+    """
     global provider, tracer
     if not collector_url:
         return
@@ -34,8 +58,38 @@ def setup_otel_tracing(service_name: str = "jaf-agent", collector_url: Optional[
     provider = TracerProvider(
         resource=Resource.create({"service.name": service_name})
     )
-    
-    exporter = OTLPSpanExporter(endpoint=collector_url)
+
+    # Configure session with proxy if needed
+    effective_session = session
+    # Configure session with proxy if needed
+    effective_session = session
+    if effective_session is None and requests is not None:
+        effective_proxy = proxy or os.environ.get("OTEL_PROXY")
+        if effective_proxy:
+            effective_session = requests.Session()
+            effective_session.proxies = {
+                'http': effective_proxy,
+                'https': effective_proxy,
+            }
+            print(f"[OTEL] Configuring proxy: {effective_proxy}")
+    elif effective_session is None and requests is None and (proxy or os.environ.get("OTEL_PROXY")):
+        print(f"[OTEL] Warning: Proxy configuration ignored - 'requests' package not installed")
+        if effective_proxy:
+            effective_session = requests.Session()
+            effective_session.proxies = {
+                'http': effective_proxy,
+                'https': effective_proxy,
+            }
+            print(f"[OTEL] Configuring proxy: {effective_proxy}")
+
+    # Create exporter with optional session and timeout
+    exporter_kwargs = {"endpoint": collector_url}
+    if effective_session is not None:
+        exporter_kwargs["session"] = effective_session
+    if timeout is not None:
+        exporter_kwargs["timeout"] = timeout
+
+    exporter = OTLPSpanExporter(**exporter_kwargs)
     provider.add_span_processor(BatchSpanProcessor(exporter))
     trace.set_tracer_provider(provider)
     tracer = trace.get_tracer(__name__)
@@ -326,28 +380,205 @@ class FileTraceCollector:
         self.in_memory.clear(trace_id)
 
 class LangfuseTraceCollector:
-    """Langfuse trace collector using v2 SDK."""
+    """Langfuse trace collector using v2 SDK.
 
-    def __init__(self):
+    Supports proxy configuration through:
+    1. Custom httpx.Client via httpx_client parameter
+    2. Proxy URL via proxy parameter or LANGFUSE_PROXY environment variable
+    3. Standard HTTP_PROXY/HTTPS_PROXY environment variables (httpx respects these automatically)
+    """
+
+    def __init__(
+        self,
+        httpx_client: Optional[httpx.Client] = None,
+        proxy: Optional[str] = None,
+        timeout: Optional[int] = None
+    ):
+        """Initialize Langfuse trace collector.
+
+        Args:
+            httpx_client: Optional custom httpx.Client with proxy configuration.
+                         If provided, this will be used for all API calls.
+            proxy: Optional proxy URL (e.g., "http://my.proxy.example.com:8080").
+                  Only used if httpx_client is not provided.
+                  Falls back to LANGFUSE_PROXY environment variable.
+            timeout: Optional timeout in seconds for HTTP requests. Defaults to 10.
+        """
         public_key = os.environ.get("LANGFUSE_PUBLIC_KEY")
         secret_key = os.environ.get("LANGFUSE_SECRET_KEY")
         host = os.environ.get("LANGFUSE_HOST")
-        
+
         print(f"[LANGFUSE] Initializing with host: {host}")
         print(f"[LANGFUSE] Public key: {public_key[:10]}..." if public_key else "[LANGFUSE] No public key set")
         print(f"[LANGFUSE] Secret key: {secret_key[:10]}..." if secret_key else "[LANGFUSE] No secret key set")
-        
+
+        # Track if we own the client for cleanup
+        self._owns_httpx_client = False
+
+        # Configure httpx client with proxy if needed
+        client = httpx_client
+        if client is None:
+            # Use provided proxy, environment variable, or None
+            effective_proxy = proxy or os.environ.get("LANGFUSE_PROXY")
+            effective_timeout = timeout or int(os.environ.get("LANGFUSE_TIMEOUT", "10"))
+
+            if effective_proxy:
+                print(f"[LANGFUSE] Configuring proxy: {effective_proxy}")
+                try:
+                    client = httpx.Client(proxy=effective_proxy, timeout=effective_timeout)
+                    self._owns_httpx_client = True
+                except httpx.InvalidURL as e:
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"[LANGFUSE] Invalid proxy URL '{effective_proxy}': {e}")
+                    raise
+                except Exception as e:
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"[LANGFUSE] Failed to create httpx.Client with proxy '{effective_proxy}': {e}")
+                    raise
+            # If no proxy specified, httpx will still respect HTTP_PROXY/HTTPS_PROXY env vars
+        elif proxy:
+            print(f"[LANGFUSE] Warning: proxy parameter ignored because httpx_client is provided")
+
         self.langfuse = Langfuse(
             public_key=public_key,
             secret_key=secret_key,
             host=host,
-            release="jaf-py-v2.5.1"
+            release="jaf-py-v2.5.3",
+            httpx_client=client
         )
+        self._httpx_client = client
+
+        # Detect Langfuse version (v2 has trace() method, v3 does not)
+        self._is_langfuse_v3 = not hasattr(self.langfuse, 'trace')
+        if self._is_langfuse_v3:
+            print("[LANGFUSE] Detected Langfuse v3.x - using OpenTelemetry-based API")
+        else:
+            print("[LANGFUSE] Detected Langfuse v2.x - using legacy API")
+
         self.active_spans: Dict[str, Any] = {}
         self.trace_spans: Dict[TraceId, Any] = {}
         # Track tool calls and results for each trace
         self.trace_tool_calls: Dict[TraceId, List[Dict[str, Any]]] = {}
         self.trace_tool_results: Dict[TraceId, List[Dict[str, Any]]] = {}
+
+    def __del__(self) -> None:
+        """Cleanup resources on deletion."""
+        self.close()
+
+    def close(self) -> None:
+        """Close httpx client if we own it."""
+        if self._owns_httpx_client and self._httpx_client:
+            try:
+                self._httpx_client.close()
+            except Exception as e:
+                print(f"[LANGFUSE] Warning: Failed to close httpx client: {e}")
+
+    def _get_event_data(self, event: TraceEvent, key: str, default: Any = None) -> Any:
+        """Extract data from event, handling both dict and dataclass."""
+        if not hasattr(event, 'data'):
+            return default
+
+        # Handle dict
+        if isinstance(event.data, dict):
+            return event.data.get(key, default)
+
+        # Handle dataclass/object with attributes
+        return getattr(event.data, key, default)
+
+    def _create_trace(self, trace_id: TraceId, **kwargs) -> Any:
+        """Create a trace using the appropriate API for the Langfuse version."""
+        if self._is_langfuse_v3:
+            # Langfuse v3: Use start_span() to create a root span (creates trace implicitly)
+            # Extract parameters for v3 API
+            name = kwargs.get('name', 'trace')
+            input_data = kwargs.get('input')
+            metadata = kwargs.get('metadata', {})
+            user_id = kwargs.get('user_id')
+            session_id = kwargs.get('session_id')
+            tags = kwargs.get('tags', [])
+
+            # Add user_id, session_id, and tags to metadata for v3
+            if user_id:
+                metadata['user_id'] = user_id
+            if session_id:
+                metadata['session_id'] = session_id
+            if tags:
+                metadata['tags'] = tags
+
+            # Create root span
+            trace = self.langfuse.start_span(
+                name=name,
+                input=input_data,
+                metadata=metadata
+            )
+
+            # Update trace properties using update_trace()
+            update_params = {}
+            if user_id:
+                update_params['user_id'] = user_id
+            if session_id:
+                update_params['session_id'] = session_id
+            if tags:
+                update_params['tags'] = tags
+
+            if update_params:
+                trace.update_trace(**update_params)
+
+            return trace
+        else:
+            # Langfuse v2: Use trace() method
+            return self.langfuse.trace(**kwargs)
+
+    def _create_generation(self, parent_span: Any, **kwargs) -> Any:
+        """Create a generation using the appropriate API for the Langfuse version."""
+        if self._is_langfuse_v3:
+            # Langfuse v3: Use start_generation() method
+            return parent_span.start_generation(**kwargs)
+        else:
+            # Langfuse v2: Use generation() method
+            return parent_span.generation(**kwargs)
+
+    def _create_span(self, parent_span: Any, **kwargs) -> Any:
+        """Create a span using the appropriate API for the Langfuse version."""
+        if self._is_langfuse_v3:
+            # Langfuse v3: Use start_span() method
+            return parent_span.start_span(**kwargs)
+        else:
+            # Langfuse v2: Use span() method
+            return parent_span.span(**kwargs)
+
+    def _create_event(self, parent_span: Any, **kwargs) -> Any:
+        """Create an event using the appropriate API for the Langfuse version."""
+        if self._is_langfuse_v3:
+            # Langfuse v3: Use create_event() method
+            return parent_span.create_event(**kwargs)
+        else:
+            # Langfuse v2: Use event() method
+            return parent_span.event(**kwargs)
+
+    def _end_span(self, span: Any, **kwargs) -> None:
+        """End a span/generation using the appropriate API for the Langfuse version."""
+        if self._is_langfuse_v3:
+            # Langfuse v3: Call update() first with output/metadata, then end()
+            update_params = {}
+            end_params = {}
+
+            # Separate parameters for update() vs end()
+            for key, value in kwargs.items():
+                if key in ['output', 'metadata', 'model', 'usage']:
+                    update_params[key] = value
+                elif key == 'end_time':
+                    end_params[key] = value
+
+            # Update first if there are parameters
+            if update_params:
+                span.update(**update_params)
+
+            # Then end
+            span.end(**end_params)
+        else:
+            # Langfuse v2: Call end() directly with all parameters
+            span.end(**kwargs)
 
     def collect(self, event: TraceEvent) -> None:
         """Collect a trace event and send it to Langfuse."""
@@ -373,15 +604,15 @@ class LangfuseTraceCollector:
                 conversation_history = []
                 
                 # Debug: Print the event data structure to understand what we're working with
-                if event.data.get("context"):
-                    context = event.data["context"]
+                if self._get_event_data(event, "context"):
+                    context = self._get_event_data(event, "context")
                     print(f"[LANGFUSE DEBUG] Context type: {type(context)}")
                     print(f"[LANGFUSE DEBUG] Context attributes: {dir(context) if hasattr(context, '__dict__') else 'Not an object'}")
                     if hasattr(context, '__dict__'):
                         print(f"[LANGFUSE DEBUG] Context dict: {context.__dict__}")
                 
                 # Try to extract from context first
-                context = event.data.get("context")
+                context = self._get_event_data(event, "context")
                 if context:
                     # Try direct attribute access
                     if hasattr(context, 'query'):
@@ -411,7 +642,7 @@ class LangfuseTraceCollector:
                             print(f"[LANGFUSE DEBUG] Extracted user_id from attr: {user_id}")
                 
                 # Extract conversation history and current user query from messages
-                messages = event.data.get("messages", [])
+                messages = self._get_event_data(event, "messages", [])
                 if messages:
                     print(f"[LANGFUSE DEBUG] Processing {len(messages)} messages")
                     
@@ -503,20 +734,22 @@ class LangfuseTraceCollector:
                 trace_input = {
                     "user_query": user_query,
                     "run_id": str(trace_id),
-                    "agent_name": event.data.get("agent_name", "analytics_agent_jaf"),
+                    "agent_name": self._get_event_data(event, "agent_name", "analytics_agent_jaf"),
                     "session_info": {
-                        "session_id": event.data.get("session_id"),
-                        "user_id": user_id or event.data.get("user_id")
+                        "session_id": self._get_event_data(event, "session_id"),
+                        "user_id": user_id or self._get_event_data(event, "user_id")
                     }
                 }
 
                 # Extract agent_name for tagging
-                agent_name = event.data.get("agent_name") or "analytics_agent_jaf"
+                agent_name = self._get_event_data(event, "agent_name") or "analytics_agent_jaf"
 
-                trace = self.langfuse.trace(
+                # Use compatibility layer to create trace (works with both v2 and v3)
+                trace = self._create_trace(
+                    trace_id=trace_id,
                     name=agent_name,
-                    user_id=user_id or event.data.get("user_id"),
-                    session_id=event.data.get("session_id"),
+                    user_id=user_id or self._get_event_data(event, "user_id"),
+                    session_id=self._get_event_data(event, "session_id"),
                     input=trace_input,
                     tags=[agent_name],  # Add agent_name as a tag for dashboard filtering
                     metadata={
@@ -524,17 +757,17 @@ class LangfuseTraceCollector:
                         "event_type": "run_start",
                         "trace_id": str(trace_id),
                         "user_query": user_query,
-                        "user_id": user_id or event.data.get("user_id"),
+                        "user_id": user_id or self._get_event_data(event, "user_id"),
                         "agent_name": agent_name,
                         "conversation_history": conversation_history,
                         "tool_calls": [],
                         "tool_results": [],
-                        "user_info": event.data.get("context").user_info if event.data.get("context") and hasattr(event.data.get("context"), 'user_info') else None
+                        "user_info": self._get_event_data(event, "context").user_info if self._get_event_data(event, "context") and hasattr(self._get_event_data(event, "context"), 'user_info') else None
                     }
                 )
                 self.trace_spans[trace_id] = trace
                 # Store user_id, user_query, and conversation_history for later use
-                trace._user_id = user_id or event.data.get("user_id")
+                trace._user_id = user_id or self._get_event_data(event, "user_id")
                 trace._user_query = user_query
                 trace._conversation_history = conversation_history
                 print(f"[LANGFUSE] Created trace with user query: {user_query[:100] if user_query else 'None'}...")
@@ -551,7 +784,7 @@ class LangfuseTraceCollector:
                         "trace_id": str(trace_id),
                         "user_query": getattr(self.trace_spans[trace_id], '_user_query', None),
                         "user_id": getattr(self.trace_spans[trace_id], '_user_id', None),
-                        "agent_name": event.data.get("agent_name", "analytics_agent_jaf"),
+                        "agent_name": self._get_event_data(event, "agent_name", "analytics_agent_jaf"),
                         "conversation_history": conversation_history,
                         "tool_calls": self.trace_tool_calls.get(trace_id, []),
                         "tool_results": self.trace_tool_results.get(trace_id, [])
@@ -579,7 +812,7 @@ class LangfuseTraceCollector:
                     
             elif event.type == "llm_call_start":
                 # Start a generation for LLM calls
-                model = event.data.get("model", "unknown")
+                model = self._get_event_data(event, "model", "unknown")
                 print(f"[LANGFUSE] Starting generation for LLM call with model: {model}")
                 
                 # Get stored user information from the trace
@@ -587,11 +820,13 @@ class LangfuseTraceCollector:
                 user_id = getattr(trace, '_user_id', None)
                 user_query = getattr(trace, '_user_query', None)
                 
-                generation = trace.generation(
+                # Use compatibility layer to create generation (works with both v2 and v3)
+                generation = self._create_generation(
+                    parent_span=trace,
                     name=f"llm-call-{model}",
-                    input=event.data.get("messages"),
+                    input=self._get_event_data(event, "messages"),
                     metadata={
-                        "agent_name": event.data.get("agent_name"), 
+                        "agent_name": self._get_event_data(event, "agent_name"),
                         "model": model,
                         "user_id": user_id,
                         "user_query": user_query
@@ -607,10 +842,10 @@ class LangfuseTraceCollector:
                     print(f"[LANGFUSE] Ending generation for LLM call")
                     # End the generation
                     generation = self.active_spans[span_id]
-                    choice = event.data.get("choice", {})
-                    
+                    choice = self._get_event_data(event, "choice", {})
+
                     # Extract usage from the event data
-                    usage = event.data.get("usage", {})
+                    usage = self._get_event_data(event, "usage", {})
                     
                     # Extract model information from choice data or event data
                     model = choice.get("model", "unknown")
@@ -636,8 +871,10 @@ class LangfuseTraceCollector:
                         print(f"[LANGFUSE] Usage data for automatic cost calculation: {langfuse_usage}")
 
                     # Include model information in the generation end - Langfuse will calculate costs automatically
-                    generation.end(
-                        output=choice, 
+                    # Use compatibility wrapper for ending spans/generations
+                    self._end_span(
+                        span=generation,
+                        output=choice,
                         usage=langfuse_usage,
                         model=model,  # Pass model directly for automatic cost calculation
                         metadata={
@@ -656,9 +893,9 @@ class LangfuseTraceCollector:
                     
             elif event.type == "tool_call_start":
                 # Start a span for tool calls with detailed input information
-                tool_name = event.data.get('tool_name', 'unknown')
-                tool_args = event.data.get("args", {})
-                call_id = event.data.get("call_id")
+                tool_name = self._get_event_data(event, 'tool_name', 'unknown')
+                tool_args = self._get_event_data(event, "args", {})
+                call_id = self._get_event_data(event, "call_id")
                 if not call_id:
                     call_id = f"{tool_name}-{uuid.uuid4().hex[:8]}"
                     try:
@@ -691,7 +928,9 @@ class LangfuseTraceCollector:
                     "timestamp": datetime.now().isoformat()
                 }
                 
-                span = self.trace_spans[trace_id].span(
+                # Use compatibility layer to create span (works with both v2 and v3)
+                span = self._create_span(
+                    parent_span=self.trace_spans[trace_id],
                     name=f"tool-{tool_name}",
                     input=tool_input,
                     metadata={
@@ -708,9 +947,9 @@ class LangfuseTraceCollector:
             elif event.type == "tool_call_end":
                 span_id = self._get_span_id(event)
                 if span_id in self.active_spans:
-                    tool_name = event.data.get('tool_name', 'unknown')
-                    tool_result = event.data.get("result")
-                    call_id = event.data.get("call_id")
+                    tool_name = self._get_event_data(event, 'tool_name', 'unknown')
+                    tool_result = self._get_event_data(event, "result")
+                    call_id = self._get_event_data(event, "call_id")
                     
                     print(f"[LANGFUSE] Ending span for tool call: {tool_name} ({call_id})")
                     
@@ -720,9 +959,9 @@ class LangfuseTraceCollector:
                         "result": tool_result,
                         "call_id": call_id,
                         "timestamp": datetime.now().isoformat(),
-                        "execution_status": event.data.get("execution_status", "completed"),
-                        "status": event.data.get("execution_status", "completed"),  # DEPRECATED: backward compatibility
-                        "tool_result": event.data.get("tool_result")
+                        "execution_status": self._get_event_data(event, "execution_status", "completed"),
+                        "status": self._get_event_data(event, "execution_status", "completed"),  # DEPRECATED: backward compatibility
+                        "tool_result": self._get_event_data(event, "tool_result")
                     }
                     
                     if trace_id not in self.trace_tool_results:
@@ -736,13 +975,15 @@ class LangfuseTraceCollector:
                         "result": tool_result,
                         "call_id": call_id,
                         "timestamp": datetime.now().isoformat(),
-                        "execution_status": event.data.get("execution_status", "completed"),
-                        "status": event.data.get("execution_status", "completed")  # DEPRECATED: backward compatibility
+                        "execution_status": self._get_event_data(event, "execution_status", "completed"),
+                        "status": self._get_event_data(event, "execution_status", "completed")  # DEPRECATED: backward compatibility
                     }
                     
                     # End the span with detailed output
+                    # Use compatibility wrapper for ending spans/generations
                     span = self.active_spans[span_id]
-                    span.end(
+                    self._end_span(
+                        span=span,
                         output=tool_output,
                         metadata={
                             "tool_name": tool_name,
@@ -762,17 +1003,21 @@ class LangfuseTraceCollector:
             elif event.type == "handoff":
                 # Create an event for handoffs
                 print(f"[LANGFUSE] Creating event for handoff")
-                self.trace_spans[trace_id].event(
+                # Use compatibility layer to create event (works with both v2 and v3)
+                self._create_event(
+                    parent_span=self.trace_spans[trace_id],
                     name="agent-handoff",
-                    input={"from": event.data.get("from"), "to": event.data.get("to")},
+                    input={"from": self._get_event_data(event, "from"), "to": self._get_event_data(event, "to")},
                     metadata=event.data
                 )
                 print(f"[LANGFUSE] Handoff event created")
-                    
+
             else:
                 # Create a generic event for other event types
                 print(f"[LANGFUSE] Creating generic event for: {event.type}")
-                self.trace_spans[trace_id].event(
+                # Use compatibility layer to create event (works with both v2 and v3)
+                self._create_event(
+                    parent_span=self.trace_spans[trace_id],
                     name=event.type,
                     input=event.data,
                     metadata={"framework": "jaf", "event_type": event.type}
@@ -786,20 +1031,28 @@ class LangfuseTraceCollector:
             traceback.print_exc()
 
     def _get_trace_id(self, event: TraceEvent) -> Optional[TraceId]:
-        """Extract trace ID from event data."""
-        if hasattr(event, 'data') and isinstance(event.data, dict):
-            # Try snake_case first (Python convention)
-            if 'trace_id' in event.data:
-                return event.data['trace_id']
-            elif 'run_id' in event.data:
-                return TraceId(event.data['run_id'])
-            # Fallback to camelCase (for compatibility)
-            elif 'traceId' in event.data:
-                return event.data['traceId']
-            elif 'runId' in event.data:
-                return TraceId(event.data['runId'])
-        
-        # Debug: print what's actually in the event data
+        """Extract trace ID from event data, handling both dict and dataclass."""
+        if not hasattr(event, 'data'):
+            return None
+
+        # Try snake_case first (Python convention)
+        trace_id = self._get_event_data(event, 'trace_id')
+        if trace_id:
+            return trace_id
+
+        run_id = self._get_event_data(event, 'run_id')
+        if run_id:
+            return TraceId(run_id)
+
+        # Fallback to camelCase (for compatibility)
+        trace_id = self._get_event_data(event, 'traceId')
+        if trace_id:
+            return trace_id
+
+        run_id = self._get_event_data(event, 'runId')
+        if run_id:
+            return TraceId(run_id)
+
         return None
 
     def _get_span_id(self, event: TraceEvent) -> str:
@@ -808,15 +1061,15 @@ class LangfuseTraceCollector:
         
         # Use consistent identifiers that don't depend on timestamp
         if event.type.startswith('tool_call'):
-            call_id = event.data.get('call_id') or event.data.get('tool_call_id')
+            call_id = self._get_event_data(event, 'call_id') or self._get_event_data(event, 'tool_call_id')
             if call_id:
                 return f"tool-{trace_id}-{call_id}"
-            tool_name = event.data.get('tool_name') or event.data.get('toolName', 'unknown')
+            tool_name = self._get_event_data(event, 'tool_name') or self._get_event_data(event, 'toolName', 'unknown')
             return f"tool-{tool_name}-{trace_id}"
         elif event.type.startswith('llm_call'):
             # For LLM calls, use a simpler consistent ID that matches between start and end
             # Get run_id for more consistent matching
-            run_id = event.data.get('run_id') or event.data.get('runId', trace_id)
+            run_id = self._get_event_data(event, 'run_id') or self._get_event_data(event, 'runId', trace_id)
             return f"llm-{run_id}"
         else:
             return f"{event.type}-{trace_id}"
@@ -834,21 +1087,50 @@ class LangfuseTraceCollector:
         pass
 
 
-def create_composite_trace_collector(*collectors: TraceCollector) -> TraceCollector:
-    """Create a composite trace collector that forwards events to multiple collectors."""
-    
+def create_composite_trace_collector(
+    *collectors: TraceCollector,
+    httpx_client: Optional[httpx.Client] = None,
+    otel_session: Optional[Any] = None,
+    proxy: Optional[str] = None,
+    timeout: Optional[int] = None
+) -> TraceCollector:
+    """Create a composite trace collector that forwards events to multiple collectors.
+
+    Args:
+        *collectors: Variable length list of trace collectors
+        httpx_client: Optional custom httpx.Client for Langfuse API calls.
+                     If provided, proxy and timeout parameters are ignored for Langfuse.
+        otel_session: Optional custom requests.Session for OTLP HTTP calls.
+                     If provided, proxy parameter is ignored for OTEL.
+        proxy: Optional proxy URL for both Langfuse and OTEL (e.g., "http://proxy.example.com:8080").
+               For Langfuse: Falls back to LANGFUSE_PROXY environment variable.
+               For OTEL: Falls back to OTEL_PROXY environment variable.
+               If not set, both respect standard HTTP_PROXY/HTTPS_PROXY environment variables.
+        timeout: Optional timeout in seconds for HTTP requests (applies to both Langfuse and OTEL).
+                For Langfuse: Falls back to LANGFUSE_TIMEOUT environment variable (default: 10).
+    """
     collector_list = list(collectors)
-    
+
     # Automatically add OTEL collector if URL is configured
     collector_url = os.getenv("TRACE_COLLECTOR_URL")
     if collector_url:
-        setup_otel_tracing(collector_url=collector_url)
+        # Pass proxy and timeout to OTEL setup
+        setup_otel_tracing(
+            collector_url=collector_url,
+            proxy=proxy,
+            session=otel_session,
+            timeout=timeout
+        )
         otel_collector = OtelTraceCollector()
         collector_list.append(otel_collector)
 
     # Automatically add Langfuse collector if keys are configured
     if os.getenv("LANGFUSE_PUBLIC_KEY") and os.getenv("LANGFUSE_SECRET_KEY"):
-        langfuse_collector = LangfuseTraceCollector()
+        langfuse_collector = LangfuseTraceCollector(
+            httpx_client=httpx_client,
+            proxy=proxy,
+            timeout=timeout
+        )
         collector_list.append(langfuse_collector)
 
     class CompositeTraceCollector:
@@ -882,5 +1164,21 @@ def create_composite_trace_collector(*collectors: TraceCollector) -> TraceCollec
                     collector.clear(trace_id)
                 except Exception as e:
                     print(f"Warning: Failed to clear trace collector: {e}")
+        
+        def close(self) -> None:
+            """Close all collectors that support cleanup."""
+            for collector in self.collectors:
+                if hasattr(collector, 'close'):
+                    try:
+                        collector.close()
+                    except Exception as e:
+                        print(f"Warning: Failed to close trace collector: {e}")
+        
+        def __enter__(self):
+            return self
+        
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            self.close()
+            return False
 
     return CompositeTraceCollector(collector_list)
