@@ -181,9 +181,12 @@ async def run(
     Main execution function for running agents.
     """
     try:
-        # Set the current RunConfig in context for agent tools
-        from .agent_tool import set_current_run_config
+        # Set the current RunConfig, trace_id, and session_id in context for agent tools
+        from .agent_tool import set_current_run_config, set_current_trace_id, set_current_session_id
         set_current_run_config(config)
+        set_current_trace_id(str(initial_state.trace_id))
+        if config.conversation_id:
+            set_current_session_id(config.conversation_id)
         
         state_with_memory = await _load_conversation_history(initial_state, config)
         

@@ -39,6 +39,12 @@ Out = TypeVar('Out')
 # Context variable to store the current RunConfig for agent tools
 _current_run_config: contextvars.ContextVar[Optional[RunConfig]] = contextvars.ContextVar('current_run_config', default=None)
 
+# Context variable to store the current trace_id for trace propagation
+_current_trace_id: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar('current_trace_id', default=None)
+
+# Context variable to store the current session_id (conversation_id) for trace propagation
+_current_session_id: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar('current_session_id', default=None)
+
 
 def set_current_run_config(config: RunConfig) -> None:
     """Set the current RunConfig in context for agent tools to use."""
@@ -48,6 +54,66 @@ def set_current_run_config(config: RunConfig) -> None:
 def get_current_run_config() -> Optional[RunConfig]:
     """Get the current RunConfig from context."""
     return _current_run_config.get()
+
+
+def set_current_trace_id(trace_id: str) -> None:
+    """Set the current trace_id in context for trace propagation to sub-agents."""
+    _current_trace_id.set(trace_id)
+
+
+def get_current_trace_id() -> Optional[str]:
+    """
+    Get the current trace_id from context.
+
+    Use this in tools that call external APIs to propagate trace_id:
+
+    Example:
+        from jaf.core.agent_tool import get_current_trace_id
+
+        async def call_external_api(args, context):
+            trace_id = get_current_trace_id()
+
+            # Pass trace_id to external API
+            response = requests.post(
+                "https://api.example.com/agent",
+                headers={"X-Trace-Id": trace_id},
+                json={"query": args.query}
+            )
+            return response.json()
+    """
+    return _current_trace_id.get()
+
+
+def set_current_session_id(session_id: str) -> None:
+    """Set the current session_id (conversation_id) in context for trace propagation."""
+    _current_session_id.set(session_id)
+
+
+def get_current_session_id() -> Optional[str]:
+    """
+    Get the current session_id (conversation_id) from context.
+
+    Use this in tools that call external APIs to propagate session_id:
+
+    Example:
+        from jaf.core.agent_tool import get_current_trace_id, get_current_session_id
+
+        async def call_external_api(args, context):
+            trace_id = get_current_trace_id()
+            session_id = get_current_session_id()
+
+            # Pass both IDs to external API for unified tracing
+            response = requests.post(
+                "https://api.example.com/agent",
+                headers={
+                    "X-Trace-Id": trace_id,
+                    "X-Session-Id": session_id
+                },
+                json={"query": args.query}
+            )
+            return response.json()
+    """
+    return _current_session_id.get()
 
 
 class AgentToolInput(BaseModel if BaseModel else object):
@@ -145,10 +211,14 @@ def create_agent_tool(
             role=ContentRole.USER,
             content=user_input
         )]
-        
+
+        # Inherit trace_id from parent if available for trace continuity across sub-agents
+        parent_trace_id = _current_trace_id.get()
+        trace_id = parent_trace_id if parent_trace_id else generate_trace_id()
+
         initial_state = RunState(
             run_id=generate_run_id(),
-            trace_id=generate_trace_id(),
+            trace_id=trace_id,
             messages=initial_messages,
             current_agent_name=agent.name,
             context=context,

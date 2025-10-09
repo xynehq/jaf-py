@@ -14,8 +14,13 @@ from .core.tools import (
     create_async_function_tool_legacy,
     function_tool,
 )
-from .core.tracing import ConsoleTraceCollector, TraceCollector
+from .core.tracing import ConsoleTraceCollector, TraceCollector, create_composite_trace_collector
 from .core.types import *
+from .core.agent_tool import (
+    get_current_trace_id,
+    get_current_session_id,
+    create_agent_tool,
+)
 # Import attachment utilities for convenience
 from .utils.attachments import (
     make_image_attachment,
@@ -222,7 +227,10 @@ __all__ = [
     "run",
 
     # Tracing
-    "TraceCollector", "ConsoleTraceCollector",
+    "TraceCollector", "ConsoleTraceCollector", "create_composite_trace_collector",
+
+    # Agent tools and cross-deployment tracing
+    "create_agent_tool", "get_current_trace_id", "get_current_session_id",
 
     # Tool results
     "ToolResult", "ToolResultStatus", "ToolResponse", "ToolErrorCodes",

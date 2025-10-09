@@ -1100,3 +1100,292 @@ debug_collector = ConsoleTraceCollector()
 ```
 
 This comprehensive tracing system enables full observability of your JAF agents in any environment, from development to production.
+
+## Distributed Tracing and Custom IDs
+
+### Overview
+
+JAF supports distributed tracing scenarios where you need to track conversations and agent executions across multiple deployments, services, or agent hierarchies. Key features include:
+
+- **Automatic Trace Propagation**: Sub-agents automatically inherit the parent's `trace_id`
+- **Custom Trace IDs**: Provide your own `trace_id` to link traces across distributed systems
+- **Custom Session IDs**: Use `conversation_id` to maintain session continuity
+- **Multi-Level Hierarchies**: Unified tracing across deep agent hierarchies
+
+### Automatic Trace Propagation to Sub-Agents
+
+When using agent-as-tool (sub-agents), the parent's `trace_id` is automatically inherited by all child agents, creating a unified trace:
+
+```python
+from jaf import Agent, RunState, RunConfig
+from jaf.core.agent_tool import create_agent_tool
+from jaf.core.types import TraceId, generate_run_id
+
+# Create a sub-agent
+research_agent = Agent(
+    name="research_specialist",
+    instructions=lambda s: "You are a research specialist.",
+    tools=[research_tool]
+)
+
+# Convert to tool
+research_tool = create_agent_tool(
+    agent=research_agent,
+    tool_name="delegate_research"
+)
+
+# Main agent uses the sub-agent
+main_agent = Agent(
+    name="orchestrator",
+    instructions=lambda s: "Delegate research tasks.",
+    tools=[research_tool]
+)
+
+# Create initial state with trace_id
+initial_state = RunState(
+    run_id=generate_run_id(),
+    trace_id=TraceId("trace_parent_123"),  # Parent trace_id
+    messages=[...],
+    current_agent_name="orchestrator",
+    context={},
+    turn_count=0
+)
+
+# Run the agent
+result = await run(initial_state, config)
+
+# Both orchestrator and research_specialist will use "trace_parent_123"
+# All events appear under one unified trace in your tracing backend!
+```
+
+### Custom Trace IDs for Distributed Systems
+
+Provide your own `trace_id` to link agent executions across multiple deployments or services:
+
+```python
+from jaf.core.types import TraceId, generate_run_id
+
+# Receive trace_id from upstream service (e.g., HTTP header, message queue)
+upstream_trace_id = "trace_from_api_gateway_abc123"
+
+# Service #1: Initial processing
+initial_state = RunState(
+    run_id=generate_run_id(),
+    trace_id=TraceId(upstream_trace_id),  # Use the upstream trace_id
+    messages=[Message(role=ContentRole.USER, content="Request from service 1")],
+    current_agent_name="service_1_agent",
+    context={},
+    turn_count=0
+)
+
+result_1 = await run(initial_state, config)
+
+# Service #2: Continue processing with SAME trace_id
+# (perhaps in a different deployment/container)
+followup_state = RunState(
+    run_id=generate_run_id(),  # New run_id for this service
+    trace_id=TraceId(upstream_trace_id),  # SAME trace_id for unified tracing
+    messages=[Message(role=ContentRole.USER, content="Request from service 2")],
+    current_agent_name="service_2_agent",
+    context={},
+    turn_count=0
+)
+
+result_2 = await run(followup_state, config)
+
+# Both executions are linked in your tracing backend under the same trace_id!
+```
+
+### Custom Session IDs
+
+Use `conversation_id` in `RunConfig` to provide a custom session ID:
+
+```python
+# Receive session_id from upstream (e.g., user session from auth service)
+user_session_id = "session_user_456_from_auth"
+
+config = RunConfig(
+    agent_registry={"agent": agent},
+    model_provider=model_provider,
+    conversation_id=user_session_id,  # Custom session_id
+    on_event=trace_collector.collect
+)
+
+# The session_id will be included in all trace events
+result = await run(initial_state, config)
+```
+
+### Session Continuity with preserve_session
+
+Control whether sub-agents share the parent's session (conversation_id) or get isolated sessions:
+
+```python
+from jaf.core.agent_tool import create_agent_tool
+
+# Option 1: Preserve session (shared memory/conversation history)
+specialist_tool_shared = create_agent_tool(
+    agent=specialist_agent,
+    tool_name="call_specialist_shared",
+    preserve_session=True  # Sub-agent inherits parent's conversation_id
+)
+
+# Option 2: Isolated session (ephemeral, per-invocation)
+specialist_tool_isolated = create_agent_tool(
+    agent=specialist_agent,
+    tool_name="call_specialist_isolated",
+    preserve_session=False  # Default: each call gets its own session
+)
+```
+
+**When to use `preserve_session=True`:**
+- Sub-agent needs access to conversation history
+- Shared memory across agent calls
+- Continuous conversation flow
+
+**When to use `preserve_session=False` (default):**
+- Independent, stateless sub-agent calls
+- No memory sharing needed
+- Each invocation should be isolated
+
+### Multi-Level Agent Hierarchies
+
+Trace IDs propagate through any depth of agent hierarchy:
+
+```python
+# Level 3: Worker agent
+worker = Agent(name="worker", ...)
+worker_tool = create_agent_tool(agent=worker)
+
+# Level 2: Manager agent (calls worker)
+manager = Agent(name="manager", tools=[worker_tool], ...)
+manager_tool = create_agent_tool(agent=manager)
+
+# Level 1: Main agent (calls manager)
+main = Agent(name="main", tools=[manager_tool], ...)
+
+# All three levels will share the same trace_id
+initial_state = RunState(
+    trace_id=TraceId("trace_hierarchy_123"),
+    ...
+)
+
+result = await run(initial_state, config)
+
+# View the entire call hierarchy under "trace_hierarchy_123" in your tracing backend!
+```
+
+### Use Cases
+
+**Distributed Microservices:**
+```python
+# API Gateway receives request
+trace_id = request.headers.get("X-Trace-Id") or generate_trace_id()
+session_id = request.headers.get("X-Session-Id")
+
+# Service A
+config_a = RunConfig(conversation_id=session_id, ...)
+state_a = RunState(trace_id=TraceId(trace_id), ...)
+await run(state_a, config_a)
+
+# Service B (different deployment)
+config_b = RunConfig(conversation_id=session_id, ...)
+state_b = RunState(trace_id=TraceId(trace_id), ...)
+await run(state_b, config_b)
+
+# Both services' traces are unified under the same trace_id!
+```
+
+**Multi-Tenant Systems:**
+```python
+# Use tenant_id as session_id for tenant-specific tracing
+tenant_id = "tenant_acme_corp"
+
+config = RunConfig(
+    conversation_id=tenant_id,  # All events tagged with tenant_id
+    ...
+)
+```
+
+**Cross-Service Agent Calls:**
+```python
+# Service 1: Main agent
+trace_id = TraceId("trace_cross_service_123")
+state = RunState(trace_id=trace_id, ...)
+result = await run(state, config)
+
+# Pass trace_id to Service 2 via HTTP header, message queue, etc.
+response = requests.post(
+    "https://service-2/agent",
+    headers={"X-Trace-Id": str(trace_id)}
+)
+
+# Service 2: Continues with same trace_id
+received_trace_id = request.headers["X-Trace-Id"]
+state_2 = RunState(trace_id=TraceId(received_trace_id), ...)
+result_2 = await run(state_2, config_2)
+```
+
+### Complete Example
+
+See `examples/distributed_tracing_example.py` for comprehensive examples demonstrating:
+
+1. Automatic trace propagation to sub-agents
+2. Custom trace IDs for distributed systems
+3. Multi-level agent hierarchies
+4. Session continuity patterns
+
+```bash
+# Run the example
+python examples/distributed_tracing_example.py
+```
+
+### Best Practices
+
+1. **Trace ID Generation**:
+   - Generate trace IDs at system entry points (API gateways, message queues)
+   - Pass trace IDs through all service calls
+   - Use meaningful prefixes: `trace_api_`, `trace_queue_`, etc.
+
+2. **Session ID Management**:
+   - Link session IDs to user sessions or logical groupings
+   - Use session IDs for filtering in tracing dashboards
+   - Document session ID lifecycle
+
+3. **Sub-Agent Configuration**:
+   - Use `preserve_session=True` sparingly (when memory sharing is needed)
+   - Default to isolated sessions for better agent independence
+   - Document which agent tools preserve sessions
+
+4. **Monitoring**:
+   - Monitor trace ID propagation in your tracing backend
+   - Alert on broken trace chains (missing trace IDs)
+   - Track session duration and boundaries
+
+### Tracing Backend Integration
+
+Custom trace IDs and session IDs work seamlessly with all JAF tracing backends:
+
+**Langfuse:**
+```python
+# Traces are automatically grouped by trace_id
+# Session_id appears in trace metadata
+# Agent names are tagged for filtering
+```
+
+**OpenTelemetry:**
+```python
+# Trace IDs map to OpenTelemetry trace context
+# Session IDs appear as span attributes
+# Complete distributed tracing support
+```
+
+**Custom Collectors:**
+```python
+class CustomCollector:
+    def collect(self, event: TraceEvent):
+        trace_id = event.data.get("trace_id")
+        session_id = event.data.get("session_id")
+        # Index by trace_id and session_id for querying
+```
+
+This comprehensive tracing system enables full observability of your JAF agents in any environment, from development to production.

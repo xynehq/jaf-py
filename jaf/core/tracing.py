@@ -460,6 +460,8 @@ class LangfuseTraceCollector:
         # Track tool calls and results for each trace
         self.trace_tool_calls: Dict[TraceId, List[Dict[str, Any]]] = {}
         self.trace_tool_results: Dict[TraceId, List[Dict[str, Any]]] = {}
+        # Track spans for each run_id (for sub-agents and distributed tracing)
+        self.run_spans: Dict[str, Any] = {}
 
     def __del__(self) -> None:
         """Cleanup resources on deletion."""
@@ -591,193 +593,269 @@ class LangfuseTraceCollector:
             print(f"[LANGFUSE] Processing event: {event.type} for trace: {trace_id}")
 
             if event.type == "run_start":
-                # Start a new trace for the entire run
-                print(f"[LANGFUSE] Starting trace for run: {trace_id}")
-                
-                # Initialize tracking for this trace
-                self.trace_tool_calls[trace_id] = []
-                self.trace_tool_results[trace_id] = []
-                
-                # Extract user query from the run_start data
-                user_query = None
-                user_id = None
-                conversation_history = []
-                
-                # Debug: Print the event data structure to understand what we're working with
-                if self._get_event_data(event, "context"):
+                # Extract run_id for tracking spans
+                run_id = str(self._get_event_data(event, "run_id", ""))
+                agent_name = self._get_event_data(event, "agent_name", "agent")
+
+                # Check if trace already exists for this trace_id (for sub-agents and distributed tracing)
+                if trace_id in self.trace_spans:
+                    print(f"[LANGFUSE] Reusing existing trace for run: {trace_id}, creating span for agent: {agent_name}")
+                    # Trace already exists - create a span within this trace for the sub-agent
+                    trace = self.trace_spans[trace_id]
+
+                    # Create a span for this sub-agent run
+                    messages = self._get_event_data(event, "messages", [])
+                    user_query = None
+                    if messages:
+                        for msg in reversed(messages):
+                            if isinstance(msg, dict):
+                                if msg.get("role") == "user":
+                                    user_query = msg.get("content", "")
+                                    break
+                            elif hasattr(msg, 'role'):
+                                if getattr(msg, 'role', None) == "user" or getattr(msg, 'role', None) == 'user':
+                                    user_query = getattr(msg, 'content', "")
+                                    break
+
+                    span = self._create_span(
+                        trace,
+                        name=agent_name,
+                        input={"query": user_query, "run_id": run_id},
+                        metadata={
+                            "agent_name": agent_name,
+                            "run_id": run_id,
+                            "trace_id": str(trace_id)
+                        }
+                    )
+
+                    # Store the span for this run_id
+                    self.run_spans[run_id] = span
+                    print(f"[LANGFUSE] Created span for run_id: {run_id} within trace: {trace_id}")
+                else:
+                    # Start a new trace for the entire run
+                    print(f"[LANGFUSE] Starting NEW trace for run: {trace_id}")
+
+                    # Initialize tracking for this trace
+                    self.trace_tool_calls[trace_id] = []
+                    self.trace_tool_results[trace_id] = []
+
+                    # Extract user query from the run_start data
+                    user_query = None
+                    user_id = None
+                    conversation_history = []
+
+                    # Debug: Print the event data structure to understand what we're working with
+                    if self._get_event_data(event, "context"):
+                        context = self._get_event_data(event, "context")
+                        print(f"[LANGFUSE DEBUG] Context type: {type(context)}")
+                        print(f"[LANGFUSE DEBUG] Context attributes: {dir(context) if hasattr(context, '__dict__') else 'Not an object'}")
+                        if hasattr(context, '__dict__'):
+                            print(f"[LANGFUSE DEBUG] Context dict: {context.__dict__}")
+
+                    # Try to extract from context first
                     context = self._get_event_data(event, "context")
-                    print(f"[LANGFUSE DEBUG] Context type: {type(context)}")
-                    print(f"[LANGFUSE DEBUG] Context attributes: {dir(context) if hasattr(context, '__dict__') else 'Not an object'}")
-                    if hasattr(context, '__dict__'):
-                        print(f"[LANGFUSE DEBUG] Context dict: {context.__dict__}")
-                
-                # Try to extract from context first
-                context = self._get_event_data(event, "context")
-                if context:
-                    # Try direct attribute access
-                    if hasattr(context, 'query'):
-                        user_query = context.query
-                        print(f"[LANGFUSE DEBUG] Found user_query from context.query: {user_query}")
-                    
-                    # Try to extract from combined_history
-                    if hasattr(context, 'combined_history') and context.combined_history:
-                        history = context.combined_history
-                        print(f"[LANGFUSE DEBUG] Found combined_history with {len(history)} messages")
-                        for i, msg in enumerate(reversed(history)):
-                            print(f"[LANGFUSE DEBUG] History message {i}: {msg}")
-                            if isinstance(msg, dict) and msg.get("role") == "user":
-                                user_query = msg.get("content", "")
-                                print(f"[LANGFUSE DEBUG] Found user_query from history: {user_query}")
-                                break
-                    
-                    # Try to extract user_id from user_info
-                    if hasattr(context, 'user_info'):
-                        user_info = context.user_info
-                        print(f"[LANGFUSE DEBUG] Found user_info: {type(user_info)}")
-                        if isinstance(user_info, dict):
-                            user_id = user_info.get("email") or user_info.get("username")
-                            print(f"[LANGFUSE DEBUG] Extracted user_id: {user_id}")
-                        elif hasattr(user_info, 'email'):
-                            user_id = user_info.email
-                            print(f"[LANGFUSE DEBUG] Extracted user_id from attr: {user_id}")
-                
-                # Extract conversation history and current user query from messages
-                messages = self._get_event_data(event, "messages", [])
-                if messages:
-                    print(f"[LANGFUSE DEBUG] Processing {len(messages)} messages")
-                    
-                    # Find the last user message (current query) and extract conversation history (excluding current)
-                    current_user_message_found = False
-                    for i in range(len(messages) - 1, -1, -1):
-                        msg = messages[i]
-                        
-                        # Extract message data comprehensively
-                        msg_data = {}
-                        
-                        if isinstance(msg, dict):
-                            role = msg.get("role")
-                            content = msg.get("content", "")
-                            # Capture all additional fields from dict messages
-                            msg_data = {
-                                "role": role,
-                                "content": content,
-                                "tool_calls": msg.get("tool_calls"),
-                                "tool_call_id": msg.get("tool_call_id"),
-                                "name": msg.get("name"),
-                                "function_call": msg.get("function_call"),
-                                "timestamp": msg.get("timestamp", datetime.now().isoformat())
-                            }
-                        elif hasattr(msg, 'role'):
-                            role = getattr(msg, 'role', None)
-                            content = getattr(msg, 'content', "")
-                            # Handle both string content and complex content structures
-                            if not isinstance(content, str):
-                                # Try to extract text from complex content
-                                if hasattr(content, '__iter__') and not isinstance(content, str):
-                                    try:
-                                        # If it's a list, try to join text parts
-                                        content = " ".join(str(item) for item in content if item)
-                                    except:
+                    if context:
+                        # Try direct attribute access
+                        if hasattr(context, 'query'):
+                            user_query = context.query
+                            print(f"[LANGFUSE DEBUG] Found user_query from context.query: {user_query}")
+
+                        # Try to extract from combined_history
+                        if hasattr(context, 'combined_history') and context.combined_history:
+                            history = context.combined_history
+                            print(f"[LANGFUSE DEBUG] Found combined_history with {len(history)} messages")
+                            for i, msg in enumerate(reversed(history)):
+                                print(f"[LANGFUSE DEBUG] History message {i}: {msg}")
+                                if isinstance(msg, dict) and msg.get("role") == "user":
+                                    user_query = msg.get("content", "")
+                                    print(f"[LANGFUSE DEBUG] Found user_query from history: {user_query}")
+                                    break
+
+                        # Try to extract user_id from user_info
+                        if hasattr(context, 'user_info'):
+                            user_info = context.user_info
+                            print(f"[LANGFUSE DEBUG] Found user_info: {type(user_info)}")
+                            if isinstance(user_info, dict):
+                                user_id = user_info.get("email") or user_info.get("username")
+                                print(f"[LANGFUSE DEBUG] Extracted user_id: {user_id}")
+                            elif hasattr(user_info, 'email'):
+                                user_id = user_info.email
+                                print(f"[LANGFUSE DEBUG] Extracted user_id from attr: {user_id}")
+
+                    # Extract conversation history and current user query from messages
+                    messages = self._get_event_data(event, "messages", [])
+                    if messages:
+                        print(f"[LANGFUSE DEBUG] Processing {len(messages)} messages")
+
+                        # Find the last user message (current query) and extract conversation history (excluding current)
+                        current_user_message_found = False
+                        for i in range(len(messages) - 1, -1, -1):
+                            msg = messages[i]
+
+                            # Extract message data comprehensively
+                            msg_data = {}
+
+                            if isinstance(msg, dict):
+                                role = msg.get("role")
+                                content = msg.get("content", "")
+                                # Capture all additional fields from dict messages
+                                msg_data = {
+                                    "role": role,
+                                    "content": content,
+                                    "tool_calls": msg.get("tool_calls"),
+                                    "tool_call_id": msg.get("tool_call_id"),
+                                    "name": msg.get("name"),
+                                    "function_call": msg.get("function_call"),
+                                    "timestamp": msg.get("timestamp", datetime.now().isoformat())
+                                }
+                            elif hasattr(msg, 'role'):
+                                role = getattr(msg, 'role', None)
+                                content = getattr(msg, 'content', "")
+                                # Handle both string content and complex content structures
+                                if not isinstance(content, str):
+                                    # Try to extract text from complex content
+                                    if hasattr(content, '__iter__') and not isinstance(content, str):
+                                        try:
+                                            # If it's a list, try to join text parts
+                                            content = " ".join(str(item) for item in content if item)
+                                        except:
+                                            content = str(content)
+                                    else:
                                         content = str(content)
-                                else:
-                                    content = str(content)
-                            
-                            # Capture all additional fields from object messages
-                            msg_data = {
-                                "role": role,
-                                "content": content,
-                                "tool_calls": getattr(msg, 'tool_calls', None),
-                                "tool_call_id": getattr(msg, 'tool_call_id', None),
-                                "name": getattr(msg, 'name', None),
-                                "function_call": getattr(msg, 'function_call', None),
-                                "timestamp": getattr(msg, 'timestamp', datetime.now().isoformat())
-                            }
-                        else:
-                            # Handle messages that don't have expected structure
-                            print(f"[LANGFUSE DEBUG] Skipping message with unexpected structure: {type(msg)}")
-                            continue
-                        
-                        # Clean up None values from msg_data
-                        msg_data = {k: v for k, v in msg_data.items() if v is not None}
-                        
-                        # If we haven't found the current user message yet and this is a user message
-                        if not current_user_message_found and (role == "user" or role == 'user'):
-                            user_query = content
-                            current_user_message_found = True
-                            print(f"[LANGFUSE DEBUG] Found current user query: {user_query}")
-                        elif current_user_message_found:
-                            # Add to conversation history (excluding the current user message)
-                            # Include ALL message types: assistant, tool, system, function, etc.
-                            conversation_history.insert(0, msg_data)
-                            print(f"[LANGFUSE DEBUG] Added to conversation history: role={role}, content_length={len(str(content))}, has_tool_calls={bool(msg_data.get('tool_calls'))}")
-                
-                print(f"[LANGFUSE DEBUG] Final extracted - user_query: {user_query}, user_id: {user_id}")
-                print(f"[LANGFUSE DEBUG] Conversation history length: {len(conversation_history)}")
-                
-                # Debug: Log the roles and types captured in conversation history
-                if conversation_history:
-                    roles_summary = {}
-                    for msg in conversation_history:
-                        role = msg.get("role", "unknown")
-                        roles_summary[role] = roles_summary.get(role, 0) + 1
-                    print(f"[LANGFUSE DEBUG] Conversation history roles breakdown: {roles_summary}")
-                    
-                    # Log first few messages for verification
-                    for i, msg in enumerate(conversation_history[:3]):
-                        role = msg.get("role", "unknown")
-                        content_preview = str(msg.get("content", ""))[:100]
-                        has_tool_calls = bool(msg.get("tool_calls"))
-                        has_tool_call_id = bool(msg.get("tool_call_id"))
-                        print(f"[LANGFUSE DEBUG] History msg {i}: role={role}, content='{content_preview}...', tool_calls={has_tool_calls}, tool_call_id={has_tool_call_id}")
-                
-                # Create comprehensive input data for the trace
-                trace_input = {
-                    "user_query": user_query,
-                    "run_id": str(trace_id),
-                    "agent_name": self._get_event_data(event, "agent_name", "analytics_agent_jaf"),
-                    "session_info": {
-                        "session_id": self._get_event_data(event, "session_id"),
-                        "user_id": user_id or self._get_event_data(event, "user_id")
-                    }
-                }
 
-                # Extract agent_name for tagging
-                agent_name = self._get_event_data(event, "agent_name") or "analytics_agent_jaf"
+                                # Capture all additional fields from object messages
+                                msg_data = {
+                                    "role": role,
+                                    "content": content,
+                                    "tool_calls": getattr(msg, 'tool_calls', None),
+                                    "tool_call_id": getattr(msg, 'tool_call_id', None),
+                                    "name": getattr(msg, 'name', None),
+                                    "function_call": getattr(msg, 'function_call', None),
+                                    "timestamp": getattr(msg, 'timestamp', datetime.now().isoformat())
+                                }
+                            else:
+                                # Handle messages that don't have expected structure
+                                print(f"[LANGFUSE DEBUG] Skipping message with unexpected structure: {type(msg)}")
+                                continue
 
-                # Use compatibility layer to create trace (works with both v2 and v3)
-                trace = self._create_trace(
-                    trace_id=trace_id,
-                    name=agent_name,
-                    user_id=user_id or self._get_event_data(event, "user_id"),
-                    session_id=self._get_event_data(event, "session_id"),
-                    input=trace_input,
-                    tags=[agent_name],  # Add agent_name as a tag for dashboard filtering
-                    metadata={
-                        "framework": "jaf",
-                        "event_type": "run_start",
-                        "trace_id": str(trace_id),
+                            # Clean up None values from msg_data
+                            msg_data = {k: v for k, v in msg_data.items() if v is not None}
+
+                            # If we haven't found the current user message yet and this is a user message
+                            if not current_user_message_found and (role == "user" or role == 'user'):
+                                user_query = content
+                                current_user_message_found = True
+                                print(f"[LANGFUSE DEBUG] Found current user query: {user_query}")
+                            elif current_user_message_found:
+                                # Add to conversation history (excluding the current user message)
+                                # Include ALL message types: assistant, tool, system, function, etc.
+                                conversation_history.insert(0, msg_data)
+                                print(f"[LANGFUSE DEBUG] Added to conversation history: role={role}, content_length={len(str(content))}, has_tool_calls={bool(msg_data.get('tool_calls'))}")
+
+                    print(f"[LANGFUSE DEBUG] Final extracted - user_query: {user_query}, user_id: {user_id}")
+                    print(f"[LANGFUSE DEBUG] Conversation history length: {len(conversation_history)}")
+
+                    # Debug: Log the roles and types captured in conversation history
+                    if conversation_history:
+                        roles_summary = {}
+                        for msg in conversation_history:
+                            role = msg.get("role", "unknown")
+                            roles_summary[role] = roles_summary.get(role, 0) + 1
+                        print(f"[LANGFUSE DEBUG] Conversation history roles breakdown: {roles_summary}")
+
+                        # Log first few messages for verification
+                        for i, msg in enumerate(conversation_history[:3]):
+                            role = msg.get("role", "unknown")
+                            content_preview = str(msg.get("content", ""))[:100]
+                            has_tool_calls = bool(msg.get("tool_calls"))
+                            has_tool_call_id = bool(msg.get("tool_call_id"))
+                            print(f"[LANGFUSE DEBUG] History msg {i}: role={role}, content='{content_preview}...', tool_calls={has_tool_calls}, tool_call_id={has_tool_call_id}")
+
+                    # Create comprehensive input data for the trace
+                    trace_input = {
                         "user_query": user_query,
-                        "user_id": user_id or self._get_event_data(event, "user_id"),
-                        "agent_name": agent_name,
-                        "conversation_history": conversation_history,
-                        "tool_calls": [],
-                        "tool_results": [],
-                        "user_info": self._get_event_data(event, "context").user_info if self._get_event_data(event, "context") and hasattr(self._get_event_data(event, "context"), 'user_info') else None
+                        "run_id": str(trace_id),
+                        "agent_name": self._get_event_data(event, "agent_name", "analytics_agent_jaf"),
+                        "session_info": {
+                            "session_id": self._get_event_data(event, "session_id"),
+                            "user_id": user_id or self._get_event_data(event, "user_id")
+                        }
                     }
-                )
-                self.trace_spans[trace_id] = trace
-                # Store user_id, user_query, and conversation_history for later use
-                trace._user_id = user_id or self._get_event_data(event, "user_id")
-                trace._user_query = user_query
-                trace._conversation_history = conversation_history
-                print(f"[LANGFUSE] Created trace with user query: {user_query[:100] if user_query else 'None'}...")
+
+                    # Extract agent_name for tagging
+                    agent_name = self._get_event_data(event, "agent_name") or "analytics_agent_jaf"
+
+                    # Use compatibility layer to create trace (works with both v2 and v3)
+                    trace = self._create_trace(
+                        trace_id=trace_id,
+                        name=agent_name,
+                        user_id=user_id or self._get_event_data(event, "user_id"),
+                        session_id=self._get_event_data(event, "session_id"),
+                        input=trace_input,
+                        tags=[agent_name],  # Add agent_name as a tag for dashboard filtering
+                        metadata={
+                            "framework": "jaf",
+                            "event_type": "run_start",
+                            "trace_id": str(trace_id),
+                            "user_query": user_query,
+                            "user_id": user_id or self._get_event_data(event, "user_id"),
+                            "agent_name": agent_name,
+                            "conversation_history": conversation_history,
+                            "tool_calls": [],
+                            "tool_results": [],
+                            "user_info": self._get_event_data(event, "context").user_info if self._get_event_data(event, "context") and hasattr(self._get_event_data(event, "context"), 'user_info') else None
+                        }
+                    )
+                    self.trace_spans[trace_id] = trace
+                    # Store user_id, user_query, and conversation_history for later use
+                    trace._user_id = user_id or self._get_event_data(event, "user_id")
+                    trace._user_query = user_query
+                    trace._conversation_history = conversation_history
+                    print(f"[LANGFUSE] Created trace with user query: {user_query[:100] if user_query else 'None'}...")
                 
             elif event.type == "run_end":
-                if trace_id in self.trace_spans:
-                    print(f"[LANGFUSE] Ending trace for run: {trace_id}")
-                    
+                # Extract run_id to check if this is a sub-agent span
+                run_id = str(self._get_event_data(event, "run_id", ""))
+
+                # Check if this run has a span (sub-agent)
+                if run_id in self.run_spans:
+                    print(f"[LANGFUSE] Ending span for sub-agent run_id: {run_id}")
+                    span = self.run_spans[run_id]
+
+                    # Extract output from outcome
+                    outcome = self._get_event_data(event, "outcome")
+                    output_data = None
+                    if outcome and hasattr(outcome, 'output'):
+                        output_data = outcome.output
+                    elif isinstance(outcome, dict):
+                        output_data = outcome.get('output')
+
+                    # End the span
+                    self._end_span(span, output=output_data)
+                    print(f"[LANGFUSE] Span ended for run_id: {run_id}")
+
+                    # Clean up the span from tracking
+                    del self.run_spans[run_id]
+
+                    # Flush to ensure data is sent
+                    print(f"[LANGFUSE] Flushing data to Langfuse...")
+                    self.langfuse.flush()
+                    print(f"[LANGFUSE] Flush completed")
+
+                elif trace_id in self.trace_spans:
+                    print(f"[LANGFUSE] Updating main trace on run_end: {trace_id}")
+
                     # Update the trace metadata with final tool calls and results
                     conversation_history = getattr(self.trace_spans[trace_id], '_conversation_history', [])
+
+                    # Extract output from outcome
+                    outcome = self._get_event_data(event, "outcome")
+                    output_data = None
+                    if outcome and hasattr(outcome, 'output'):
+                        output_data = outcome.output
+                    elif isinstance(outcome, dict):
+                        output_data = outcome.get('output')
+
                     final_metadata = {
                         "framework": "jaf",
                         "event_type": "run_end",
@@ -789,24 +867,22 @@ class LangfuseTraceCollector:
                         "tool_calls": self.trace_tool_calls.get(trace_id, []),
                         "tool_results": self.trace_tool_results.get(trace_id, [])
                     }
-                    
-                    # End the trace with updated metadata
+
+                    # Update the trace with metadata (don't end it - keep it for distributed tracing)
                     self.trace_spans[trace_id].update(
-                        output=event.data,
+                        output=output_data or event.data,
                         metadata=final_metadata
                     )
-                    
+
                     # Flush to ensure data is sent
                     print(f"[LANGFUSE] Flushing data to Langfuse...")
                     self.langfuse.flush()
                     print(f"[LANGFUSE] Flush completed")
-                    
-                    # Clean up
-                    del self.trace_spans[trace_id]
-                    if trace_id in self.trace_tool_calls:
-                        del self.trace_tool_calls[trace_id]
-                    if trace_id in self.trace_tool_results:
-                        del self.trace_tool_results[trace_id]
+
+                    # DON'T delete the trace - keep it for distributed tracing scenarios
+                    # where another run might use the same trace_id
+                    # The trace will be automatically cleaned up by Langfuse
+                    print(f"[LANGFUSE] Keeping trace {trace_id} active for potential reuse (distributed tracing)")
                 else:
                     print(f"[LANGFUSE] No trace found for run_end: {trace_id}")
                     
