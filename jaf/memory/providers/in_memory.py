@@ -11,7 +11,7 @@ from collections import OrderedDict
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
-from ...core.types import Message
+from ...core.types import Message, MessageId, find_message_index
 from ..types import (
     ConversationMemory,
     Failure,
@@ -306,6 +306,179 @@ class InMemoryProvider(MemoryProvider):
                 provider="InMemory",
                 cause=e
             ))
+
+    async def truncate_conversation_after(
+        self,
+        conversation_id: str,
+        message_id: MessageId
+    ) -> Result[int, Union[MemoryNotFoundError, MemoryStorageError]]:
+        """
+        Truncate conversation after (and including) the specified message ID.
+        Returns the number of messages removed.
+        """
+        async with self._lock:
+            try:
+                conversation = self._conversations.get(conversation_id)
+                if conversation is None:
+                    return Failure(MemoryNotFoundError(
+                        message=f"Conversation {conversation_id} not found",
+                        provider="InMemory",
+                        conversation_id=conversation_id
+                    ))
+
+                messages = list(conversation.messages)
+                truncate_index = find_message_index(messages, message_id)
+                
+                if truncate_index is None:
+                    # Message not found, nothing to truncate
+                    return Success(0)
+                
+                # Truncate messages from the found index onwards
+                original_count = len(messages)
+                truncated_messages = messages[:truncate_index]
+                removed_count = original_count - len(truncated_messages)
+                
+                # Update conversation with truncated messages
+                now = datetime.now()
+                updated_metadata = {
+                    **conversation.metadata,
+                    "updated_at": now,
+                    "last_activity": now,
+                    "total_messages": len(truncated_messages),
+                    "regeneration_truncated": True,
+                    "truncated_at": now.isoformat(),
+                    "messages_removed": removed_count
+                }
+                
+                updated_conversation = ConversationMemory(
+                    conversation_id=conversation_id,
+                    user_id=conversation.user_id,
+                    messages=truncated_messages,
+                    metadata=updated_metadata
+                )
+                
+                self._conversations[conversation_id] = updated_conversation
+                self._conversations.move_to_end(conversation_id)
+                
+                print(f"[MEMORY:InMemory] Truncated conversation {conversation_id}: removed {removed_count} messages after message {message_id}")
+                return Success(removed_count)
+                
+            except Exception as e:
+                return Failure(MemoryStorageError(
+                    message=f"Failed to truncate conversation: {e}",
+                    provider="InMemory",
+                    operation="truncate_conversation_after",
+                    cause=e
+                ))
+
+    async def get_conversation_until_message(
+        self,
+        conversation_id: str,
+        message_id: MessageId
+    ) -> Result[Optional[ConversationMemory], Union[MemoryNotFoundError, MemoryStorageError]]:
+        """
+        Get conversation history up to (but not including) the specified message ID.
+        Useful for regeneration scenarios.
+        """
+        async with self._lock:
+            try:
+                conversation = self._conversations.get(conversation_id)
+                if conversation is None:
+                    return Success(None)
+                
+                messages = list(conversation.messages)
+                until_index = find_message_index(messages, message_id)
+                
+                if until_index is None:
+                    # Message not found, return None as lightweight indicator
+                    print(f"[MEMORY:InMemory] Message {message_id} not found in conversation {conversation_id}")
+                    return Success(None)
+                
+                # Return conversation up to (but not including) the specified message
+                truncated_messages = messages[:until_index]
+                
+                # Create a copy of the conversation with truncated messages
+                truncated_conversation = ConversationMemory(
+                    conversation_id=conversation.conversation_id,
+                    user_id=conversation.user_id,
+                    messages=truncated_messages,
+                    metadata={
+                        **conversation.metadata,
+                        "truncated_for_regeneration": True,
+                        "truncated_until_message": str(message_id),
+                        "original_message_count": len(messages),
+                        "truncated_message_count": len(truncated_messages)
+                    }
+                )
+                
+                print(f"[MEMORY:InMemory] Retrieved conversation {conversation_id} until message {message_id}: {len(truncated_messages)} messages (found at index {until_index})")
+                return Success(truncated_conversation)
+                
+            except Exception as e:
+                return Failure(MemoryStorageError(
+                    message=f"Failed to get conversation until message: {e}",
+                    provider="InMemory",
+                    operation="get_conversation_until_message",
+                    cause=e
+                ))
+
+    async def mark_regeneration_point(
+        self,
+        conversation_id: str,
+        message_id: MessageId,
+        regeneration_metadata: Dict[str, Any]
+    ) -> Result[None, Union[MemoryNotFoundError, MemoryStorageError]]:
+        """
+        Mark a regeneration point in the conversation for audit purposes.
+        """
+        async with self._lock:
+            try:
+                conversation = self._conversations.get(conversation_id)
+                if conversation is None:
+                    return Failure(MemoryNotFoundError(
+                        message=f"Conversation {conversation_id} not found",
+                        provider="InMemory",
+                        conversation_id=conversation_id
+                    ))
+                
+                # Add regeneration point to metadata
+                regeneration_points = conversation.metadata.get("regeneration_points", [])
+                regeneration_point = {
+                    "message_id": str(message_id),
+                    "timestamp": datetime.now().isoformat(),
+                    **regeneration_metadata
+                }
+                regeneration_points.append(regeneration_point)
+                
+                # Update conversation metadata
+                updated_metadata = {
+                    **conversation.metadata,
+                    "regeneration_points": regeneration_points,
+                    "last_regeneration": regeneration_point,
+                    "updated_at": datetime.now(),
+                    "regeneration_count": len(regeneration_points)
+                }
+                
+                updated_conversation = ConversationMemory(
+                    conversation_id=conversation.conversation_id,
+                    user_id=conversation.user_id,
+                    messages=conversation.messages,
+                    metadata=updated_metadata
+                )
+                
+                self._conversations[conversation_id] = updated_conversation
+                self._conversations.move_to_end(conversation_id)
+                
+                print(f"[MEMORY:InMemory] Marked regeneration point for conversation {conversation_id} at message {message_id}")
+                return Success(None)
+                
+            except Exception as e:
+                return Failure(MemoryStorageError(
+                    message=f"Failed to mark regeneration point: {e}",
+                    provider="InMemory",
+                    operation="mark_regeneration_point",
+                    cause=e
+                ))
 
     async def close(self) -> Result[None, MemoryConnectionError]:
         """Close/cleanup the provider."""
