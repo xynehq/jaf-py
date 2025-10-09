@@ -263,7 +263,7 @@ async def regenerate_conversation(
     initial_state = RunState(
         run_id=generate_run_id(),
         trace_id=generate_trace_id(),
-        messages=truncated_messages,
+        messages=[],  
         current_agent_name=agent_name,
         context=final_context,
         turn_count=truncated_turn_count,
