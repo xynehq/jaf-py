@@ -2,7 +2,7 @@
 
 <!-- ![JAF Banner](docs/cover.png) -->
 
-[![Version](https://img.shields.io/badge/version-2.5.4-blue.svg)](https://github.com/xynehq/jaf-py)
+[![Version](https://img.shields.io/badge/version-2.5.5-blue.svg)](https://github.com/xynehq/jaf-py)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Docs](https://img.shields.io/badge/Docs-Live-brightgreen)](https://xynehq.github.io/jaf-py/)
 
