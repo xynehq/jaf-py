@@ -11,7 +11,7 @@ from typing import Any, Dict, Generic, List, Optional, Protocol, TypeVar, Union
 
 from pydantic import BaseModel, Field
 
-from ..core.types import Message, TraceId
+from ..core.types import Message, TraceId, MessageId
 
 # Generic Result type for functional error handling
 T = TypeVar('T')
@@ -133,6 +133,40 @@ class MemoryProvider(Protocol):
 
     async def close(self) -> Result[None, 'MemoryConnectionError']:
         """Close/cleanup the provider."""
+        ...
+
+    # Regeneration support methods
+    async def truncate_conversation_after(
+        self,
+        conversation_id: str,
+        message_id: MessageId
+    ) -> Result[int, Union['MemoryNotFoundError', 'MemoryStorageError']]:
+        """
+        Truncate conversation after (and including) the specified message ID.
+        Returns the number of messages removed.
+        """
+        ...
+
+    async def get_conversation_until_message(
+        self,
+        conversation_id: str,
+        message_id: MessageId
+    ) -> Result[Optional[ConversationMemory], Union['MemoryNotFoundError', 'MemoryStorageError']]:
+        """
+        Get conversation history up to (but not including) the specified message ID.
+        Useful for regeneration scenarios.
+        """
+        ...
+
+    async def mark_regeneration_point(
+        self,
+        conversation_id: str,
+        message_id: MessageId,
+        regeneration_metadata: Dict[str, Any]
+    ) -> Result[None, Union['MemoryNotFoundError', 'MemoryStorageError']]:
+        """
+        Mark a regeneration point in the conversation for audit purposes.
+        """
         ...
 
 # Configuration models using Pydantic for validation

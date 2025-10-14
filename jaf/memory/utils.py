@@ -22,6 +22,7 @@ def serialize_message(msg: Message) -> dict:
     return {
         "role": msg.role,
         "content": msg.content,
+        "message_id": msg.message_id,
         "tool_call_id": msg.tool_call_id,
         "tool_calls": [
             {
@@ -58,6 +59,7 @@ def deserialize_message(msg_data: dict) -> Message:
     return Message(
         role=msg_data["role"],
         content=msg_data["content"],
+        message_id=msg_data.get("message_id"),
         tool_call_id=msg_data.get("tool_call_id"),
         tool_calls=tool_calls
     )
