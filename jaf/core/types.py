@@ -892,6 +892,12 @@ class RunConfig(Generic[Ctx]):
     default_fast_model: Optional[str] = None  # Default model for fast operations like guardrails
     default_tool_timeout: Optional[float] = 300.0  # Default timeout for tool execution in seconds
     approval_storage: Optional['ApprovalStorage'] = None  # Storage for approval decisions
+    before_llm_call: Optional[Callable[[RunState[Ctx], Agent[Ctx, Any]], Union[RunState[Ctx], Awaitable[RunState[Ctx]]]]] = None  # Callback before LLM call - can modify context/messages
+    after_llm_call: Optional[Callable[[RunState[Ctx], ModelCompletionResponse], Union[ModelCompletionResponse, Awaitable[ModelCompletionResponse]]]] = None  # Callback after LLM call - can process response
+    max_empty_response_retries: int = 3  # Maximum retries when LLM returns empty response
+    empty_response_retry_delay: float = 1.0  # Initial delay in seconds before retrying empty response (uses exponential backoff)
+    log_empty_responses: bool = True  # Whether to log diagnostic info for empty responses
+
 
 # Regeneration types for conversation management
 @dataclass(frozen=True)

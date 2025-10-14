@@ -527,6 +527,17 @@ async def _run_internal(
         "gpt-4o"
     )
 
+    # Apply before_llm_call callback if provided
+    if config.before_llm_call:
+        if asyncio.iscoroutinefunction(config.before_llm_call):
+            state = await config.before_llm_call(state, current_agent)
+        else:
+            result = config.before_llm_call(state, current_agent)
+            if asyncio.iscoroutine(result):
+                state = await result
+            else:
+                state = result
+
     # Emit LLM call start event
     if config.on_event:
         config.on_event(LLMCallStartEvent(data=to_event_data(LLMCallStartEventData(
@@ -538,121 +549,157 @@ async def _run_internal(
             messages=state.messages
         ))))
 
-    # Get completion from model provider, prefer streaming if available
+    # Retry logic for empty LLM responses
     llm_response: Dict[str, Any]
     assistant_event_streamed = False
+    
+    for retry_attempt in range(config.max_empty_response_retries + 1):
+        # Get completion from model provider, prefer streaming if available
+        get_stream = getattr(config.model_provider, "get_completion_stream", None)
+        if callable(get_stream):
+            try:
+                aggregated_text = ""
+                # Working array of partial tool calls
+                partial_tool_calls: List[Dict[str, Any]] = []
 
-    get_stream = getattr(config.model_provider, "get_completion_stream", None)
-    if callable(get_stream):
-        try:
-            aggregated_text = ""
-            # Working array of partial tool calls
-            partial_tool_calls: List[Dict[str, Any]] = []
+                async for chunk in get_stream(state, current_agent, config):  # type: ignore[arg-type]
+                    # Text deltas
+                    delta_text = getattr(chunk, "delta", None)
+                    if delta_text:
+                        aggregated_text += delta_text
 
-            async for chunk in get_stream(state, current_agent, config):  # type: ignore[arg-type]
-                # Text deltas
-                delta_text = getattr(chunk, "delta", None)
-                if delta_text:
-                    aggregated_text += delta_text
-
-                # Tool call deltas
-                tcd = getattr(chunk, "tool_call_delta", None)
-                if tcd is not None:
-                    idx = getattr(tcd, "index", 0) or 0
-                    # Ensure slot exists
-                    while len(partial_tool_calls) <= idx:
-                        partial_tool_calls.append({
-                            "id": None,
-                            "type": "function",
-                            "function": {"name": None, "arguments": ""}
-                        })
-                    target = partial_tool_calls[idx]
-                    # id
-                    tc_id = getattr(tcd, "id", None)
-                    if tc_id:
-                        target["id"] = tc_id
-                    # function fields
-                    fn = getattr(tcd, "function", None)
-                    if fn is not None:
-                        fn_name = getattr(fn, "name", None)
-                        if fn_name:
-                            target["function"]["name"] = fn_name
-                        args_delta = getattr(fn, "arguments_delta", None)
-                        if args_delta:
-                            target["function"]["arguments"] += args_delta
-
-                # Emit partial assistant message when something changed
-                if delta_text or tcd is not None:
-                    assistant_event_streamed = True
-                    # Normalize tool_calls for message
-                    message_tool_calls = None
-                    if len(partial_tool_calls) > 0:
-                        message_tool_calls = []
-                        for i, tc in enumerate(partial_tool_calls):
-                            arguments = tc["function"]["arguments"]
-                            if isinstance(arguments, str):
-                                arguments = _normalize_tool_call_arguments(arguments)
-                            message_tool_calls.append({
-                                "id": tc["id"] or f"call_{i}",
+                    # Tool call deltas
+                    tcd = getattr(chunk, "tool_call_delta", None)
+                    if tcd is not None:
+                        idx = getattr(tcd, "index", 0) or 0
+                        # Ensure slot exists
+                        while len(partial_tool_calls) <= idx:
+                            partial_tool_calls.append({
+                                "id": None,
                                 "type": "function",
-                                "function": {
-                                    "name": tc["function"]["name"] or "",
-                                    "arguments": arguments
-                                }
+                                "function": {"name": None, "arguments": ""}
                             })
+                        target = partial_tool_calls[idx]
+                        # id
+                        tc_id = getattr(tcd, "id", None)
+                        if tc_id:
+                            target["id"] = tc_id
+                        # function fields
+                        fn = getattr(tcd, "function", None)
+                        if fn is not None:
+                            fn_name = getattr(fn, "name", None)
+                            if fn_name:
+                                target["function"]["name"] = fn_name
+                            args_delta = getattr(fn, "arguments_delta", None)
+                            if args_delta:
+                                target["function"]["arguments"] += args_delta
 
-                    partial_msg = Message(
-                        role=ContentRole.ASSISTANT,
-                        content=aggregated_text or "",
-                        tool_calls=None if not message_tool_calls else [
-                            ToolCall(
-                                id=mc["id"],
-                                type="function",
-                                function=ToolCallFunction(
-                                    name=mc["function"]["name"],
-                                    arguments=_normalize_tool_call_arguments(mc["function"]["arguments"])
-                                ),
-                            ) for mc in message_tool_calls
-                        ],
-                    )
-                    try:
-                        if config.on_event:
-                            config.on_event(AssistantMessageEvent(data=to_event_data(
-                                AssistantMessageEventData(message=partial_msg)
-                            )))
-                    except Exception as _e:
-                        # Do not fail the run on callback errors
-                        pass
+                    # Emit partial assistant message when something changed
+                    if delta_text or tcd is not None:
+                        assistant_event_streamed = True
+                        # Normalize tool_calls for message
+                        message_tool_calls = None
+                        if len(partial_tool_calls) > 0:
+                            message_tool_calls = []
+                            for i, tc in enumerate(partial_tool_calls):
+                                arguments = tc["function"]["arguments"]
+                                if isinstance(arguments, str):
+                                    arguments = _normalize_tool_call_arguments(arguments)
+                                message_tool_calls.append({
+                                    "id": tc["id"] or f"call_{i}",
+                                    "type": "function",
+                                    "function": {
+                                        "name": tc["function"]["name"] or "",
+                                        "arguments": arguments
+                                    }
+                                })
 
-            # Build final response object compatible with downstream logic
-            final_tool_calls = None
-            if len(partial_tool_calls) > 0:
-                final_tool_calls = []
-                for i, tc in enumerate(partial_tool_calls):
-                    arguments = tc["function"]["arguments"]
-                    if isinstance(arguments, str):
-                        arguments = _normalize_tool_call_arguments(arguments)
-                    final_tool_calls.append({
-                        "id": tc["id"] or f"call_{i}",
-                        "type": "function",
-                        "function": {
-                            "name": tc["function"]["name"] or "",
-                            "arguments": arguments
-                        }
-                    })
+                        partial_msg = Message(
+                            role=ContentRole.ASSISTANT,
+                            content=aggregated_text or "",
+                            tool_calls=None if not message_tool_calls else [
+                                ToolCall(
+                                    id=mc["id"],
+                                    type="function",
+                                    function=ToolCallFunction(
+                                        name=mc["function"]["name"],
+                                        arguments=_normalize_tool_call_arguments(mc["function"]["arguments"])
+                                    ),
+                                ) for mc in message_tool_calls
+                            ],
+                        )
+                        try:
+                            if config.on_event:
+                                config.on_event(AssistantMessageEvent(data=to_event_data(
+                                    AssistantMessageEventData(message=partial_msg)
+                                )))
+                        except Exception as _e:
+                            # Do not fail the run on callback errors
+                            pass
 
-            llm_response = {
-                "message": {
-                    "content": aggregated_text or None,
-                    "tool_calls": final_tool_calls
+                # Build final response object compatible with downstream logic
+                final_tool_calls = None
+                if len(partial_tool_calls) > 0:
+                    final_tool_calls = []
+                    for i, tc in enumerate(partial_tool_calls):
+                        arguments = tc["function"]["arguments"]
+                        if isinstance(arguments, str):
+                            arguments = _normalize_tool_call_arguments(arguments)
+                        final_tool_calls.append({
+                            "id": tc["id"] or f"call_{i}",
+                            "type": "function",
+                            "function": {
+                                "name": tc["function"]["name"] or "",
+                                "arguments": arguments
+                            }
+                        })
+
+                llm_response = {
+                    "message": {
+                        "content": aggregated_text or None,
+                        "tool_calls": final_tool_calls
+                    }
                 }
-            }
-        except Exception:
-            # Fallback to non-streaming on error
-            assistant_event_streamed = False
+            except Exception:
+                # Fallback to non-streaming on error
+                assistant_event_streamed = False
+                llm_response = await config.model_provider.get_completion(state, current_agent, config)
+        else:
             llm_response = await config.model_provider.get_completion(state, current_agent, config)
-    else:
-        llm_response = await config.model_provider.get_completion(state, current_agent, config)
+        
+        # Check if response has meaningful content
+        has_content = llm_response.get('message', {}).get('content')
+        has_tool_calls = llm_response.get('message', {}).get('tool_calls')
+        
+        # If we got a valid response, break out of retry loop
+        if has_content or has_tool_calls:
+            break
+        
+        # If this is not the last attempt, retry with exponential backoff
+        if retry_attempt < config.max_empty_response_retries:
+            delay = config.empty_response_retry_delay * (2 ** retry_attempt)
+            if config.log_empty_responses:
+                print(f"[JAF:ENGINE] Empty LLM response on attempt {retry_attempt + 1}/{config.max_empty_response_retries + 1}, retrying in {delay:.1f}s...")
+                print(f"[JAF:ENGINE] Response had message: {bool(llm_response.get('message'))}, content: {bool(has_content)}, tool_calls: {bool(has_tool_calls)}")
+            await asyncio.sleep(delay)
+        else:
+            # Last attempt failed, log detailed diagnostic info
+            if config.log_empty_responses:
+                print(f"[JAF:ENGINE] Empty LLM response after {config.max_empty_response_retries + 1} attempts")
+                print(f"[JAF:ENGINE] Agent: {current_agent.name}, Model: {model}")
+                print(f"[JAF:ENGINE] Message count: {len(state.messages)}, Turn: {state.turn_count}")
+                print(f"[JAF:ENGINE] Response structure: {json.dumps(llm_response, indent=2)[:1000]}")
+
+    # Apply after_llm_call callback if provided
+    if config.after_llm_call:
+        if asyncio.iscoroutinefunction(config.after_llm_call):
+            llm_response = await config.after_llm_call(state, llm_response)
+        else:
+            result = config.after_llm_call(state, llm_response)
+            if asyncio.iscoroutine(result):
+                llm_response = await result
+            else:
+                llm_response = result
 
     # Emit LLM call end event
     if config.on_event:
@@ -665,6 +712,9 @@ async def _run_internal(
 
     # Check if response has message
     if not llm_response.get('message'):
+        if config.log_empty_responses:
+            print(f"[JAF:ENGINE] ERROR: No message in LLM response")
+            print(f"[JAF:ENGINE] Response structure: {json.dumps(llm_response, indent=2)[:500]}")
         return RunResult(
             final_state=state,
             outcome=ErrorOutcome(error=ModelBehaviorError(
