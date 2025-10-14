@@ -293,15 +293,7 @@ async def _load_conversation_history(state: RunState[Ctx], config: RunConfig[Ctx
         # For HITL scenarios, append new messages to memory messages
         # This prevents duplication when resuming from interruptions
         if memory_messages:
-            combined_messages = memory_messages + [
-                msg for msg in state.messages 
-                if not any(
-                    mem_msg.role == msg.role and 
-                    mem_msg.content == msg.content and 
-                    getattr(mem_msg, 'tool_calls', None) == getattr(msg, 'tool_calls', None)
-                    for mem_msg in memory_messages
-                )
-            ]
+            combined_messages = memory_messages + list(state.messages)
         else:
             combined_messages = list(state.messages)
 
