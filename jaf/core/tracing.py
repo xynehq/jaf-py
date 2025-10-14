@@ -443,7 +443,7 @@ class LangfuseTraceCollector:
             public_key=public_key,
             secret_key=secret_key,
             host=host,
-            release="jaf-py-v2.5.3",
+            release="jaf-py-v2.5.4",
             httpx_client=client
         )
         self._httpx_client = client
