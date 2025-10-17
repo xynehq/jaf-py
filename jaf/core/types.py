@@ -897,6 +897,7 @@ class RunConfig(Generic[Ctx]):
     max_empty_response_retries: int = 3  # Maximum retries when LLM returns empty response
     empty_response_retry_delay: float = 1.0  # Initial delay in seconds before retrying empty response (uses exponential backoff)
     log_empty_responses: bool = True  # Whether to log diagnostic info for empty responses
+    prefer_streaming: Optional[bool] = None  # Whether to prefer streaming responses. None (default) = use streaming if available, True = prefer streaming, False = disable streaming
 
 
 # Regeneration types for conversation management

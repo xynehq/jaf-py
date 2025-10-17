@@ -219,6 +219,7 @@ def make_litellm_provider(
             request_params = {
                 "model": model,
                 "messages": messages,
+                "stream": False
             }
 
             # Add optional parameters
