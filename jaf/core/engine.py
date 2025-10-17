@@ -554,9 +554,12 @@ async def _run_internal(
     assistant_event_streamed = False
     
     for retry_attempt in range(config.max_empty_response_retries + 1):
-        # Get completion from model provider, prefer streaming if available
+        # Get completion from model provider
+        # Check if streaming should be used based on configuration and availability
         get_stream = getattr(config.model_provider, "get_completion_stream", None)
-        if callable(get_stream):
+        use_streaming = (config.prefer_streaming != False and callable(get_stream))
+
+        if use_streaming:
             try:
                 aggregated_text = ""
                 # Working array of partial tool calls
