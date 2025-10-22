@@ -288,7 +288,8 @@ Return a JSON object with keys: {{"allowed": boolean, "reason": string}}. Do not
                 model_override=model_to_use,
                 initial_input_guardrails=None,
                 final_output_guardrails=None,
-                on_event=None
+                on_event=None,
+                prefer_streaming=config.prefer_streaming
             )
 
             # Execute with timeout

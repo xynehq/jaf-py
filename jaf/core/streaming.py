@@ -295,7 +295,8 @@ async def run_streaming(
         final_output_guardrails=config.final_output_guardrails,
         on_event=event_handler,
         memory=config.memory,
-        conversation_id=config.conversation_id
+        conversation_id=config.conversation_id,
+        prefer_streaming=config.prefer_streaming
     )
 
     from .engine import run
