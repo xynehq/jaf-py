@@ -178,7 +178,8 @@ def create_agent_tool(
             on_event=parent_config.on_event,
             memory=parent_config.memory if preserve_session else None,
             conversation_id=parent_config.conversation_id if preserve_session else None,
-            default_tool_timeout=parent_config.default_tool_timeout
+            default_tool_timeout=parent_config.default_tool_timeout,
+            prefer_streaming=parent_config.prefer_streaming
         )
 
         token = _current_run_config.set(sub_config)
