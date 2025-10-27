@@ -19,6 +19,7 @@ from fastapi.responses import StreamingResponse
 from ..core.engine import run
 from ..core.streaming import run_streaming
 from ..core.regeneration import regenerate_conversation, get_regeneration_points
+from ..core.checkpoint import checkpoint_conversation, get_checkpoint_history
 from ..core.types import (
     ApprovalValue,
     CompletedOutcome,
@@ -32,6 +33,7 @@ from ..core.types import (
     create_trace_id,
     create_message_id,
     RegenerationRequest,
+    CheckpointRequest,
 )
 from ..memory.types import MemoryConfig
 from .types import (
@@ -61,6 +63,12 @@ from .types import (
     RegenerationPointData,
     RegenerationHistoryData,
     RegenerationHistoryResponse,
+    CheckpointHttpRequest,
+    CheckpointData,
+    CheckpointResponse,
+    CheckpointPointData,
+    CheckpointHistoryData,
+    CheckpointHistoryResponse,
     ServerConfig,
     ToolCallInterruption,
     validate_regeneration_request,
@@ -1016,5 +1024,92 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
                 
             except Exception as e:
                 return RegenerationHistoryResponse(success=False, error=str(e))
+
+        # Checkpoint endpoints
+        @app.post("/conversations/{conversation_id}/checkpoint", response_model=CheckpointResponse)
+        async def checkpoint_conversation_endpoint(conversation_id: str, request: CheckpointHttpRequest):
+            """Checkpoint conversation after a specific message."""
+            request_start_time = time.time()
+            
+            try:
+                # Create checkpoint request
+                chk_request = CheckpointRequest(
+                    conversation_id=conversation_id,
+                    message_id=create_message_id(request.message_id),
+                    context=request.context
+                )
+                
+                # Create run config with memory
+                memory_config = MemoryConfig(
+                    provider=config.default_memory_provider,
+                    auto_store=True,
+                    store_on_completion=True
+                )
+                
+                run_config_with_memory = replace(
+                    config.run_config,
+                    memory=memory_config,
+                    conversation_id=conversation_id
+                )
+                
+                # Execute checkpoint
+                result = await checkpoint_conversation(
+                    chk_request,
+                    run_config_with_memory
+                )
+                
+                # Convert result to HTTP format
+                http_messages = [_convert_core_message_to_http(msg) for msg in result.messages]
+                
+                return CheckpointResponse(
+                    success=True,
+                    data=CheckpointData(
+                        checkpoint_id=result.checkpoint_id,
+                        conversation_id=result.conversation_id,
+                        original_message_count=result.original_message_count,
+                        checkpointed_at_index=result.checkpointed_at_index,
+                        checkpointed_message_id=str(result.checkpointed_message_id),
+                        messages=http_messages,
+                        execution_time_ms=result.execution_time_ms
+                    )
+                )
+                
+            except Exception as e:
+                return CheckpointResponse(success=False, error=str(e))
+
+        @app.get("/conversations/{conversation_id}/checkpoint-history", response_model=CheckpointHistoryResponse)
+        async def get_checkpoint_history_endpoint(conversation_id: str):
+            """Get checkpoint history for a conversation."""
+            try:
+                checkpoint_points = await get_checkpoint_history(conversation_id, config.run_config)
+                
+                if checkpoint_points is None:
+                    return CheckpointHistoryResponse(
+                        success=False,
+                        error="Failed to get checkpoint history"
+                    )
+                
+                # Convert to response format
+                checkpoint_data = []
+                for point in checkpoint_points:
+                    checkpoint_data.append(CheckpointPointData(
+                        checkpoint_id=point.get('checkpoint_id', ''),
+                        checkpoint_point=point.get('checkpoint_point', ''),
+                        timestamp=point.get('timestamp', 0),
+                        original_message_count=point.get('original_message_count', 0),
+                        checkpointed_at_index=point.get('checkpointed_at_index', 0),
+                        checkpointed_messages=point.get('checkpointed_messages', 0)
+                    ))
+                
+                return CheckpointHistoryResponse(
+                    success=True,
+                    data=CheckpointHistoryData(
+                        conversation_id=conversation_id,
+                        checkpoint_points=checkpoint_data
+                    )
+                )
+                
+            except Exception as e:
+                return CheckpointHistoryResponse(success=False, error=str(e))
 
     return app

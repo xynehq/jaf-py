@@ -312,6 +312,48 @@ class RegenerationHistoryResponse(BaseModel):
     data: Optional[RegenerationHistoryData] = None
     error: Optional[str] = None
 
+# Checkpoint types
+class CheckpointHttpRequest(BaseModel):
+    """HTTP request format for conversation checkpoint."""
+    message_id: str = Field(..., description="ID of the message to checkpoint after (this message is kept)")
+    context: Optional[Dict[str, Any]] = Field(default=None, description="Optional context for the checkpoint")
+
+class CheckpointData(BaseModel):
+    """Data for successful checkpoint response."""
+    checkpoint_id: str
+    conversation_id: str
+    original_message_count: int
+    checkpointed_at_index: int
+    checkpointed_message_id: str
+    messages: List[HttpMessage]
+    execution_time_ms: int
+
+class CheckpointResponse(BaseModel):
+    """Response format for checkpoint endpoints."""
+    success: bool
+    data: Optional[CheckpointData] = None
+    error: Optional[str] = None
+
+class CheckpointPointData(BaseModel):
+    """Data for a checkpoint point."""
+    checkpoint_id: str
+    checkpoint_point: str
+    timestamp: int
+    original_message_count: int
+    checkpointed_at_index: int
+    checkpointed_messages: int
+
+class CheckpointHistoryData(BaseModel):
+    """Data for checkpoint history response."""
+    conversation_id: str
+    checkpoint_points: List[CheckpointPointData]
+
+class CheckpointHistoryResponse(BaseModel):
+    """Response format for checkpoint history endpoint."""
+    success: bool
+    data: Optional[CheckpointHistoryData] = None
+    error: Optional[str] = None
+
 # Validation schemas
 def validate_chat_request(data: Dict[str, Any]) -> ChatRequest:
     """Validate and parse a chat request."""

@@ -918,6 +918,23 @@ class RegenerationContext:
     regeneration_id: str  # Unique ID for this regeneration operation
     timestamp: int  # Unix timestamp in milliseconds
 
+# Checkpoint types for conversation management
+@dataclass(frozen=True)
+class CheckpointRequest:
+    """Request to checkpoint a conversation after a specific message."""
+    conversation_id: str
+    message_id: MessageId  # ID of the message to checkpoint after (this message is kept)
+    context: Optional[Dict[str, Any]] = None  # Optional context for the checkpoint
+
+@dataclass(frozen=True)
+class CheckpointContext:
+    """Context information for a checkpoint operation."""
+    original_message_count: int
+    checkpointed_at_index: int
+    checkpointed_message_id: MessageId
+    checkpoint_id: str  # Unique ID for this checkpoint operation
+    timestamp: int  # Unix timestamp in milliseconds
+
 # Message utility functions
 def find_message_index(messages: List[Message], message_id: MessageId) -> Optional[int]:
     """Find the index of a message by its ID."""
