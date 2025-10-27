@@ -191,7 +191,7 @@ def generate_run_id() -> RunId:
     """Generate a new run ID."""
     return create_run_id(str(uuid.uuid4()))
 
-__version__ = "2.5.9"
+__version__ = "2.5.10"
 __all__ = [
     # Core types and functions
     "TraceId", "RunId", "ValidationResult", "Message", "ModelConfig",
