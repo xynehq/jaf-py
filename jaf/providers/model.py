@@ -6,13 +6,12 @@ starting with LiteLLM for multi-provider support.
 """
 
 from typing import Any, Dict, Optional, TypeVar, AsyncIterator
-import asyncio
 import httpx
 import time
 import os
 import base64
 
-from openai import OpenAI
+from openai import AsyncOpenAI
 from pydantic import BaseModel
 import litellm
 
@@ -144,13 +143,13 @@ def make_litellm_provider(
                         # Use the https proxy if available, otherwise http proxy
                         proxy_url = proxies.get('https://') or proxies.get('http://')
                         if proxy_url:
-                            http_client = httpx.Client(proxy=proxy_url)
+                            http_client = httpx.AsyncClient(proxy=proxy_url)
                             client_kwargs["http_client"] = http_client
                     except Exception as e:
                         print(f"Warning: Could not configure proxy: {e}")
                         # Fall back to environment variables for proxy
             
-            self.client = OpenAI(**client_kwargs)
+            self.client = AsyncOpenAI(**client_kwargs)
             self.default_timeout = default_timeout
 
         async def get_completion(
@@ -238,7 +237,7 @@ def make_litellm_provider(
                 request_params["response_format"] = {"type": "json_object"}
 
             # Make the API call
-            response = self.client.chat.completions.create(**request_params)
+            response = await self.client.chat.completions.create(**request_params)
 
             # Return in the expected format that the engine expects
             choice = response.choices[0]
@@ -351,99 +350,68 @@ def make_litellm_provider(
             # Enable streaming
             request_params["stream"] = True
 
-            loop = asyncio.get_running_loop()
-            queue: asyncio.Queue = asyncio.Queue(maxsize=256)
-            SENTINEL = object()
+            # Use async streaming directly with AsyncOpenAI
+            stream = await self.client.chat.completions.create(**request_params)
 
-            def _put(item: CompletionStreamChunk):
+            async for chunk in stream:
                 try:
-                    asyncio.run_coroutine_threadsafe(queue.put(item), loop)
-                except RuntimeError:
-                    # Event loop closed; drop silently
-                    pass
-
-            def _producer():
-                try:
-                    stream = self.client.chat.completions.create(**request_params)
-                    for chunk in stream:
-                        try:
-                            # Best-effort extraction of raw for debugging
-                            try:
-                                raw_obj = chunk.model_dump()  # pydantic BaseModel
-                            except Exception:
-                                raw_obj = None
-
-                            choice = None
-                            if getattr(chunk, "choices", None):
-                                choice = chunk.choices[0]
-
-                            if choice is None:
-                                continue
-
-                            delta = getattr(choice, "delta", None)
-                            finish_reason = getattr(choice, "finish_reason", None)
-
-                            # Text content delta
-                            if delta is not None:
-                                content_delta = getattr(delta, "content", None)
-                                if content_delta:
-                                    _put(CompletionStreamChunk(delta=content_delta, raw=raw_obj))
-
-                                # Tool call deltas
-                                tool_calls = getattr(delta, "tool_calls", None)
-                                if isinstance(tool_calls, list):
-                                    for tc in tool_calls:
-                                        # Each tc is likely a pydantic model with .index/.id/.function
-                                        try:
-                                            idx = getattr(tc, "index", 0) or 0
-                                            tc_id = getattr(tc, "id", None)
-                                            fn = getattr(tc, "function", None)
-                                            fn_name = getattr(fn, "name", None) if fn is not None else None
-                                            # OpenAI streams "arguments" as incremental deltas
-                                            args_delta = getattr(fn, "arguments", None) if fn is not None else None
-
-                                            _put(CompletionStreamChunk(
-                                                tool_call_delta=ToolCallDelta(
-                                                    index=idx,
-                                                    id=tc_id,
-                                                    type='function',
-                                                    function=ToolCallFunctionDelta(
-                                                        name=fn_name,
-                                                        arguments_delta=args_delta
-                                                    )
-                                                ),
-                                                raw=raw_obj
-                                            ))
-                                        except Exception:
-                                            # Skip malformed tool-call deltas
-                                            continue
-
-                            # Completion ended
-                            if finish_reason:
-                                _put(CompletionStreamChunk(is_done=True, finish_reason=finish_reason, raw=raw_obj))
-                        except Exception:
-                            # Skip individual chunk errors, keep streaming
-                            continue
-                except Exception:
-                    # On top-level stream error, signal done
-                    pass
-                finally:
+                    # Best-effort extraction of raw for debugging
                     try:
-                        asyncio.run_coroutine_threadsafe(queue.put(SENTINEL), loop)
-                    except RuntimeError:
-                        pass
+                        raw_obj = chunk.model_dump()  # pydantic BaseModel
+                    except Exception:
+                        raw_obj = None
 
-            # Start producer in background
-            loop.run_in_executor(None, _producer)
+                    choice = None
+                    if getattr(chunk, "choices", None):
+                        choice = chunk.choices[0]
 
-            # Consume queue and yield
-            while True:
-                item = await queue.get()
-                if item is SENTINEL:
-                    break
-                # Guarantee type for consumers
-                if isinstance(item, CompletionStreamChunk):
-                    yield item
+                    if choice is None:
+                        continue
+
+                    delta = getattr(choice, "delta", None)
+                    finish_reason = getattr(choice, "finish_reason", None)
+
+                    # Text content delta
+                    if delta is not None:
+                        content_delta = getattr(delta, "content", None)
+                        if content_delta:
+                            yield CompletionStreamChunk(delta=content_delta, raw=raw_obj)
+
+                        # Tool call deltas
+                        tool_calls = getattr(delta, "tool_calls", None)
+                        if isinstance(tool_calls, list):
+                            for tc in tool_calls:
+                                # Each tc is likely a pydantic model with .index/.id/.function
+                                try:
+                                    idx = getattr(tc, "index", 0) or 0
+                                    tc_id = getattr(tc, "id", None)
+                                    fn = getattr(tc, "function", None)
+                                    fn_name = getattr(fn, "name", None) if fn is not None else None
+                                    # OpenAI streams "arguments" as incremental deltas
+                                    args_delta = getattr(fn, "arguments", None) if fn is not None else None
+
+                                    yield CompletionStreamChunk(
+                                        tool_call_delta=ToolCallDelta(
+                                            index=idx,
+                                            id=tc_id,
+                                            type='function',
+                                            function=ToolCallFunctionDelta(
+                                                name=fn_name,
+                                                arguments_delta=args_delta
+                                            )
+                                        ),
+                                        raw=raw_obj
+                                    )
+                                except Exception:
+                                    # Skip malformed tool-call deltas
+                                    continue
+
+                    # Completion ended
+                    if finish_reason:
+                        yield CompletionStreamChunk(is_done=True, finish_reason=finish_reason, raw=raw_obj)
+                except Exception:
+                    # Skip individual chunk errors, keep streaming
+                    continue
 
     return LiteLLMProvider()
 
