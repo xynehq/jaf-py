@@ -198,13 +198,15 @@ def make_litellm_provider(
             # Convert tools to OpenAI format
             tools = None
             if agent.tools:
+                # Check if we should inline schema refs
+                inline_refs = agent.model_config.inline_tool_schemas if agent.model_config else False
                 tools = [
                     {
                         "type": "function",
                         "function": {
                             "name": tool.schema.name,
                             "description": tool.schema.description,
-                            "parameters": _pydantic_to_json_schema(tool.schema.parameters),
+                            "parameters": _pydantic_to_json_schema(tool.schema.parameters, inline_refs=inline_refs or False),
                         }
                     }
                     for tool in agent.tools
@@ -310,13 +312,15 @@ def make_litellm_provider(
             # Convert tools to OpenAI format
             tools = None
             if agent.tools:
+                # Check if we should inline schema refs
+                inline_refs = agent.model_config.inline_tool_schemas if agent.model_config else False
                 tools = [
                     {
                         "type": "function",
                         "function": {
                             "name": tool.schema.name,
                             "description": tool.schema.description,
-                            "parameters": _pydantic_to_json_schema(tool.schema.parameters),
+                            "parameters": _pydantic_to_json_schema(tool.schema.parameters, inline_refs=inline_refs or False),
                         }
                     }
                     for tool in agent.tools
@@ -513,13 +517,15 @@ def make_litellm_sdk_provider(
             # Convert tools to OpenAI format
             tools = None
             if agent.tools:
+                # Check if we should inline schema refs
+                inline_refs = agent.model_config.inline_tool_schemas if agent.model_config else False
                 tools = [
                     {
                         "type": "function",
                         "function": {
                             "name": tool.schema.name,
                             "description": tool.schema.description,
-                            "parameters": _pydantic_to_json_schema(tool.schema.parameters),
+                            "parameters": _pydantic_to_json_schema(tool.schema.parameters, inline_refs=inline_refs or False),
                         }
                     }
                     for tool in agent.tools
@@ -624,13 +630,15 @@ def make_litellm_sdk_provider(
             # Convert tools to OpenAI format
             tools = None
             if agent.tools:
+                # Check if we should inline schema refs
+                inline_refs = agent.model_config.inline_tool_schemas if agent.model_config else False
                 tools = [
                     {
                         "type": "function",
                         "function": {
                             "name": tool.schema.name,
                             "description": tool.schema.description,
-                            "parameters": _pydantic_to_json_schema(tool.schema.parameters),
+                            "parameters": _pydantic_to_json_schema(tool.schema.parameters, inline_refs=inline_refs or False),
                         }
                     }
                     for tool in agent.tools
@@ -952,19 +960,77 @@ async def _build_chat_message_with_attachments(
     
     return base_msg
 
-def _pydantic_to_json_schema(model_class: type[BaseModel]) -> Dict[str, Any]:
+def _resolve_schema_refs(schema: Dict[str, Any], defs: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """
+    Recursively resolve $ref references in a JSON schema by inlining definitions.
+
+    Args:
+        schema: The schema object to process (may contain $ref)
+        defs: The $defs dictionary containing reusable definitions
+
+    Returns:
+        Schema with all references resolved inline
+    """
+    if defs is None:
+        # Extract $defs from root schema if present
+        defs = schema.get('$defs', {})
+
+    # If this is a reference, resolve it
+    if isinstance(schema, dict) and '$ref' in schema:
+        ref_path = schema['$ref']
+
+        # Handle #/$defs/DefinitionName format
+        if ref_path.startswith('#/$defs/'):
+            def_name = ref_path.split('/')[-1]
+            if def_name in defs:
+                # Recursively resolve the definition (it might have refs too)
+                resolved_def = _resolve_schema_refs(defs[def_name], defs)
+                return resolved_def
+            else:
+                # If definition not found, return the original ref
+                return schema
+        else:
+            # Other ref formats - return as is
+            return schema
+
+    # If this is a dict, recursively process all values
+    if isinstance(schema, dict):
+        result = {}
+        for key, value in schema.items():
+            # Skip $defs as we're inlining them
+            if key == '$defs':
+                continue
+            result[key] = _resolve_schema_refs(value, defs)
+        return result
+
+    # If this is a list, recursively process all items
+    if isinstance(schema, list):
+        return [_resolve_schema_refs(item, defs) for item in schema]
+
+    # For primitive types, return as is
+    return schema
+
+
+def _pydantic_to_json_schema(model_class: type[BaseModel], inline_refs: bool = False) -> Dict[str, Any]:
     """
     Convert a Pydantic model to JSON schema for OpenAI tools.
-    
+
     Args:
         model_class: Pydantic model class
-        
+        inline_refs: If True, resolve $refs and inline $defs in the schema
+
     Returns:
         JSON schema dictionary
     """
     if hasattr(model_class, 'model_json_schema'):
         # Pydantic v2
-        return model_class.model_json_schema()
+        schema = model_class.model_json_schema()
     else:
         # Pydantic v1 fallback
-        return model_class.schema()
+        schema = model_class.schema()
+
+    # If inline_refs is True, resolve all references
+    if inline_refs:
+        schema = _resolve_schema_refs(schema)
+
+    return schema

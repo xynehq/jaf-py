@@ -303,6 +303,7 @@ class ModelConfig:
     name: Optional[str] = None
     temperature: Optional[float] = None
     max_tokens: Optional[int] = None
+    inline_tool_schemas: Optional[bool] = None  # If True, resolve $refs and inline $defs in tool schemas
 
 @dataclass(frozen=True)
 class ToolSchema(Generic[Args]):
