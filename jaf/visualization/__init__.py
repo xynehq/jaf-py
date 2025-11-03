@@ -7,7 +7,7 @@ and system relationships.
 
 Core functionality:
 - Agent architecture visualization
-- Tool ecosystem diagrams  
+- Tool ecosystem diagrams
 - Runner system visualization
 - Multiple output formats (PNG, SVG, PDF)
 - Customizable color schemes and layouts

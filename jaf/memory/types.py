@@ -14,29 +14,36 @@ from pydantic import BaseModel, Field
 from ..core.types import Message, TraceId, MessageId
 
 # Generic Result type for functional error handling
-T = TypeVar('T')
-E = TypeVar('E', bound='MemoryError')
+T = TypeVar("T")
+E = TypeVar("E", bound="MemoryError")
+
 
 @dataclass(frozen=True)
 class Success(Generic[T]):
     """Represents a successful operation result."""
+
     data: T
+
 
 @dataclass(frozen=True)
 class Failure(Generic[E]):
     """Represents a failed operation result."""
+
     error: E
 
+
 Result = Union[Success[T], Failure[E]]
+
 
 @dataclass(frozen=True)
 class ConversationMemory:
     """
     Immutable conversation memory object containing conversation history and metadata.
-    
+
     This represents a complete conversation stored in memory, including all messages
     and associated metadata like creation time, user information, and trace data.
     """
+
     conversation_id: str
     user_id: Optional[str] = None
     messages: List[Message] = field(default_factory=list)
@@ -45,11 +52,13 @@ class ConversationMemory:
     def __post_init__(self):
         """Ensure messages list is frozen (immutable)."""
         if self.messages is not None:
-            object.__setattr__(self, 'messages', tuple(self.messages))
+            object.__setattr__(self, "messages", tuple(self.messages))
+
 
 @dataclass(frozen=True)
 class MemoryQuery:
     """Query parameters for searching conversations in memory providers."""
+
     conversation_id: Optional[str] = None
     user_id: Optional[str] = None
     trace_id: Optional[TraceId] = None
@@ -58,10 +67,11 @@ class MemoryQuery:
     since: Optional[datetime] = None
     until: Optional[datetime] = None
 
+
 class MemoryProvider(Protocol):
     """
     Protocol defining the interface that all memory providers must implement.
-    
+
     This protocol ensures consistent behavior across different storage backends
     (in-memory, Redis, PostgreSQL) while maintaining type safety.
     """
@@ -70,15 +80,14 @@ class MemoryProvider(Protocol):
         self,
         conversation_id: str,
         messages: List[Message],
-        metadata: Optional[Dict[str, Any]] = None
-    ) -> Result[None, 'MemoryStorageError']:
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Result[None, "MemoryStorageError"]:
         """Store messages for a conversation."""
         ...
 
     async def get_conversation(
-        self,
-        conversation_id: str
-    ) -> Result[Optional[ConversationMemory], 'MemoryStorageError']:
+        self, conversation_id: str
+    ) -> Result[Optional[ConversationMemory], "MemoryStorageError"]:
         """Retrieve conversation history."""
         ...
 
@@ -86,61 +95,49 @@ class MemoryProvider(Protocol):
         self,
         conversation_id: str,
         messages: List[Message],
-        metadata: Optional[Dict[str, Any]] = None
-    ) -> Result[None, Union['MemoryNotFoundError', 'MemoryStorageError']]:
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Result[None, Union["MemoryNotFoundError", "MemoryStorageError"]]:
         """Append new messages to existing conversation."""
         ...
 
     async def find_conversations(
-        self,
-        query: MemoryQuery
-    ) -> Result[List[ConversationMemory], 'MemoryStorageError']:
+        self, query: MemoryQuery
+    ) -> Result[List[ConversationMemory], "MemoryStorageError"]:
         """Search conversations by query parameters."""
         ...
 
     async def get_recent_messages(
-        self,
-        conversation_id: str,
-        limit: int = 50
-    ) -> Result[List[Message], Union['MemoryNotFoundError', 'MemoryStorageError']]:
+        self, conversation_id: str, limit: int = 50
+    ) -> Result[List[Message], Union["MemoryNotFoundError", "MemoryStorageError"]]:
         """Get recent messages from a conversation."""
         ...
 
-    async def delete_conversation(
-        self,
-        conversation_id: str
-    ) -> Result[bool, 'MemoryStorageError']:
+    async def delete_conversation(self, conversation_id: str) -> Result[bool, "MemoryStorageError"]:
         """Delete conversation and return True if it existed."""
         ...
 
-    async def clear_user_conversations(
-        self,
-        user_id: str
-    ) -> Result[int, 'MemoryStorageError']:
+    async def clear_user_conversations(self, user_id: str) -> Result[int, "MemoryStorageError"]:
         """Clear all conversations for a user and return count deleted."""
         ...
 
     async def get_stats(
-        self,
-        user_id: Optional[str] = None
-    ) -> Result[Dict[str, Any], 'MemoryStorageError']:
+        self, user_id: Optional[str] = None
+    ) -> Result[Dict[str, Any], "MemoryStorageError"]:
         """Get conversation statistics."""
         ...
 
-    async def health_check(self) -> Result[Dict[str, Any], 'MemoryConnectionError']:
+    async def health_check(self) -> Result[Dict[str, Any], "MemoryConnectionError"]:
         """Check provider health and return status information."""
         ...
 
-    async def close(self) -> Result[None, 'MemoryConnectionError']:
+    async def close(self) -> Result[None, "MemoryConnectionError"]:
         """Close/cleanup the provider."""
         ...
 
     # Regeneration support methods
     async def truncate_conversation_after(
-        self,
-        conversation_id: str,
-        message_id: MessageId
-    ) -> Result[int, Union['MemoryNotFoundError', 'MemoryStorageError']]:
+        self, conversation_id: str, message_id: MessageId
+    ) -> Result[int, Union["MemoryNotFoundError", "MemoryStorageError"]]:
         """
         Truncate conversation after (and including) the specified message ID.
         Returns the number of messages removed.
@@ -148,10 +145,8 @@ class MemoryProvider(Protocol):
         ...
 
     async def get_conversation_until_message(
-        self,
-        conversation_id: str,
-        message_id: MessageId
-    ) -> Result[Optional[ConversationMemory], Union['MemoryNotFoundError', 'MemoryStorageError']]:
+        self, conversation_id: str, message_id: MessageId
+    ) -> Result[Optional[ConversationMemory], Union["MemoryNotFoundError", "MemoryStorageError"]]:
         """
         Get conversation history up to (but not including) the specified message ID.
         Useful for regeneration scenarios.
@@ -159,26 +154,28 @@ class MemoryProvider(Protocol):
         ...
 
     async def mark_regeneration_point(
-        self,
-        conversation_id: str,
-        message_id: MessageId,
-        regeneration_metadata: Dict[str, Any]
-    ) -> Result[None, Union['MemoryNotFoundError', 'MemoryStorageError']]:
+        self, conversation_id: str, message_id: MessageId, regeneration_metadata: Dict[str, Any]
+    ) -> Result[None, Union["MemoryNotFoundError", "MemoryStorageError"]]:
         """
         Mark a regeneration point in the conversation for audit purposes.
         """
         ...
 
+
 # Configuration models using Pydantic for validation
+
 
 class InMemoryConfig(BaseModel):
     """Configuration for in-memory provider."""
+
     type: str = Field(default="memory", json_schema_extra={"literal": True})
     max_conversations: int = Field(default=1000, ge=1)
     max_messages_per_conversation: int = Field(default=1000, ge=1)
 
+
 class RedisConfig(BaseModel):
     """Configuration for Redis provider."""
+
     type: str = Field(default="redis", json_schema_extra={"literal": True})
     url: Optional[str] = None
     host: str = Field(default="localhost")
@@ -188,8 +185,10 @@ class RedisConfig(BaseModel):
     key_prefix: str = Field(default="jaf:memory:")
     ttl: Optional[int] = Field(default=None, ge=1)  # seconds
 
+
 class PostgresConfig(BaseModel):
     """Configuration for PostgreSQL provider."""
+
     type: str = Field(default="postgres", json_schema_extra={"literal": True})
     connection_string: Optional[str] = None
     host: str = Field(default="localhost")
@@ -201,13 +200,16 @@ class PostgresConfig(BaseModel):
     table_name: str = Field(default="conversations")
     max_connections: int = Field(default=10, ge=1)
 
+
 # Union type for all provider configurations
 MemoryProviderConfig = Union[InMemoryConfig, RedisConfig, PostgresConfig]
 
 # Functional error types for memory providers
 
+
 class MemoryError:
     """Base class for memory-related errors."""
+
     def __init__(self, message: str, provider: str, cause: Optional[Exception] = None):
         self.message = message
         self.provider = provider
@@ -216,20 +218,28 @@ class MemoryError:
     def __eq__(self, other):
         if not isinstance(other, MemoryError):
             return False
-        return (self.message == other.message and 
-                self.provider == other.provider and 
-                self.cause == other.cause)
+        return (
+            self.message == other.message
+            and self.provider == other.provider
+            and self.cause == other.cause
+        )
 
     def __repr__(self):
         return f"{self.__class__.__name__}(message={self.message!r}, provider={self.provider!r}, cause={self.cause!r})"
 
+
 class MemoryConnectionError(MemoryError):
     """Error for connection failures."""
+
     pass
+
 
 class MemoryNotFoundError(MemoryError):
     """Error when a conversation is not found."""
-    def __init__(self, message: str, provider: str, conversation_id: str, cause: Optional[Exception] = None):
+
+    def __init__(
+        self, message: str, provider: str, conversation_id: str, cause: Optional[Exception] = None
+    ):
         super().__init__(message, provider, cause)
         self.conversation_id = conversation_id
 
@@ -241,9 +251,13 @@ class MemoryNotFoundError(MemoryError):
     def __repr__(self):
         return f"{self.__class__.__name__}(message={self.message!r}, provider={self.provider!r}, conversation_id={self.conversation_id!r}, cause={self.cause!r})"
 
+
 class MemoryStorageError(MemoryError):
     """Error for storage operation failures."""
-    def __init__(self, message: str, provider: str, operation: str, cause: Optional[Exception] = None):
+
+    def __init__(
+        self, message: str, provider: str, operation: str, cause: Optional[Exception] = None
+    ):
         super().__init__(message, provider, cause)
         self.operation = operation
 
@@ -255,16 +269,21 @@ class MemoryStorageError(MemoryError):
     def __repr__(self):
         return f"{self.__class__.__name__}(message={self.message!r}, provider={self.provider!r}, operation={self.operation!r}, cause={self.cause!r})"
 
+
 # Union of all possible memory errors
 MemoryErrorUnion = Union[MemoryConnectionError, MemoryNotFoundError, MemoryStorageError]
+
 
 # Memory configuration for the engine - using dataclass instead of Pydantic
 @dataclass(frozen=True)
 class MemoryConfig:
     """Configuration for memory integration in the engine."""
+
     provider: MemoryProvider
     auto_store: bool = True
     max_messages: Optional[int] = None
     ttl: Optional[int] = None
     compression_threshold: Optional[int] = None
-    store_on_completion: bool = True  # Store conversation on completion (in addition to interruptions)
+    store_on_completion: bool = (
+        True  # Store conversation on completion (in addition to interruptions)
+    )

@@ -36,7 +36,7 @@ class MockModelProvider:
         return {
             "message": {
                 "content": f"[{agent.name}] I received: '{last_message}'",
-                "tool_calls": None
+                "tool_calls": None,
             }
         }
 
@@ -55,7 +55,7 @@ async def echo_tool(args: EchoArgs, context) -> Dict[str, Any]:
     return {
         "result": f"Echo: {args.message}",
         "original": args.message,
-        "length": len(args.message)
+        "length": len(args.message),
     }
 
 
@@ -66,11 +66,7 @@ async def count_tool(args: CountArgs, context) -> Dict[str, Any]:
 
     return {
         "result": f"Text analysis: {char_count} characters, {word_count} words",
-        "analysis": {
-            "characters": char_count,
-            "words": word_count,
-            "text": args.text
-        }
+        "analysis": {"characters": char_count, "words": word_count, "text": args.text},
     }
 
 
@@ -79,17 +75,14 @@ def create_test_agents():
 
     # Echo Agent
     echo_tool_obj = create_a2a_tool(
-        "echo",
-        "Echo back a message",
-        EchoArgs.model_json_schema(),
-        echo_tool
+        "echo", "Echo back a message", EchoArgs.model_json_schema(), echo_tool
     )
 
     echo_agent = create_a2a_agent(
         "EchoBot",
         "An agent that echoes messages back",
         "You are an echo bot. Use the echo tool to repeat messages.",
-        [echo_tool_obj]
+        [echo_tool_obj],
     )
 
     # Counter Agent
@@ -97,14 +90,14 @@ def create_test_agents():
         "count_chars",
         "Count characters and words in text",
         CountArgs.model_json_schema(),
-        count_tool
+        count_tool,
     )
 
     counter_agent = create_a2a_agent(
         "CounterBot",
         "An agent that counts characters and words",
         "You are a text analysis bot. Use the counting tool to analyze text.",
-        [count_tool_obj]
+        [count_tool_obj],
     )
 
     # Simple Chat Agent (no tools)
@@ -112,14 +105,10 @@ def create_test_agents():
         "ChatBot",
         "A simple conversational agent",
         "You are a friendly chat bot. Be helpful and conversational.",
-        []
+        [],
     )
 
-    return {
-        "EchoBot": echo_agent,
-        "CounterBot": counter_agent,
-        "ChatBot": chat_agent
-    }
+    return {"EchoBot": echo_agent, "CounterBot": counter_agent, "ChatBot": chat_agent}
 
 
 async def start_test_server():
@@ -134,7 +123,7 @@ async def start_test_server():
         name="Test A2A Server",
         description="Integration test server with sample agents",
         host="localhost",
-        port=3001  # Use different port to avoid conflicts
+        port=3001,  # Use different port to avoid conflicts
     )
 
     server_config["model_provider"] = MockModelProvider()
@@ -163,18 +152,18 @@ async def test_client_interactions(base_url: str):
         {
             "agent": "EchoBot",
             "message": "Hello, echo bot!",
-            "description": "Testing echo functionality"
+            "description": "Testing echo functionality",
         },
         {
             "agent": "CounterBot",
             "message": "Count the characters in this sentence please",
-            "description": "Testing character counting"
+            "description": "Testing character counting",
         },
         {
             "agent": "ChatBot",
             "message": "Hi there, how are you doing today?",
-            "description": "Testing general conversation"
-        }
+            "description": "Testing general conversation",
+        },
     ]
 
     results = []
@@ -185,29 +174,29 @@ async def test_client_interactions(base_url: str):
         print(f"   Message: {test_case['message']}")
 
         try:
-            response = await send_message_to_agent(
-                client,
-                test_case['agent'],
-                test_case['message']
-            )
+            response = await send_message_to_agent(client, test_case["agent"], test_case["message"])
 
             print(f"✅ Response: {response}")
 
-            results.append({
-                "agent": test_case['agent'],
-                "message": test_case['message'],
-                "response": response,
-                "success": True
-            })
+            results.append(
+                {
+                    "agent": test_case["agent"],
+                    "message": test_case["message"],
+                    "response": response,
+                    "success": True,
+                }
+            )
 
         except Exception as error:
             print(f"❌ Error: {error}")
-            results.append({
-                "agent": test_case['agent'],
-                "message": test_case['message'],
-                "error": str(error),
-                "success": False
-            })
+            results.append(
+                {
+                    "agent": test_case["agent"],
+                    "message": test_case["message"],
+                    "error": str(error),
+                    "success": False,
+                }
+            )
 
     return results
 
@@ -224,7 +213,7 @@ async def test_agent_discovery(base_url: str):
         print(f"✅ Discovered server: {agent_card['name']}")
         print(f"📄 Description: {agent_card['description']}")
 
-        skills = agent_card.get('skills', [])
+        skills = agent_card.get("skills", [])
         print(f"🛠️ Skills found: {len(skills)}")
 
         for skill in skills:
@@ -252,7 +241,7 @@ async def test_health_and_capabilities(base_url: str):
 
         # Capabilities
         capabilities = await get_a2a_capabilities(client)
-        methods = capabilities.get('supportedMethods', [])
+        methods = capabilities.get("supportedMethods", [])
         print(f"⚡ Supported methods: {', '.join(methods)}")
 
         return True
@@ -294,7 +283,7 @@ async def main():
         print("\n📊 Integration Test Summary")
         print("=" * 30)
 
-        successful = sum(1 for r in results if r['success'])
+        successful = sum(1 for r in results if r["success"])
         total = len(results)
 
         print(f"✅ Successful interactions: {successful}/{total}")
@@ -305,8 +294,10 @@ async def main():
             print("⚠️ Some tests failed. Check the errors above.")
 
         for result in results:
-            status = "✅" if result['success'] else "❌"
-            print(f"   {status} {result['agent']}: {result.get('response', result.get('error', 'Unknown'))[:60]}...")
+            status = "✅" if result["success"] else "❌"
+            print(
+                f"   {status} {result['agent']}: {result.get('response', result.get('error', 'Unknown'))[:60]}..."
+            )
 
         print("\n🔧 Integration Features Tested:")
         print("   • Agent discovery via Agent Cards")

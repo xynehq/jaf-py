@@ -26,9 +26,9 @@ class CalculatorTool:
     @property
     def schema(self) -> ToolSchema[CalculatorArgs]:
         return ToolSchema(
-            name='calculator',
-            description='Performs mathematical calculations',
-            parameters=CalculatorArgs
+            name="calculator",
+            description="Performs mathematical calculations",
+            parameters=CalculatorArgs,
         )
 
     async def execute(self, args: CalculatorArgs, context: Any) -> str:
@@ -48,9 +48,7 @@ class WeatherTool:
     @property
     def schema(self) -> ToolSchema[WeatherArgs]:
         return ToolSchema(
-            name='weather',
-            description='Gets weather information',
-            parameters=WeatherArgs
+            name="weather", description="Gets weather information", parameters=WeatherArgs
         )
 
     async def execute(self, args: WeatherArgs, context: Any) -> str:
@@ -72,36 +70,36 @@ class TestVisualizationDemo:
             return "I am a helpful assistant with calculator and weather tools."
 
         assistant = Agent(
-            name='Assistant',
+            name="Assistant",
             instructions=assistant_instructions,
             tools=[calc_tool, weather_tool],
-            model_config=ModelConfig(name='gpt-4'),
-            handoffs=['Specialist']
+            model_config=ModelConfig(name="gpt-4"),
+            handoffs=["Specialist"],
         )
 
         def specialist_instructions(state: RunState[Any]) -> str:
             return "I am a specialist agent."
 
         specialist = Agent(
-            name='Specialist',
+            name="Specialist",
             instructions=specialist_instructions,
             tools=[calc_tool],
-            model_config=ModelConfig(name='gpt-3.5-turbo')
+            model_config=ModelConfig(name="gpt-3.5-turbo"),
         )
 
         # Generate agent visualization
         with tempfile.TemporaryDirectory() as temp_dir:
-            output_path = os.path.join(temp_dir, 'demo-agents.png')
+            output_path = os.path.join(temp_dir, "demo-agents.png")
 
             try:
                 agent_result = await generate_agent_graph(
                     [assistant, specialist],
                     GraphOptions(
-                        title='Demo Agent System',
+                        title="Demo Agent System",
                         output_path=output_path,
-                        color_scheme='modern',
-                        show_tool_details=True
-                    )
+                        color_scheme="modern",
+                        show_tool_details=True,
+                    ),
                 )
 
                 # Should either succeed or fail gracefully
@@ -110,8 +108,8 @@ class TestVisualizationDemo:
                 if agent_result.success:
                     assert agent_result.output_path == output_path
                     assert agent_result.graph_dot is not None
-                    assert 'Assistant' in agent_result.graph_dot
-                    assert 'Specialist' in agent_result.graph_dot
+                    assert "Assistant" in agent_result.graph_dot
+                    assert "Specialist" in agent_result.graph_dot
                 else:
                     # If it fails, should have error message
                     assert agent_result.error is not None
@@ -128,16 +126,14 @@ class TestVisualizationDemo:
 
         # Generate tool visualization
         with tempfile.TemporaryDirectory() as temp_dir:
-            output_path = os.path.join(temp_dir, 'demo-tools.png')
+            output_path = os.path.join(temp_dir, "demo-tools.png")
 
             try:
                 tool_result = await generate_tool_graph(
                     [calc_tool, weather_tool],
                     GraphOptions(
-                        title='Demo Tool Ecosystem',
-                        output_path=output_path,
-                        color_scheme='default'
-                    )
+                        title="Demo Tool Ecosystem", output_path=output_path, color_scheme="default"
+                    ),
                 )
 
                 # Should either succeed or fail gracefully
@@ -146,8 +142,8 @@ class TestVisualizationDemo:
                 if tool_result.success:
                     assert tool_result.output_path == output_path
                     assert tool_result.graph_dot is not None
-                    assert 'calculator' in tool_result.graph_dot
-                    assert 'weather' in tool_result.graph_dot
+                    assert "calculator" in tool_result.graph_dot
+                    assert "weather" in tool_result.graph_dot
                 else:
                     # If it fails, should have error message
                     assert tool_result.error is not None
@@ -164,27 +160,27 @@ class TestVisualizationDemo:
             return "I am a simple agent."
 
         simple_agent = Agent(
-            name='SimpleAgent',
+            name="SimpleAgent",
             instructions=simple_instructions,
             tools=[calc_tool],
-            model_config=ModelConfig(name='gpt-3.5-turbo')
+            model_config=ModelConfig(name="gpt-3.5-turbo"),
         )
 
-        color_schemes = ['default', 'modern', 'minimal']
+        color_schemes = ["default", "modern", "minimal"]
 
         for scheme in color_schemes:
             with tempfile.TemporaryDirectory() as temp_dir:
-                output_path = os.path.join(temp_dir, f'demo-{scheme}.png')
+                output_path = os.path.join(temp_dir, f"demo-{scheme}.png")
 
                 try:
                     result = await generate_agent_graph(
                         [simple_agent],
                         GraphOptions(
-                            title=f'Demo {scheme.title()} Theme',
+                            title=f"Demo {scheme.title()} Theme",
                             output_path=output_path,
                             color_scheme=scheme,
-                            show_tool_details=True
-                        )
+                            show_tool_details=True,
+                        ),
                     )
 
                     # Should either succeed or fail gracefully
@@ -193,7 +189,7 @@ class TestVisualizationDemo:
                     if result.success:
                         assert result.output_path == output_path
                         assert result.graph_dot is not None
-                        assert 'SimpleAgent' in result.graph_dot
+                        assert "SimpleAgent" in result.graph_dot
                     else:
                         # If it fails, should have error message
                         assert result.error is not None
@@ -218,21 +214,21 @@ async def demo_main():
         return "I am a helpful assistant with calculator and weather tools."
 
     assistant = Agent(
-        name='Assistant',
+        name="Assistant",
         instructions=assistant_instructions,
         tools=[calc_tool, weather_tool],
-        model_config=ModelConfig(name='gpt-4'),
-        handoffs=['Specialist']
+        model_config=ModelConfig(name="gpt-4"),
+        handoffs=["Specialist"],
     )
 
     def specialist_instructions(state: RunState[Any]) -> str:
         return "I am a specialist agent."
 
     specialist = Agent(
-        name='Specialist',
+        name="Specialist",
         instructions=specialist_instructions,
         tools=[calc_tool],
-        model_config=ModelConfig(name='gpt-3.5-turbo')
+        model_config=ModelConfig(name="gpt-3.5-turbo"),
     )
 
     # Generate agent visualization
@@ -240,11 +236,11 @@ async def demo_main():
     agent_result = await generate_agent_graph(
         [assistant, specialist],
         GraphOptions(
-            title='Demo Agent System',
-            output_path='./demo-agents.png',
-            color_scheme='modern',
-            show_tool_details=True
-        )
+            title="Demo Agent System",
+            output_path="./demo-agents.png",
+            color_scheme="modern",
+            show_tool_details=True,
+        ),
     )
 
     if agent_result.success:
@@ -257,10 +253,8 @@ async def demo_main():
     tool_result = await generate_tool_graph(
         [calc_tool, weather_tool],
         GraphOptions(
-            title='Demo Tool Ecosystem',
-            output_path='./demo-tools.png',
-            color_scheme='default'
-        )
+            title="Demo Tool Ecosystem", output_path="./demo-tools.png", color_scheme="default"
+        ),
     )
 
     if tool_result.success:
@@ -271,6 +265,6 @@ async def demo_main():
     print("\n🎉 Demo completed!")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Allow running as standalone demo script
     asyncio.run(demo_main())

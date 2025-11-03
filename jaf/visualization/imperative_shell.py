@@ -22,7 +22,7 @@ def apply_graph_spec_to_digraph(spec: GraphSpec, digraph: Digraph) -> Digraph:
     This is the imperative shell that contains all side effects.
     """
     # Apply graph attributes
-    digraph.attr('graph', **spec.graph_attributes)
+    digraph.attr("graph", **spec.graph_attributes)
 
     # Add all nodes
     for node in spec.nodes:
@@ -36,9 +36,7 @@ def apply_graph_spec_to_digraph(spec: GraphSpec, digraph: Digraph) -> Digraph:
 
 
 def render_graph_spec(
-    spec: GraphSpec,
-    options: GraphOptions,
-    graph_name: str = 'Graph'
+    spec: GraphSpec, options: GraphOptions, graph_name: str = "Graph"
 ) -> GraphResult:
     """
     Render a GraphSpec to an actual file using Graphviz.
@@ -56,25 +54,18 @@ def render_graph_spec(
 
         # Render (side effect)
         graph.render(
-            filename=output_path.replace(f'.{options.output_format}', ''),
+            filename=output_path.replace(f".{options.output_format}", ""),
             format=options.output_format,
-            cleanup=True
+            cleanup=True,
         )
 
-        return GraphResult(
-            success=True,
-            output_path=output_path,
-            graph_dot=graph.source
-        )
+        return GraphResult(success=True, output_path=output_path, graph_dot=graph.source)
 
     except Exception as error:
-        return GraphResult(
-            success=False,
-            error=str(error)
-        )
+        return GraphResult(success=False, error=str(error))
 
 
-def graph_spec_to_dot(spec: GraphSpec, graph_name: str = 'Graph') -> str:
+def graph_spec_to_dot(spec: GraphSpec, graph_name: str = "Graph") -> str:
     """
     Convert a GraphSpec to DOT language string without file system side effects.
     This is a pure operation that only creates the DOT representation.

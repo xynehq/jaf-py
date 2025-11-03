@@ -29,11 +29,11 @@ def check_postgres_available():
         import asyncpg
     except ImportError:
         return False, "asyncpg not installed"
-    
+
     # Test socket connection
-    pg_host = os.getenv('JAF_POSTGRES_HOST', 'localhost')
-    pg_port = int(os.getenv('JAF_POSTGRES_PORT', '5432'))
-    
+    pg_host = os.getenv("JAF_POSTGRES_HOST", "localhost")
+    pg_port = int(os.getenv("JAF_POSTGRES_PORT", "5432"))
+
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(2)
@@ -43,32 +43,30 @@ def check_postgres_available():
             return False, f"Cannot connect to PostgreSQL at {pg_host}:{pg_port}"
     except Exception as e:
         return False, f"Socket connection error: {e}"
-    
+
     # Test asyncpg connection
     try:
+
         async def test_connection():
-            pg_user = os.getenv('JAF_POSTGRES_USER', 'postgres')
-            pg_password = os.getenv('JAF_POSTGRES_PASSWORD', 'postgres')
-            pg_db = os.getenv('JAF_POSTGRES_DB', 'jaf_test')
-            
+            pg_user = os.getenv("JAF_POSTGRES_USER", "postgres")
+            pg_password = os.getenv("JAF_POSTGRES_PASSWORD", "postgres")
+            pg_db = os.getenv("JAF_POSTGRES_DB", "jaf_test")
+
             try:
                 conn = await asyncpg.connect(
-                    user=pg_user, 
-                    password=pg_password, 
-                    host=pg_host, 
-                    database=pg_db,
-                    timeout=5
+                    user=pg_user, password=pg_password, host=pg_host, database=pg_db, timeout=5
                 )
                 await conn.close()
                 return True, "Available"
             except Exception as e:
                 return False, f"Connection failed: {e}"
-        
+
         try:
             # Check if we're already in an event loop
             loop = asyncio.get_running_loop()
             # If we're in a loop, create a task
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(asyncio.run, test_connection())
                 result = future.result(timeout=10)
@@ -87,7 +85,9 @@ class A2AMemoryProviderTester:
     def __init__(self):
         self.test_results = {}
 
-    async def test_provider(self, provider_name: str, provider, conversation_id: str = "test-a2a-conversation"):
+    async def test_provider(
+        self, provider_name: str, provider, conversation_id: str = "test-a2a-conversation"
+    ):
         """Test an A2A memory provider with comprehensive operations."""
         print(f"\n🔧 Testing {provider_name} A2A Memory Provider...")
 
@@ -101,18 +101,20 @@ class A2AMemoryProviderTester:
 
             health_data = health_result.data
             print(f"    ✅ Health check passed - Healthy: {health_data.get('healthy', False)}")
-            if 'latency_ms' in health_data:
+            if "latency_ms" in health_data:
                 print(f"       Latency: {health_data['latency_ms']:.2f}ms")
 
             # Test 2: Store a task
             print("  2. Storing a task...")
-            test_message = create_a2a_text_message("Initial test message", context_id=conversation_id)
+            test_message = create_a2a_text_message(
+                "Initial test message", context_id=conversation_id
+            )
             test_task = create_a2a_task(test_message, conversation_id)
-            
+
             metadata = {
                 "user_id": "test_user_a2a",
                 "test_session": "a2a_memory_provider_test",
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             }
 
             store_result = await provider.store_task(test_task, metadata)
@@ -143,9 +145,9 @@ class A2AMemoryProviderTester:
             # Test 4: Update task status
             print("  4. Updating task status...")
             update_result = await provider.update_task_status(
-                test_task.id, 
+                test_task.id,
                 TaskState.WORKING,
-                create_a2a_text_message("Task is now working", context_id=conversation_id)
+                create_a2a_text_message("Task is now working", context_id=conversation_id),
             )
             if isinstance(update_result, Failure):
                 print(f"    ❌ Update failed: {update_result.error}")
@@ -161,7 +163,9 @@ class A2AMemoryProviderTester:
 
             updated_task = updated_result.data
             if updated_task.status.state != TaskState.WORKING:
-                print(f"    ❌ Status mismatch: expected {TaskState.WORKING}, got {updated_task.status.state}")
+                print(
+                    f"    ❌ Status mismatch: expected {TaskState.WORKING}, got {updated_task.status.state}"
+                )
                 return False
             print(f"    ✅ Verified task status is {updated_task.status.state}")
 
@@ -178,6 +182,7 @@ class A2AMemoryProviderTester:
             # Test 7: Find tasks
             print("  7. Finding tasks...")
             from jaf.a2a.memory.types import A2ATaskQuery
+
             query = A2ATaskQuery(context_id=conversation_id, state=TaskState.WORKING)
             find_result = await provider.find_tasks(query)
             if isinstance(find_result, Failure):
@@ -218,8 +223,10 @@ class A2AMemoryProviderTester:
         except Exception as e:
             print(f"  ❌ Test failed with exception: {e}")
             import traceback
+
             traceback.print_exc()
             return False
+
 
 async def test_in_memory_provider():
     """Test the in-memory A2A provider."""
@@ -227,11 +234,7 @@ async def test_in_memory_provider():
         from jaf.a2a.memory.providers.in_memory import create_a2a_in_memory_task_provider
         from jaf.a2a.memory.types import A2AInMemoryTaskConfig
 
-        config = A2AInMemoryTaskConfig(
-            type="memory",
-            max_tasks=100,
-            max_tasks_per_context=50
-        )
+        config = A2AInMemoryTaskConfig(type="memory", max_tasks=100, max_tasks_per_context=50)
 
         provider = create_a2a_in_memory_task_provider(config)
         tester = A2AMemoryProviderTester()
@@ -242,6 +245,7 @@ async def test_in_memory_provider():
         print(f"❌ In-Memory A2A provider test setup failed: {e}")
         return False
 
+
 async def test_redis_provider():
     """Test the Redis A2A provider."""
     try:
@@ -250,10 +254,12 @@ async def test_redis_provider():
         from jaf.a2a.memory.types import A2ARedisTaskConfig
 
         print("📡 Connecting to Redis...")
-        redis_host = os.getenv('JAF_REDIS_HOST', 'localhost')
-        redis_port = int(os.getenv('JAF_REDIS_PORT', '6379'))
-        redis_password = os.getenv('JAF_REDIS_PASSWORD')
-        redis_client = redis.Redis(host=redis_host, port=redis_port, password=redis_password, decode_responses=True)
+        redis_host = os.getenv("JAF_REDIS_HOST", "localhost")
+        redis_port = int(os.getenv("JAF_REDIS_PORT", "6379"))
+        redis_password = os.getenv("JAF_REDIS_PASSWORD")
+        redis_client = redis.Redis(
+            host=redis_host, port=redis_port, password=redis_password, decode_responses=True
+        )
         await redis_client.ping()
         print("✅ Redis connection successful")
 
@@ -264,11 +270,7 @@ async def test_redis_provider():
             await redis_client.delete(*keys)
         print(f"    ✅ Deleted {len(keys)} old keys.")
 
-        config = A2ARedisTaskConfig(
-            type="redis",
-            key_prefix="jaf:test:a2a:",
-            default_ttl=3600
-        )
+        config = A2ARedisTaskConfig(type="redis", key_prefix="jaf:test:a2a:", default_ttl=3600)
         provider_result = await create_a2a_redis_task_provider(config, redis_client)
         if isinstance(provider_result, Failure):
             raise Exception(provider_result.error)
@@ -284,6 +286,7 @@ async def test_redis_provider():
         print(f"❌ Redis A2A provider test setup failed: {e}")
         return False
 
+
 async def test_postgres_provider():
     """Test the PostgreSQL A2A provider."""
     # Check if PostgreSQL is available
@@ -291,21 +294,25 @@ async def test_postgres_provider():
     if not is_available:
         print(f"⚠️  Skipping PostgreSQL A2A tests: {message}")
         print("   Set up PostgreSQL or install dependencies to run these tests")
-        print("   Example: docker run -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=jaf_test -p 5432:5432 postgres")
+        print(
+            "   Example: docker run -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=jaf_test -p 5432:5432 postgres"
+        )
         return True  # Return True to indicate "success" (graceful skip)
-    
+
     try:
         import asyncpg
         from jaf.a2a.memory.providers.postgres import create_a2a_postgres_task_provider
         from jaf.a2a.memory.types import A2APostgresTaskConfig
 
         print("📡 Connecting to PostgreSQL...")
-        pg_user = os.getenv('JAF_POSTGRES_USER', 'postgres')
-        pg_password = os.getenv('JAF_POSTGRES_PASSWORD', 'postgres')
-        pg_host = os.getenv('JAF_POSTGRES_HOST', 'localhost')
-        pg_db = os.getenv('JAF_POSTGRES_DB', 'jaf_test')
-        
-        conn = await asyncpg.connect(user=pg_user, password=pg_password, host=pg_host, database=pg_db)
+        pg_user = os.getenv("JAF_POSTGRES_USER", "postgres")
+        pg_password = os.getenv("JAF_POSTGRES_PASSWORD", "postgres")
+        pg_host = os.getenv("JAF_POSTGRES_HOST", "localhost")
+        pg_db = os.getenv("JAF_POSTGRES_DB", "jaf_test")
+
+        conn = await asyncpg.connect(
+            user=pg_user, password=pg_password, host=pg_host, database=pg_db
+        )
         print("✅ PostgreSQL connection successful")
 
         # Cleanup previous test table
@@ -313,16 +320,15 @@ async def test_postgres_provider():
         await conn.execute("DROP TABLE IF EXISTS test_a2a_tasks CASCADE;")
         print("    ✅ Dropped old table.")
 
-        config = A2APostgresTaskConfig(
-            type="postgres",
-            table_name="test_a2a_tasks"
-        )
+        config = A2APostgresTaskConfig(type="postgres", table_name="test_a2a_tasks")
         provider_result = await create_a2a_postgres_task_provider(config, conn)
         if isinstance(provider_result, Failure):
             raise Exception(provider_result.error)
         provider = provider_result.data
         tester = A2AMemoryProviderTester()
-        result = await tester.test_provider("PostgreSQL", provider, "test-a2a-postgres-conversation")
+        result = await tester.test_provider(
+            "PostgreSQL", provider, "test-a2a-postgres-conversation"
+        )
         await conn.close()
         return result
     except ImportError:
@@ -331,6 +337,7 @@ async def test_postgres_provider():
     except Exception as e:
         print(f"❌ PostgreSQL A2A provider test setup failed: {e}")
         return False
+
 
 async def run_all_tests():
     """Run all A2A memory provider tests."""
@@ -341,15 +348,15 @@ async def run_all_tests():
 
     # Test In-Memory provider
     print("\n" + "=" * 50)
-    results['in_memory'] = await test_in_memory_provider()
+    results["in_memory"] = await test_in_memory_provider()
 
     # Test Redis provider
     print("\n" + "=" * 50)
-    results['redis'] = await test_redis_provider()
+    results["redis"] = await test_redis_provider()
 
     # Test PostgreSQL provider
     print("\n" + "=" * 50)
-    results['postgres'] = await test_postgres_provider()
+    results["postgres"] = await test_postgres_provider()
 
     # Summary
     print("\n" + "=" * 50)
@@ -372,6 +379,7 @@ async def run_all_tests():
         print("⚠️  Some memory providers need attention.")
         return False
 
+
 async def main():
     """Main entry point."""
     try:
@@ -383,8 +391,10 @@ async def main():
     except Exception as e:
         print(f"❌ Test suite failed: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
+
 
 if __name__ == "__main__":
     asyncio.run(main())

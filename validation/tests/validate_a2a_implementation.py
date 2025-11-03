@@ -69,15 +69,12 @@ async def test_agent_creation():
             "test_tool",
             "A test tool",
             {"type": "object", "properties": {"input": {"type": "string"}}},
-            test_tool
+            test_tool,
         )
 
         # Create agent
         agent = create_a2a_agent(
-            "TestAgent",
-            "A test agent for validation",
-            "You are a helpful test agent",
-            [tool]
+            "TestAgent", "A test agent for validation", "You are a helpful test agent", [tool]
         )
 
         # Validate agent properties
@@ -103,7 +100,7 @@ def test_type_system():
         message = create_a2a_message(
             role="user",
             parts=[create_a2a_text_part("Hello, A2A world!")],
-            context_id="test_context"
+            context_id="test_context",
         )
 
         # Validate message
@@ -137,7 +134,7 @@ def test_protocol_validation():
             "jsonrpc": "2.0",
             "id": "test_123",
             "method": "message/send",
-            "params": {"test": "data"}
+            "params": {"test": "data"},
         }
 
         assert validate_jsonrpc_request(valid_request) is True
@@ -145,17 +142,14 @@ def test_protocol_validation():
         # Test invalid request
         invalid_request = {
             "id": "test_123",
-            "method": "message/send"
+            "method": "message/send",
             # Missing jsonrpc field
         }
 
         assert validate_jsonrpc_request(invalid_request) is False
 
         # Test response creation
-        response = create_jsonrpc_success_response_dict(
-            "test_123",
-            {"status": "success"}
-        )
+        response = create_jsonrpc_success_response_dict("test_123", {"status": "success"})
 
         assert response["jsonrpc"] == "2.0"
         assert response["id"] == "test_123"
@@ -175,10 +169,7 @@ def test_server_configuration():
     try:
         # Create test agent
         agent = create_a2a_agent(
-            "ServerTestAgent",
-            "Agent for server testing",
-            "You are a server test agent",
-            []
+            "ServerTestAgent", "Agent for server testing", "You are a server test agent", []
         )
 
         # Create server configuration
@@ -187,7 +178,7 @@ def test_server_configuration():
             name="Validation Test Server",
             description="Server for A2A implementation validation",
             port=3000,
-            host="localhost"
+            host="localhost",
         )
 
         # Validate configuration
@@ -244,10 +235,7 @@ def test_convenience_api():
         assert tool.name == "conv_tool"
 
         server_config = A2A.server(
-            {"ConvenienceAgent": agent},
-            "Convenience Server",
-            "Test server",
-            3001
+            {"ConvenienceAgent": agent}, "Convenience Server", "Test server", 3001
         )
         assert server_config["agentCard"]["name"] == "Convenience Server"
 
@@ -272,7 +260,7 @@ def test_constants_and_metadata():
             "message/stream",
             "tasks/get",
             "tasks/cancel",
-            "agent/getAuthenticatedExtendedCard"
+            "agent/getAuthenticatedExtendedCard",
         ]
 
         for method in expected_methods:
@@ -299,14 +287,8 @@ async def test_tool_execution():
         tool = create_a2a_tool(
             "math_add",
             "Addition tool",
-            {
-                "type": "object",
-                "properties": {
-                    "a": {"type": "number"},
-                    "b": {"type": "number"}
-                }
-            },
-            math_tool
+            {"type": "object", "properties": {"a": {"type": "number"}, "b": {"type": "number"}}},
+            math_tool,
         )
 
         # Execute tool
@@ -363,6 +345,7 @@ async def main():
         print(f"\n❌ Validation failed: {e}")
         print("\n🔧 Please check the implementation and try again.")
         import traceback
+
         traceback.print_exc()
         return False
 

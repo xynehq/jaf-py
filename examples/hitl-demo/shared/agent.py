@@ -10,24 +10,27 @@ from typing import Any
 
 from jaf.core.types import Agent, ModelConfig, RunState
 from .tools import (
-    FileSystemContext, 
-    list_files_tool, 
-    read_file_tool, 
-    delete_file_tool, 
-    edit_file_tool
+    FileSystemContext,
+    list_files_tool,
+    read_file_tool,
+    delete_file_tool,
+    edit_file_tool,
 )
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
 # Environment configuration - prefer LiteLLM for flexibility
-LITELLM_BASE_URL = os.getenv('LITELLM_BASE_URL') or os.getenv('LITELLM_URL', 'http://localhost:4000')
-LITELLM_API_KEY = os.getenv('LITELLM_API_KEY', 'sk-demo') 
-LITELLM_MODEL = os.getenv('LITELLM_MODEL', 'gpt-4o-mini')
+LITELLM_BASE_URL = os.getenv("LITELLM_BASE_URL") or os.getenv(
+    "LITELLM_URL", "http://localhost:4000"
+)
+LITELLM_API_KEY = os.getenv("LITELLM_API_KEY", "sk-demo")
+LITELLM_MODEL = os.getenv("LITELLM_MODEL", "gpt-4o-mini")
 
 # Fallback: Direct OpenAI configuration
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-4o-mini')
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
 
 def get_instructions(state: RunState[FileSystemContext]) -> str:
@@ -49,8 +52,5 @@ file_system_agent: Agent[FileSystemContext, Any] = Agent(
     name="FileSystemAgent",
     instructions=get_instructions,
     tools=[list_files_tool, read_file_tool, delete_file_tool, edit_file_tool],
-    model_config=ModelConfig(
-        name=LITELLM_MODEL,
-        temperature=0.1
-    )
+    model_config=ModelConfig(name=LITELLM_MODEL, temperature=0.1),
 )

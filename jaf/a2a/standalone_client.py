@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 # Standalone types for the client
 class StandaloneA2AClientConfig(BaseModel):
     """A2A client configuration"""
+
     model_config = {"frozen": True}
 
     base_url: str = Field(alias="baseUrl")
@@ -25,6 +26,7 @@ class StandaloneA2AClientConfig(BaseModel):
 
 class StandaloneA2AClientState(BaseModel):
     """A2A client state"""
+
     model_config = {"frozen": True}
 
     config: StandaloneA2AClientConfig
@@ -32,23 +34,23 @@ class StandaloneA2AClientState(BaseModel):
 
 
 # Client functions
-def create_standalone_a2a_client(base_url: str, config: Optional[Dict[str, Any]] = None) -> StandaloneA2AClientState:
+def create_standalone_a2a_client(
+    base_url: str, config: Optional[Dict[str, Any]] = None
+) -> StandaloneA2AClientState:
     """Pure function to create standalone A2A client"""
     config = config or {}
 
     return StandaloneA2AClientState(
         config=StandaloneA2AClientConfig(
             baseUrl=base_url.rstrip("/"),  # Remove trailing slash
-            timeout=config.get("timeout", 30000)
+            timeout=config.get("timeout", 30000),
         ),
-        sessionId=f"client_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}"
+        sessionId=f"client_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}",
     )
 
 
 def create_standalone_message_request(
-    message: str,
-    session_id: str,
-    configuration: Optional[Dict[str, Any]] = None
+    message: str, session_id: str, configuration: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """Pure function to create message request"""
     return {
@@ -61,17 +63,15 @@ def create_standalone_message_request(
                 "parts": [{"kind": "text", "text": message}],
                 "messageId": f"msg_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}",
                 "contextId": session_id,
-                "kind": "message"
+                "kind": "message",
             },
-            "configuration": configuration
-        }
+            "configuration": configuration,
+        },
     }
 
 
 def create_standalone_streaming_message_request(
-    message: str,
-    session_id: str,
-    configuration: Optional[Dict[str, Any]] = None
+    message: str, session_id: str, configuration: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """Pure function to create streaming message request"""
     return {
@@ -84,17 +84,15 @@ def create_standalone_streaming_message_request(
                 "parts": [{"kind": "text", "text": message}],
                 "messageId": f"msg_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}",
                 "contextId": session_id,
-                "kind": "message"
+                "kind": "message",
             },
-            "configuration": configuration
-        }
+            "configuration": configuration,
+        },
     }
 
 
 async def send_standalone_http_request(
-    url: str,
-    body: Dict[str, Any],
-    timeout: int = 30000
+    url: str, body: Dict[str, Any], timeout: int = 30000
 ) -> Dict[str, Any]:
     """Pure function to send HTTP request"""
     timeout_seconds = timeout / 1000.0
@@ -104,10 +102,7 @@ async def send_standalone_http_request(
             response = await client.post(
                 url,
                 json=body,
-                headers={
-                    "Content-Type": "application/json",
-                    "Accept": "application/json"
-                }
+                headers={"Content-Type": "application/json", "Accept": "application/json"},
             )
 
             if not response.is_success:
@@ -120,8 +115,7 @@ async def send_standalone_http_request(
 
 
 async def send_standalone_a2a_request(
-    client: StandaloneA2AClientState,
-    request: Dict[str, Any]
+    client: StandaloneA2AClientState, request: Dict[str, Any]
 ) -> Dict[str, Any]:
     """Pure function to send A2A request"""
     url = f"{client.config.base_url}/a2a"
@@ -129,9 +123,7 @@ async def send_standalone_a2a_request(
 
 
 async def send_standalone_message(
-    client: StandaloneA2AClientState,
-    message: str,
-    configuration: Optional[Dict[str, Any]] = None
+    client: StandaloneA2AClientState, message: str, configuration: Optional[Dict[str, Any]] = None
 ) -> str:
     """Pure function to send message"""
     request = create_standalone_message_request(message, client.session_id, configuration)
@@ -145,9 +137,7 @@ async def send_standalone_message(
 
 
 async def stream_standalone_message(
-    client: StandaloneA2AClientState,
-    message: str,
-    configuration: Optional[Dict[str, Any]] = None
+    client: StandaloneA2AClientState, message: str, configuration: Optional[Dict[str, Any]] = None
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """Pure function to stream message"""
     request = create_standalone_streaming_message_request(message, client.session_id, configuration)
@@ -161,12 +151,8 @@ async def stream_standalone_message(
                 "POST",
                 url,
                 json=request,
-                headers={
-                    "Content-Type": "application/json",
-                    "Accept": "text/event-stream"
-                }
+                headers={"Content-Type": "application/json", "Accept": "text/event-stream"},
             ) as response:
-
                 if not response.is_success:
                     raise Exception(f"HTTP {response.status_code}: {response.text}")
 
@@ -197,10 +183,7 @@ async def get_standalone_agent_card(client: StandaloneA2AClientState) -> Dict[st
     url = f"{client.config.base_url}/.well-known/agent-card"
 
     async with httpx.AsyncClient(timeout=client.config.timeout / 1000.0) as http_client:
-        response = await http_client.get(
-            url,
-            headers={"Accept": "application/json"}
-        )
+        response = await http_client.get(url, headers={"Accept": "application/json"})
 
         if not response.is_success:
             raise Exception(f"Failed to get agent card: HTTP {response.status_code}")
@@ -212,7 +195,7 @@ async def send_standalone_message_to_agent(
     client: StandaloneA2AClientState,
     agent_name: str,
     message: str,
-    configuration: Optional[Dict[str, Any]] = None
+    configuration: Optional[Dict[str, Any]] = None,
 ) -> str:
     """Pure function to send message to specific agent"""
     request = create_standalone_message_request(message, client.session_id, configuration)
@@ -288,7 +271,9 @@ async def connect_to_standalone_a2a_agent(base_url: str) -> Dict[str, Any]:
         async for event in stream_standalone_message(client, message, config):
             yield event
 
-    async def ask_agent(agent_name: str, message: str, config: Optional[Dict[str, Any]] = None) -> str:
+    async def ask_agent(
+        agent_name: str, message: str, config: Optional[Dict[str, Any]] = None
+    ) -> str:
         return await send_standalone_message_to_agent(client, agent_name, message, config)
 
     return {
@@ -296,7 +281,7 @@ async def connect_to_standalone_a2a_agent(base_url: str) -> Dict[str, Any]:
         "agent_card": agent_card,
         "ask": ask,
         "stream": stream,
-        "ask_agent": ask_agent
+        "ask_agent": ask_agent,
     }
 
 
@@ -308,7 +293,9 @@ async def main_example():
         connection = await connect_to_standalone_a2a_agent("http://localhost:3000")
 
         print("Connected to A2A server!")
-        print(f"Available agents: {[skill['name'] for skill in connection['agent_card']['skills']]}")
+        print(
+            f"Available agents: {[skill['name'] for skill in connection['agent_card']['skills']]}"
+        )
 
         # Send a message
         response = await connection["ask"]("Hello, how can you help me?")

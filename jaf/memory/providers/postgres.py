@@ -26,9 +26,11 @@ from ..utils import prepare_message_list_for_db
 
 try:
     import asyncpg
+
     PostgresClient = Union[asyncpg.Connection, asyncpg.Pool]
 except ImportError:
     PostgresClient = Any
+
 
 class PostgresProvider(MemoryProvider):
     """
@@ -40,19 +42,19 @@ class PostgresProvider(MemoryProvider):
         self.client = client
 
     async def _db_fetch(self, query: str, *args):
-        if hasattr(self.client, 'fetch'): # Pool
+        if hasattr(self.client, "fetch"):  # Pool
             return await self.client.fetch(query, *args)
-        else: # Connection
+        else:  # Connection
             return await self.client.fetch(query, *args)
 
     async def _db_fetchrow(self, query: str, *args):
-        if hasattr(self.client, 'fetchrow'):
+        if hasattr(self.client, "fetchrow"):
             return await self.client.fetchrow(query, *args)
         else:
             return await self.client.fetchrow(query, *args)
 
     async def _db_execute(self, query: str, *args) -> str:
-        if hasattr(self.client, 'execute'):
+        if hasattr(self.client, "execute"):
             return await self.client.execute(query, *args)
         else:
             return await self.client.execute(query, *args)
@@ -61,21 +63,21 @@ class PostgresProvider(MemoryProvider):
         """Convert database row to ConversationMemory using shared utilities."""
         from ..utils import extract_messages_from_db_row, validate_conversation_metadata
 
-        messages = extract_messages_from_db_row(row['messages'])
-        metadata = validate_conversation_metadata(json.loads(row['metadata']))
+        messages = extract_messages_from_db_row(row["messages"])
+        metadata = validate_conversation_metadata(json.loads(row["metadata"]))
 
         return ConversationMemory(
-            conversation_id=row['conversation_id'],
-            user_id=row['user_id'],
+            conversation_id=row["conversation_id"],
+            user_id=row["user_id"],
             messages=messages,
-            metadata=metadata
+            metadata=metadata,
         )
 
     async def store_messages(
         self,
         conversation_id: str,
         messages: List[Message],
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> Result[None, MemoryStorageError]:
         try:
             now = datetime.now()
@@ -106,34 +108,48 @@ class PostgresProvider(MemoryProvider):
                 current_metadata.get("user_id"),
                 prepare_message_list_for_db(messages),
                 json.dumps(insert_metadata),
-                json.dumps(update_metadata)
+                json.dumps(update_metadata),
             )
             return Success(None)
         except Exception as e:
-            return Failure(MemoryStorageError(operation="store_messages", provider="Postgres", message=str(e), cause=e))
+            return Failure(
+                MemoryStorageError(
+                    operation="store_messages", provider="Postgres", message=str(e), cause=e
+                )
+            )
 
     async def get_conversation(
-        self,
-        conversation_id: str
+        self, conversation_id: str
     ) -> Result[Optional[ConversationMemory], MemoryStorageError]:
         try:
-            row = await self._db_fetchrow(f"SELECT * FROM {self.config.table_name} WHERE conversation_id = $1", conversation_id)
+            row = await self._db_fetchrow(
+                f"SELECT * FROM {self.config.table_name} WHERE conversation_id = $1",
+                conversation_id,
+            )
             if not row:
                 return Success(None)
 
             # Update last activity
             timestamp = datetime.now().isoformat()
-            await self._db_execute(f"UPDATE {self.config.table_name} SET metadata = metadata || $2 WHERE conversation_id = $1", conversation_id, f'{{"last_activity": "{timestamp}"}}')
+            await self._db_execute(
+                f"UPDATE {self.config.table_name} SET metadata = metadata || $2 WHERE conversation_id = $1",
+                conversation_id,
+                f'{{"last_activity": "{timestamp}"}}',
+            )
 
             return Success(self._row_to_conversation(row))
         except Exception as e:
-            return Failure(MemoryStorageError(operation="get_conversation", provider="Postgres", message=str(e), cause=e))
+            return Failure(
+                MemoryStorageError(
+                    operation="get_conversation", provider="Postgres", message=str(e), cause=e
+                )
+            )
 
     async def append_messages(
         self,
         conversation_id: str,
         messages: List[Message],
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> Result[None, Union[MemoryNotFoundError, MemoryStorageError]]:
         try:
             # First, check if the conversation exists to provide a proper MemoryNotFoundError
@@ -142,7 +158,9 @@ class PostgresProvider(MemoryProvider):
             check_query = f"SELECT 1 FROM {self.config.table_name} WHERE conversation_id = $1"
             exists = await self._db_fetchrow(check_query, conversation_id)
             if not exists:
-                return Failure(MemoryNotFoundError(conversation_id=conversation_id, provider="Postgres"))
+                return Failure(
+                    MemoryNotFoundError(conversation_id=conversation_id, provider="Postgres")
+                )
 
             now = datetime.now()
             update_metadata = metadata or {}
@@ -162,29 +180,31 @@ class PostgresProvider(MemoryProvider):
             new_messages_json = prepare_message_list_for_db(messages)
 
             await self._db_execute(
-                query,
-                new_messages_json,
-                json.dumps(update_metadata),
-                conversation_id
+                query, new_messages_json, json.dumps(update_metadata), conversation_id
             )
             return Success(None)
         except Exception as e:
-            return Failure(MemoryStorageError(operation="append_messages", provider="Postgres", message=str(e), cause=e))
+            return Failure(
+                MemoryStorageError(
+                    operation="append_messages", provider="Postgres", message=str(e), cause=e
+                )
+            )
 
     async def find_conversations(
-        self,
-        query: MemoryQuery
+        self, query: MemoryQuery
     ) -> Result[List[ConversationMemory], MemoryStorageError]:
         try:
             rows = await self._db_fetch(f"SELECT * FROM {self.config.table_name}")
             return Success([self._row_to_conversation(row) for row in rows])
         except Exception as e:
-            return Failure(MemoryStorageError(operation="find_conversations", provider="Postgres", message=str(e), cause=e))
+            return Failure(
+                MemoryStorageError(
+                    operation="find_conversations", provider="Postgres", message=str(e), cause=e
+                )
+            )
 
     async def get_recent_messages(
-        self,
-        conversation_id: str,
-        limit: int = 50
+        self, conversation_id: str, limit: int = 50
     ) -> Result[List[Message], Union[MemoryNotFoundError, MemoryStorageError]]:
         result = await self.get_conversation(conversation_id)
         if isinstance(result, Failure):
@@ -192,57 +212,73 @@ class PostgresProvider(MemoryProvider):
 
         conversation = result.data
         if not conversation:
-            return Failure(MemoryNotFoundError(conversation_id=conversation_id, provider="Postgres", message=f"Conversation {conversation_id} not found"))
+            return Failure(
+                MemoryNotFoundError(
+                    conversation_id=conversation_id,
+                    provider="Postgres",
+                    message=f"Conversation {conversation_id} not found",
+                )
+            )
 
         return Success(conversation.messages[-limit:])
 
-    async def delete_conversation(
-        self,
-        conversation_id: str
-    ) -> Result[bool, MemoryStorageError]:
+    async def delete_conversation(self, conversation_id: str) -> Result[bool, MemoryStorageError]:
         try:
-            result = await self._db_execute(f"DELETE FROM {self.config.table_name} WHERE conversation_id = $1", conversation_id)
-            return Success('DELETE 1' in result)
+            result = await self._db_execute(
+                f"DELETE FROM {self.config.table_name} WHERE conversation_id = $1", conversation_id
+            )
+            return Success("DELETE 1" in result)
         except Exception as e:
-            return Failure(MemoryStorageError(operation="delete_conversation", provider="Postgres", message=str(e), cause=e))
+            return Failure(
+                MemoryStorageError(
+                    operation="delete_conversation", provider="Postgres", message=str(e), cause=e
+                )
+            )
 
-    async def clear_user_conversations(
-        self,
-        user_id: str
-    ) -> Result[int, MemoryStorageError]:
+    async def clear_user_conversations(self, user_id: str) -> Result[int, MemoryStorageError]:
         try:
-            result = await self._db_execute(f"DELETE FROM {self.config.table_name} WHERE user_id = $1", user_id)
-            return Success(int(result.split(' ')[1]))
+            result = await self._db_execute(
+                f"DELETE FROM {self.config.table_name} WHERE user_id = $1", user_id
+            )
+            return Success(int(result.split(" ")[1]))
         except Exception as e:
-            return Failure(MemoryStorageError(operation="clear_user_conversations", provider="Postgres", message=str(e), cause=e))
+            return Failure(
+                MemoryStorageError(
+                    operation="clear_user_conversations",
+                    provider="Postgres",
+                    message=str(e),
+                    cause=e,
+                )
+            )
 
     async def get_stats(
-        self,
-        user_id: Optional[str] = None
+        self, user_id: Optional[str] = None
     ) -> Result[Dict[str, Any], MemoryStorageError]:
         try:
             row = await self._db_fetchrow(f"SELECT COUNT(*) as count FROM {self.config.table_name}")
-            return Success({"total_conversations": row['count']})
+            return Success({"total_conversations": row["count"]})
         except Exception as e:
-            return Failure(MemoryStorageError(operation="get_stats", provider="Postgres", message=str(e), cause=e))
+            return Failure(
+                MemoryStorageError(
+                    operation="get_stats", provider="Postgres", message=str(e), cause=e
+                )
+            )
 
     async def health_check(self) -> Result[Dict[str, Any], MemoryConnectionError]:
         start_time = datetime.now()
         try:
             await self._db_fetch("SELECT 1")
             latency_ms = (datetime.now() - start_time).total_seconds() * 1000
-            return Success({
-                "healthy": True,
-                "provider": "Postgres",
-                "latency_ms": latency_ms
-            })
+            return Success({"healthy": True, "provider": "Postgres", "latency_ms": latency_ms})
         except Exception as e:
-            return Failure(MemoryConnectionError(provider="Postgres", message="Postgres health check failed", cause=e))
+            return Failure(
+                MemoryConnectionError(
+                    provider="Postgres", message="Postgres health check failed", cause=e
+                )
+            )
 
     async def truncate_conversation_after(
-        self,
-        conversation_id: str,
-        message_id: MessageId
+        self, conversation_id: str, message_id: MessageId
     ) -> Result[int, Union[MemoryNotFoundError, MemoryStorageError]]:
         """
         Truncate conversation after (and including) the specified message ID.
@@ -253,30 +289,32 @@ class PostgresProvider(MemoryProvider):
             conv_result = await self.get_conversation(conversation_id)
             if isinstance(conv_result, Failure):
                 return conv_result
-            
+
             if not conv_result.data:
-                return Failure(MemoryNotFoundError(
-                    message=f"Conversation {conversation_id} not found",
-                    provider="Postgres",
-                    conversation_id=conversation_id
-                ))
-            
+                return Failure(
+                    MemoryNotFoundError(
+                        message=f"Conversation {conversation_id} not found",
+                        provider="Postgres",
+                        conversation_id=conversation_id,
+                    )
+                )
+
             conversation = conv_result.data
             messages = list(conversation.messages)
             truncate_index = find_message_index(messages, message_id)
-            
+
             if truncate_index is None:
                 # Message not found, nothing to truncate
                 return Success(0)
-            
+
             # Truncate messages from the found index onwards
             original_count = len(messages)
             truncated_messages = messages[:truncate_index]
             removed_count = original_count - len(truncated_messages)
-            
+
             # Update conversation with truncated messages
             now = datetime.now()
-            
+
             # Convert any datetime objects in existing metadata to ISO strings
             serializable_metadata = {}
             for key, value in conversation.metadata.items():
@@ -284,7 +322,7 @@ class PostgresProvider(MemoryProvider):
                     serializable_metadata[key] = value.isoformat()
                 else:
                     serializable_metadata[key] = value
-            
+
             updated_metadata = {
                 **serializable_metadata,
                 "updated_at": now.isoformat(),
@@ -292,41 +330,44 @@ class PostgresProvider(MemoryProvider):
                 "total_messages": len(truncated_messages),
                 "regeneration_truncated": True,
                 "truncated_at": now.isoformat(),
-                "messages_removed": removed_count
+                "messages_removed": removed_count,
             }
-            
+
             # Update in database
             query = f"""
             UPDATE {self.config.table_name}
             SET messages = $1::jsonb, metadata = $2::jsonb
             WHERE conversation_id = $3
             """
-            
+
             await self._db_execute(
                 query,
                 prepare_message_list_for_db(truncated_messages),
                 json.dumps(updated_metadata),
-                conversation_id
+                conversation_id,
             )
-            
-            print(f"[MEMORY:Postgres] Truncated conversation {conversation_id}: removed {removed_count} messages after message {message_id}")
+
+            print(
+                f"[MEMORY:Postgres] Truncated conversation {conversation_id}: removed {removed_count} messages after message {message_id}"
+            )
             return Success(removed_count)
-            
+
         except Exception as e:
             print(f"[MEMORY:Postgres] DEBUG: Exception in truncate_conversation_after: {e}")
             import traceback
+
             traceback.print_exc()
-            return Failure(MemoryStorageError(
-                message=f"Failed to truncate conversation: {e}",
-                provider="Postgres",
-                operation="truncate_conversation_after",
-                cause=e
-            ))
+            return Failure(
+                MemoryStorageError(
+                    message=f"Failed to truncate conversation: {e}",
+                    provider="Postgres",
+                    operation="truncate_conversation_after",
+                    cause=e,
+                )
+            )
 
     async def get_conversation_until_message(
-        self,
-        conversation_id: str,
-        message_id: MessageId
+        self, conversation_id: str, message_id: MessageId
     ) -> Result[Optional[ConversationMemory], Union[MemoryNotFoundError, MemoryStorageError]]:
         """
         Get conversation history up to (but not including) the specified message ID.
@@ -337,22 +378,24 @@ class PostgresProvider(MemoryProvider):
             conv_result = await self.get_conversation(conversation_id)
             if isinstance(conv_result, Failure):
                 return conv_result
-            
+
             if not conv_result.data:
                 return Success(None)
-            
+
             conversation = conv_result.data
             messages = list(conversation.messages)
             until_index = find_message_index(messages, message_id)
-            
+
             if until_index is None:
                 # Message not found, return None as lightweight indicator
-                print(f"[MEMORY:Postgres] Message {message_id} not found in conversation {conversation_id}")
+                print(
+                    f"[MEMORY:Postgres] Message {message_id} not found in conversation {conversation_id}"
+                )
                 return Success(None)
-            
+
             # Return conversation up to (but not including) the specified message
             truncated_messages = messages[:until_index]
-            
+
             # Create a copy of the conversation with truncated messages
             truncated_conversation = ConversationMemory(
                 conversation_id=conversation.conversation_id,
@@ -363,26 +406,27 @@ class PostgresProvider(MemoryProvider):
                     "truncated_for_regeneration": True,
                     "truncated_until_message": str(message_id),
                     "original_message_count": len(messages),
-                    "truncated_message_count": len(truncated_messages)
-                }
+                    "truncated_message_count": len(truncated_messages),
+                },
             )
-            
-            print(f"[MEMORY:Postgres] Retrieved conversation {conversation_id} until message {message_id}: {len(truncated_messages)} messages")
+
+            print(
+                f"[MEMORY:Postgres] Retrieved conversation {conversation_id} until message {message_id}: {len(truncated_messages)} messages"
+            )
             return Success(truncated_conversation)
-            
+
         except Exception as e:
-            return Failure(MemoryStorageError(
-                message=f"Failed to get conversation until message: {e}",
-                provider="Postgres",
-                operation="get_conversation_until_message",
-                cause=e
-            ))
+            return Failure(
+                MemoryStorageError(
+                    message=f"Failed to get conversation until message: {e}",
+                    provider="Postgres",
+                    operation="get_conversation_until_message",
+                    cause=e,
+                )
+            )
 
     async def mark_regeneration_point(
-        self,
-        conversation_id: str,
-        message_id: MessageId,
-        regeneration_metadata: Dict[str, Any]
+        self, conversation_id: str, message_id: MessageId, regeneration_metadata: Dict[str, Any]
     ) -> Result[None, Union[MemoryNotFoundError, MemoryStorageError]]:
         """
         Mark a regeneration point in the conversation for audit purposes.
@@ -392,77 +436,100 @@ class PostgresProvider(MemoryProvider):
             conv_result = await self.get_conversation(conversation_id)
             if isinstance(conv_result, Failure):
                 return conv_result
-            
+
             if not conv_result.data:
-                return Failure(MemoryNotFoundError(
-                    message=f"Conversation {conversation_id} not found",
-                    provider="Postgres",
-                    conversation_id=conversation_id
-                ))
-            
+                return Failure(
+                    MemoryNotFoundError(
+                        message=f"Conversation {conversation_id} not found",
+                        provider="Postgres",
+                        conversation_id=conversation_id,
+                    )
+                )
+
             conversation = conv_result.data
-            
+
             # Add regeneration point to metadata
             regeneration_points = conversation.metadata.get("regeneration_points", [])
             regeneration_point = {
                 "message_id": str(message_id),
                 "timestamp": datetime.now().isoformat(),
-                **regeneration_metadata
+                **regeneration_metadata,
             }
             regeneration_points.append(regeneration_point)
-            
+
             # Update conversation metadata
             updated_metadata = {
                 **conversation.metadata,
                 "regeneration_points": regeneration_points,
                 "last_regeneration": regeneration_point,
                 "updated_at": datetime.now().isoformat(),
-                "regeneration_count": len(regeneration_points)
+                "regeneration_count": len(regeneration_points),
             }
-            
+
             # Update in database using JSONB merge
             query = f"""
             UPDATE {self.config.table_name}
             SET metadata = metadata || $1::jsonb
             WHERE conversation_id = $2
             """
-            
+
             await self._db_execute(
                 query,
-                json.dumps({
-                    "regeneration_points": regeneration_points,
-                    "last_regeneration": regeneration_point,
-                    "updated_at": updated_metadata["updated_at"],
-                    "regeneration_count": len(regeneration_points)
-                }),
-                conversation_id
+                json.dumps(
+                    {
+                        "regeneration_points": regeneration_points,
+                        "last_regeneration": regeneration_point,
+                        "updated_at": updated_metadata["updated_at"],
+                        "regeneration_count": len(regeneration_points),
+                    }
+                ),
+                conversation_id,
             )
-            
-            print(f"[MEMORY:Postgres] Marked regeneration point for conversation {conversation_id} at message {message_id}")
+
+            print(
+                f"[MEMORY:Postgres] Marked regeneration point for conversation {conversation_id} at message {message_id}"
+            )
             return Success(None)
-            
+
         except Exception as e:
-            return Failure(MemoryStorageError(
-                message=f"Failed to mark regeneration point: {e}",
-                provider="Postgres",
-                operation="mark_regeneration_point",
-                cause=e
-            ))
+            return Failure(
+                MemoryStorageError(
+                    message=f"Failed to mark regeneration point: {e}",
+                    provider="Postgres",
+                    operation="mark_regeneration_point",
+                    cause=e,
+                )
+            )
 
     async def close(self) -> Result[None, MemoryConnectionError]:
         try:
-            if hasattr(self.client, 'close'):
+            if hasattr(self.client, "close"):
                 await self.client.close()
             return Success(None)
         except Exception as e:
-            return Failure(MemoryConnectionError(provider="Postgres", message="Failed to close Postgres connection", cause=e))
+            return Failure(
+                MemoryConnectionError(
+                    provider="Postgres", message="Failed to close Postgres connection", cause=e
+                )
+            )
 
-async def create_postgres_provider(config: PostgresConfig) -> Result[PostgresProvider, MemoryConnectionError]:
+
+async def create_postgres_provider(
+    config: PostgresConfig,
+) -> Result[PostgresProvider, MemoryConnectionError]:
     try:
         # Connect to the default 'postgres' database to check if the target database exists
         try:
-            conn = await asyncpg.connect(user=config.username, password=config.password, host=config.host, port=config.port, database='postgres')
-            db_exists = await conn.fetchval("SELECT 1 FROM pg_database WHERE datname = $1", config.database)
+            conn = await asyncpg.connect(
+                user=config.username,
+                password=config.password,
+                host=config.host,
+                port=config.port,
+                database="postgres",
+            )
+            db_exists = await conn.fetchval(
+                "SELECT 1 FROM pg_database WHERE datname = $1", config.database
+            )
             if not db_exists:
                 await conn.execute(f'CREATE DATABASE "{config.database}"')
             await conn.close()
@@ -474,9 +541,7 @@ async def create_postgres_provider(config: PostgresConfig) -> Result[PostgresPro
         # Now connect to the target database using connection pool with max_connections
         if config.connection_string:
             client = await asyncpg.create_pool(
-                dsn=config.connection_string,
-                min_size=1,
-                max_size=config.max_connections
+                dsn=config.connection_string, min_size=1, max_size=config.max_connections
             )
         else:
             client = await asyncpg.create_pool(
@@ -486,7 +551,7 @@ async def create_postgres_provider(config: PostgresConfig) -> Result[PostgresPro
                 password=config.password,
                 database=config.database,
                 min_size=1,
-                max_size=config.max_connections
+                max_size=config.max_connections,
             )
 
         table_name = config.table_name or "conversations"
@@ -507,8 +572,13 @@ async def create_postgres_provider(config: PostgresConfig) -> Result[PostgresPro
         provider_config = config
         if not provider_config.table_name:
             from dataclasses import replace
+
             provider_config = replace(config, table_name=table_name)
 
         return Success(PostgresProvider(provider_config, client))
     except Exception as e:
-        return Failure(MemoryConnectionError(provider="Postgres", message="Failed to connect to PostgreSQL", cause=e))
+        return Failure(
+            MemoryConnectionError(
+                provider="Postgres", message="Failed to connect to PostgreSQL", cause=e
+            )
+        )

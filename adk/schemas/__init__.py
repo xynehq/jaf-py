@@ -16,16 +16,16 @@ from .validation import (
     validate_number,
     validate_array,
     validate_object,
-    ValidationResult
+    ValidationResult,
 )
 from .types import JsonSchema
 
 __all__ = [
-    'validate_schema',
-    'validate_string', 
-    'validate_number',
-    'validate_array',
-    'validate_object',
-    'ValidationResult',
-    'JsonSchema'
+    "validate_schema",
+    "validate_string",
+    "validate_number",
+    "validate_array",
+    "validate_object",
+    "ValidationResult",
+    "JsonSchema",
 ]

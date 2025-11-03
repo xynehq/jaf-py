@@ -44,10 +44,7 @@ class TestClientCreation:
 
     def test_create_a2a_client_with_config(self):
         """Test client creation with custom configuration"""
-        config = {
-            "timeout": 60000,
-            "custom_field": "value"
-        }
+        config = {"timeout": 60000, "custom_field": "value"}
 
         client = create_a2a_client("http://example.com/", config)
 
@@ -69,11 +66,7 @@ class TestRequestCreation:
 
     def test_create_message_request(self):
         """Test creating message requests"""
-        request = create_message_request(
-            "Hello, world!",
-            "session_123",
-            {"model": "gpt-4"}
-        )
+        request = create_message_request("Hello, world!", "session_123", {"model": "gpt-4"})
 
         assert request["jsonrpc"] == "2.0"
         assert request["method"] == "message/send"
@@ -93,10 +86,7 @@ class TestRequestCreation:
 
     def test_create_message_request_no_config(self):
         """Test creating message request without configuration"""
-        request = create_message_request(
-            "Test message",
-            "session_456"
-        )
+        request = create_message_request("Test message", "session_456")
 
         assert request["jsonrpc"] == "2.0"
         assert request["method"] == "message/send"
@@ -106,9 +96,7 @@ class TestRequestCreation:
     def test_create_streaming_message_request(self):
         """Test creating streaming message requests"""
         request = create_streaming_message_request(
-            "Stream this message",
-            "session_789",
-            {"temperature": 0.8}
+            "Stream this message", "session_789", {"temperature": 0.8}
         )
 
         assert request["jsonrpc"] == "2.0"
@@ -128,7 +116,7 @@ class TestHTTPRequests:
     """Test HTTP request functions"""
 
     @pytest.mark.asyncio
-    @patch('jaf.a2a.client.httpx.AsyncClient')
+    @patch("jaf.a2a.client.httpx.AsyncClient")
     async def test_send_http_request_success(self, mock_client_class):
         """Test successful HTTP request"""
         # Mock response
@@ -148,20 +136,17 @@ class TestHTTPRequests:
 
         # Await the mock response if it's a coroutine
         expected_result = {"result": "success"}
-        if hasattr(result, '__await__'):
+        if hasattr(result, "__await__"):
             result = await result
         assert result == expected_result
         mock_client.post.assert_called_once_with(
             url,
             json=body,
-            headers={
-                "Content-Type": "application/json",
-                "Accept": "application/json"
-            }
+            headers={"Content-Type": "application/json", "Accept": "application/json"},
         )
 
     @pytest.mark.asyncio
-    @patch('jaf.a2a.client.httpx.AsyncClient')
+    @patch("jaf.a2a.client.httpx.AsyncClient")
     async def test_send_http_request_http_error(self, mock_client_class):
         """Test HTTP request with error status"""
         # Mock error response
@@ -181,7 +166,7 @@ class TestHTTPRequests:
         assert "HTTP 404: Not Found" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    @patch('jaf.a2a.client.httpx.AsyncClient')
+    @patch("jaf.a2a.client.httpx.AsyncClient")
     async def test_send_http_request_timeout(self, mock_client_class):
         """Test HTTP request timeout"""
         # Mock client that raises timeout
@@ -200,17 +185,13 @@ class TestHTTPRequests:
         client = create_a2a_client("http://localhost:3000")
         request = {"test": "request"}
 
-        with patch('jaf.a2a.client.send_http_request') as mock_send:
+        with patch("jaf.a2a.client.send_http_request") as mock_send:
             mock_send.return_value = {"result": "success"}
 
             result = await send_a2a_request(client, request)
 
             assert result == {"result": "success"}
-            mock_send.assert_called_once_with(
-                "http://localhost:3000/a2a",
-                request,
-                30000
-            )
+            mock_send.assert_called_once_with("http://localhost:3000/a2a", request, 30000)
 
 
 class TestMessageSending:
@@ -227,13 +208,11 @@ class TestMessageSending:
             "id": "req_123",
             "result": {
                 "kind": "task",
-                "artifacts": [{
-                    "parts": [{"kind": "text", "text": "Hello back!"}]
-                }]
-            }
+                "artifacts": [{"parts": [{"kind": "text", "text": "Hello back!"}]}],
+            },
         }
 
-        with patch('jaf.a2a.client.send_a2a_request') as mock_send:
+        with patch("jaf.a2a.client.send_a2a_request") as mock_send:
             mock_send.return_value = mock_response
 
             result = await send_message(client, "Hello!", {"model": "gpt-4"})
@@ -250,13 +229,10 @@ class TestMessageSending:
         mock_response = {
             "jsonrpc": "2.0",
             "id": "req_123",
-            "error": {
-                "code": -32603,
-                "message": "Internal error"
-            }
+            "error": {"code": -32603, "message": "Internal error"},
         }
 
-        with patch('jaf.a2a.client.send_a2a_request') as mock_send:
+        with patch("jaf.a2a.client.send_a2a_request") as mock_send:
             mock_send.return_value = mock_response
 
             with pytest.raises(Exception) as exc_info:
@@ -269,18 +245,12 @@ class TestMessageSending:
         """Test sending message to specific agent"""
         client = create_a2a_client("http://localhost:3000")
 
-        mock_response = {
-            "jsonrpc": "2.0",
-            "id": "req_123",
-            "result": "Agent response"
-        }
+        mock_response = {"jsonrpc": "2.0", "id": "req_123", "result": "Agent response"}
 
-        with patch('jaf.a2a.client.send_http_request') as mock_send:
+        with patch("jaf.a2a.client.send_http_request") as mock_send:
             mock_send.return_value = mock_response
 
-            result = await send_message_to_agent(
-                client, "TestAgent", "Hello agent!"
-            )
+            result = await send_message_to_agent(client, "TestAgent", "Hello agent!")
 
             assert result == "Agent response"
             mock_send.assert_called_once()
@@ -294,7 +264,7 @@ class TestStreaming:
     """Test streaming functionality"""
 
     @pytest.mark.asyncio
-    @patch('jaf.a2a.client.stream_message')
+    @patch("jaf.a2a.client.stream_message")
     async def test_stream_message_success(self, mock_stream_message):
         """Test successful message streaming"""
         client = create_a2a_client("http://localhost:3000")
@@ -316,7 +286,7 @@ class TestStreaming:
         mock_stream_message.assert_called_once_with(client, "Stream test")
 
     @pytest.mark.asyncio
-    @patch('jaf.a2a.client.stream_message_to_agent')
+    @patch("jaf.a2a.client.stream_message_to_agent")
     async def test_stream_message_to_agent(self, mock_stream_message_to_agent):
         """Test streaming message to specific agent"""
         client = create_a2a_client("http://localhost:3000")
@@ -328,9 +298,7 @@ class TestStreaming:
         mock_stream_message_to_agent.side_effect = mock_stream_events
 
         events = []
-        async for event in mock_stream_message_to_agent(
-            client, "TestAgent", "Stream to agent"
-        ):
+        async for event in mock_stream_message_to_agent(client, "TestAgent", "Stream to agent"):
             events.append(event)
 
         assert len(events) == 1
@@ -342,7 +310,7 @@ class TestAgentDiscovery:
     """Test agent discovery functions"""
 
     @pytest.mark.asyncio
-    @patch('jaf.a2a.client.httpx.AsyncClient')
+    @patch("jaf.a2a.client.httpx.AsyncClient")
     async def test_get_agent_card(self, mock_client_class):
         """Test getting agent card"""
         client = create_a2a_client("http://localhost:3000")
@@ -351,7 +319,7 @@ class TestAgentDiscovery:
             "protocolVersion": "0.3.0",
             "name": "Test Agent",
             "description": "A test agent",
-            "skills": []
+            "skills": [],
         }
 
         # Mock response
@@ -367,23 +335,19 @@ class TestAgentDiscovery:
         result = await get_agent_card(client)
 
         # Handle mock coroutine if needed
-        if hasattr(result, '__await__'):
+        if hasattr(result, "__await__"):
             result = await result
         assert result == mock_agent_card
         mock_client.get.assert_called_once_with(
-            "http://localhost:3000/.well-known/agent-card",
-            headers={"Accept": "application/json"}
+            "http://localhost:3000/.well-known/agent-card", headers={"Accept": "application/json"}
         )
 
     @pytest.mark.asyncio
     async def test_discover_agents(self):
         """Test discover agents convenience function"""
-        mock_agent_card = {
-            "name": "Test Server",
-            "skills": [{"name": "skill1"}]
-        }
+        mock_agent_card = {"name": "Test Server", "skills": [{"name": "skill1"}]}
 
-        with patch('jaf.a2a.client.get_agent_card') as mock_get_card:
+        with patch("jaf.a2a.client.get_agent_card") as mock_get_card:
             mock_get_card.return_value = mock_agent_card
 
             result = await discover_agents("http://localhost:3000")
@@ -396,16 +360,12 @@ class TestHealthAndCapabilities:
     """Test health and capabilities functions"""
 
     @pytest.mark.asyncio
-    @patch('jaf.a2a.client.httpx.AsyncClient')
+    @patch("jaf.a2a.client.httpx.AsyncClient")
     async def test_check_a2a_health(self, mock_client_class):
         """Test health check"""
         client = create_a2a_client("http://localhost:3000")
 
-        mock_health = {
-            "status": "healthy",
-            "protocol": "A2A",
-            "version": "0.3.0"
-        }
+        mock_health = {"status": "healthy", "protocol": "A2A", "version": "0.3.0"}
 
         # Mock response
         mock_response = AsyncMock()
@@ -420,23 +380,22 @@ class TestHealthAndCapabilities:
         result = await check_a2a_health(client)
 
         # Handle mock coroutine if needed
-        if hasattr(result, '__await__'):
+        if hasattr(result, "__await__"):
             result = await result
         assert result == mock_health
         mock_client.get.assert_called_once_with(
-            "http://localhost:3000/a2a/health",
-            headers={"Accept": "application/json"}
+            "http://localhost:3000/a2a/health", headers={"Accept": "application/json"}
         )
 
     @pytest.mark.asyncio
-    @patch('jaf.a2a.client.httpx.AsyncClient')
+    @patch("jaf.a2a.client.httpx.AsyncClient")
     async def test_get_a2a_capabilities(self, mock_client_class):
         """Test getting capabilities"""
         client = create_a2a_client("http://localhost:3000")
 
         mock_capabilities = {
             "supportedMethods": ["message/send", "message/stream"],
-            "supportedTransports": ["JSONRPC"]
+            "supportedTransports": ["JSONRPC"],
         }
 
         # Mock response
@@ -452,12 +411,11 @@ class TestHealthAndCapabilities:
         result = await get_a2a_capabilities(client)
 
         # Handle mock coroutine if needed
-        if hasattr(result, '__await__'):
+        if hasattr(result, "__await__"):
             result = await result
         assert result == mock_capabilities
         mock_client.get.assert_called_once_with(
-            "http://localhost:3000/a2a/capabilities",
-            headers={"Accept": "application/json"}
+            "http://localhost:3000/a2a/capabilities", headers={"Accept": "application/json"}
         )
 
 
@@ -473,20 +431,16 @@ class TestResponseProcessing:
         """Test extracting text from task response"""
         task_response = {
             "kind": "task",
-            "artifacts": [{
-                "parts": [
-                    {"kind": "text", "text": "First text part"},
-                    {"kind": "data", "data": {"key": "value"}},
-                    {"kind": "text", "text": "Second text part"}
-                ]
-            }],
-            "history": [
+            "artifacts": [
                 {
                     "parts": [
-                        {"kind": "text", "text": "History message"}
+                        {"kind": "text", "text": "First text part"},
+                        {"kind": "data", "data": {"key": "value"}},
+                        {"kind": "text", "text": "Second text part"},
                     ]
                 }
-            ]
+            ],
+            "history": [{"parts": [{"kind": "text", "text": "History message"}]}],
         }
 
         result = extract_text_response(task_response)
@@ -501,10 +455,10 @@ class TestResponseProcessing:
                 {
                     "parts": [
                         {"kind": "text", "text": "History text 1"},
-                        {"kind": "text", "text": "History text 2"}
+                        {"kind": "text", "text": "History text 2"},
                     ]
                 }
-            ]
+            ],
         }
 
         result = extract_text_response(task_response)
@@ -516,8 +470,8 @@ class TestResponseProcessing:
             "kind": "message",
             "parts": [
                 {"kind": "text", "text": "Message part 1"},
-                {"kind": "text", "text": "Message part 2"}
-            ]
+                {"kind": "text", "text": "Message part 2"},
+            ],
         }
 
         result = extract_text_response(message_response)
@@ -546,11 +500,7 @@ class TestUtilityFunctions:
 
     def test_create_a2a_message_dict(self):
         """Test creating A2A message dictionary"""
-        message = create_a2a_message_dict(
-            "Hello world",
-            "agent",
-            "ctx_123"
-        )
+        message = create_a2a_message_dict("Hello world", "agent", "ctx_123")
 
         assert message["role"] == "agent"
         assert message["parts"][0]["kind"] == "text"
@@ -589,11 +539,7 @@ class TestUtilityFunctions:
 
     def test_validate_a2a_response_valid(self):
         """Test validating valid A2A responses"""
-        valid_response = {
-            "jsonrpc": "2.0",
-            "id": "req_123",
-            "result": {"data": "success"}
-        }
+        valid_response = {"jsonrpc": "2.0", "id": "req_123", "result": {"data": "success"}}
 
         assert validate_a2a_response(valid_response) is True
 
@@ -601,7 +547,7 @@ class TestUtilityFunctions:
         valid_error = {
             "jsonrpc": "2.0",
             "id": "req_123",
-            "error": {"code": -32603, "message": "Error"}
+            "error": {"code": -32603, "message": "Error"},
         }
 
         assert validate_a2a_response(valid_error) is True
@@ -612,19 +558,13 @@ class TestUtilityFunctions:
         assert validate_a2a_response({"id": "req_123", "result": {}}) is False
 
         # Wrong jsonrpc version
-        assert validate_a2a_response({
-            "jsonrpc": "1.0", "id": "req_123", "result": {}
-        }) is False
+        assert validate_a2a_response({"jsonrpc": "1.0", "id": "req_123", "result": {}}) is False
 
         # Missing id
-        assert validate_a2a_response({
-            "jsonrpc": "2.0", "result": {}
-        }) is False
+        assert validate_a2a_response({"jsonrpc": "2.0", "result": {}}) is False
 
         # Missing both result and error
-        assert validate_a2a_response({
-            "jsonrpc": "2.0", "id": "req_123"
-        }) is False
+        assert validate_a2a_response({"jsonrpc": "2.0", "id": "req_123"}) is False
 
         # Not a dict
         assert validate_a2a_response("not a dict") is False
@@ -636,12 +576,9 @@ class TestConvenienceConnection:
     @pytest.mark.asyncio
     async def test_connect_to_a2a_agent(self):
         """Test convenience connection to A2A agent"""
-        mock_agent_card = {
-            "name": "Test Agent",
-            "description": "Test description"
-        }
+        mock_agent_card = {"name": "Test Agent", "description": "Test description"}
 
-        with patch('jaf.a2a.client.get_agent_card') as mock_get_card:
+        with patch("jaf.a2a.client.get_agent_card") as mock_get_card:
             mock_get_card.return_value = mock_agent_card
 
             connection = await connect_to_a2a_agent("http://localhost:3000")

@@ -8,7 +8,7 @@ It provides a centralized way to execute all tests regardless of their location.
 Usage:
     python run_all_tests.py [options]
     python run_all_tests.py --suite <suite_name>
-    
+
 Options:
     --suite         Run a predefined test suite (all, fast, unit, integration, a2a, memory, visualization, smoke, ci)
     --fast          Run tests without coverage reporting
@@ -18,7 +18,7 @@ Options:
     --list          List all discovered test files and exit
     --list-suites   List all available test suites and exit
     --parallel      Run tests in parallel (requires pytest-xdist)
-    
+
 Examples:
     python run_all_tests.py --suite fast
     python run_all_tests.py --suite a2a
@@ -42,8 +42,10 @@ except ImportError:
     # Fallback if test_config is not available
     def get_test_suite(name: str):
         return None
+
     def list_test_suites():
         print("Test suites not available - test_config.py not found")
+
     TEST_SUITES = {}
 
 
@@ -86,7 +88,7 @@ def build_pytest_command(
     markers: Optional[str] = None,
     path: Optional[str] = None,
     parallel: bool = False,
-    extra_args: List[str] = None
+    extra_args: List[str] = None,
 ) -> List[str]:
     """Build the pytest command with appropriate options."""
     cmd = ["python3", "-m", "pytest"]
@@ -101,6 +103,7 @@ def build_pytest_command(
         # Normal mode: add coverage if pytest-cov is available
         try:
             import pytest_cov
+
             cmd.extend(["--cov=jaf", "--cov-report=term-missing"])
         except ImportError:
             pass  # Skip coverage if plugin not available
@@ -115,6 +118,7 @@ def build_pytest_command(
         # Only add parallel args if pytest-xdist is available
         try:
             import xdist
+
             cmd.extend(["-n", "auto"])
         except ImportError:
             print("⚠️ Warning: pytest-xdist not available, running tests sequentially")
@@ -207,7 +211,7 @@ def run_tests(args: argparse.Namespace) -> int:
         markers=args.markers,
         path=args.path,
         parallel=args.parallel,
-        extra_args=args.extra_args
+        extra_args=args.extra_args,
     )
 
     print(f"🚀 Executing: {' '.join(cmd)}")
@@ -229,63 +233,45 @@ def main():
     parser = argparse.ArgumentParser(
         description="Global test runner for JAF Python repository",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__
+        epilog=__doc__,
     )
 
     parser.add_argument(
         "--suite",
         type=str,
         choices=list(TEST_SUITES.keys()) if TEST_SUITES else None,
-        help="Run a predefined test suite"
+        help="Run a predefined test suite",
     )
 
     parser.add_argument(
         "--fast",
         action="store_true",
-        help="Run tests without coverage reporting for faster execution"
+        help="Run tests without coverage reporting for faster execution",
     )
 
-    parser.add_argument(
-        "--verbose",
-        action="store_true",
-        help="Run with extra verbose output"
-    )
+    parser.add_argument("--verbose", action="store_true", help="Run with extra verbose output")
 
     parser.add_argument(
         "--markers",
         type=str,
-        help="Filter tests by markers (unit, integration, a2a, memory, visualization)"
+        help="Filter tests by markers (unit, integration, a2a, memory, visualization)",
+    )
+
+    parser.add_argument("--path", type=str, help="Run tests only from specific path")
+
+    parser.add_argument(
+        "--list", action="store_true", help="List all discovered test files and exit"
     )
 
     parser.add_argument(
-        "--path",
-        type=str,
-        help="Run tests only from specific path"
+        "--list-suites", action="store_true", help="List all available test suites and exit"
     )
 
     parser.add_argument(
-        "--list",
-        action="store_true",
-        help="List all discovered test files and exit"
+        "--parallel", action="store_true", help="Run tests in parallel (requires pytest-xdist)"
     )
 
-    parser.add_argument(
-        "--list-suites",
-        action="store_true",
-        help="List all available test suites and exit"
-    )
-
-    parser.add_argument(
-        "--parallel",
-        action="store_true",
-        help="Run tests in parallel (requires pytest-xdist)"
-    )
-
-    parser.add_argument(
-        "extra_args",
-        nargs="*",
-        help="Additional arguments to pass to pytest"
-    )
+    parser.add_argument("extra_args", nargs="*", help="Additional arguments to pass to pytest")
 
     args = parser.parse_args()
 

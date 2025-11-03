@@ -20,6 +20,7 @@ from jaf.policies.validation import (
 
 class ValidationTestOutput(BaseModel):
     """Test output format for validation."""
+
     message: str
     priority: int
 
@@ -28,9 +29,7 @@ class ValidationTestOutput(BaseModel):
 async def test_content_filter_guardrail():
     """Test content filtering guardrail."""
     # Create content filter
-    filter_guardrail = create_content_filter([
-        "badword", "inappropriate", "spam"
-    ])
+    filter_guardrail = create_content_filter(["badword", "inappropriate", "spam"])
 
     # Test valid content
     result = await filter_guardrail("This is a normal message")
@@ -120,7 +119,9 @@ async def test_combine_guardrails():
     assert "exceeds maximum length" in result.error_message
 
     # Test fails both (should return first failure)
-    result = await combined_guardrail("This is a very long message with bad word that exceeds limit")
+    result = await combined_guardrail(
+        "This is a very long message with bad word that exceeds limit"
+    )
     assert not result.is_valid
     # Should fail on content first (since it's first in the list)
     assert "inappropriate content" in result.error_message.lower()
@@ -129,6 +130,7 @@ async def test_combine_guardrails():
 @pytest.mark.asyncio
 async def test_synchronous_guardrails():
     """Test that synchronous guardrails work correctly."""
+
     def sync_guardrail(text: str) -> ValidationResult:
         if "banana" in text:
             return InvalidValidationResult(error_message="Sync validation failed")
@@ -172,11 +174,11 @@ async def test_empty_guardrails_list():
 @pytest.mark.asyncio
 async def test_guardrail_with_objects():
     """Test guardrails with complex objects."""
+
     def object_guardrail(obj: Any) -> ValidationResult:
         # Handle both objects with attributes and dictionaries with keys
-        has_dangerous_field = (
-            hasattr(obj, 'dangerous_field') or
-            (isinstance(obj, dict) and 'dangerous_field' in obj)
+        has_dangerous_field = hasattr(obj, "dangerous_field") or (
+            isinstance(obj, dict) and "dangerous_field" in obj
         )
 
         if has_dangerous_field:
@@ -198,6 +200,7 @@ async def test_guardrail_with_objects():
 @pytest.mark.asyncio
 async def test_custom_error_messages():
     """Test custom error messages in guardrails."""
+
     def custom_message_guardrail(text: str) -> ValidationResult:
         if "trigger" in text:
             return InvalidValidationResult(
@@ -217,6 +220,7 @@ async def test_custom_error_messages():
 @pytest.mark.asyncio
 async def test_guardrail_exception_handling():
     """Test that guardrail exceptions are handled gracefully."""
+
     def failing_guardrail(text: str) -> ValidationResult:
         raise Exception("Guardrail implementation error")
 
@@ -241,7 +245,7 @@ async def test_regex_pattern_validation():
     import re
 
     def email_format_guardrail(text: str) -> ValidationResult:
-        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
         if not re.match(email_pattern, text):
             return InvalidValidationResult(error_message="Invalid email format")
         return ValidValidationResult()
@@ -263,9 +267,10 @@ async def test_regex_pattern_validation():
 @pytest.mark.asyncio
 async def test_conditional_validation():
     """Test conditional validation based on context."""
+
     def conditional_guardrail(data: Any) -> ValidationResult:
         if isinstance(data, dict):
-            if data.get('type') == 'sensitive' and not data.get('authorized'):
+            if data.get("type") == "sensitive" and not data.get("authorized"):
                 return InvalidValidationResult(
                     error_message="Sensitive data requires authorization"
                 )

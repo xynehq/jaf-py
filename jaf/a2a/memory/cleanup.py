@@ -106,9 +106,7 @@ async def perform_task_cleanup(
         )
 
     if not config.enabled:
-        return create_a2a_success(
-            CleanupResult(0, 0, 0, 0, [], 0)
-        )
+        return create_a2a_success(CleanupResult(0, 0, 0, 0, [], 0))
 
     errors: List[str] = []
     tasks_to_delete: Set[str] = set()
@@ -116,7 +114,7 @@ async def perform_task_cleanup(
     # 1. Age-based cleanup
     if config.max_age is not None:
         cutoff_date = datetime.now(timezone.utc) - timedelta(seconds=config.max_age)
-        
+
         # Find all tasks older than the cutoff date
         # We query all states and filter out the ones to retain
         try:
@@ -124,7 +122,7 @@ async def perform_task_cleanup(
                 A2ATaskQuery(
                     context_id=context_id,
                     until=cutoff_date,
-                    limit=10000 # A high limit to get a large batch
+                    limit=10000,  # A high limit to get a large batch
                 )
             )
 
@@ -145,18 +143,27 @@ async def perform_task_cleanup(
     if config.max_completed_tasks is not None:
         try:
             completed_tasks_result = await task_provider.find_tasks(
-                A2ATaskQuery(state=TaskState.COMPLETED, context_id=context_id, limit=config.max_completed_tasks + 200)
+                A2ATaskQuery(
+                    state=TaskState.COMPLETED,
+                    context_id=context_id,
+                    limit=config.max_completed_tasks + 200,
+                )
             )
             if completed_tasks_result.data:
                 tasks = [t for t in completed_tasks_result.data if t.id not in tasks_to_delete]
                 if len(tasks) > config.max_completed_tasks:
-                    tasks.sort(key=lambda t: t.status.timestamp or datetime.min.replace(tzinfo=timezone.utc))
+                    tasks.sort(
+                        key=lambda t: t.status.timestamp
+                        or datetime.min.replace(tzinfo=timezone.utc)
+                    )
                     num_to_delete = len(tasks) - config.max_completed_tasks
                     for i in range(num_to_delete):
                         tasks_to_delete.add(tasks[i].id)
                         excess_completed_cleaned += 1
             elif completed_tasks_result.error:
-                errors.append(f"Failed to query completed tasks: {completed_tasks_result.error.message}")
+                errors.append(
+                    f"Failed to query completed tasks: {completed_tasks_result.error.message}"
+                )
         except Exception as e:
             errors.append(f"Error during completed task count cleanup: {e!s}")
 
@@ -165,12 +172,19 @@ async def perform_task_cleanup(
     if config.max_failed_tasks is not None:
         try:
             failed_tasks_result = await task_provider.find_tasks(
-                A2ATaskQuery(state=TaskState.FAILED, context_id=context_id, limit=config.max_failed_tasks + 200)
+                A2ATaskQuery(
+                    state=TaskState.FAILED,
+                    context_id=context_id,
+                    limit=config.max_failed_tasks + 200,
+                )
             )
             if failed_tasks_result.data:
                 tasks = [t for t in failed_tasks_result.data if t.id not in tasks_to_delete]
                 if len(tasks) > config.max_failed_tasks:
-                    tasks.sort(key=lambda t: t.status.timestamp or datetime.min.replace(tzinfo=timezone.utc))
+                    tasks.sort(
+                        key=lambda t: t.status.timestamp
+                        or datetime.min.replace(tzinfo=timezone.utc)
+                    )
                     num_to_delete = len(tasks) - config.max_failed_tasks
                     for i in range(num_to_delete):
                         tasks_to_delete.add(tasks[i].id)
@@ -179,7 +193,6 @@ async def perform_task_cleanup(
                 errors.append(f"Failed to query failed tasks: {failed_tasks_result.error.message}")
         except Exception as e:
             errors.append(f"Error during failed task count cleanup: {e!s}")
-
 
     if config.dry_run:
         return create_a2a_success(
@@ -210,7 +223,7 @@ async def perform_task_cleanup(
     # This is complex as we don't know which category succeeded.
     # The initial counts are based on intent.
     # For now, we return the intended breakdown and total actual deletions.
-    
+
     final_result = CleanupResult(
         expired_cleaned=expired_cleaned,
         excess_completed_cleaned=excess_completed_cleaned,
@@ -294,9 +307,7 @@ class TaskCleanupScheduler:
                         f"A2A task cleanup completed: {cleanup_result.total_cleaned} tasks cleaned"
                     )
                     if cleanup_result.errors:
-                        print(
-                            f"A2A task cleanup errors: {', '.join(cleanup_result.errors)}"
-                        )
+                        print(f"A2A task cleanup errors: {', '.join(cleanup_result.errors)}")
             elif result.error:
                 print(f"A2A task cleanup failed: {result.error.message}")
 
@@ -318,18 +329,14 @@ def create_cleanup_config_from_env() -> A2ATaskCleanupConfig:
     """
     Helper function to create cleanup config from environment variables
     """
-    retain_states_str = os.getenv(
-        "JAF_A2A_CLEANUP_RETAIN_STATES", "working,submitted"
-    )
+    retain_states_str = os.getenv("JAF_A2A_CLEANUP_RETAIN_STATES", "working,submitted")
     retain_states = [s.strip() for s in retain_states_str.split(",") if s.strip()]
 
     return A2ATaskCleanupConfig(
         enabled=os.getenv("JAF_A2A_CLEANUP_ENABLED", "true").lower() == "true",
         interval=int(os.getenv("JAF_A2A_CLEANUP_INTERVAL", "3600")),
         max_age=int(os.getenv("JAF_A2A_CLEANUP_MAX_AGE", str(7 * 24 * 60 * 60))),
-        max_completed_tasks=int(
-            os.getenv("JAF_A2A_CLEANUP_MAX_COMPLETED", "1000")
-        ),
+        max_completed_tasks=int(os.getenv("JAF_A2A_CLEANUP_MAX_COMPLETED", "1000")),
         max_failed_tasks=int(os.getenv("JAF_A2A_CLEANUP_MAX_FAILED", "500")),
         retain_states=retain_states,
         batch_size=int(os.getenv("JAF_A2A_CLEANUP_BATCH_SIZE", "100")),

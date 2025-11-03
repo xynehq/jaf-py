@@ -57,12 +57,7 @@ class MockModelProvider:
     """Mock model provider for testing"""
 
     async def get_completion(self, state, agent, config):
-        return {
-            "message": {
-                "content": "Mock response from agent",
-                "tool_calls": None
-            }
-        }
+        return {"message": {"content": "Mock response from agent", "tool_calls": None}}
 
 
 class TestAgentCreation:
@@ -70,12 +65,7 @@ class TestAgentCreation:
 
     def test_create_a2a_agent_basic(self):
         """Test basic A2A agent creation"""
-        agent = create_a2a_agent(
-            "TestAgent",
-            "A test agent",
-            "You are helpful",
-            []
-        )
+        agent = create_a2a_agent("TestAgent", "A test agent", "You are helpful", [])
 
         assert isinstance(agent, A2AAgent)
         assert agent.name == "TestAgent"
@@ -87,19 +77,10 @@ class TestAgentCreation:
 
     def test_create_a2a_agent_with_tools(self):
         """Test A2A agent creation with tools"""
-        tool = create_a2a_tool(
-            "test_tool",
-            "A test tool",
-            {"type": "object"},
-            mock_tool_function
-        )
+        tool = create_a2a_tool("test_tool", "A test tool", {"type": "object"}, mock_tool_function)
 
         agent = create_a2a_agent(
-            "ToolAgent",
-            "Agent with tools",
-            "Use tools wisely",
-            [tool],
-            ["text/plain", "text/html"]
+            "ToolAgent", "Agent with tools", "Use tools wisely", [tool], ["text/plain", "text/html"]
         )
 
         assert len(agent.tools) == 1
@@ -108,19 +89,9 @@ class TestAgentCreation:
 
     def test_create_a2a_tool(self):
         """Test A2A tool creation"""
-        parameters = {
-            "type": "object",
-            "properties": {
-                "message": {"type": "string"}
-            }
-        }
+        parameters = {"type": "object", "properties": {"message": {"type": "string"}}}
 
-        tool = create_a2a_tool(
-            "echo_tool",
-            "Echoes back the input",
-            parameters,
-            mock_tool_function
-        )
+        tool = create_a2a_tool("echo_tool", "Echoes back the input", parameters, mock_tool_function)
 
         assert isinstance(tool, A2AAgentTool)
         assert tool.name == "echo_tool"
@@ -134,19 +105,9 @@ class TestAgentTransformation:
 
     def test_transform_a2a_agent_to_jaf(self):
         """Test transforming A2A agent to JAF agent"""
-        a2a_tool = create_a2a_tool(
-            "test_tool",
-            "Test tool",
-            {"type": "object"},
-            mock_tool_function
-        )
+        a2a_tool = create_a2a_tool("test_tool", "Test tool", {"type": "object"}, mock_tool_function)
 
-        a2a_agent = create_a2a_agent(
-            "TestAgent",
-            "Test agent",
-            "You are a test agent",
-            [a2a_tool]
-        )
+        a2a_agent = create_a2a_agent("TestAgent", "Test agent", "You are a test agent", [a2a_tool])
 
         jaf_agent = transform_a2a_agent_to_jaf(a2a_agent)
 
@@ -162,17 +123,14 @@ class TestAgentTransformation:
     async def test_transform_a2a_tool_to_jaf(self):
         """Test transforming A2A tool to JAF tool"""
         a2a_tool = create_a2a_tool(
-            "math_tool",
-            "Performs math calculations",
-            {"type": "object"},
-            mock_tool_function
+            "math_tool", "Performs math calculations", {"type": "object"}, mock_tool_function
         )
 
         jaf_tool = transform_a2a_tool_to_jaf(a2a_tool)
 
         # Check that it has the required Tool protocol attributes
-        assert hasattr(jaf_tool, 'schema')
-        assert hasattr(jaf_tool, 'execute')
+        assert hasattr(jaf_tool, "schema")
+        assert hasattr(jaf_tool, "execute")
         assert jaf_tool.schema.name == "math_tool"
         assert jaf_tool.schema.description == "Performs math calculations"
 
@@ -183,15 +141,13 @@ class TestAgentTransformation:
     @pytest.mark.asyncio
     async def test_tool_result_handling(self):
         """Test tool result format handling"""
+
         # Tool that returns ToolResult format
         async def tool_with_result_format(args, context):
             return {"result": "formatted result"}
 
         a2a_tool = create_a2a_tool(
-            "format_tool",
-            "Tool with result format",
-            {},
-            tool_with_result_format
+            "format_tool", "Tool with result format", {}, tool_with_result_format
         )
 
         jaf_tool = transform_a2a_tool_to_jaf(a2a_tool)
@@ -218,9 +174,7 @@ class TestStateManagement:
         """Test adding message to agent state"""
         initial_state = create_initial_agent_state("session_123")
         message = create_a2a_message(
-            role="user",
-            parts=[create_a2a_text_part("Hello")],
-            context_id="session_123"
+            role="user", parts=[create_a2a_text_part("Hello")], context_id="session_123"
         )
 
         new_state = add_message_to_state(initial_state, message)
@@ -269,7 +223,7 @@ class TestMessageProcessing:
             "parts": [
                 {"kind": "text", "text": "First part"},
                 {"kind": "data", "data": {"key": "value"}},
-                {"kind": "text", "text": "Second part"}
+                {"kind": "text", "text": "Second part"},
             ]
         }
 
@@ -286,11 +240,7 @@ class TestMessageProcessing:
 
     def test_create_a2a_text_message(self):
         """Test creating A2A text message"""
-        message = create_a2a_text_message(
-            "Hello world",
-            "ctx_123",
-            "task_456"
-        )
+        message = create_a2a_text_message("Hello world", "ctx_123", "task_456")
 
         assert message["role"] == "agent"
         assert message["contextId"] == "ctx_123"
@@ -304,10 +254,7 @@ class TestMessageProcessing:
     def test_create_a2a_data_message(self):
         """Test creating A2A data message"""
         data = {"result": "success", "count": 42}
-        message = create_a2a_data_message(
-            data,
-            "ctx_789"
-        )
+        message = create_a2a_data_message(data, "ctx_789")
 
         assert message["role"] == "agent"
         assert message["contextId"] == "ctx_789"
@@ -323,9 +270,7 @@ class TestTaskManagement:
     def test_create_a2a_task(self):
         """Test creating A2A task"""
         message = create_a2a_message(
-            role="user",
-            parts=[create_a2a_text_part("Task request")],
-            context_id="ctx_123"
+            role="user", parts=[create_a2a_text_part("Task request")], context_id="ctx_123"
         )
 
         task = create_a2a_task(message.model_dump(), "ctx_123")
@@ -340,9 +285,7 @@ class TestTaskManagement:
     def test_update_a2a_task_status(self):
         """Test updating A2A task status"""
         message = create_a2a_message(
-            role="user",
-            parts=[create_a2a_text_part("Test")],
-            context_id="ctx_123"
+            role="user", parts=[create_a2a_text_part("Test")], context_id="ctx_123"
         )
 
         task = create_a2a_task(message.model_dump(), "ctx_123")
@@ -360,9 +303,7 @@ class TestTaskManagement:
     def test_add_artifact_to_a2a_task(self):
         """Test adding artifact to A2A task"""
         message = create_a2a_message(
-            role="user",
-            parts=[create_a2a_text_part("Test")],
-            context_id="ctx_123"
+            role="user", parts=[create_a2a_text_part("Test")], context_id="ctx_123"
         )
 
         task = create_a2a_task(message.model_dump(), "ctx_123")
@@ -383,9 +324,7 @@ class TestTaskManagement:
     def test_complete_a2a_task(self):
         """Test completing A2A task"""
         message = create_a2a_message(
-            role="user",
-            parts=[create_a2a_text_part("Test")],
-            context_id="ctx_123"
+            role="user", parts=[create_a2a_text_part("Test")], context_id="ctx_123"
         )
 
         task = create_a2a_task(message.model_dump(), "ctx_123")
@@ -405,12 +344,7 @@ class TestAgentExecution:
 
     def test_create_run_config_for_a2a_agent(self):
         """Test creating run configuration for A2A agent"""
-        agent = create_a2a_agent(
-            "TestAgent",
-            "Test agent",
-            "You are helpful",
-            []
-        )
+        agent = create_a2a_agent("TestAgent", "Test agent", "You are helpful", [])
 
         model_provider = MockModelProvider()
 
@@ -430,14 +364,10 @@ class TestAgentExecution:
             messages=[message],
             context={},
             artifacts=[],
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
         )
 
-        run_state = transform_to_run_state(
-            agent_state,
-            "TestAgent",
-            {"user_id": "user_123"}
-        )
+        run_state = transform_to_run_state(agent_state, "TestAgent", {"user_id": "user_123"})
 
         assert run_state.current_agent_name == "TestAgent"
         assert len(run_state.messages) == 1
@@ -448,12 +378,7 @@ class TestAgentExecution:
     @pytest.mark.asyncio
     async def test_process_agent_query(self):
         """Test processing agent query"""
-        agent = create_a2a_agent(
-            "TestAgent",
-            "Test agent",
-            "You are helpful",
-            []
-        )
+        agent = create_a2a_agent("TestAgent", "Test agent", "You are helpful", [])
 
         initial_state = create_initial_agent_state("session_123")
         model_provider = MockModelProvider()
@@ -476,9 +401,7 @@ class TestAgentExecution:
             m.setattr("jaf.a2a.agent.run", mock_run)
 
             events = []
-            async for event in process_agent_query(
-                agent, "Hello", initial_state, model_provider
-            ):
+            async for event in process_agent_query(agent, "Hello", initial_state, model_provider):
                 events.append(event)
 
             assert len(events) >= 1
@@ -490,18 +413,11 @@ class TestAgentExecution:
     @pytest.mark.asyncio
     async def test_execute_a2a_agent_success(self):
         """Test successful A2A agent execution"""
-        agent = create_a2a_agent(
-            "TestAgent",
-            "Test agent",
-            "You are helpful",
-            []
-        )
+        agent = create_a2a_agent("TestAgent", "Test agent", "You are helpful", [])
 
         context = {
-            "message": {
-                "parts": [{"kind": "text", "text": "Hello"}]
-            },
-            "session_id": "session_123"
+            "message": {"parts": [{"kind": "text", "text": "Hello"}]},
+            "session_id": "session_123",
         }
 
         model_provider = MockModelProvider()
@@ -512,7 +428,7 @@ class TestAgentExecution:
                 isTaskComplete=True,
                 content="Hello back!",
                 new_state={},
-                timestamp=datetime.now().isoformat()
+                timestamp=datetime.now().isoformat(),
             )
 
         with pytest.MonkeyPatch().context() as m:
@@ -528,18 +444,11 @@ class TestAgentExecution:
     @pytest.mark.asyncio
     async def test_execute_a2a_agent_error(self):
         """Test A2A agent execution with error"""
-        agent = create_a2a_agent(
-            "TestAgent",
-            "Test agent",
-            "You are helpful",
-            []
-        )
+        agent = create_a2a_agent("TestAgent", "Test agent", "You are helpful", [])
 
         context = {
-            "message": {
-                "parts": [{"kind": "text", "text": "Hello"}]
-            },
-            "session_id": "session_123"
+            "message": {"parts": [{"kind": "text", "text": "Hello"}]},
+            "session_id": "session_123",
         }
 
         model_provider = MockModelProvider()
@@ -550,7 +459,7 @@ class TestAgentExecution:
                 isTaskComplete=True,
                 content="Error: Something went wrong",
                 new_state={},
-                timestamp=datetime.now().isoformat()
+                timestamp=datetime.now().isoformat(),
             )
 
         with pytest.MonkeyPatch().context() as m:
@@ -565,18 +474,11 @@ class TestAgentExecution:
     @pytest.mark.asyncio
     async def test_execute_a2a_agent_with_streaming(self):
         """Test A2A agent execution with streaming"""
-        agent = create_a2a_agent(
-            "TestAgent",
-            "Test agent",
-            "You are helpful",
-            []
-        )
+        agent = create_a2a_agent("TestAgent", "Test agent", "You are helpful", [])
 
         context = {
-            "message": {
-                "parts": [{"kind": "text", "text": "Hello"}]
-            },
-            "session_id": "session_123"
+            "message": {"parts": [{"kind": "text", "text": "Hello"}]},
+            "session_id": "session_123",
         }
 
         model_provider = MockModelProvider()
@@ -589,7 +491,7 @@ class TestAgentExecution:
                 content="Processing...",
                 updates="Working on task",
                 new_state={},
-                timestamp=datetime.now().isoformat()
+                timestamp=datetime.now().isoformat(),
             )
 
             # Completion event
@@ -597,16 +499,14 @@ class TestAgentExecution:
                 isTaskComplete=True,
                 content="Task completed",
                 new_state={},
-                timestamp=datetime.now().isoformat()
+                timestamp=datetime.now().isoformat(),
             )
 
         with pytest.MonkeyPatch().context() as m:
             m.setattr("jaf.a2a.agent.process_agent_query", mock_process_streaming)
 
             events = []
-            async for event in execute_a2a_agent_with_streaming(
-                context, agent, model_provider
-            ):
+            async for event in execute_a2a_agent_with_streaming(context, agent, model_provider):
                 events.append(event)
 
             # Should get: task submitted, working status, artifact, completion

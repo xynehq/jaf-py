@@ -14,19 +14,20 @@ from ..memory.types import MemoryProvider
 from .server import create_jaf_server
 from .types import ServerConfig
 
-Ctx = TypeVar('Ctx')
+Ctx = TypeVar("Ctx")
+
 
 async def run_server(
     agents: Union[List[Agent], Dict[str, Agent]],
     run_config: RunConfig,
-    host: str = '127.0.0.1',
+    host: str = "127.0.0.1",
     port: int = 3000,
     cors: bool = True,
-    default_memory_provider: Optional[MemoryProvider] = None
+    default_memory_provider: Optional[MemoryProvider] = None,
 ) -> None:
     """
     Create and start a JAF server with the given configuration.
-    
+
     Args:
         agents: List or dictionary of agents to serve.
         run_config: Core run configuration.
@@ -50,18 +51,13 @@ async def run_server(
         host=host,
         port=port,
         cors=cors,
-        default_memory_provider=default_memory_provider
+        default_memory_provider=default_memory_provider,
     )
 
     app = create_jaf_server(server_config)
 
     # Configure and run uvicorn
-    uv_config = uvicorn.Config(
-        app=app,
-        host=host,
-        port=port,
-        log_level="info"
-    )
+    uv_config = uvicorn.Config(app=app, host=host, port=port, log_level="info")
 
     server = uvicorn.Server(uv_config)
 

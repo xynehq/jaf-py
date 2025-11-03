@@ -30,16 +30,15 @@ from ..types import (
 
 
 async def create_a2a_redis_task_provider(
-    config: A2ARedisTaskConfig,
-    redis_client: Any
+    config: A2ARedisTaskConfig, redis_client: Any
 ) -> A2AResult[A2ATaskProvider]:
     """
     Create a Redis-based A2A task provider
-    
+
     Args:
         config: Configuration for the Redis provider
         redis_client: Redis client instance
-        
+
     Returns:
         A2AResult containing the task provider or an error
     """
@@ -62,39 +61,37 @@ async def create_a2a_redis_task_provider(
         def serialized_task_to_hash(serialized: A2ATaskSerialized) -> Dict[str, str]:
             """Convert serialized task to Redis hash"""
             hash_data = {
-                'taskId': serialized.task_id,
-                'contextId': serialized.context_id,
-                'state': serialized.state,
-                'taskData': serialized.task_data,
-                'createdAt': serialized.created_at,
-                'updatedAt': serialized.updated_at
+                "taskId": serialized.task_id,
+                "contextId": serialized.context_id,
+                "state": serialized.state,
+                "taskData": serialized.task_data,
+                "createdAt": serialized.created_at,
+                "updatedAt": serialized.updated_at,
             }
             if serialized.status_message:
-                hash_data['statusMessage'] = serialized.status_message
+                hash_data["statusMessage"] = serialized.status_message
             if serialized.metadata:
-                hash_data['metadata'] = serialized.metadata
+                hash_data["metadata"] = serialized.metadata
             return hash_data
 
         def hash_to_serialized_task(hash_data: Dict[str, str]) -> A2ATaskSerialized:
             """Convert Redis hash to serialized task"""
             return A2ATaskSerialized(
-                task_id=hash_data['taskId'],
-                context_id=hash_data['contextId'],
-                state=hash_data['state'],
-                task_data=hash_data['taskData'],
-                status_message=hash_data.get('statusMessage'),
-                created_at=hash_data['createdAt'],
-                updated_at=hash_data['updatedAt'],
-                metadata=hash_data.get('metadata')
+                task_id=hash_data["taskId"],
+                context_id=hash_data["contextId"],
+                state=hash_data["state"],
+                task_data=hash_data["taskData"],
+                status_message=hash_data.get("statusMessage"),
+                created_at=hash_data["createdAt"],
+                updated_at=hash_data["updatedAt"],
+                metadata=hash_data.get("metadata"),
             )
 
         class RedisA2ATaskProvider:
             """Redis implementation of A2ATaskProvider"""
 
             async def store_task(
-                self,
-                task: A2ATask,
-                metadata: Optional[Dict[str, Any]] = None
+                self, task: A2ATask, metadata: Optional[Dict[str, Any]] = None
             ) -> A2AResult[None]:
                 """Store a new A2A task in Redis"""
                 try:
@@ -120,8 +117,8 @@ async def create_a2a_redis_task_provider(
                         await pipe.hset(task_key, mapping=task_hash)
 
                         # Set TTL if specified
-                        if metadata and metadata.get('expires_at'):
-                            expires_at = metadata['expires_at']
+                        if metadata and metadata.get("expires_at"):
+                            expires_at = metadata["expires_at"]
                             if isinstance(expires_at, datetime):
                                 ttl_seconds = int((expires_at - datetime.now()).total_seconds())
                                 if ttl_seconds > 0:
@@ -134,8 +131,8 @@ async def create_a2a_redis_task_provider(
                         await pipe.sadd(state_index_key, task.id)
 
                         # Update stats
-                        await pipe.hincrby(get_stats_key(), 'totalTasks', 1)
-                        await pipe.hincrby(get_stats_key(), f'state:{task.status.state.value}', 1)
+                        await pipe.hincrby(get_stats_key(), "totalTasks", 1)
+                        await pipe.hincrby(get_stats_key(), f"state:{task.status.state.value}", 1)
 
                         await pipe.execute()
 
@@ -143,7 +140,7 @@ async def create_a2a_redis_task_provider(
 
                 except Exception as error:
                     return create_a2a_failure(
-                        create_a2a_task_storage_error('store', 'redis', task.id, error)
+                        create_a2a_task_storage_error("store", "redis", task.id, error)
                     )
 
             async def get_task(self, task_id: str) -> A2AResult[Optional[A2ATask]]:
@@ -156,14 +153,17 @@ async def create_a2a_redis_task_provider(
                         return create_a2a_success(None)
 
                     hash_data = await redis_client.hgetall(task_key)
-                    if not hash_data or 'taskData' not in hash_data:
+                    if not hash_data or "taskData" not in hash_data:
                         return create_a2a_success(None)
 
                     # Convert bytes to strings if needed (depends on Redis client)
                     if isinstance(hash_data, dict):
-                        hash_data = {k.decode() if isinstance(k, bytes) else k:
-                                   v.decode() if isinstance(v, bytes) else v
-                                   for k, v in hash_data.items()}
+                        hash_data = {
+                            k.decode() if isinstance(k, bytes) else k: v.decode()
+                            if isinstance(v, bytes)
+                            else v
+                            for k, v in hash_data.items()
+                        }
 
                     serialized = hash_to_serialized_task(hash_data)
                     deserialize_result = deserialize_a2a_task(serialized)
@@ -175,13 +175,11 @@ async def create_a2a_redis_task_provider(
 
                 except Exception as error:
                     return create_a2a_failure(
-                        create_a2a_task_storage_error('get', 'redis', task_id, error)
+                        create_a2a_task_storage_error("get", "redis", task_id, error)
                     )
 
             async def update_task(
-                self,
-                task: A2ATask,
-                metadata: Optional[Dict[str, Any]] = None
+                self, task: A2ATask, metadata: Optional[Dict[str, Any]] = None
             ) -> A2AResult[None]:
                 """Update an existing task in Redis"""
                 try:
@@ -189,18 +187,19 @@ async def create_a2a_redis_task_provider(
                     exists = await redis_client.exists(task_key)
 
                     if not exists:
-                        return create_a2a_failure(
-                            create_a2a_task_not_found_error(task.id, 'redis')
-                        )
+                        return create_a2a_failure(create_a2a_task_not_found_error(task.id, "redis"))
 
                     # Get existing task to check for state changes
                     existing_hash = await redis_client.hgetall(task_key)
                     if isinstance(existing_hash, dict):
-                        existing_hash = {k.decode() if isinstance(k, bytes) else k:
-                                       v.decode() if isinstance(v, bytes) else v
-                                       for k, v in existing_hash.items()}
+                        existing_hash = {
+                            k.decode() if isinstance(k, bytes) else k: v.decode()
+                            if isinstance(v, bytes)
+                            else v
+                            for k, v in existing_hash.items()
+                        }
 
-                    old_state = existing_hash.get('state')
+                    old_state = existing_hash.get("state")
 
                     # Validate and sanitize task
                     sanitize_result = sanitize_task(task)
@@ -209,9 +208,9 @@ async def create_a2a_redis_task_provider(
 
                     # Merge metadata
                     existing_metadata = {}
-                    if existing_hash.get('metadata'):
+                    if existing_hash.get("metadata"):
                         try:
-                            existing_metadata = json.loads(existing_hash['metadata'])
+                            existing_metadata = json.loads(existing_hash["metadata"])
                         except:
                             pass
                     merged_metadata = {**existing_metadata, **(metadata or {})}
@@ -237,8 +236,10 @@ async def create_a2a_redis_task_provider(
                             await pipe.sadd(new_state_index_key, task.id)
 
                             # Update stats
-                            await pipe.hincrby(get_stats_key(), f'state:{old_state}', -1)
-                            await pipe.hincrby(get_stats_key(), f'state:{task.status.state.value}', 1)
+                            await pipe.hincrby(get_stats_key(), f"state:{old_state}", -1)
+                            await pipe.hincrby(
+                                get_stats_key(), f"state:{task.status.state.value}", 1
+                            )
 
                         await pipe.execute()
 
@@ -246,7 +247,7 @@ async def create_a2a_redis_task_provider(
 
                 except Exception as error:
                     return create_a2a_failure(
-                        create_a2a_task_storage_error('update', 'redis', task.id, error)
+                        create_a2a_task_storage_error("update", "redis", task.id, error)
                     )
 
             async def update_task_status(
@@ -254,7 +255,7 @@ async def create_a2a_redis_task_provider(
                 task_id: str,
                 state: TaskState,
                 status_message: Optional[Any] = None,
-                timestamp: Optional[str] = None
+                timestamp: Optional[str] = None,
             ) -> A2AResult[None]:
                 """Update task status only"""
                 try:
@@ -264,9 +265,7 @@ async def create_a2a_redis_task_provider(
                         return get_result
 
                     if not get_result.data:
-                        return create_a2a_failure(
-                            create_a2a_task_not_found_error(task_id, 'redis')
-                        )
+                        return create_a2a_failure(create_a2a_task_not_found_error(task_id, "redis"))
 
                     task = get_result.data
 
@@ -277,30 +276,30 @@ async def create_a2a_redis_task_provider(
 
                     # Update task status
                     from ...types import A2ATaskStatus
+
                     updated_status = A2ATaskStatus(
                         state=state,
                         message=status_message or task.status.message,
-                        timestamp=timestamp or datetime.now().isoformat()
+                        timestamp=timestamp or datetime.now().isoformat(),
                     )
 
-                    updated_task = task.model_copy(update={
-                        'status': updated_status,
-                        'history': updated_history
-                    })
+                    updated_task = task.model_copy(
+                        update={"status": updated_status, "history": updated_history}
+                    )
 
                     # Use update_task for the actual update
                     return await self.update_task(updated_task)
 
                 except Exception as error:
                     return create_a2a_failure(
-                        create_a2a_task_storage_error('update-status', 'redis', task_id, error)
+                        create_a2a_task_storage_error("update-status", "redis", task_id, error)
                     )
 
             async def find_tasks(self, query: A2ATaskQuery) -> A2AResult[List[A2ATask]]:
                 """Search tasks by query parameters"""
                 try:
                     task_ids: List[str] = []
-                    
+
                     # Determine which sets to use for filtering
                     keys_to_intersect = []
                     if query.context_id:
@@ -318,7 +317,7 @@ async def create_a2a_redis_task_provider(
                         # Get all task keys if no context or state is provided
                         pattern = f"{key_prefix}task:*"
                         keys = await redis_client.keys(pattern)
-                        task_ids = [key.replace(f"{key_prefix}task:", '') for key in keys]
+                        task_ids = [key.replace(f"{key_prefix}task:", "") for key in keys]
 
                     # Convert bytes to strings if needed
                     task_ids = [tid.decode() if isinstance(tid, bytes) else tid for tid in task_ids]
@@ -345,27 +344,34 @@ async def create_a2a_redis_task_provider(
                             if hash_data:
                                 # Convert bytes to strings if needed
                                 if isinstance(hash_data, dict):
-                                    hash_data = {k.decode() if isinstance(k, bytes) else k:
-                                               v.decode() if isinstance(v, bytes) else v
-                                               for k, v in hash_data.items()}
-                                
+                                    hash_data = {
+                                        k.decode() if isinstance(k, bytes) else k: v.decode()
+                                        if isinstance(v, bytes)
+                                        else v
+                                        for k, v in hash_data.items()
+                                    }
+
                                 # Try to get timestamp from metadata first, then created_at
                                 task_timestamp = None
-                                if hash_data.get('metadata'):
+                                if hash_data.get("metadata"):
                                     try:
-                                        metadata = json.loads(hash_data['metadata'])
-                                        if metadata.get('created_at'):
-                                            task_timestamp = datetime.fromisoformat(metadata['created_at'].replace('Z', '+00:00'))
+                                        metadata = json.loads(hash_data["metadata"])
+                                        if metadata.get("created_at"):
+                                            task_timestamp = datetime.fromisoformat(
+                                                metadata["created_at"].replace("Z", "+00:00")
+                                            )
                                     except:
                                         pass
-                                
+
                                 # Fall back to createdAt field
-                                if not task_timestamp and hash_data.get('createdAt'):
+                                if not task_timestamp and hash_data.get("createdAt"):
                                     try:
-                                        task_timestamp = datetime.fromisoformat(hash_data['createdAt'].replace('Z', '+00:00'))
+                                        task_timestamp = datetime.fromisoformat(
+                                            hash_data["createdAt"].replace("Z", "+00:00")
+                                        )
                                     except:
                                         pass
-                                
+
                                 # Apply time filters
                                 if task_timestamp:
                                     if query.since and task_timestamp < query.since:
@@ -377,26 +383,23 @@ async def create_a2a_redis_task_provider(
 
                     # Sort by timestamp (newest first)
                     results.sort(
-                        key=lambda t: t.status.timestamp or "1970-01-01T00:00:00Z",
-                        reverse=True
+                        key=lambda t: t.status.timestamp or "1970-01-01T00:00:00Z", reverse=True
                     )
 
                     # Apply pagination
                     offset = query.offset or 0
                     limit = query.limit or len(results)
-                    paginated_results = results[offset:offset + limit]
+                    paginated_results = results[offset : offset + limit]
 
                     return create_a2a_success(paginated_results)
 
                 except Exception as error:
                     return create_a2a_failure(
-                        create_a2a_task_storage_error('find', 'redis', None, error)
+                        create_a2a_task_storage_error("find", "redis", None, error)
                     )
 
             async def get_tasks_by_context(
-                self,
-                context_id: str,
-                limit: Optional[int] = None
+                self, context_id: str, limit: Optional[int] = None
             ) -> A2AResult[List[A2ATask]]:
                 """Get tasks by context ID"""
                 return await self.find_tasks(A2ATaskQuery(context_id=context_id, limit=limit))
@@ -413,12 +416,15 @@ async def create_a2a_redis_task_provider(
 
                     # Convert bytes to strings if needed
                     if isinstance(hash_data, dict):
-                        hash_data = {k.decode() if isinstance(k, bytes) else k:
-                                   v.decode() if isinstance(v, bytes) else v
-                                   for k, v in hash_data.items()}
+                        hash_data = {
+                            k.decode() if isinstance(k, bytes) else k: v.decode()
+                            if isinstance(v, bytes)
+                            else v
+                            for k, v in hash_data.items()
+                        }
 
-                    context_id = hash_data.get('contextId')
-                    state = hash_data.get('state')
+                    context_id = hash_data.get("contextId")
+                    state = hash_data.get("state")
 
                     async with redis_client.pipeline() as pipe:
                         # Delete task
@@ -434,9 +440,9 @@ async def create_a2a_redis_task_provider(
                             await pipe.srem(state_index_key, task_id)
 
                         # Update stats
-                        await pipe.hincrby(get_stats_key(), 'totalTasks', -1)
+                        await pipe.hincrby(get_stats_key(), "totalTasks", -1)
                         if state:
-                            await pipe.hincrby(get_stats_key(), f'state:{state}', -1)
+                            await pipe.hincrby(get_stats_key(), f"state:{state}", -1)
 
                         await pipe.execute()
 
@@ -444,7 +450,7 @@ async def create_a2a_redis_task_provider(
 
                 except Exception as error:
                     return create_a2a_failure(
-                        create_a2a_task_storage_error('delete', 'redis', task_id, error)
+                        create_a2a_task_storage_error("delete", "redis", task_id, error)
                     )
 
             async def delete_tasks_by_context(self, context_id: str) -> A2AResult[int]:
@@ -463,9 +469,13 @@ async def create_a2a_redis_task_provider(
                     deleted_count = 0
                     for task_id in task_ids:
                         delete_result = await self.delete_task(task_id)
-                        if hasattr(delete_result, 'data') and isinstance(delete_result.data, bool) and delete_result.data:
+                        if (
+                            hasattr(delete_result, "data")
+                            and isinstance(delete_result.data, bool)
+                            and delete_result.data
+                        ):
                             deleted_count += 1
-                        elif hasattr(delete_result, 'error'):
+                        elif hasattr(delete_result, "error"):
                             # Log error but continue with other deletions
                             continue
 
@@ -473,7 +483,7 @@ async def create_a2a_redis_task_provider(
 
                 except Exception as error:
                     return create_a2a_failure(
-                        create_a2a_task_storage_error('delete-by-context', 'redis', None, error)
+                        create_a2a_task_storage_error("delete-by-context", "redis", None, error)
                     )
 
             async def cleanup_expired_tasks(self) -> A2AResult[int]:
@@ -485,12 +495,11 @@ async def create_a2a_redis_task_provider(
 
                 except Exception as error:
                     return create_a2a_failure(
-                        create_a2a_task_storage_error('cleanup', 'redis', None, error)
+                        create_a2a_task_storage_error("cleanup", "redis", None, error)
                     )
 
             async def get_task_stats(
-                self,
-                context_id: Optional[str] = None
+                self, context_id: Optional[str] = None
             ) -> A2AResult[Dict[str, Any]]:
                 """Get task statistics"""
                 try:
@@ -507,10 +516,10 @@ async def create_a2a_redis_task_provider(
                             tasks_by_state[task.status.state.value] += 1
 
                         stats = {
-                            'total_tasks': len(tasks),
-                            'tasks_by_state': tasks_by_state,
-                            'oldest_task': None,
-                            'newest_task': None
+                            "total_tasks": len(tasks),
+                            "tasks_by_state": tasks_by_state,
+                            "oldest_task": None,
+                            "newest_task": None,
                         }
                         # Also add individual state counts for backwards compatibility
                         for state in TaskState:
@@ -523,25 +532,28 @@ async def create_a2a_redis_task_provider(
                         stats = await redis_client.hgetall(stats_key)
 
                         if isinstance(stats, dict):
-                            stats = {k.decode() if isinstance(k, bytes) else k:
-                                   v.decode() if isinstance(v, bytes) else v
-                                   for k, v in stats.items()}
+                            stats = {
+                                k.decode() if isinstance(k, bytes) else k: v.decode()
+                                if isinstance(v, bytes)
+                                else v
+                                for k, v in stats.items()
+                            }
 
-                        total_tasks = int(stats.get('totalTasks', 0))
-                        
+                        total_tasks = int(stats.get("totalTasks", 0))
+
                         # Build tasks_by_state dict
                         tasks_by_state = {}
                         for state in TaskState:
-                            tasks_by_state[state.value] = int(stats.get(f'state:{state.value}', 0))
-                        
+                            tasks_by_state[state.value] = int(stats.get(f"state:{state.value}", 0))
+
                         # Build stats dict with individual state counts
                         result_stats = {
-                            'total_tasks': total_tasks,
-                            'tasks_by_state': tasks_by_state,
-                            'oldest_task': None,
-                            'newest_task': None
+                            "total_tasks": total_tasks,
+                            "tasks_by_state": tasks_by_state,
+                            "oldest_task": None,
+                            "newest_task": None,
                         }
-                        
+
                         # Also add individual state counts for backwards compatibility
                         for state in TaskState:
                             result_stats[state.value] = tasks_by_state[state.value]
@@ -550,7 +562,7 @@ async def create_a2a_redis_task_provider(
 
                 except Exception as error:
                     return create_a2a_failure(
-                        create_a2a_task_storage_error('stats', 'redis', None, error)
+                        create_a2a_task_storage_error("stats", "redis", None, error)
                     )
 
             async def health_check(self) -> A2AResult[Dict[str, Any]]:
@@ -562,17 +574,12 @@ async def create_a2a_redis_task_provider(
                     await redis_client.ping()
 
                     latency_ms = (datetime.now() - start_time).total_seconds() * 1000
-                    return create_a2a_success({
-                        'healthy': True,
-                        'provider': 'redis',
-                        'latency_ms': latency_ms
-                    })
+                    return create_a2a_success(
+                        {"healthy": True, "provider": "redis", "latency_ms": latency_ms}
+                    )
 
                 except Exception as error:
-                    return create_a2a_success({
-                        'healthy': False,
-                        'error': str(error)
-                    })
+                    return create_a2a_success({"healthy": False, "error": str(error)})
 
             async def close(self) -> A2AResult[None]:
                 """Close/cleanup the provider"""
@@ -583,12 +590,12 @@ async def create_a2a_redis_task_provider(
 
                 except Exception as error:
                     return create_a2a_failure(
-                        create_a2a_task_storage_error('close', 'redis', None, error)
+                        create_a2a_task_storage_error("close", "redis", None, error)
                     )
 
         return create_a2a_success(RedisA2ATaskProvider())
 
     except Exception as error:
         return create_a2a_failure(
-            create_a2a_task_storage_error('create-redis-provider', 'redis', None, error)
+            create_a2a_task_storage_error("create-redis-provider", "redis", None, error)
         )

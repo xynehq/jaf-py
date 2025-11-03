@@ -7,7 +7,7 @@ detailed validation reports. This is the main entry point for running the
 
 Usage:
     python run_comprehensive_tests.py [options]
-    
+
 Options:
     --providers: Comma-separated list of providers to test (memory,redis,postgres)
     --coverage: Generate code coverage report
@@ -35,6 +35,7 @@ from jaf.a2a.memory.types import A2AInMemoryTaskConfig
 @dataclass
 class TestResult:
     """Test result information"""
+
     test_name: str
     status: str  # "PASSED", "FAILED", "SKIPPED", "ERROR"
     duration_ms: float
@@ -45,6 +46,7 @@ class TestResult:
 @dataclass
 class TestSuiteResult:
     """Results for an entire test suite"""
+
     suite_name: str
     provider: str
     total_tests: int = 0
@@ -59,6 +61,7 @@ class TestSuiteResult:
 @dataclass
 class ValidationReport:
     """Comprehensive validation report"""
+
     timestamp: str
     total_duration_ms: float
     providers_tested: List[str]
@@ -79,7 +82,7 @@ class ComprehensiveTestRunner:
         self.report = ValidationReport(
             timestamp=time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
             total_duration_ms=0.0,
-            providers_tested=self.providers
+            providers_tested=self.providers,
         )
 
     def _parse_providers(self, providers_str: str) -> List[str]:
@@ -104,7 +107,9 @@ class ComprehensiveTestRunner:
         print("🧪 A2A Memory System Comprehensive Validation")
         print("=" * 60)
         print(f"Testing providers: {', '.join(self.providers)}")
-        print(f"Options: coverage={self.args.coverage}, performance={self.args.performance}, stress={self.args.stress}")
+        print(
+            f"Options: coverage={self.args.coverage}, performance={self.args.performance}, stress={self.args.stress}"
+        )
         print()
 
         start_time = time.perf_counter()
@@ -144,17 +149,14 @@ class ComprehensiveTestRunner:
         print("-" * 50)
 
         for provider in self.providers:
-            suite_result = TestSuiteResult(
-                suite_name="Serialization Tests",
-                provider=provider
-            )
+            suite_result = TestSuiteResult(suite_name="Serialization Tests", provider=provider)
 
             try:
                 # Run serialization tests
                 results = await self._execute_pytest_suite(
                     "test_serialization.py",
                     provider,
-                    timeout=300  # 5 minutes
+                    timeout=300,  # 5 minutes
                 )
 
                 suite_result.results.extend(results)
@@ -173,17 +175,14 @@ class ComprehensiveTestRunner:
         print("-" * 50)
 
         for provider in self.providers:
-            suite_result = TestSuiteResult(
-                suite_name="Lifecycle Tests",
-                provider=provider
-            )
+            suite_result = TestSuiteResult(suite_name="Lifecycle Tests", provider=provider)
 
             try:
                 # Run lifecycle tests
                 results = await self._execute_pytest_suite(
                     "test_task_lifecycle.py",
                     provider,
-                    timeout=600  # 10 minutes
+                    timeout=600,  # 10 minutes
                 )
 
                 suite_result.results.extend(results)
@@ -203,16 +202,13 @@ class ComprehensiveTestRunner:
 
         for provider in self.providers:
             # Stress tests
-            stress_suite = TestSuiteResult(
-                suite_name="Stress Tests",
-                provider=provider
-            )
+            stress_suite = TestSuiteResult(suite_name="Stress Tests", provider=provider)
 
             try:
                 stress_results = await self._execute_pytest_suite(
                     "test_stress_concurrency.py",
                     provider,
-                    timeout=1800  # 30 minutes
+                    timeout=1800,  # 30 minutes
                 )
 
                 stress_suite.results.extend(stress_results)
@@ -226,16 +222,13 @@ class ComprehensiveTestRunner:
             self._print_suite_summary(stress_suite)
 
             # Cleanup tests
-            cleanup_suite = TestSuiteResult(
-                suite_name="Cleanup Tests",
-                provider=provider
-            )
+            cleanup_suite = TestSuiteResult(suite_name="Cleanup Tests", provider=provider)
 
             try:
                 cleanup_results = await self._execute_pytest_suite(
                     "test_cleanup.py",
                     provider,
-                    timeout=600  # 10 minutes
+                    timeout=600,  # 10 minutes
                 )
 
                 cleanup_suite.results.extend(cleanup_results)
@@ -249,22 +242,21 @@ class ComprehensiveTestRunner:
             self._print_suite_summary(cleanup_suite)
 
     async def _execute_pytest_suite(
-        self,
-        test_file: str,
-        provider: str,
-        timeout: int = 300
+        self, test_file: str, provider: str, timeout: int = 300
     ) -> List[TestResult]:
         """Execute a pytest suite and parse results"""
         test_path = Path(__file__).parent / test_file
 
         # Build pytest command
         cmd = [
-            sys.executable, "-m", "pytest",
+            sys.executable,
+            "-m",
+            "pytest",
             str(test_path),
             "-v",
             "--tb=short",
             "--json-report",
-            "--json-report-file=/tmp/pytest_report.json"
+            "--json-report-file=/tmp/pytest_report.json",
         ]
 
         if provider != "memory":
@@ -279,14 +271,11 @@ class ComprehensiveTestRunner:
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
-                cwd=Path(__file__).parent.parent.parent.parent
+                cwd=Path(__file__).parent.parent.parent.parent,
             )
 
             try:
-                stdout, stderr = await asyncio.wait_for(
-                    process.communicate(),
-                    timeout=timeout
-                )
+                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
 
                 # Parse JSON report
                 try:
@@ -301,22 +290,26 @@ class ComprehensiveTestRunner:
 
             except asyncio.TimeoutError:
                 process.kill()
-                return [TestResult(
-                    test_name=f"{test_file}_timeout",
-                    status="ERROR",
-                    duration_ms=timeout * 1000,
-                    error_message=f"Test suite timed out after {timeout}s",
-                    provider=provider
-                )]
+                return [
+                    TestResult(
+                        test_name=f"{test_file}_timeout",
+                        status="ERROR",
+                        duration_ms=timeout * 1000,
+                        error_message=f"Test suite timed out after {timeout}s",
+                        provider=provider,
+                    )
+                ]
 
         except Exception as e:
-            return [TestResult(
-                test_name=f"{test_file}_execution_error",
-                status="ERROR",
-                duration_ms=0.0,
-                error_message=str(e),
-                provider=provider
-            )]
+            return [
+                TestResult(
+                    test_name=f"{test_file}_execution_error",
+                    status="ERROR",
+                    duration_ms=0.0,
+                    error_message=str(e),
+                    provider=provider,
+                )
+            ]
 
     def _parse_pytest_results(self, report_data: Dict, provider: str) -> List[TestResult]:
         """Parse pytest JSON report"""
@@ -327,7 +320,7 @@ class ComprehensiveTestRunner:
                 test_name=test.get("nodeid", "unknown"),
                 status=test.get("outcome", "UNKNOWN").upper(),
                 duration_ms=test.get("duration", 0.0) * 1000,
-                provider=provider
+                provider=provider,
             )
 
             if test.get("call", {}).get("longrepr"):
@@ -343,18 +336,26 @@ class ComprehensiveTestRunner:
         lines = stdout.split("\n")
 
         for line in lines:
-            if "::" in line and any(status in line for status in ["PASSED", "FAILED", "SKIPPED", "ERROR"]):
+            if "::" in line and any(
+                status in line for status in ["PASSED", "FAILED", "SKIPPED", "ERROR"]
+            ):
                 parts = line.split()
                 if len(parts) >= 2:
                     test_name = parts[0]
-                    status = parts[1] if parts[1] in ["PASSED", "FAILED", "SKIPPED", "ERROR"] else "UNKNOWN"
+                    status = (
+                        parts[1]
+                        if parts[1] in ["PASSED", "FAILED", "SKIPPED", "ERROR"]
+                        else "UNKNOWN"
+                    )
 
-                    results.append(TestResult(
-                        test_name=test_name,
-                        status=status,
-                        duration_ms=0.0,  # Duration not available from stdout
-                        provider=provider
-                    ))
+                    results.append(
+                        TestResult(
+                            test_name=test_name,
+                            status=status,
+                            duration_ms=0.0,  # Duration not available from stdout
+                            provider=provider,
+                        )
+                    )
 
         return results
 
@@ -385,7 +386,9 @@ class ComprehensiveTestRunner:
         status_icon = "✅" if failed == 0 and errors == 0 else "❌"
 
         print(f"  {status_icon} {suite_result.provider} - {suite_result.suite_name}")
-        print(f"    Total: {total}, Passed: {passed}, Failed: {failed}, Skipped: {skipped}, Errors: {errors}")
+        print(
+            f"    Total: {total}, Passed: {passed}, Failed: {failed}, Skipped: {skipped}, Errors: {errors}"
+        )
         print(f"    Duration: {duration:.2f}s")
 
         if failed > 0 or errors > 0:
@@ -401,18 +404,20 @@ class ComprehensiveTestRunner:
         try:
             # Run pytest with coverage
             cmd = [
-                sys.executable, "-m", "pytest",
+                sys.executable,
+                "-m",
+                "pytest",
                 str(Path(__file__).parent),
                 "--cov=jaf.a2a.memory",
                 "--cov-report=json:/tmp/coverage.json",
-                "--cov-report=term"
+                "--cov-report=term",
             ]
 
             process = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
-                cwd=Path(__file__).parent.parent.parent.parent
+                cwd=Path(__file__).parent.parent.parent.parent,
             )
 
             stdout, stderr = await process.communicate()
@@ -426,7 +431,7 @@ class ComprehensiveTestRunner:
                     "coverage_percent": coverage_data.get("totals", {}).get("percent_covered", 0),
                     "lines_covered": coverage_data.get("totals", {}).get("covered_lines", 0),
                     "lines_missing": coverage_data.get("totals", {}).get("missing_lines", 0),
-                    "files": list(coverage_data.get("files", {}).keys())
+                    "files": list(coverage_data.get("files", {}).keys()),
                 }
 
                 coverage_percent = self.report.coverage_report["coverage_percent"]
@@ -437,7 +442,9 @@ class ComprehensiveTestRunner:
                     print(f"⚠️ Good coverage: {coverage_percent:.1f}%")
                 else:
                     print(f"❌ Low coverage: {coverage_percent:.1f}%")
-                    self.report.critical_issues.append(f"Code coverage below 85%: {coverage_percent:.1f}%")
+                    self.report.critical_issues.append(
+                        f"Code coverage below 85%: {coverage_percent:.1f}%"
+                    )
 
             except FileNotFoundError:
                 print("❌ Coverage report not generated")
@@ -462,7 +469,7 @@ class ComprehensiveTestRunner:
                 id="benchmark_task",
                 contextId="benchmark_ctx",
                 kind="task",
-                status=A2ATaskStatus(state=TaskState.SUBMITTED)
+                status=A2ATaskStatus(state=TaskState.SUBMITTED),
             )
 
             # Benchmark store operation
@@ -484,19 +491,27 @@ class ComprehensiveTestRunner:
                 "store_ops_per_sec": 100 / (store_time / 1000),
                 "get_ops_per_sec": 100 / (get_time / 1000),
                 "avg_store_time_ms": store_time / 100,
-                "avg_get_time_ms": get_time / 100
+                "avg_get_time_ms": get_time / 100,
             }
 
             metrics = self.report.performance_metrics
-            print(f"✅ Store: {metrics['store_ops_per_sec']:.2f} ops/sec ({metrics['avg_store_time_ms']:.2f}ms avg)")
-            print(f"✅ Get: {metrics['get_ops_per_sec']:.2f} ops/sec ({metrics['avg_get_time_ms']:.2f}ms avg)")
+            print(
+                f"✅ Store: {metrics['store_ops_per_sec']:.2f} ops/sec ({metrics['avg_store_time_ms']:.2f}ms avg)"
+            )
+            print(
+                f"✅ Get: {metrics['get_ops_per_sec']:.2f} ops/sec ({metrics['avg_get_time_ms']:.2f}ms avg)"
+            )
 
             # Performance thresholds
-            if metrics['store_ops_per_sec'] < 100:
-                self.report.critical_issues.append(f"Store performance too slow: {metrics['store_ops_per_sec']:.2f} ops/sec")
+            if metrics["store_ops_per_sec"] < 100:
+                self.report.critical_issues.append(
+                    f"Store performance too slow: {metrics['store_ops_per_sec']:.2f} ops/sec"
+                )
 
-            if metrics['get_ops_per_sec'] < 200:
-                self.report.critical_issues.append(f"Get performance too slow: {metrics['get_ops_per_sec']:.2f} ops/sec")
+            if metrics["get_ops_per_sec"] < 200:
+                self.report.critical_issues.append(
+                    f"Get performance too slow: {metrics['get_ops_per_sec']:.2f} ops/sec"
+                )
 
         except Exception as e:
             print(f"❌ Performance benchmarks failed: {e}")
@@ -526,7 +541,9 @@ class ComprehensiveTestRunner:
             provider_suites = [s for s in self.report.suite_results if s.provider == provider]
             provider_passed = sum(s.passed for s in provider_suites)
             provider_total = sum(s.total_tests for s in provider_suites)
-            provider_compliance[provider] = (provider_passed / provider_total * 100) if provider_total > 0 else 0
+            provider_compliance[provider] = (
+                (provider_passed / provider_total * 100) if provider_total > 0 else 0
+            )
 
         # Recommendations
         if self.report.coverage_report and self.report.coverage_report["coverage_percent"] < 90:
@@ -537,14 +554,20 @@ class ComprehensiveTestRunner:
 
         if self.report.performance_metrics:
             metrics = self.report.performance_metrics
-            if metrics.get('store_ops_per_sec', 0) < 500:
-                self.report.recommendations.append("Optimize storage performance for production workloads")
+            if metrics.get("store_ops_per_sec", 0) < 500:
+                self.report.recommendations.append(
+                    "Optimize storage performance for production workloads"
+                )
 
         # Final verdict
         if len(self.report.critical_issues) == 0 and success_rate >= 98:
-            self.report.final_verdict = "✅ PRODUCTION READY - All tests pass with excellent coverage"
+            self.report.final_verdict = (
+                "✅ PRODUCTION READY - All tests pass with excellent coverage"
+            )
         elif len(self.report.critical_issues) <= 2 and success_rate >= 95:
-            self.report.final_verdict = "⚠️ READY WITH MINOR ISSUES - Address recommendations before production"
+            self.report.final_verdict = (
+                "⚠️ READY WITH MINOR ISSUES - Address recommendations before production"
+            )
         else:
             self.report.final_verdict = "❌ NOT READY - Critical issues must be resolved"
 
@@ -576,10 +599,10 @@ class ComprehensiveTestRunner:
                             "status": result.status,
                             "duration_ms": result.duration_ms,
                             "error_message": result.error_message,
-                            "provider": result.provider
+                            "provider": result.provider,
                         }
                         for result in suite.results
-                    ]
+                    ],
                 }
                 for suite in self.report.suite_results
             ],
@@ -587,7 +610,7 @@ class ComprehensiveTestRunner:
             "performance_metrics": self.report.performance_metrics,
             "critical_issues": self.report.critical_issues,
             "recommendations": self.report.recommendations,
-            "final_verdict": self.report.final_verdict
+            "final_verdict": self.report.final_verdict,
         }
 
         with open(report_path, "w") as f:
@@ -619,7 +642,9 @@ class ComprehensiveTestRunner:
             f.write(f"- **Success Rate:** {success_rate:.1f}%\n")
 
             if self.report.coverage_report:
-                f.write(f"- **Code Coverage:** {self.report.coverage_report['coverage_percent']:.1f}%\n")
+                f.write(
+                    f"- **Code Coverage:** {self.report.coverage_report['coverage_percent']:.1f}%\n"
+                )
 
             f.write(f"\n**Final Verdict:** {self.report.final_verdict}\n\n")
 
@@ -675,7 +700,9 @@ class ComprehensiveTestRunner:
 
         if self.report.performance_metrics:
             metrics = self.report.performance_metrics
-            print(f"   Performance: Store {metrics['store_ops_per_sec']:.0f} ops/s, Get {metrics['get_ops_per_sec']:.0f} ops/s")
+            print(
+                f"   Performance: Store {metrics['store_ops_per_sec']:.0f} ops/s, Get {metrics['get_ops_per_sec']:.0f} ops/s"
+            )
 
         print(f"\n🎯 FINAL VERDICT: {self.report.final_verdict}")
 
@@ -695,7 +722,9 @@ class ComprehensiveTestRunner:
 async def main():
     """Main entry point"""
     parser = argparse.ArgumentParser(description="A2A Memory Comprehensive Test Runner")
-    parser.add_argument("--providers", default="memory", help="Providers to test (memory,redis,postgres)")
+    parser.add_argument(
+        "--providers", default="memory", help="Providers to test (memory,redis,postgres)"
+    )
     parser.add_argument("--coverage", action="store_true", help="Generate coverage report")
     parser.add_argument("--performance", action="store_true", help="Include performance benchmarks")
     parser.add_argument("--stress", action="store_true", help="Include stress tests")

@@ -53,10 +53,7 @@ class TestA2AParts:
 
         assert part.kind == "text"
         assert part.text == "Hello world"
-        assert part.model_dump() == {
-            "kind": "text",
-            "text": "Hello world"
-        }
+        assert part.model_dump() == {"kind": "text", "text": "Hello world"}
 
     def test_create_data_part(self):
         """Test data part creation"""
@@ -65,10 +62,7 @@ class TestA2AParts:
 
         assert part.kind == "data"
         assert part.data == data
-        assert part.model_dump() == {
-            "kind": "data",
-            "data": data
-        }
+        assert part.model_dump() == {"kind": "data", "data": data}
 
     def test_part_immutability(self):
         """Test that parts are immutable"""
@@ -84,9 +78,7 @@ class TestA2AMessage:
     def test_create_a2a_message(self):
         """Test A2A message creation"""
         message = create_a2a_message(
-            role="user",
-            parts=[create_a2a_text_part("Hello")],
-            context_id="ctx_123"
+            role="user", parts=[create_a2a_text_part("Hello")], context_id="ctx_123"
         )
 
         assert message.role == "user"
@@ -104,7 +96,7 @@ class TestA2AMessage:
             parts=[create_a2a_text_part("test")],
             messageId="msg_123",
             contextId="ctx_123",
-            kind="message"
+            kind="message",
         )
         assert message.role == "user"
 
@@ -115,18 +107,15 @@ class TestA2AMessage:
                 parts=[create_a2a_text_part("test")],
                 messageId="msg_123",
                 contextId="ctx_123",
-                kind="message"
+                kind="message",
             )
 
     def test_message_serialization(self):
         """Test message JSON serialization"""
         message = create_a2a_message(
             role="agent",
-            parts=[
-                create_a2a_text_part("Response"),
-                create_a2a_data_part({"result": "success"})
-            ],
-            context_id="ctx_456"
+            parts=[create_a2a_text_part("Response"), create_a2a_data_part({"result": "success"})],
+            context_id="ctx_456",
         )
 
         # Should serialize to dict
@@ -162,15 +151,10 @@ class TestA2ATask:
     def test_create_a2a_task(self):
         """Test A2A task creation"""
         message = create_a2a_message(
-            role="user",
-            parts=[create_a2a_text_part("Task request")],
-            context_id="ctx_123"
+            role="user", parts=[create_a2a_text_part("Task request")], context_id="ctx_123"
         )
 
-        task = create_a2a_task(
-            initial_message=message,
-            context_id="ctx_123"
-        )
+        task = create_a2a_task(initial_message=message, context_id="ctx_123")
 
         assert task.context_id == "ctx_123"
         assert task.status.state == "submitted"
@@ -182,9 +166,7 @@ class TestA2ATask:
     def test_task_status_updates(self):
         """Test task status progression"""
         message = create_a2a_message(
-            role="user",
-            parts=[create_a2a_text_part("Test")],
-            context_id="ctx_123"
+            role="user", parts=[create_a2a_text_part("Test")], context_id="ctx_123"
         )
 
         task = create_a2a_task(message, "ctx_123")
@@ -194,10 +176,7 @@ class TestA2ATask:
         assert task.status.timestamp is not None
 
         # Update to working
-        working_status = A2ATaskStatus(
-            state="working",
-            timestamp=datetime.now().isoformat()
-        )
+        working_status = A2ATaskStatus(state="working", timestamp=datetime.now().isoformat())
 
         # Task should be immutable, so we create new one
         working_task = task.model_copy(update={"status": working_status})
@@ -207,20 +186,15 @@ class TestA2ATask:
     def test_task_with_artifacts(self):
         """Test task with artifacts"""
         message = create_a2a_message(
-            role="user",
-            parts=[create_a2a_text_part("Create artifact")],
-            context_id="ctx_123"
+            role="user", parts=[create_a2a_text_part("Create artifact")], context_id="ctx_123"
         )
 
         artifact = create_a2a_artifact(
-            name="test_artifact",
-            parts=[create_a2a_text_part("Artifact content")]
+            name="test_artifact", parts=[create_a2a_text_part("Artifact content")]
         )
 
         task = create_a2a_task(message, "ctx_123")
-        task_with_artifact = task.model_copy(
-            update={"artifacts": [artifact]}
-        )
+        task_with_artifact = task.model_copy(update={"artifacts": [artifact]})
 
         assert len(task_with_artifact.artifacts) == 1
         assert task_with_artifact.artifacts[0].name == "test_artifact"
@@ -232,9 +206,7 @@ class TestJSONRPCTypes:
     def test_create_jsonrpc_request(self):
         """Test JSON-RPC request creation"""
         request = create_jsonrpc_request(
-            method="message/send",
-            params={"test": "data"},
-            request_id="req_123"
+            method="message/send", params={"test": "data"}, request_id="req_123"
         )
 
         assert request.jsonrpc == "2.0"
@@ -244,10 +216,7 @@ class TestJSONRPCTypes:
 
     def test_create_jsonrpc_success_response(self):
         """Test JSON-RPC success response creation"""
-        response = create_jsonrpc_success_response(
-            id="req_123",
-            result={"success": True}
-        )
+        response = create_jsonrpc_success_response(id="req_123", result={"success": True})
 
         assert response.jsonrpc == "2.0"
         assert response.id == "req_123"
@@ -256,14 +225,10 @@ class TestJSONRPCTypes:
     def test_create_jsonrpc_error_response(self):
         """Test JSON-RPC error response creation"""
         error = create_a2a_error(
-            code=A2AErrorCodes.INVALID_REQUEST,
-            message="Invalid request format"
+            code=A2AErrorCodes.INVALID_REQUEST, message="Invalid request format"
         )
 
-        response = create_jsonrpc_error_response(
-            id="req_123",
-            error=error
-        )
+        response = create_jsonrpc_error_response(id="req_123", error=error)
 
         assert response.jsonrpc == "2.0"
         assert response.id == "req_123"
@@ -273,9 +238,7 @@ class TestJSONRPCTypes:
     def test_message_send_request(self):
         """Test SendMessageRequest creation"""
         message = create_a2a_message(
-            role="user",
-            parts=[create_a2a_text_part("Hello")],
-            context_id="ctx_123"
+            role="user", parts=[create_a2a_text_part("Hello")], context_id="ctx_123"
         )
 
         request = SendMessageRequest(
@@ -284,11 +247,8 @@ class TestJSONRPCTypes:
             method="message/send",
             params={
                 "message": message,
-                "configuration": MessageSendConfiguration(
-                    model="gpt-4",
-                    temperature=0.7
-                )
-            }
+                "configuration": MessageSendConfiguration(model="gpt-4", temperature=0.7),
+            },
         )
 
         assert request.params.message.role == "user"
@@ -301,6 +261,7 @@ class TestAgentTypes:
 
     def test_create_a2a_agent_tool(self):
         """Test A2A agent tool creation"""
+
         async def mock_execute(args, context):
             return {"result": "success"}
 
@@ -308,7 +269,7 @@ class TestAgentTypes:
             name="test_tool",
             description="A test tool",
             parameters={"type": "object", "properties": {}},
-            execute_func=mock_execute
+            execute_func=mock_execute,
         )
 
         assert tool.name == "test_tool"
@@ -318,14 +279,12 @@ class TestAgentTypes:
 
     def test_a2a_agent_creation(self):
         """Test A2A agent creation"""
+
         async def mock_execute(args, context):
             return {"result": "tool executed"}
 
         tool = create_a2a_agent_tool(
-            name="helper_tool",
-            description="Helper tool",
-            parameters={},
-            execute_func=mock_execute
+            name="helper_tool", description="Helper tool", parameters={}, execute_func=mock_execute
         )
 
         agent = A2AAgent(
@@ -333,7 +292,7 @@ class TestAgentTypes:
             description="A test agent",
             supportedContentTypes=["text/plain"],
             instruction="You are a test agent",
-            tools=[tool]
+            tools=[tool],
         )
 
         assert agent.name == "TestAgent"
@@ -353,20 +312,15 @@ class TestAgentTypes:
                 tags=["test"],
                 examples=["Example usage"],
                 inputModes=["text/plain"],
-                outputModes=["text/plain"]
+                outputModes=["text/plain"],
             )
         ]
 
         capabilities = AgentCapabilities(
-            streaming=True,
-            pushNotifications=False,
-            stateTransitionHistory=True
+            streaming=True, pushNotifications=False, stateTransitionHistory=True
         )
 
-        provider = AgentProvider(
-            organization="Test Org",
-            url="https://test.com"
-        )
+        provider = AgentProvider(organization="Test Org", url="https://test.com")
 
         card = AgentCard(
             protocolVersion="0.3.0",
@@ -379,7 +333,7 @@ class TestAgentTypes:
             capabilities=capabilities,
             defaultInputModes=["text/plain"],
             defaultOutputModes=["text/plain"],
-            skills=skills
+            skills=skills,
         )
 
         assert card.protocol_version == "0.3.0"
@@ -399,7 +353,7 @@ class TestStreamTypes:
             content="Processing...",
             updates="Working on task",
             newState={"status": "working"},
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
         )
 
         assert event.isTaskComplete is False
@@ -411,17 +365,10 @@ class TestStreamTypes:
         """Test A2A stream event"""
         from jaf.a2a.types import A2AStatusUpdateEvent, A2ATaskStatus
 
-        status = A2ATaskStatus(
-            state="working",
-            timestamp="2025-08-12T22:52:29.159776"
-        )
+        status = A2ATaskStatus(state="working", timestamp="2025-08-12T22:52:29.159776")
 
         event = A2AStatusUpdateEvent(
-            kind="status-update",
-            taskId="task_123",
-            contextId="ctx_456",
-            status=status,
-            final=False
+            kind="status-update", taskId="task_123", contextId="ctx_456", status=status, final=False
         )
 
         assert event.kind == "status-update"
@@ -432,9 +379,7 @@ class TestStreamTypes:
     def test_agent_state(self):
         """Test agent state management"""
         message = create_a2a_message(
-            role="user",
-            parts=[create_a2a_text_part("Test")],
-            context_id="ctx_123"
+            role="user", parts=[create_a2a_text_part("Test")], context_id="ctx_123"
         )
 
         state = AgentState(
@@ -442,7 +387,7 @@ class TestStreamTypes:
             messages=[message],
             context={"key": "value"},
             artifacts=[],
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
         )
 
         assert state.sessionId == "session_123"
@@ -456,25 +401,16 @@ class TestClientTypes:
 
     def test_client_config(self):
         """Test A2A client configuration"""
-        config = A2AClientConfig(
-            baseUrl="http://localhost:3000",
-            timeout=30000
-        )
+        config = A2AClientConfig(baseUrl="http://localhost:3000", timeout=30000)
 
         assert config.base_url == "http://localhost:3000"
         assert config.timeout == 30000
 
     def test_client_state(self):
         """Test A2A client state"""
-        config = A2AClientConfig(
-            baseUrl="http://localhost:3000",
-            timeout=30000
-        )
+        config = A2AClientConfig(baseUrl="http://localhost:3000", timeout=30000)
 
-        state = A2AClientState(
-            config=config,
-            sessionId="session_123"
-        )
+        state = A2AClientState(config=config, sessionId="session_123")
 
         assert state.config.base_url == "http://localhost:3000"
         assert state.session_id == "session_123"
@@ -482,12 +418,8 @@ class TestClientTypes:
     def test_tool_context(self):
         """Test tool context"""
         context = ToolContext(
-            actions={
-                "requiresInput": False,
-                "skipSummarization": True,
-                "escalate": False
-            },
-            metadata={"user_id": "user_123"}
+            actions={"requiresInput": False, "skipSummarization": True, "escalate": False},
+            metadata={"user_id": "user_123"},
         )
 
         assert context.actions["requiresInput"] is False
@@ -510,7 +442,7 @@ class TestErrorTypes:
         error = create_a2a_error(
             code=A2AErrorCodes.INVALID_PARAMS,
             message="Invalid parameters provided",
-            data={"field": "missing_field"}
+            data={"field": "missing_field"},
         )
 
         assert error.code == A2AErrorCodes.INVALID_PARAMS.value
@@ -524,7 +456,7 @@ class TestErrorTypes:
             status="success",
             result={"result": "completed"},
             data={"result": "completed"},
-            error=None
+            error=None,
         )
 
         assert success_result.status == "success"
@@ -537,9 +469,8 @@ class TestErrorTypes:
             result=None,
             data=None,
             error=create_a2a_error(
-                code=A2AErrorCodes.INTERNAL_ERROR,
-                message="Tool execution failed"
-            )
+                code=A2AErrorCodes.INTERNAL_ERROR, message="Tool execution failed"
+            ),
         )
 
         assert error_result.status == "error"
@@ -559,41 +490,24 @@ class TestFactoryFunctions:
 
         # Message
         message = create_a2a_message(
-            role="user",
-            parts=[text_part, data_part],
-            context_id="ctx_123"
+            role="user", parts=[text_part, data_part], context_id="ctx_123"
         )
 
         # Task
         task = create_a2a_task(message, "ctx_123")
 
         # Artifact
-        artifact = create_a2a_artifact(
-            name="test_artifact",
-            parts=[text_part]
-        )
+        artifact = create_a2a_artifact(name="test_artifact", parts=[text_part])
 
         # JSON-RPC request
-        request = create_jsonrpc_request(
-            method="test/method",
-            params={"test": True}
-        )
+        request = create_jsonrpc_request(method="test/method", params={"test": True})
 
         # JSON-RPC responses
-        success_response = create_jsonrpc_success_response(
-            id="req_123",
-            result={"success": True}
-        )
+        success_response = create_jsonrpc_success_response(id="req_123", result={"success": True})
 
-        error = create_a2a_error(
-            code=A2AErrorCodes.INTERNAL_ERROR,
-            message="Test error"
-        )
+        error = create_a2a_error(code=A2AErrorCodes.INTERNAL_ERROR, message="Test error")
 
-        error_response = create_jsonrpc_error_response(
-            id="req_123",
-            error=error
-        )
+        error_response = create_jsonrpc_error_response(id="req_123", error=error)
 
         # Verify all created correctly
         assert text_part.kind == "text"

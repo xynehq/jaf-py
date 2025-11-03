@@ -7,13 +7,13 @@ using the JAF A2A client library.
 Usage:
     # Start the server first:
     python server_example.py
-    
+
     # Then run this client:
     python client_example.py
 
 The client will connect to http://localhost:3000 and demonstrate:
 - Agent discovery via Agent Cards
-- Sending messages to specific agents  
+- Sending messages to specific agents
 - Streaming message responses
 - Health checks and capabilities
 - Error handling
@@ -46,11 +46,11 @@ async def discover_server_agents(base_url: str):
         print(f"🌐 URL: {agent_card['url']}")
         print(f"📡 Protocol: {agent_card['protocolVersion']}")
 
-        skills = agent_card.get('skills', [])
+        skills = agent_card.get("skills", [])
         print(f"\n🛠️ Available skills ({len(skills)}):")
         for skill in skills:
             print(f"   • {skill['name']}: {skill['description']}")
-            if skill.get('tags'):
+            if skill.get("tags"):
                 print(f"     Tags: {', '.join(skill['tags'])}")
 
         return agent_card
@@ -70,18 +70,18 @@ async def check_server_health(client):
         print(f"📡 Protocol: {health.get('protocol', 'unknown')}")
         print(f"🔢 Version: {health.get('version', 'unknown')}")
 
-        agents = health.get('agents', [])
+        agents = health.get("agents", [])
         if agents:
             print(f"🤖 Available agents: {', '.join(agents)}")
 
         print("\n⚡ Getting capabilities...")
         capabilities = await get_a2a_capabilities(client)
 
-        methods = capabilities.get('supportedMethods', [])
+        methods = capabilities.get("supportedMethods", [])
         if methods:
             print(f"📋 Supported methods: {', '.join(methods)}")
 
-        transports = capabilities.get('supportedTransports', [])
+        transports = capabilities.get("supportedTransports", [])
         if transports:
             print(f"🚀 Supported transports: {', '.join(transports)}")
 
@@ -100,7 +100,7 @@ async def test_math_agent(client):
         "What is 25 + 17?",
         "Calculate 144 / 12",
         "What is 2^8?",
-        "Can you solve (15 + 5) * 3?"
+        "Can you solve (15 + 5) * 3?",
     ]
 
     for question in test_cases:
@@ -121,7 +121,7 @@ async def test_weather_agent(client):
         "What's the weather in London?",
         "How's the weather in Tokyo?",
         "Tell me about the weather in New York",
-        "Weather forecast for Sydney please"
+        "Weather forecast for Sydney please",
     ]
 
     for question in locations:
@@ -142,7 +142,7 @@ async def test_translator_agent(client):
         "Translate 'Hello, how are you?' to Spanish",
         "Can you translate 'Good morning' to French?",
         "Translate 'Thank you very much' to German",
-        "Convert 'Beautiful day' to Italian"
+        "Convert 'Beautiful day' to Italian",
     ]
 
     for question in translations:
@@ -179,7 +179,7 @@ async def test_general_assistant(client):
         "Hello, what can you help me with?",
         "Tell me a joke",
         "What is the meaning of life?",
-        "How can I be more productive?"
+        "How can I be more productive?",
     ]
 
     for question in questions:
@@ -212,7 +212,7 @@ async def test_convenience_connection():
 
         # Test capabilities
         capabilities = await connection["capabilities"]()
-        methods = capabilities.get('supportedMethods', [])
+        methods = capabilities.get("supportedMethods", [])
         print(f"⚡ Methods via convenience: {len(methods)} methods")
 
         return True

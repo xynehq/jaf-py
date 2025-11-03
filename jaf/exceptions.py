@@ -21,6 +21,7 @@ class JAFException(Exception):
 # Agent and execution errors
 class AgentException(JAFException):
     """Base exception for agent-related errors."""
+
     pass
 
 
@@ -35,7 +36,9 @@ class AgentNotFoundError(AgentException):
 class HandoffError(AgentException):
     """Raised when agent handoff fails."""
 
-    def __init__(self, message: str, source_agent: Optional[str] = None, target_agent: Optional[str] = None):
+    def __init__(
+        self, message: str, source_agent: Optional[str] = None, target_agent: Optional[str] = None
+    ):
         details = {}
         if source_agent:
             details["source_agent"] = source_agent
@@ -47,6 +50,7 @@ class HandoffError(AgentException):
 # Tool execution errors
 class ToolException(JAFException):
     """Base exception for tool-related errors."""
+
     pass
 
 
@@ -54,10 +58,10 @@ class ToolExecutionError(ToolException):
     """Raised when tool execution fails."""
 
     def __init__(self, tool_name: str, message: str, cause: Optional[Exception] = None):
-        super().__init__(f"Tool '{tool_name}' execution failed: {message}", {
-            "tool_name": tool_name,
-            "cause": str(cause) if cause else None
-        })
+        super().__init__(
+            f"Tool '{tool_name}' execution failed: {message}",
+            {"tool_name": tool_name, "cause": str(cause) if cause else None},
+        )
         self.tool_name = tool_name
         self.cause = cause
 
@@ -67,10 +71,7 @@ class ToolValidationError(ToolException):
 
     def __init__(self, tool_name: str, validation_errors: List[str]):
         message = f"Tool '{tool_name}' validation failed: {'; '.join(validation_errors)}"
-        super().__init__(message, {
-            "tool_name": tool_name,
-            "validation_errors": validation_errors
-        })
+        super().__init__(message, {"tool_name": tool_name, "validation_errors": validation_errors})
         self.tool_name = tool_name
         self.validation_errors = validation_errors
 
@@ -78,6 +79,7 @@ class ToolValidationError(ToolException):
 # Model and provider errors
 class ModelException(JAFException):
     """Base exception for model-related errors."""
+
     pass
 
 
@@ -85,10 +87,10 @@ class ModelProviderError(ModelException):
     """Raised when model provider encounters an error."""
 
     def __init__(self, provider: str, message: str, status_code: Optional[int] = None):
-        super().__init__(f"Model provider '{provider}' error: {message}", {
-            "provider": provider,
-            "status_code": status_code
-        })
+        super().__init__(
+            f"Model provider '{provider}' error: {message}",
+            {"provider": provider, "status_code": status_code},
+        )
         self.provider = provider
         self.status_code = status_code
 
@@ -97,26 +99,27 @@ class ModelResponseError(ModelException):
     """Raised when model response is invalid or cannot be parsed."""
 
     def __init__(self, message: str, raw_response: Optional[str] = None):
-        super().__init__(f"Model response error: {message}", {
-            "raw_response": raw_response
-        })
+        super().__init__(f"Model response error: {message}", {"raw_response": raw_response})
         self.raw_response = raw_response
 
 
 # Validation and guardrail errors
 class ValidationException(JAFException):
     """Base exception for validation errors."""
+
     pass
 
 
 class GuardrailViolationError(ValidationException):
     """Raised when input or output violates a guardrail."""
 
-    def __init__(self, guardrail_type: str, message: str, violation_details: Optional[Dict[str, Any]] = None):
-        super().__init__(f"Guardrail violation ({guardrail_type}): {message}", {
-            "guardrail_type": guardrail_type,
-            "violation_details": violation_details or {}
-        })
+    def __init__(
+        self, guardrail_type: str, message: str, violation_details: Optional[Dict[str, Any]] = None
+    ):
+        super().__init__(
+            f"Guardrail violation ({guardrail_type}): {message}",
+            {"guardrail_type": guardrail_type, "violation_details": violation_details or {}},
+        )
         self.guardrail_type = guardrail_type
         self.violation_details = violation_details or {}
 
@@ -125,15 +128,14 @@ class InputValidationError(ValidationException):
     """Raised when input validation fails."""
 
     def __init__(self, message: str, field_errors: Optional[Dict[str, List[str]]] = None):
-        super().__init__(f"Input validation error: {message}", {
-            "field_errors": field_errors or {}
-        })
+        super().__init__(f"Input validation error: {message}", {"field_errors": field_errors or {}})
         self.field_errors = field_errors or {}
 
 
 # Memory system errors
 class MemoryException(JAFException):
     """Base exception for memory system errors."""
+
     pass
 
 
@@ -141,9 +143,7 @@ class MemoryConnectionError(MemoryException):
     """Raised when memory provider connection fails."""
 
     def __init__(self, provider: str, message: str):
-        super().__init__(f"Memory connection error ({provider}): {message}", {
-            "provider": provider
-        })
+        super().__init__(f"Memory connection error ({provider}): {message}", {"provider": provider})
         self.provider = provider
 
 
@@ -162,6 +162,7 @@ class MemoryStorageError(MemoryException):
 # Session and workflow errors
 class SessionException(JAFException):
     """Base exception for session-related errors."""
+
     pass
 
 
@@ -180,10 +181,10 @@ class MaxTurnsExceededError(SessionException):
     """Raised when maximum number of turns is exceeded."""
 
     def __init__(self, max_turns: int, current_turns: int):
-        super().__init__(f"Maximum turns exceeded: {current_turns}/{max_turns}", {
-            "max_turns": max_turns,
-            "current_turns": current_turns
-        })
+        super().__init__(
+            f"Maximum turns exceeded: {current_turns}/{max_turns}",
+            {"max_turns": max_turns, "current_turns": current_turns},
+        )
         self.max_turns = max_turns
         self.current_turns = current_turns
 
@@ -191,13 +192,16 @@ class MaxTurnsExceededError(SessionException):
 # A2A protocol errors
 class A2AException(JAFException):
     """Base exception for A2A protocol errors."""
+
     pass
 
 
 class A2AProtocolError(A2AException):
     """Raised when A2A protocol operation fails."""
 
-    def __init__(self, message: str, method: Optional[str] = None, context_id: Optional[str] = None):
+    def __init__(
+        self, message: str, method: Optional[str] = None, context_id: Optional[str] = None
+    ):
         details = {}
         if method:
             details["method"] = method
@@ -222,6 +226,7 @@ class A2ATaskError(A2AException):
 # Configuration errors
 class ConfigurationException(JAFException):
     """Base exception for configuration errors."""
+
     pass
 
 
@@ -229,10 +234,10 @@ class InvalidConfigurationError(ConfigurationException):
     """Raised when configuration is invalid."""
 
     def __init__(self, config_type: str, message: str, config_errors: Optional[List[str]] = None):
-        super().__init__(f"Invalid {config_type} configuration: {message}", {
-            "config_type": config_type,
-            "config_errors": config_errors or []
-        })
+        super().__init__(
+            f"Invalid {config_type} configuration: {message}",
+            {"config_type": config_type, "config_errors": config_errors or []},
+        )
         self.config_type = config_type
         self.config_errors = config_errors or []
 
@@ -245,7 +250,9 @@ def create_agent_error(message: str, agent_name: Optional[str] = None) -> AgentE
     return AgentException(message)
 
 
-def create_tool_error(tool_name: str, message: str, cause: Optional[Exception] = None) -> ToolException:
+def create_tool_error(
+    tool_name: str, message: str, cause: Optional[Exception] = None
+) -> ToolException:
     """Create a tool-related error."""
     if "validation" in message.lower():
         return ToolValidationError(tool_name, [message])
@@ -257,7 +264,8 @@ def create_session_error(message: str, session_id: Optional[str] = None) -> Sess
     if "max turns" in message.lower() or "maximum turns" in message.lower():
         # Extract numbers if possible
         import re
-        numbers = re.findall(r'\d+', message)
+
+        numbers = re.findall(r"\d+", message)
         if len(numbers) >= 2:
             return MaxTurnsExceededError(int(numbers[0]), int(numbers[1]))
         return MaxTurnsExceededError(10, 10)  # Default fallback

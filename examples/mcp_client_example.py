@@ -6,6 +6,7 @@ import asyncio
 import json
 import httpx
 
+
 async def main():
     """
     Main function to connect to the server, list tools, and execute a tool.
@@ -31,13 +32,15 @@ async def main():
         # 2. Execute math tool
         print("\n--- Executing math tool ---")
         request_body = {"message": "what is 2+2?"}
-        
+
         try:
-            async with client.stream("POST", f"{base_url}/stream", json=request_body, timeout=10) as response:
+            async with client.stream(
+                "POST", f"{base_url}/stream", json=request_body, timeout=10
+            ) as response:
                 response.raise_for_status()
                 async for line in response.aiter_lines():
                     if line.startswith("data:"):
-                        event_data = json.loads(line[len("data:"):])
+                        event_data = json.loads(line[len("data:") :])
                         print(json.dumps(event_data, indent=2))
         except httpx.HTTPStatusError as e:
             print(f"Error executing tool: {e}")
@@ -49,11 +52,13 @@ async def main():
         request_body = {"message": "what is the weather in London?"}
 
         try:
-            async with client.stream("POST", f"{base_url}/stream", json=request_body, timeout=10) as response:
+            async with client.stream(
+                "POST", f"{base_url}/stream", json=request_body, timeout=10
+            ) as response:
                 response.raise_for_status()
                 async for line in response.aiter_lines():
                     if line.startswith("data:"):
-                        event_data = json.loads(line[len("data:"):])
+                        event_data = json.loads(line[len("data:") :])
                         print(json.dumps(event_data, indent=2))
         except httpx.HTTPStatusError as e:
             print(f"Error executing tool: {e}")

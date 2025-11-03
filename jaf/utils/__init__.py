@@ -16,7 +16,7 @@ from .attachments import (
     ATTACHMENT_LIMITS,
 )
 
-# Import document processing utilities  
+# Import document processing utilities
 from .document_processor import (
     extract_document_content,
     is_document_supported,
@@ -30,21 +30,20 @@ from .document_processor import (
 
 __all__ = [
     # Attachment utilities
-    'make_image_attachment',
-    'make_file_attachment', 
-    'make_document_attachment',
-    'validate_attachment',
-    'assert_non_empty_attachment',
-    'AttachmentValidationError',
-    'ATTACHMENT_LIMITS',
-    
+    "make_image_attachment",
+    "make_file_attachment",
+    "make_document_attachment",
+    "validate_attachment",
+    "assert_non_empty_attachment",
+    "AttachmentValidationError",
+    "ATTACHMENT_LIMITS",
     # Document processing
-    'extract_document_content',
-    'is_document_supported',
-    'get_document_description',
-    'get_missing_dependencies',
-    'check_dependencies',
-    'ProcessedDocument',
-    'DocumentProcessingError',
-    'NetworkError',
+    "extract_document_content",
+    "is_document_supported",
+    "get_document_description",
+    "get_missing_dependencies",
+    "check_dependencies",
+    "ProcessedDocument",
+    "DocumentProcessingError",
+    "NetworkError",
 ]

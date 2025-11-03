@@ -18,6 +18,7 @@ os.environ["TRACE_COLLECTOR_URL"] = "http://localhost:4318/v1/traces"
 
 class Weather(BaseModel):
     """Get the weather for a location."""
+
     location: str = Field(..., description="The location to get the weather for.")
     unit: Annotated[
         Literal["celsius", "fahrenheit"],
@@ -42,12 +43,14 @@ async def main():
     # Create a composite collector that includes the console and the auto-configured OTEL collector
     trace_collector = create_composite_trace_collector(ConsoleTraceCollector())
 
-    weather_tool = create_function_tool({
-        "name": "get_weather",
-        "description": "Get the weather for a location.",
-        "execute": get_weather,
-        "parameters": Weather,
-    })
+    weather_tool = create_function_tool(
+        {
+            "name": "get_weather",
+            "description": "Get the weather for a location.",
+            "execute": get_weather,
+            "parameters": Weather,
+        }
+    )
 
     agent = Agent(
         name="weather_agent",
@@ -73,13 +76,9 @@ async def main():
         print("The current LiteLLM provider might require a valid API key.")
         print("---\n")
 
-
     config = RunConfig(
         agent_registry={"weather_agent": agent},
-        model_provider=make_litellm_provider(
-            base_url="",
-            api_key=litellm_api_key
-        ),
+        model_provider=make_litellm_provider(base_url="", api_key=litellm_api_key),
         on_event=trace_collector.collect,
     )
 

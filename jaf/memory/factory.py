@@ -24,7 +24,7 @@ from .types import (
 
 
 async def create_memory_provider_from_env(
-    external_clients: Optional[Dict[str, Any]] = None
+    external_clients: Optional[Dict[str, Any]] = None,
 ) -> Result[MemoryProvider, MemoryConnectionError]:
     """
     Create a memory provider based on environment variables.
@@ -35,7 +35,7 @@ async def create_memory_provider_from_env(
     if memory_type == "memory":
         config = InMemoryConfig(
             max_conversations=int(os.getenv("JAF_MEMORY_MAX_CONVERSATIONS", "1000")),
-            max_messages_per_conversation=int(os.getenv("JAF_MEMORY_MAX_MESSAGES", "1000"))
+            max_messages_per_conversation=int(os.getenv("JAF_MEMORY_MAX_MESSAGES", "1000")),
         )
         return Success(create_in_memory_provider(config))
 
@@ -47,7 +47,7 @@ async def create_memory_provider_from_env(
             "port": int(os.getenv("JAF_REDIS_PORT", "6379")),
             "db": int(os.getenv("JAF_REDIS_DB", "0")),
             "key_prefix": os.getenv("JAF_REDIS_PREFIX", "jaf:memory:"),
-            "ttl": int(os.getenv("JAF_REDIS_TTL")) if os.getenv("JAF_REDIS_TTL") else None
+            "ttl": int(os.getenv("JAF_REDIS_TTL")) if os.getenv("JAF_REDIS_TTL") else None,
         }
         if redis_password:
             config_data["password"] = redis_password
@@ -65,7 +65,7 @@ async def create_memory_provider_from_env(
             "password": os.getenv("JAF_POSTGRES_PASSWORD"),
             "ssl": os.getenv("JAF_POSTGRES_SSL", "false").lower() == "true",
             "table_name": os.getenv("JAF_POSTGRES_TABLE", "conversations"),
-            "max_connections": int(os.getenv("JAF_POSTGRES_MAX_CONNECTIONS", "10"))
+            "max_connections": int(os.getenv("JAF_POSTGRES_MAX_CONNECTIONS", "10")),
         }
         if connection_string:
             config_data["connection_string"] = connection_string

@@ -2,7 +2,7 @@
 """
 JAF RAG Example - Using LiteLLM with Gemini.
 
-This example demonstrates how to create a RAG (Retrieval-Augmented Generation) 
+This example demonstrates how to create a RAG (Retrieval-Augmented Generation)
 agent using LiteLLM proxy with Gemini models.
 """
 
@@ -28,6 +28,7 @@ from jaf.providers.model import make_litellm_provider
 
 class RAGQueryArgs(BaseModel):
     """Arguments for RAG query tool."""
+
     query: str
     max_results: int = 5
 
@@ -47,44 +48,44 @@ class LiteLLMRAGTool:
                 "id": "doc1",
                 "title": "Python Programming Basics",
                 "content": "Python is a high-level, interpreted programming language known for its simplicity and readability. It supports multiple programming paradigms including procedural, object-oriented, and functional programming. Python's syntax is clean and expressive, making it an excellent choice for beginners and experienced developers alike.",
-                "metadata": {"category": "programming", "level": "beginner"}
+                "metadata": {"category": "programming", "level": "beginner"},
             },
             {
                 "id": "doc2",
                 "title": "Machine Learning with Python",
                 "content": "Python is the leading language for machine learning due to its rich ecosystem of libraries. Scikit-learn provides simple and efficient tools for data mining and analysis. TensorFlow and PyTorch enable deep learning and neural network development. NumPy and Pandas handle numerical computations and data manipulation.",
-                "metadata": {"category": "ml", "level": "intermediate"}
+                "metadata": {"category": "ml", "level": "intermediate"},
             },
             {
                 "id": "doc3",
                 "title": "Web Development with FastAPI",
                 "content": "FastAPI is a modern, fast web framework for building APIs with Python. It provides automatic API documentation with Swagger UI, data validation using Pydantic, async support for high performance, and type hints for better developer experience. FastAPI is built on Starlette and uses standard Python type declarations.",
-                "metadata": {"category": "web", "level": "intermediate"}
+                "metadata": {"category": "web", "level": "intermediate"},
             },
             {
                 "id": "doc4",
                 "title": "Data Science Workflow",
                 "content": "A typical data science workflow includes data collection from various sources, data cleaning and preprocessing, exploratory data analysis, feature engineering, model selection and training, model evaluation and validation, and finally model deployment. Python provides excellent tools for each step including Pandas, Matplotlib, Seaborn, and Jupyter notebooks.",
-                "metadata": {"category": "data-science", "level": "advanced"}
+                "metadata": {"category": "data-science", "level": "advanced"},
             },
             {
                 "id": "doc5",
                 "title": "Agent Frameworks and AI",
                 "content": "Agent frameworks like JAF (Juspay Agent Framework) enable building sophisticated AI applications with tool integration, conversation management, state handling, and model orchestration capabilities. These frameworks provide abstractions for creating autonomous agents that can interact with external systems and maintain context across conversations.",
-                "metadata": {"category": "ai", "level": "advanced"}
+                "metadata": {"category": "ai", "level": "advanced"},
             },
             {
                 "id": "doc6",
                 "title": "Google AI and Gemini",
                 "content": "Google AI's Gemini models are multimodal large language models that can understand and generate text, code, images, and more. Gemini Pro is optimized for a wide range of reasoning tasks, while Gemini Ultra provides the highest capability for complex tasks. The models support long context windows and advanced reasoning capabilities.",
-                "metadata": {"category": "ai", "level": "advanced"}
+                "metadata": {"category": "ai", "level": "advanced"},
             },
             {
                 "id": "doc7",
                 "title": "LiteLLM Proxy Server",
                 "content": "LiteLLM is a proxy server that provides a unified interface for 100+ language models including OpenAI, Anthropic, Google AI, AWS Bedrock, and more. It handles API key management, rate limiting, caching, and provides OpenAI-compatible endpoints. This makes it easy to switch between different model providers without changing your application code.",
-                "metadata": {"category": "ai", "level": "intermediate"}
-            }
+                "metadata": {"category": "ai", "level": "intermediate"},
+            },
         ]
 
     @property
@@ -92,7 +93,7 @@ class LiteLLMRAGTool:
         return ToolSchema(
             name="litellm_rag",
             description="Search knowledge base and retrieve relevant information",
-            parameters=RAGQueryArgs
+            parameters=RAGQueryArgs,
         )
 
     async def execute(self, args: RAGQueryArgs, context: Any) -> ToolResult:
@@ -104,7 +105,7 @@ class LiteLLMRAGTool:
             if not relevant_docs:
                 return ToolResponse.success(
                     "I couldn't find any relevant information in the knowledge base for your query.",
-                    {"query": args.query, "results_count": 0}
+                    {"query": args.query, "results_count": 0},
                 )
 
             # Step 2: Format the retrieved information
@@ -115,15 +116,18 @@ class LiteLLMRAGTool:
                 {
                     "query": args.query,
                     "results_count": len(relevant_docs),
-                    "sources": [{"title": doc["title"], "category": doc["metadata"]["category"]} for doc in relevant_docs]
-                }
+                    "sources": [
+                        {"title": doc["title"], "category": doc["metadata"]["category"]}
+                        for doc in relevant_docs
+                    ],
+                },
             )
 
         except Exception as e:
             return ToolResponse.error(
                 ToolErrorCodes.EXECUTION_FAILED,
                 f"RAG query failed: {e!s}",
-                {"error": str(e), "query": args.query}
+                {"error": str(e), "query": args.query},
             )
 
     def _semantic_search(self, query: str, max_results: int) -> List[Dict[str, Any]]:
@@ -135,7 +139,9 @@ class LiteLLMRAGTool:
             score = 0
             # Enhanced scoring based on keyword matches
             title_matches = sum(1 for word in query_lower.split() if word in doc["title"].lower())
-            content_matches = sum(1 for word in query_lower.split() if word in doc["content"].lower())
+            content_matches = sum(
+                1 for word in query_lower.split() if word in doc["content"].lower()
+            )
 
             # Category relevance
             category_keywords = {
@@ -143,12 +149,22 @@ class LiteLLMRAGTool:
                 "ml": ["machine learning", "ai", "model", "training", "neural"],
                 "web": ["web", "api", "fastapi", "server", "http"],
                 "data-science": ["data", "analysis", "visualization", "pandas"],
-                "ai": ["ai", "agent", "framework", "intelligent", "autonomous", "litellm", "gemini"]
+                "ai": [
+                    "ai",
+                    "agent",
+                    "framework",
+                    "intelligent",
+                    "autonomous",
+                    "litellm",
+                    "gemini",
+                ],
             }
 
             category = doc["metadata"]["category"]
             if category in category_keywords:
-                category_matches = sum(1 for keyword in category_keywords[category] if keyword in query_lower)
+                category_matches = sum(
+                    1 for keyword in category_keywords[category] if keyword in query_lower
+                )
                 score += category_matches * 1.5
 
             score += title_matches * 3 + content_matches
@@ -169,7 +185,9 @@ class LiteLLMRAGTool:
 
         for i, doc in enumerate(docs, 1):
             formatted_parts.append(f"[Source {i}] {doc['title']}")
-            formatted_parts.append(f"Category: {doc['metadata']['category']} | Level: {doc['metadata']['level']}")
+            formatted_parts.append(
+                f"Category: {doc['metadata']['category']} | Level: {doc['metadata']['level']}"
+            )
             formatted_parts.append(f"Content: {doc['content']}")
             formatted_parts.append("")  # Add spacing
 
@@ -202,7 +220,7 @@ Always use the search tool when users ask questions that could be answered with 
         tools=[rag_tool],
         output_codec=None,
         handoffs=None,
-        model_config=None
+        model_config=None,
     )
 
 
@@ -230,7 +248,7 @@ async def demo_litellm_rag():
         agent_registry={"litellm_rag_assistant": rag_agent},
         model_provider=model_provider,
         model_override=litellm_model,
-        max_turns=10
+        max_turns=10,
     )
 
     # Demo questions
@@ -241,7 +259,7 @@ async def demo_litellm_rag():
         "What is JAF and how does it help with AI applications?",
         "Explain the data science workflow using Python",
         "What is LiteLLM and how does it work?",
-        "How do Gemini models compare to other AI models?"
+        "How do Gemini models compare to other AI models?",
     ]
 
     print(f"📚 Knowledge base contains {len(rag_agent.tools[0].knowledge_base)} documents")
@@ -255,10 +273,10 @@ async def demo_litellm_rag():
         initial_state = RunState(
             run_id=generate_run_id(),
             trace_id=generate_trace_id(),
-            messages=[Message(role='user', content=question)],
+            messages=[Message(role="user", content=question)],
             current_agent_name="litellm_rag_assistant",
             context={},
-            turn_count=0
+            turn_count=0,
         )
 
         # Run the conversation
@@ -266,7 +284,7 @@ async def demo_litellm_rag():
             result = await run(initial_state, run_config)
 
             # Display result
-            if hasattr(result.outcome, 'output') and result.outcome.output:
+            if hasattr(result.outcome, "output") and result.outcome.output:
                 print(f"🤖 Assistant: {result.outcome.output}")
             else:
                 print(f"❌ Error: {result.outcome}")
@@ -303,7 +321,7 @@ async def interactive_litellm_rag():
         agent_registry={"litellm_rag_assistant": rag_agent},
         model_provider=model_provider,
         model_override=litellm_model,
-        max_turns=10
+        max_turns=10,
     )
 
     print(f"📚 Knowledge base loaded with {len(rag_agent.tools[0].knowledge_base)} documents")
@@ -313,7 +331,7 @@ async def interactive_litellm_rag():
         try:
             user_input = input("👤 You: ").strip()
 
-            if user_input.lower() in ['quit', 'exit', 'q']:
+            if user_input.lower() in ["quit", "exit", "q"]:
                 print("👋 Goodbye!")
                 break
 
@@ -326,17 +344,17 @@ async def interactive_litellm_rag():
             initial_state = RunState(
                 run_id=generate_run_id(),
                 trace_id=generate_trace_id(),
-                messages=[Message(role='user', content=user_input)],
+                messages=[Message(role="user", content=user_input)],
                 current_agent_name="litellm_rag_assistant",
                 context={},
-                turn_count=0
+                turn_count=0,
             )
 
             # Run the conversation
             result = await run(initial_state, run_config)
 
             # Display result
-            if hasattr(result.outcome, 'output') and result.outcome.output:
+            if hasattr(result.outcome, "output") and result.outcome.output:
                 print(f"🤖 Assistant: {result.outcome.output}\n")
             else:
                 print(f"❌ Error: {result.outcome}\n")
@@ -356,6 +374,7 @@ async def main():
     # Load environment variables
     try:
         from dotenv import load_dotenv
+
         load_dotenv()
         print("📄 Loaded environment variables from .env file")
     except ImportError:
@@ -370,7 +389,9 @@ async def main():
 
     print("⚙️  Configuration:")
     print(f"   - LiteLLM URL: {litellm_url}")
-    print(f"   - LiteLLM API Key: {'✅ Set' if litellm_api_key != 'your_api_key_here' else '❌ Default (update needed)'}")
+    print(
+        f"   - LiteLLM API Key: {'✅ Set' if litellm_api_key != 'your_api_key_here' else '❌ Default (update needed)'}"
+    )
     print(f"   - LiteLLM Model: {litellm_model}")
     print(f"   - Server Port: {port}")
     print(f"   - Server Host: {host}")
@@ -383,7 +404,9 @@ async def main():
 
     # Choose demo mode
     try:
-        mode = input("Choose demo mode:\n1. Automated demo with sample questions\n2. Interactive chat\nEnter 1 or 2: ").strip()
+        mode = input(
+            "Choose demo mode:\n1. Automated demo with sample questions\n2. Interactive chat\nEnter 1 or 2: "
+        ).strip()
     except (EOFError, KeyboardInterrupt):
         mode = "1"
 

@@ -14,13 +14,7 @@ from typing import List, Optional, Tuple
 def run_command(cmd: List[str], cwd: Optional[Path] = None) -> Tuple[int, str, str]:
     """Run a command and return exit code, stdout, and stderr."""
     try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            cwd=cwd,
-            timeout=60
-        )
+        result = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd, timeout=60)
         return result.returncode, result.stdout, result.stderr
     except subprocess.TimeoutExpired:
         return 1, "", "Command timed out"
@@ -62,7 +56,6 @@ def validate_package_structure() -> bool:
         (root / "jaf" / "cli.py", "CLI module"),
         (root / "pyproject.toml", "Package configuration"),
         (root / "README.md", "Documentation"),
-
         # Core modules
         (root / "jaf" / "core" / "__init__.py", "Core init"),
         (root / "jaf" / "core" / "engine.py", "Core engine"),
@@ -70,26 +63,21 @@ def validate_package_structure() -> bool:
         (root / "jaf" / "core" / "errors.py", "Error handling"),
         (root / "jaf" / "core" / "tool_results.py", "Tool results"),
         (root / "jaf" / "core" / "tracing.py", "Tracing"),
-
         # Providers
         (root / "jaf" / "providers" / "__init__.py", "Providers init"),
         (root / "jaf" / "providers" / "model.py", "Model provider"),
         (root / "jaf" / "providers" / "mcp.py", "MCP provider"),
-
         # Policies
         (root / "jaf" / "policies" / "__init__.py", "Policies init"),
         (root / "jaf" / "policies" / "validation.py", "Validation policies"),
         (root / "jaf" / "policies" / "handoff.py", "Handoff policies"),
-
         # Server
         (root / "jaf" / "server" / "__init__.py", "Server init"),
         (root / "jaf" / "server" / "server.py", "Server implementation"),
         (root / "jaf" / "server" / "types.py", "Server types"),
-
         # Examples
         (root / "examples" / "server_example.py", "Server example"),
         (root / "examples" / "iterative_search_agent.py", "Iterative search agent example"),
-
         # Tests
         (root / "tests" / "test_engine.py", "Engine tests"),
         (root / "tests" / "test_validation.py", "Validation tests"),
@@ -140,11 +128,19 @@ def validate_key_exports() -> bool:
 
         # Check key exports
         key_exports = [
-            "Agent", "Tool", "RunState", "RunConfig", "run",
-            "generate_trace_id", "generate_run_id",
-            "make_litellm_provider", "run_server",
-            "MCPClient", "create_mcp_stdio_client",
-            "ToolResult", "ToolResultStatus"
+            "Agent",
+            "Tool",
+            "RunState",
+            "RunConfig",
+            "run",
+            "generate_trace_id",
+            "generate_run_id",
+            "make_litellm_provider",
+            "run_server",
+            "MCPClient",
+            "create_mcp_stdio_client",
+            "ToolResult",
+            "ToolResultStatus",
         ]
 
         all_good = True
@@ -177,10 +173,7 @@ def validate_dependencies() -> bool:
         print("✅ Core dependencies: Available")
 
         # Check optional dependencies
-        optional_deps = {
-            "google-generativeai": "google.generativeai",
-            "python-dotenv": "dotenv"
-        }
+        optional_deps = {"google-generativeai": "google.generativeai", "python-dotenv": "dotenv"}
 
         for dep_name, module_name in optional_deps.items():
             try:
@@ -201,9 +194,9 @@ def validate_cli() -> bool:
     print("\n🔍 Validating CLI...")
 
     # Test that the CLI can be imported and run
-    exit_code, stdout, stderr = run_command([
-        sys.executable, "-c", "from jaf.cli import cli_main; print('CLI import OK')"
-    ])
+    exit_code, stdout, stderr = run_command(
+        [sys.executable, "-c", "from jaf.cli import cli_main; print('CLI import OK')"]
+    )
 
     if exit_code == 0:
         print("✅ CLI import: OK")
@@ -222,10 +215,7 @@ def validate_examples() -> bool:
     root = Path(__file__).parent.parent.parent  # Go up to project root
     all_good = True
 
-    examples = [
-        "server_example.py",
-        "iterative_search_agent.py"
-    ]
+    examples = ["server_example.py", "iterative_search_agent.py"]
 
     for example in examples:
         example_path = root / "examples" / example
@@ -233,20 +223,32 @@ def validate_examples() -> bool:
         # Test syntax by compiling (don't execute server examples that might block)
         if "server" in example:
             # Just compile, don't execute server examples
-            exit_code, stdout, stderr = run_command([
-                sys.executable, "-c", f"compile(open('{example_path}').read(), '{example_path}', 'exec')"
-            ])
+            exit_code, stdout, stderr = run_command(
+                [
+                    sys.executable,
+                    "-c",
+                    f"compile(open('{example_path}').read(), '{example_path}', 'exec')",
+                ]
+            )
         elif "iterative_search_agent" in example:
             # ADK example - just check syntax compilation, don't execute
-            exit_code, stdout, stderr = run_command([
-                sys.executable, "-c", f"compile(open('{example_path}').read(), '{example_path}', 'exec')"
-            ])
+            exit_code, stdout, stderr = run_command(
+                [
+                    sys.executable,
+                    "-c",
+                    f"compile(open('{example_path}').read(), '{example_path}', 'exec')",
+                ]
+            )
         else:
             # Execute non-server examples
-            exit_code, stdout, stderr = run_command([
-                sys.executable, "-c", f"import sys; sys.path.insert(0, '{root / 'examples'}'); "
-                f"exec(compile(open('{example_path}').read(), '{example_path}', 'exec'))"
-            ])
+            exit_code, stdout, stderr = run_command(
+                [
+                    sys.executable,
+                    "-c",
+                    f"import sys; sys.path.insert(0, '{root / 'examples'}'); "
+                    f"exec(compile(open('{example_path}').read(), '{example_path}', 'exec'))",
+                ]
+            )
 
         if exit_code == 0:
             print(f"✅ Example {example}: Syntax OK")
@@ -264,7 +266,7 @@ def run_quick_tests() -> bool:
 
     try:
         # Test basic functionality
-        test_code = '''
+        test_code = """
 import asyncio
 from jaf import Agent, RunState, RunConfig, run, generate_run_id, generate_trace_id
 from jaf.core.types import Message
@@ -303,11 +305,9 @@ config = RunConfig(
 )
 
 print("Basic functionality test: PASSED")
-'''
+"""
 
-        exit_code, stdout, stderr = run_command([
-            sys.executable, "-c", test_code
-        ])
+        exit_code, stdout, stderr = run_command([sys.executable, "-c", test_code])
 
         if exit_code == 0 and "PASSED" in stdout:
             print("✅ Quick functionality test: PASSED")

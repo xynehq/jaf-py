@@ -37,29 +37,24 @@ __all__ = [
     "MemoryProvider",
     "MemoryQuery",
     "MemoryConfig",
-
     # Result types
     "Result",
     "Success",
     "Failure",
-
     # Configuration types
     "InMemoryConfig",
     "RedisConfig",
     "PostgresConfig",
     "MemoryProviderConfig",
-
     # Error types
     "MemoryError",
     "MemoryConnectionError",
     "MemoryNotFoundError",
     "MemoryStorageError",
-
     # Factory functions
     "create_memory_provider_from_env",
-
     # Provider factories
     "create_in_memory_provider",
     "create_redis_provider",
-    "create_postgres_provider"
+    "create_postgres_provider",
 ]

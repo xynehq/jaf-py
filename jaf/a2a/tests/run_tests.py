@@ -93,10 +93,7 @@ def build_pytest_args(mode: str, args: argparse.Namespace) -> List[str]:
     if mode == "all":
         pytest_args.append(str(test_dir))
     elif mode == "unit":
-        pytest_args.extend([
-            str(test_dir),
-            "--ignore=" + str(test_dir / "test_integration.py")
-        ])
+        pytest_args.extend([str(test_dir), "--ignore=" + str(test_dir / "test_integration.py")])
     elif mode == "integration":
         pytest_args.append(str(test_dir / "test_integration.py"))
     elif mode in ["types", "protocol", "client", "agent"]:
@@ -105,10 +102,7 @@ def build_pytest_args(mode: str, args: argparse.Namespace) -> List[str]:
         pytest_args.append(str(test_dir))
 
     # Add asyncio support
-    pytest_args.extend([
-        "--asyncio-mode=auto",
-        "--tb=short"
-    ])
+    pytest_args.extend(["--asyncio-mode=auto", "--tb=short"])
 
     # Verbosity
     if args.verbose:
@@ -126,6 +120,7 @@ def build_pytest_args(mode: str, args: argparse.Namespace) -> List[str]:
     if args.parallel:
         try:
             import pytest_xdist
+
             pytest_args.extend(["-n", "auto"])
         except ImportError:
             print("⚠️  pytest-xdist not available, running sequentially")
@@ -134,10 +129,8 @@ def build_pytest_args(mode: str, args: argparse.Namespace) -> List[str]:
     if args.coverage:
         try:
             import pytest_cov
-            pytest_args.extend([
-                "--cov=jaf.a2a",
-                "--cov-report=term-missing"
-            ])
+
+            pytest_args.extend(["--cov=jaf.a2a", "--cov-report=term-missing"])
 
             if args.html:
                 pytest_args.append("--cov-report=html:htmlcov")
@@ -151,10 +144,8 @@ def build_pytest_args(mode: str, args: argparse.Namespace) -> List[str]:
     if args.html and not args.coverage:
         try:
             import pytest_html
-            pytest_args.extend([
-                "--html=test_report.html",
-                "--self-contained-html"
-            ])
+
+            pytest_args.extend(["--html=test_report.html", "--self-contained-html"])
         except ImportError:
             print("⚠️  pytest-html not available, skipping HTML report")
 
@@ -181,6 +172,7 @@ def run_tests(mode: str, args: argparse.Namespace) -> int:
     # Import and run pytest
     try:
         import pytest
+
         exit_code = pytest.main(pytest_args)
     except ImportError:
         print("❌ pytest not available")
@@ -210,7 +202,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="JAF A2A Test Runner",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__
+        epilog=__doc__,
     )
 
     parser.add_argument(
@@ -218,50 +210,22 @@ def main():
         nargs="?",
         default="all",
         choices=["all", "unit", "integration", "types", "protocol", "client", "agent"],
-        help="Test mode to run (default: all)"
+        help="Test mode to run (default: all)",
     )
 
-    parser.add_argument(
-        "-v", "--verbose",
-        action="store_true",
-        help="Verbose output"
-    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
 
-    parser.add_argument(
-        "-q", "--quiet",
-        action="store_true",
-        help="Minimal output"
-    )
+    parser.add_argument("-q", "--quiet", action="store_true", help="Minimal output")
 
-    parser.add_argument(
-        "--coverage",
-        action="store_true",
-        help="Generate coverage report"
-    )
+    parser.add_argument("--coverage", action="store_true", help="Generate coverage report")
 
-    parser.add_argument(
-        "--html",
-        action="store_true",
-        help="Generate HTML reports"
-    )
+    parser.add_argument("--html", action="store_true", help="Generate HTML reports")
 
-    parser.add_argument(
-        "--xml",
-        action="store_true",
-        help="Generate XML coverage report"
-    )
+    parser.add_argument("--xml", action="store_true", help="Generate XML coverage report")
 
-    parser.add_argument(
-        "--failfast",
-        action="store_true",
-        help="Stop on first failure"
-    )
+    parser.add_argument("--failfast", action="store_true", help="Stop on first failure")
 
-    parser.add_argument(
-        "--parallel",
-        action="store_true",
-        help="Run tests in parallel"
-    )
+    parser.add_argument("--parallel", action="store_true", help="Run tests in parallel")
 
     args = parser.parse_args()
 

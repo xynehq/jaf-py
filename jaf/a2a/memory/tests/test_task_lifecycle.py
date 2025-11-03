@@ -36,12 +36,14 @@ from jaf.a2a.types import (
 # Import other providers when they're available
 try:
     from jaf.a2a.memory.providers.redis import create_a2a_redis_task_provider
+
     REDIS_AVAILABLE = True
 except ImportError:
     REDIS_AVAILABLE = False
 
 try:
     from jaf.a2a.memory.providers.postgres import create_a2a_postgres_task_provider
+
     POSTGRES_AVAILABLE = True
 except ImportError:
     POSTGRES_AVAILABLE = False
@@ -51,9 +53,7 @@ class TaskLifecycleTestBase:
     """Base test class with helper methods for task lifecycle testing"""
 
     def create_submission_task(
-        self,
-        task_id: str = "lifecycle_task_001",
-        context_id: str = "lifecycle_ctx_001"
+        self, task_id: str = "lifecycle_task_001", context_id: str = "lifecycle_ctx_001"
     ) -> A2ATask:
         """Create a task in submitted state"""
         return A2ATask(
@@ -67,43 +67,36 @@ class TaskLifecycleTestBase:
                     parts=[A2ATextPart(kind="text", text="Please help me with this task")],
                     messageId=f"submit_{task_id}",
                     contextId=context_id,
-                    kind="message"
+                    kind="message",
                 ),
-                timestamp=datetime.now(timezone.utc).isoformat()
+                timestamp=datetime.now(timezone.utc).isoformat(),
             ),
-            metadata={
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "priority": "normal"
-            }
+            metadata={"created_at": datetime.now(timezone.utc).isoformat(), "priority": "normal"},
         )
 
     def create_working_task_update(
-        self,
-        base_task: A2ATask,
-        progress_message: str = "Processing your request..."
+        self, base_task: A2ATask, progress_message: str = "Processing your request..."
     ) -> A2ATask:
         """Create task update transitioning to working state"""
-        return base_task.model_copy(update={
-            "status": A2ATaskStatus(
-                state=TaskState.WORKING,
-                message=A2AMessage(
-                    role="agent",
-                    parts=[A2ATextPart(kind="text", text=progress_message)],
-                    messageId=f"working_{base_task.id}",
-                    contextId=base_task.context_id,
-                    kind="message"
+        return base_task.model_copy(
+            update={
+                "status": A2ATaskStatus(
+                    state=TaskState.WORKING,
+                    message=A2AMessage(
+                        role="agent",
+                        parts=[A2ATextPart(kind="text", text=progress_message)],
+                        messageId=f"working_{base_task.id}",
+                        contextId=base_task.context_id,
+                        kind="message",
+                    ),
+                    timestamp=datetime.now(timezone.utc).isoformat(),
                 ),
-                timestamp=datetime.now(timezone.utc).isoformat()
-            ),
-            "history": [
-                base_task.status.message
-            ] if base_task.status.message else []
-        })
+                "history": [base_task.status.message] if base_task.status.message else [],
+            }
+        )
 
     def create_completed_task_update(
-        self,
-        working_task: A2ATask,
-        result_text: str = "Task completed successfully"
+        self, working_task: A2ATask, result_text: str = "Task completed successfully"
     ) -> A2ATask:
         """Create task update transitioning to completed state with artifacts"""
         completion_message = A2AMessage(
@@ -111,7 +104,7 @@ class TaskLifecycleTestBase:
             parts=[A2ATextPart(kind="text", text=result_text)],
             messageId=f"complete_{working_task.id}",
             contextId=working_task.context_id,
-            kind="message"
+            kind="message",
         )
 
         result_artifact = A2AArtifact(
@@ -120,8 +113,11 @@ class TaskLifecycleTestBase:
             description="Final result of the completed task",
             parts=[
                 A2ATextPart(kind="text", text="Here is your completed result."),
-                A2ADataPart(kind="data", data={"success": True, "timestamp": datetime.now(timezone.utc).isoformat()})
-            ]
+                A2ADataPart(
+                    kind="data",
+                    data={"success": True, "timestamp": datetime.now(timezone.utc).isoformat()},
+                ),
+            ],
         )
 
         # Build complete history
@@ -129,20 +125,20 @@ class TaskLifecycleTestBase:
         if working_task.status.message:
             history.append(working_task.status.message)
 
-        return working_task.model_copy(update={
-            "status": A2ATaskStatus(
-                state=TaskState.COMPLETED,
-                message=completion_message,
-                timestamp=datetime.now(timezone.utc).isoformat()
-            ),
-            "history": history,
-            "artifacts": [result_artifact]
-        })
+        return working_task.model_copy(
+            update={
+                "status": A2ATaskStatus(
+                    state=TaskState.COMPLETED,
+                    message=completion_message,
+                    timestamp=datetime.now(timezone.utc).isoformat(),
+                ),
+                "history": history,
+                "artifacts": [result_artifact],
+            }
+        )
 
     def create_failed_task_update(
-        self,
-        working_task: A2ATask,
-        error_message: str = "Task failed due to an error"
+        self, working_task: A2ATask, error_message: str = "Task failed due to an error"
     ) -> A2ATask:
         """Create task update transitioning to failed state"""
         failure_message = A2AMessage(
@@ -150,26 +146,26 @@ class TaskLifecycleTestBase:
             parts=[A2ATextPart(kind="text", text=error_message)],
             messageId=f"failed_{working_task.id}",
             contextId=working_task.context_id,
-            kind="message"
+            kind="message",
         )
 
         history = list(working_task.history or [])
         if working_task.status.message:
             history.append(working_task.status.message)
 
-        return working_task.model_copy(update={
-            "status": A2ATaskStatus(
-                state=TaskState.FAILED,
-                message=failure_message,
-                timestamp=datetime.now(timezone.utc).isoformat()
-            ),
-            "history": history
-        })
+        return working_task.model_copy(
+            update={
+                "status": A2ATaskStatus(
+                    state=TaskState.FAILED,
+                    message=failure_message,
+                    timestamp=datetime.now(timezone.utc).isoformat(),
+                ),
+                "history": history,
+            }
+        )
 
     def create_canceled_task_update(
-        self,
-        working_task: A2ATask,
-        cancel_reason: str = "Task was canceled by user"
+        self, working_task: A2ATask, cancel_reason: str = "Task was canceled by user"
     ) -> A2ATask:
         """Create task update transitioning to canceled state"""
         cancel_message = A2AMessage(
@@ -177,28 +173,35 @@ class TaskLifecycleTestBase:
             parts=[A2ATextPart(kind="text", text=cancel_reason)],
             messageId=f"cancel_{working_task.id}",
             contextId=working_task.context_id,
-            kind="message"
+            kind="message",
         )
 
         history = list(working_task.history or [])
         if working_task.status.message:
             history.append(working_task.status.message)
 
-        return working_task.model_copy(update={
-            "status": A2ATaskStatus(
-                state=TaskState.CANCELED,
-                message=cancel_message,
-                timestamp=datetime.now(timezone.utc).isoformat()
-            ),
-            "history": history
-        })
+        return working_task.model_copy(
+            update={
+                "status": A2ATaskStatus(
+                    state=TaskState.CANCELED,
+                    message=cancel_message,
+                    timestamp=datetime.now(timezone.utc).isoformat(),
+                ),
+                "history": history,
+            }
+        )
 
 
 # Provider parameter list for running tests across all providers
 PROVIDER_TYPES = [
     "in_memory",
-    pytest.param("redis", marks=pytest.mark.skipif(not REDIS_AVAILABLE, reason="Redis not available")),
-    pytest.param("postgres", marks=pytest.mark.skipif(not POSTGRES_AVAILABLE, reason="PostgreSQL not available"))
+    pytest.param(
+        "redis", marks=pytest.mark.skipif(not REDIS_AVAILABLE, reason="Redis not available")
+    ),
+    pytest.param(
+        "postgres",
+        marks=pytest.mark.skipif(not POSTGRES_AVAILABLE, reason="PostgreSQL not available"),
+    ),
 ]
 
 
@@ -220,21 +223,25 @@ async def provider(request):
             port=6379,
             db=15,  # Use separate DB for testing
             key_prefix="jaf_test:a2a:tasks:",
-            password="12345678"
+            password="12345678",
         )
         try:
             redis_client = redis.Redis(
-                host=config.host, 
-                port=config.port, 
-                db=config.db, 
-                password=config.password, 
-                decode_responses=True
+                host=config.host,
+                port=config.port,
+                db=config.db,
+                password=config.password,
+                decode_responses=True,
             )
             await redis_client.ping()
             await redis_client.flushdb()
             p_result = await create_a2a_redis_task_provider(config, redis_client)
             p = p_result.data
-        except (redis.exceptions.ConnectionError, ConnectionRefusedError, redis.exceptions.AuthenticationError) as e:
+        except (
+            redis.exceptions.ConnectionError,
+            ConnectionRefusedError,
+            redis.exceptions.AuthenticationError,
+        ) as e:
             pytest.skip(f"Redis not available at {config.host}:{config.port}: {e}")
 
     elif provider_type == "postgres":
@@ -243,7 +250,7 @@ async def provider(request):
             port=5432,
             database="jaf_test",
             username="postgres",
-            table_name="a2a_tasks_test"
+            table_name="a2a_tasks_test",
         )
         try:
             pg_pool = await asyncpg.create_pool(
@@ -265,7 +272,7 @@ async def provider(request):
             await redis_client.aclose()
         if pg_pool:
             await pg_pool.close()
-    elif provider_type not in ['redis', 'postgres']: # Don't fail if skipped
+    elif provider_type not in ["redis", "postgres"]:  # Don't fail if skipped
         pytest.fail(f"Unknown provider type or provider failed to initialize: {provider_type}")
 
 
@@ -293,7 +300,9 @@ class TestTaskLifecycleHappyPath(TaskLifecycleTestBase):
         assert stored_task.status.state == TaskState.SUBMITTED
 
         # Step 2: Transition to working state
-        working_task = self.create_working_task_update(stored_task, "Starting to work on your request...")
+        working_task = self.create_working_task_update(
+            stored_task, "Starting to work on your request..."
+        )
 
         update_result = await provider.update_task(working_task)
         assert update_result.data is None, "Update should succeed"
@@ -314,13 +323,15 @@ class TestTaskLifecycleHappyPath(TaskLifecycleTestBase):
                 parts=[A2ATextPart(kind="text", text="50% complete...")],
                 messageId="progress_001",
                 contextId="happy_ctx_001",
-                kind="message"
-            )
+                kind="message",
+            ),
         )
         assert intermediate_update_result.data is None, "Status update should succeed"
 
         # Step 4: Transition to completed state
-        completed_task = self.create_completed_task_update(working_stored, "Your task has been completed successfully!")
+        completed_task = self.create_completed_task_update(
+            working_stored, "Your task has been completed successfully!"
+        )
 
         complete_result = await provider.update_task(completed_task)
         assert complete_result.data is None, "Completion should succeed"
@@ -365,7 +376,7 @@ class TestTaskLifecycleHappyPath(TaskLifecycleTestBase):
             "25% complete - analyzing request",
             "50% complete - processing data",
             "75% complete - generating results",
-            "90% complete - finalizing output"
+            "90% complete - finalizing output",
         ]
 
         for i, message in enumerate(progress_messages):
@@ -374,13 +385,11 @@ class TestTaskLifecycleHappyPath(TaskLifecycleTestBase):
                 parts=[A2ATextPart(kind="text", text=message)],
                 messageId=f"progress_{i}",
                 contextId="multi_ctx_001",
-                kind="message"
+                kind="message",
             )
 
             update_result = await provider.update_task_status(
-                "multi_001",
-                TaskState.WORKING,
-                status_message
+                "multi_001", TaskState.WORKING, status_message
             )
             assert update_result.data is None, f"Progress update {i} should succeed"
 
@@ -413,7 +422,9 @@ class TestTaskLifecycleUnhappyPath(TaskLifecycleTestBase):
         await provider.update_task(working_task)
 
         # Transition to failed state
-        failed_task = self.create_failed_task_update(working_task, "Encountered an unexpected error during processing")
+        failed_task = self.create_failed_task_update(
+            working_task, "Encountered an unexpected error during processing"
+        )
 
         fail_result = await provider.update_task(failed_task)
         assert fail_result.data is None, "Failure update should succeed"
@@ -454,12 +465,14 @@ class TestTaskLifecycleUnhappyPath(TaskLifecycleTestBase):
                 parts=[A2ATextPart(kind="text", text="Working on your request...")],
                 messageId="working_msg",
                 contextId="cancel_ctx_001",
-                kind="message"
-            )
+                kind="message",
+            ),
         )
 
         # Cancel the task
-        canceled_task = self.create_canceled_task_update(working_task, "Task was canceled at user request")
+        canceled_task = self.create_canceled_task_update(
+            working_task, "Task was canceled at user request"
+        )
 
         cancel_result = await provider.update_task(canceled_task)
         assert cancel_result.data is None, "Cancellation should succeed"
@@ -498,7 +511,13 @@ class TestMultiTaskContextManagement(TaskLifecycleTestBase):
             assert store_result.data is None, f"Task {task_id} should store successfully"
 
         # Progress tasks to different states
-        states = [TaskState.SUBMITTED, TaskState.WORKING, TaskState.COMPLETED, TaskState.FAILED, TaskState.CANCELED]
+        states = [
+            TaskState.SUBMITTED,
+            TaskState.WORKING,
+            TaskState.COMPLETED,
+            TaskState.FAILED,
+            TaskState.CANCELED,
+        ]
 
         for i, (task_id, target_state) in enumerate(zip(task_ids, states)):
             get_result = await provider.get_task(task_id)
@@ -667,11 +686,7 @@ class TestTaskQueryAndPagination(TaskLifecycleTestBase):
         offset = 0
 
         while True:
-            query = A2ATaskQuery(
-                context_id=context_id,
-                limit=page_size,
-                offset=offset
-            )
+            query = A2ATaskQuery(context_id=context_id, limit=page_size, offset=offset)
 
             page_result = await provider.find_tasks(query)
             assert page_result.data is not None
@@ -688,7 +703,9 @@ class TestTaskQueryAndPagination(TaskLifecycleTestBase):
                 break
 
         # Verify we got all tasks
-        assert len(all_retrieved) == total_tasks, f"Expected {total_tasks} tasks, got {len(all_retrieved)}"
+        assert len(all_retrieved) == total_tasks, (
+            f"Expected {total_tasks} tasks, got {len(all_retrieved)}"
+        )
 
         # Verify no duplicates
         task_ids = [task.id for task in all_retrieved]
@@ -708,30 +725,27 @@ class TestTaskQueryAndPagination(TaskLifecycleTestBase):
         # Tasks from 1 hour ago
         old_time = base_time - timedelta(hours=1)
         old_task = self.create_submission_task("old_task", context_id)
-        old_task = old_task.model_copy(update={
-            "status": old_task.status.model_copy(update={
-                "timestamp": old_time.isoformat()
-            })
-        })
+        old_task = old_task.model_copy(
+            update={
+                "status": old_task.status.model_copy(update={"timestamp": old_time.isoformat()})
+            }
+        )
         # Store with created_at metadata to control the timestamp used for filtering
         await provider.store_task(old_task, metadata={"created_at": old_time.isoformat()})
 
         # Tasks from now
         new_task = self.create_submission_task("new_task", context_id)
-        new_task = new_task.model_copy(update={
-            "status": new_task.status.model_copy(update={
-                "timestamp": base_time.isoformat()
-            })
-        })
+        new_task = new_task.model_copy(
+            update={
+                "status": new_task.status.model_copy(update={"timestamp": base_time.isoformat()})
+            }
+        )
         # Store with created_at metadata to control the timestamp used for filtering
         await provider.store_task(new_task, metadata={"created_at": base_time.isoformat()})
 
         # Query tasks since 30 minutes ago
         since_time = base_time - timedelta(minutes=30)
-        time_query = A2ATaskQuery(
-            context_id=context_id,
-            since=since_time
-        )
+        time_query = A2ATaskQuery(context_id=context_id, since=since_time)
 
         recent_result = await provider.find_tasks(time_query)
         assert recent_result.data is not None
@@ -743,7 +757,7 @@ class TestTaskQueryAndPagination(TaskLifecycleTestBase):
         # All tasks should be newer than since_time
         for task in recent_tasks:
             if task.status.timestamp:
-                task_time = datetime.fromisoformat(task.status.timestamp.replace('Z', '+00:00'))
+                task_time = datetime.fromisoformat(task.status.timestamp.replace("Z", "+00:00"))
                 assert task_time >= since_time, f"Task {task.id} is older than since_time"
 
 
@@ -768,9 +782,9 @@ class TestTaskErrorHandling(TaskLifecycleTestBase):
         result = await provider.update_task(nonexistent_task)
 
         # Should fail with appropriate error
-        if hasattr(result, 'data'):
+        if hasattr(result, "data"):
             assert result.data is None
-        elif hasattr(result, 'error'):
+        elif hasattr(result, "error"):
             assert result.error is not None
         else:
             assert False, "Result should have either data or error"
@@ -794,7 +808,7 @@ class TestTaskErrorHandling(TaskLifecycleTestBase):
                 id="",  # Invalid empty ID
                 contextId="invalid_ctx",
                 kind="task",
-                status=A2ATaskStatus(state=TaskState.SUBMITTED)
+                status=A2ATaskStatus(state=TaskState.SUBMITTED),
             )
 
             result = await provider.store_task(invalid_task)
@@ -845,11 +859,15 @@ class TestProviderHealthAndCleanup(TaskLifecycleTestBase):
 
         completed_old = self.create_completed_task_update(working_old)
         # Set old timestamp
-        completed_old = completed_old.model_copy(update={
-            "status": completed_old.status.model_copy(update={
-                "timestamp": (datetime.now(timezone.utc) - timedelta(days=8)).isoformat()
-            })
-        })
+        completed_old = completed_old.model_copy(
+            update={
+                "status": completed_old.status.model_copy(
+                    update={
+                        "timestamp": (datetime.now(timezone.utc) - timedelta(days=8)).isoformat()
+                    }
+                )
+            }
+        )
         await provider.update_task(completed_old)
 
         # Run cleanup

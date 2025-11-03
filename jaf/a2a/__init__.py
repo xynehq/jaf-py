@@ -195,28 +195,49 @@ from .types import (
 # Main exports for easy access
 __all__ = [
     # Types
-    "A2AMessage", "A2ATask", "A2AAgent", "A2AAgentTool", "A2AArtifact",
-    "A2ATaskStatus", "A2APart", "A2AStreamEvent", "A2AError", "A2AErrorCodes",
-    "JSONRPCRequest", "JSONRPCResponse", "JSONRPCError",
-    "AgentCard", "AgentSkill", "AgentCapabilities", "AgentProvider",
-    "A2AServerConfig", "A2AClientConfig", "A2AClientState",
-
+    "A2AMessage",
+    "A2ATask",
+    "A2AAgent",
+    "A2AAgentTool",
+    "A2AArtifact",
+    "A2ATaskStatus",
+    "A2APart",
+    "A2AStreamEvent",
+    "A2AError",
+    "A2AErrorCodes",
+    "JSONRPCRequest",
+    "JSONRPCResponse",
+    "JSONRPCError",
+    "AgentCard",
+    "AgentSkill",
+    "AgentCapabilities",
+    "AgentProvider",
+    "A2AServerConfig",
+    "A2AClientConfig",
+    "A2AClientState",
     # Agent utilities
-    "create_a2a_agent", "create_a2a_tool", "transform_a2a_agent_to_jaf",
-    "process_agent_query", "execute_a2a_agent", "execute_a2a_agent_with_streaming",
-
+    "create_a2a_agent",
+    "create_a2a_tool",
+    "transform_a2a_agent_to_jaf",
+    "process_agent_query",
+    "execute_a2a_agent",
+    "execute_a2a_agent_with_streaming",
     # Protocol
-    "validate_jsonrpc_request", "route_a2a_request",
-
+    "validate_jsonrpc_request",
+    "route_a2a_request",
     # Agent Card
-    "generate_agent_card", "validate_agent_card",
-
+    "generate_agent_card",
+    "validate_agent_card",
     # Server
-    "create_a2a_server", "start_a2a_server", "create_server_config",
-
+    "create_a2a_server",
+    "start_a2a_server",
+    "create_server_config",
     # Client
-    "create_a2a_client", "connect_to_a2a_agent", "send_message",
-    "stream_message", "discover_agents"
+    "create_a2a_client",
+    "connect_to_a2a_agent",
+    "send_message",
+    "stream_message",
+    "discover_agents",
 ]
 
 
@@ -224,12 +245,12 @@ __all__ = [
 class A2A:
     """
     Convenience class for A2A operations
-    
+
     Usage:
         # Create client
         a2a = A2A.client("http://localhost:3000")
         response = await a2a.ask("Hello")
-        
+
         # Create server
         server = A2A.server(agents, "My Server", "Description", 3000)
         await server.start()
@@ -279,11 +300,11 @@ A2A_SUPPORTED_METHODS = [
     "message/stream",
     "tasks/get",
     "tasks/cancel",
-    "agent/getAuthenticatedExtendedCard"
+    "agent/getAuthenticatedExtendedCard",
 ]
 A2A_SUPPORTED_TRANSPORTS = ["JSONRPC"]
 A2A_DEFAULT_CAPABILITIES = {
     "streaming": True,
     "pushNotifications": False,
-    "stateTransitionHistory": True
+    "stateTransitionHistory": True,
 }

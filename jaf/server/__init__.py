@@ -10,7 +10,7 @@ __all__ = [
     "ChatResponse",
     "HealthResponse",
     "HttpMessage",
-    "HttpAttachment", 
+    "HttpAttachment",
     "HttpMessageContentPart",
     "ServerConfig",
     "create_jaf_server",

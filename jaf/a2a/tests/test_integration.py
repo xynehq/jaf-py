@@ -34,10 +34,7 @@ class CountArgs(BaseModel):
 
 async def echo_tool(args: EchoArgs, context) -> Dict[str, Any]:
     """Simple echo tool for testing"""
-    return {
-        "result": f"Echo: {args.message}",
-        "original": args.message
-    }
+    return {"result": f"Echo: {args.message}", "original": args.message}
 
 
 async def count_tool(args: CountArgs, context) -> Dict[str, Any]:
@@ -47,10 +44,7 @@ async def count_tool(args: CountArgs, context) -> Dict[str, Any]:
 
     return {
         "result": f"Analysis: {char_count} characters, {word_count} words",
-        "stats": {
-            "characters": char_count,
-            "words": word_count
-        }
+        "stats": {"characters": char_count, "words": word_count},
     }
 
 
@@ -62,7 +56,7 @@ class MockModelProvider:
             {
                 "message": {
                     "content": "I understand you want me to help with your request.",
-                    "tool_calls": None
+                    "tool_calls": None,
                 }
             }
         ]
@@ -79,47 +73,34 @@ def create_test_agents():
 
     # Echo agent
     echo_tool_obj = create_a2a_tool(
-        "echo",
-        "Echo back messages",
-        EchoArgs.model_json_schema(),
-        echo_tool
+        "echo", "Echo back messages", EchoArgs.model_json_schema(), echo_tool
     )
 
     echo_agent = create_a2a_agent(
         "EchoBot",
         "An agent that echoes messages",
         "You are an echo bot. Use the echo tool to repeat messages.",
-        [echo_tool_obj]
+        [echo_tool_obj],
     )
 
     # Counter agent
     count_tool_obj = create_a2a_tool(
-        "count_text",
-        "Count characters and words",
-        CountArgs.model_json_schema(),
-        count_tool
+        "count_text", "Count characters and words", CountArgs.model_json_schema(), count_tool
     )
 
     counter_agent = create_a2a_agent(
         "CounterBot",
         "An agent that analyzes text",
         "You are a text analysis bot. Use the count tool to analyze text.",
-        [count_tool_obj]
+        [count_tool_obj],
     )
 
     # Simple chat agent
     chat_agent = create_a2a_agent(
-        "ChatBot",
-        "A conversational agent",
-        "You are a friendly chat bot.",
-        []
+        "ChatBot", "A conversational agent", "You are a friendly chat bot.", []
     )
 
-    return {
-        "EchoBot": echo_agent,
-        "CounterBot": counter_agent,
-        "ChatBot": chat_agent
-    }
+    return {"EchoBot": echo_agent, "CounterBot": counter_agent, "ChatBot": chat_agent}
 
 
 class TestA2ASystemIntegration:
@@ -160,7 +141,7 @@ class TestA2ASystemIntegration:
             name="Test A2A Server",
             description="Integration test server",
             port=3002,
-            host="localhost"
+            host="localhost",
         )
 
         assert server_config["agents"] == agents
@@ -174,10 +155,7 @@ class TestA2ASystemIntegration:
         agents = create_test_agents()
 
         server_config = create_server_config(
-            agents=agents,
-            name="Test Server",
-            description="Test description",
-            port=3003
+            agents=agents, name="Test Server", description="Test description", port=3003
         )
 
         server_obj = create_a2a_server(server_config)
@@ -204,10 +182,7 @@ class TestA2ASystemIntegration:
         assert client.session_id.startswith("client_")
 
         # Test with custom config
-        custom_client = create_a2a_client(
-            "http://example.com",
-            {"timeout": 60000}
-        )
+        custom_client = create_a2a_client("http://example.com", {"timeout": 60000})
 
         assert custom_client.config.timeout == 60000
 
@@ -216,10 +191,7 @@ class TestA2ASystemIntegration:
         """Test tool execution in isolation"""
         # Test echo tool
         echo_tool_obj = create_a2a_tool(
-            "echo_test",
-            "Echo tool for testing",
-            EchoArgs.model_json_schema(),
-            echo_tool
+            "echo_test", "Echo tool for testing", EchoArgs.model_json_schema(), echo_tool
         )
 
         args = EchoArgs(message="Hello world")
@@ -230,10 +202,7 @@ class TestA2ASystemIntegration:
 
         # Test count tool
         count_tool_obj = create_a2a_tool(
-            "count_test",
-            "Count tool for testing",
-            CountArgs.model_json_schema(),
-            count_tool
+            "count_test", "Count tool for testing", CountArgs.model_json_schema(), count_tool
         )
 
         args = CountArgs(text="Hello world testing")
@@ -249,7 +218,7 @@ class TestA2AProtocolIntegration:
     """Test A2A protocol integration"""
 
     @pytest.mark.asyncio
-    @patch('jaf.a2a.server.uvicorn.Server')
+    @patch("jaf.a2a.server.uvicorn.Server")
     async def test_server_startup_flow(self, mock_server_class):
         """Test server startup process"""
         agents = create_test_agents()
@@ -258,7 +227,7 @@ class TestA2AProtocolIntegration:
             agents=agents,
             name="Integration Test Server",
             description="Test server for integration",
-            port=3005
+            port=3005,
         )
 
         server_obj = create_a2a_server(server_config)
@@ -271,8 +240,9 @@ class TestA2AProtocolIntegration:
         assert callable(server_obj["start"])
 
         # Mock the server startup (don't actually start)
-        with patch('jaf.a2a.server.uvicorn.Config') as mock_config:
+        with patch("jaf.a2a.server.uvicorn.Config") as mock_config:
             from unittest.mock import Mock
+
             mock_config.return_value = Mock()
 
             # Would start server here in real test
@@ -290,7 +260,7 @@ class TestA2AProtocolIntegration:
             agents=agents,
             name="Card Test Server",
             description="Server for testing agent cards",
-            port=3006
+            port=3006,
         )
 
         server_obj = create_a2a_server(server_config)
@@ -330,18 +300,13 @@ class TestA2AProtocolIntegration:
             agents=agents,
             name="Registry Test",
             description="Test agent registry operations",
-            port=3007
+            port=3007,
         )
 
         server_obj = create_a2a_server(server_config)
 
         # Test adding new agent
-        new_agent = create_a2a_agent(
-            "NewAgent",
-            "Newly added agent",
-            "You are a new agent",
-            []
-        )
+        new_agent = create_a2a_agent("NewAgent", "Newly added agent", "You are a new agent", [])
 
         updated_config = server_obj["add_agent"]("NewAgent", new_agent)
 
@@ -422,12 +387,7 @@ class TestA2AErrorHandling:
         async def failing_tool(args, context):
             raise ValueError("Tool execution failed")
 
-        tool = create_a2a_tool(
-            "failing_tool",
-            "A tool that always fails",
-            {},
-            failing_tool
-        )
+        tool = create_a2a_tool("failing_tool", "A tool that always fails", {}, failing_tool)
 
         # Test that errors are properly caught and handled
         with pytest.raises(ValueError) as exc_info:
@@ -442,12 +402,7 @@ class TestA2AErrorHandling:
         # (This would depend on validation logic in the agent creation)
 
         # Valid agent should work
-        valid_agent = create_a2a_agent(
-            "ValidAgent",
-            "A valid agent",
-            "Valid instructions",
-            []
-        )
+        valid_agent = create_a2a_agent("ValidAgent", "A valid agent", "Valid instructions", [])
 
         assert valid_agent.name == "ValidAgent"
 
@@ -456,7 +411,7 @@ class TestA2AErrorHandling:
             "",  # Empty name - should be handled gracefully
             "",  # Empty description
             "",  # Empty instruction
-            []
+            [],
         )
 
         # Should still create agent (validation may be in server layer)
@@ -473,12 +428,7 @@ class TestA2APerformance:
         # Create many agents
         agents = []
         for i in range(100):
-            agent = create_a2a_agent(
-                f"Agent{i}",
-                f"Test agent {i}",
-                "You are helpful",
-                []
-            )
+            agent = create_a2a_agent(f"Agent{i}", f"Test agent {i}", "You are helpful", [])
             agents.append(agent)
 
         end_time = time.time()
@@ -494,6 +444,7 @@ class TestA2APerformance:
 
     def test_tool_creation_performance(self):
         """Test tool creation performance"""
+
         async def test_tool_func(args, context):
             return {"result": "test"}
 
@@ -502,12 +453,7 @@ class TestA2APerformance:
         # Create many tools
         tools = []
         for i in range(100):
-            tool = create_a2a_tool(
-                f"tool{i}",
-                f"Test tool {i}",
-                {"type": "object"},
-                test_tool_func
-            )
+            tool = create_a2a_tool(f"tool{i}", f"Test tool {i}", {"type": "object"}, test_tool_func)
             tools.append(tool)
 
         end_time = time.time()
@@ -532,7 +478,7 @@ class TestA2AComprehensive:
             agents=agents,
             name="Comprehensive Test Server",
             description="Full system test server",
-            port=3010
+            port=3010,
         )
 
         # Create server object

@@ -42,12 +42,7 @@ class MockModelProvider:
     async def get_completion(self, state, agent, config) -> Dict[str, Any]:
         """Return a mock completion response."""
         if self.call_count >= len(self.responses):
-            response = {
-                'message': {
-                    'content': 'Default response',
-                    'tool_calls': None
-                }
-            }
+            response = {"message": {"content": "Default response", "tool_calls": None}}
         else:
             response = self.responses[self.call_count]
 
@@ -57,6 +52,7 @@ class MockModelProvider:
 
 class SimpleToolArgs(BaseModel):
     """Simple tool arguments for testing."""
+
     message: str
 
 
@@ -67,9 +63,7 @@ class SimpleTool:
         self.name = name
         self.result = result
         self._schema = ToolSchema(
-            name=name,
-            description="A simple test tool",
-            parameters=SimpleToolArgs
+            name=name, description="A simple test tool", parameters=SimpleToolArgs
         )
 
     @property
@@ -82,6 +76,7 @@ class SimpleTool:
 
 class HandoffToolArgs(BaseModel):
     """Handoff tool arguments."""
+
     target_agent: str
     reason: str
 
@@ -93,7 +88,7 @@ class HandoffTool:
         self._schema = ToolSchema(
             name="handoff_to_agent",
             description="Handoff to another agent",
-            parameters=HandoffToolArgs
+            parameters=HandoffToolArgs,
         )
 
     @property
@@ -105,9 +100,7 @@ class HandoffTool:
 
 
 def create_test_agent(
-    name: str = "test_agent",
-    tools: Optional[List[Tool]] = None,
-    instructions: Optional[str] = None
+    name: str = "test_agent", tools: Optional[List[Tool]] = None, instructions: Optional[str] = None
 ) -> Agent:
     """Create a test agent."""
 
@@ -120,23 +113,23 @@ def create_test_agent(
         tools=tools,
         output_codec=None,
         handoffs=None,
-        model_config=ModelConfig(name="gpt-4o", temperature=0.7)
+        model_config=ModelConfig(name="gpt-4o", temperature=0.7),
     )
 
 
 def create_test_run_state(
     messages: Optional[List[Message]] = None,
     context: Optional[Dict[str, Any]] = None,
-    agent_name: str = "test_agent"
+    agent_name: str = "test_agent",
 ) -> RunState:
     """Create a test run state."""
     return RunState(
         run_id=create_run_id("test-run"),
         trace_id=create_trace_id("test-trace"),
-        messages=messages or [Message(role=ContentRole.USER, content='Hello')],
+        messages=messages or [Message(role=ContentRole.USER, content="Hello")],
         current_agent_name=agent_name,
         context=context or {},
-        turn_count=0
+        turn_count=0,
     )
 
 
@@ -145,20 +138,13 @@ async def test_simple_completion():
     """Test simple text completion without tools."""
     # Setup
     agent = create_test_agent()
-    model_provider = MockModelProvider([
-        {
-            'message': {
-                'content': 'Hello! How can I help you?',
-                'tool_calls': None
-            }
-        }
-    ])
+    model_provider = MockModelProvider(
+        [{"message": {"content": "Hello! How can I help you?", "tool_calls": None}}]
+    )
 
     state = create_test_run_state()
     config = RunConfig(
-        agent_registry={"test_agent": agent},
-        model_provider=model_provider,
-        max_turns=10
+        agent_registry={"test_agent": agent}, model_provider=model_provider, max_turns=10
     )
 
     # Execute
@@ -166,7 +152,7 @@ async def test_simple_completion():
 
     # Assert
     assert isinstance(result.outcome, CompletedOutcome)
-    assert result.outcome.output == 'Hello! How can I help you?'
+    assert result.outcome.output == "Hello! How can I help you?"
     assert result.final_state.turn_count == 1
     assert len(result.final_state.messages) == 2  # User + Assistant
 
@@ -178,35 +164,30 @@ async def test_tool_call_execution():
     tool = SimpleTool("test_tool", "Success")
     agent = create_test_agent(tools=[tool])
 
-    model_provider = MockModelProvider([
-        {
-            'message': {
-                'content': '',
-                'tool_calls': [
-                    {
-                        'id': 'call_123',
-                        'type': 'function',
-                        'function': {
-                            'name': 'test_tool',
-                            'arguments': '{"message": "test input"}'
+    model_provider = MockModelProvider(
+        [
+            {
+                "message": {
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": "call_123",
+                            "type": "function",
+                            "function": {
+                                "name": "test_tool",
+                                "arguments": '{"message": "test input"}',
+                            },
                         }
-                    }
-                ]
-            }
-        },
-        {
-            'message': {
-                'content': 'The tool returned: Success: test input',
-                'tool_calls': None
-            }
-        }
-    ])
+                    ],
+                }
+            },
+            {"message": {"content": "The tool returned: Success: test input", "tool_calls": None}},
+        ]
+    )
 
     state = create_test_run_state()
     config = RunConfig(
-        agent_registry={"test_agent": agent},
-        model_provider=model_provider,
-        max_turns=10
+        agent_registry={"test_agent": agent}, model_provider=model_provider, max_turns=10
     )
 
     # Execute
@@ -230,45 +211,39 @@ async def test_agent_handoff():
         tools=[handoff_tool],
         output_codec=None,
         handoffs=["target_agent"],  # Allow handoff to target_agent
-        model_config=source_agent.model_config
+        model_config=source_agent.model_config,
     )
 
     target_agent = create_test_agent("target_agent")
 
-    model_provider = MockModelProvider([
-        # Source agent calls handoff tool
-        {
-            'message': {
-                'content': '',
-                'tool_calls': [
-                    {
-                        'id': 'call_123',
-                        'type': 'function',
-                        'function': {
-                            'name': 'handoff_to_agent',
-                            'arguments': '{"target_agent": "target_agent", "reason": "Specialized task"}'
+    model_provider = MockModelProvider(
+        [
+            # Source agent calls handoff tool
+            {
+                "message": {
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": "call_123",
+                            "type": "function",
+                            "function": {
+                                "name": "handoff_to_agent",
+                                "arguments": '{"target_agent": "target_agent", "reason": "Specialized task"}',
+                            },
                         }
-                    }
-                ]
-            }
-        },
-        # Target agent responds
-        {
-            'message': {
-                'content': 'I am the target agent, ready to help!',
-                'tool_calls': None
-            }
-        }
-    ])
+                    ],
+                }
+            },
+            # Target agent responds
+            {"message": {"content": "I am the target agent, ready to help!", "tool_calls": None}},
+        ]
+    )
 
     state = create_test_run_state(agent_name="source_agent")
     config = RunConfig(
-        agent_registry={
-            "source_agent": source_agent,
-            "target_agent": target_agent
-        },
+        agent_registry={"source_agent": source_agent, "target_agent": target_agent},
         model_provider=model_provider,
-        max_turns=10
+        max_turns=10,
     )
 
     # Execute
@@ -285,29 +260,29 @@ async def test_max_turns_exceeded():
     """Test max turns limit."""
     # Setup
     agent = create_test_agent()
-    model_provider = MockModelProvider([
-        {
-            'message': {
-                'content': 'Response',
-                'tool_calls': [
-                    {
-                        'id': 'call_123',
-                        'type': 'function',
-                        'function': {
-                            'name': 'non_existent_tool',
-                            'arguments': '{}'
+    model_provider = MockModelProvider(
+        [
+            {
+                "message": {
+                    "content": "Response",
+                    "tool_calls": [
+                        {
+                            "id": "call_123",
+                            "type": "function",
+                            "function": {"name": "non_existent_tool", "arguments": "{}"},
                         }
-                    }
-                ]
+                    ],
+                }
             }
-        }
-    ] * 10)  # Repeat to exceed max turns
+        ]
+        * 10
+    )  # Repeat to exceed max turns
 
     state = create_test_run_state()
     config = RunConfig(
         agent_registry={"test_agent": agent},
         model_provider=model_provider,
-        max_turns=3  # Low limit to trigger error
+        max_turns=3,  # Low limit to trigger error
     )
 
     # Execute
@@ -328,9 +303,7 @@ async def test_agent_not_found():
 
     state = create_test_run_state(agent_name="non_existent_agent")
     config = RunConfig(
-        agent_registry={"test_agent": agent},
-        model_provider=model_provider,
-        max_turns=10
+        agent_registry={"test_agent": agent}, model_provider=model_provider, max_turns=10
     )
 
     # Execute
@@ -347,35 +320,27 @@ async def test_tool_not_found():
     """Test error when tool is not found."""
     # Setup
     agent = create_test_agent()  # No tools
-    model_provider = MockModelProvider([
-        {
-            'message': {
-                'content': '',
-                'tool_calls': [
-                    {
-                        'id': 'call_123',
-                        'type': 'function',
-                        'function': {
-                            'name': 'non_existent_tool',
-                            'arguments': '{}'
+    model_provider = MockModelProvider(
+        [
+            {
+                "message": {
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": "call_123",
+                            "type": "function",
+                            "function": {"name": "non_existent_tool", "arguments": "{}"},
                         }
-                    }
-                ]
-            }
-        },
-        {
-            'message': {
-                'content': 'Continuing after tool error',
-                'tool_calls': None
-            }
-        }
-    ])
+                    ],
+                }
+            },
+            {"message": {"content": "Continuing after tool error", "tool_calls": None}},
+        ]
+    )
 
     state = create_test_run_state()
     config = RunConfig(
-        agent_registry={"test_agent": agent},
-        model_provider=model_provider,
-        max_turns=10
+        agent_registry={"test_agent": agent}, model_provider=model_provider, max_turns=10
     )
 
     # Execute
@@ -384,14 +349,15 @@ async def test_tool_not_found():
     # Assert
     assert isinstance(result.outcome, CompletedOutcome)
     # Should have tool error message in conversation
-    tool_messages = [m for m in result.final_state.messages if m.role == 'tool']
+    tool_messages = [m for m in result.final_state.messages if m.role == "tool"]
     assert len(tool_messages) == 1
-    assert 'tool_not_found' in tool_messages[0].content
+    assert "tool_not_found" in tool_messages[0].content
 
 
 @pytest.mark.asyncio
 async def test_input_guardrails():
     """Test input guardrail validation."""
+
     # Setup
     async def bad_word_guardrail(input_text: str) -> ValidationResult:
         if "badword" in input_text.lower():
@@ -401,14 +367,14 @@ async def test_input_guardrails():
     agent = create_test_agent()
     model_provider = MockModelProvider([])
 
-    state = create_test_run_state(messages=[
-        Message(role=ContentRole.USER, content='This contains badword in it')
-    ])
+    state = create_test_run_state(
+        messages=[Message(role=ContentRole.USER, content="This contains badword in it")]
+    )
     config = RunConfig(
         agent_registry={"test_agent": agent},
         model_provider=model_provider,
         max_turns=10,
-        initial_input_guardrails=[bad_word_guardrail]
+        initial_input_guardrails=[bad_word_guardrail],
     )
 
     # Execute
@@ -429,21 +395,14 @@ async def test_event_tracing():
         events.append(event)
 
     agent = create_test_agent()
-    model_provider = MockModelProvider([
-        {
-            'message': {
-                'content': 'Hello!',
-                'tool_calls': None
-            }
-        }
-    ])
+    model_provider = MockModelProvider([{"message": {"content": "Hello!", "tool_calls": None}}])
 
     state = create_test_run_state()
     config = RunConfig(
         agent_registry={"test_agent": agent},
         model_provider=model_provider,
         max_turns=10,
-        on_event=event_collector
+        on_event=event_collector,
     )
 
     # Execute
@@ -451,12 +410,12 @@ async def test_event_tracing():
 
     # Assert
     assert len(events) >= 3  # run_start, llm_call_start, llm_call_end, run_end
-    assert events[0].type == 'run_start'
-    assert events[-1].type == 'run_end'
+    assert events[0].type == "run_start"
+    assert events[-1].type == "run_end"
 
     # Check for LLM events
-    llm_start_events = [e for e in events if e.type == 'llm_call_start']
-    llm_end_events = [e for e in events if e.type == 'llm_call_end']
+    llm_start_events = [e for e in events if e.type == "llm_call_start"]
+    llm_end_events = [e for e in events if e.type == "llm_call_end"]
     assert len(llm_start_events) == 1
     assert len(llm_end_events) == 1
 
@@ -476,9 +435,7 @@ async def test_model_behavior_error():
 
     state = create_test_run_state()
     config = RunConfig(
-        agent_registry={"test_agent": agent},
-        model_provider=model_provider,
-        max_turns=10
+        agent_registry={"test_agent": agent}, model_provider=model_provider, max_turns=10
     )
 
     # Execute
@@ -499,35 +456,35 @@ async def test_streaming_tool_call_execution():
     tool = SimpleTool("streaming_test_tool", "Streamed Success")
     agent = create_test_agent(tools=[tool])
 
-    model_provider = MockModelProvider([
-        {
-            'message': {
-                'content': '',
-                'tool_calls': [
-                    {
-                        'id': 'call_stream_123',
-                        'type': 'function',
-                        'function': {
-                            'name': 'streaming_test_tool',
-                            'arguments': '{"message": "streamed input"}'
+    model_provider = MockModelProvider(
+        [
+            {
+                "message": {
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": "call_stream_123",
+                            "type": "function",
+                            "function": {
+                                "name": "streaming_test_tool",
+                                "arguments": '{"message": "streamed input"}',
+                            },
                         }
-                    }
-                ]
-            }
-        },
-        {
-            'message': {
-                'content': 'The streamed tool returned: Streamed Success: streamed input',
-                'tool_calls': None
-            }
-        }
-    ])
+                    ],
+                }
+            },
+            {
+                "message": {
+                    "content": "The streamed tool returned: Streamed Success: streamed input",
+                    "tool_calls": None,
+                }
+            },
+        ]
+    )
 
     state = create_test_run_state()
     config = RunConfig(
-        agent_registry={"test_agent": agent},
-        model_provider=model_provider,
-        max_turns=10
+        agent_registry={"test_agent": agent}, model_provider=model_provider, max_turns=10
     )
 
     # Execute
@@ -538,11 +495,11 @@ async def test_streaming_tool_call_execution():
     # Assert
     assert final_buffer.is_complete
     assert final_buffer.error is None
-    
+
     # Check for tool call and result events
     tool_call_events = [e for e in collector.events if e.type == StreamingEventType.TOOL_CALL]
     tool_result_events = [e for e in collector.events if e.type == StreamingEventType.TOOL_RESULT]
-    
+
     assert len(tool_call_events) == 1
     assert tool_call_events[0].data.tool_name == "streaming_test_tool"
     assert tool_call_events[0].data.arguments == {"message": "streamed input"}

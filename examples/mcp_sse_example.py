@@ -1,6 +1,7 @@
 import asyncio
 from jaf.providers.mcp import create_mcp_sse_client
 
+
 async def connect_and_list_tools():
     """
     Connects to a running MCP SSE server and lists the available tools.
@@ -35,6 +36,7 @@ async def connect_and_list_tools():
         print("🔌 Closing connection...")
         await mcp_client.close()
         print("✅ Connection closed.")
+
 
 if __name__ == "__main__":
     asyncio.run(connect_and_list_tools())

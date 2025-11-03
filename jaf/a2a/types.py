@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 class A2AErrorCodes(Enum):
     """A2A protocol error codes"""
+
     PARSE_ERROR = -32700
     INVALID_REQUEST = -32600
     METHOD_NOT_FOUND = -32601
@@ -26,6 +27,7 @@ class A2AErrorCodes(Enum):
 
 class A2AFile(BaseModel):
     """A2A file representation"""
+
     model_config = {"frozen": True}
 
     bytes: Optional[str] = None
@@ -36,6 +38,7 @@ class A2AFile(BaseModel):
 
 class A2ATextPart(BaseModel):
     """A2A text part"""
+
     model_config = {"frozen": True, "extra": "forbid"}
 
     kind: Literal["text"]
@@ -45,6 +48,7 @@ class A2ATextPart(BaseModel):
 
 class A2ADataPart(BaseModel):
     """A2A data part"""
+
     model_config = {"frozen": True, "extra": "forbid"}
 
     kind: Literal["data"]
@@ -54,6 +58,7 @@ class A2ADataPart(BaseModel):
 
 class A2AFilePart(BaseModel):
     """A2A file part"""
+
     model_config = {"frozen": True}
 
     kind: Literal["file"]
@@ -66,6 +71,7 @@ A2APart = Union[A2ATextPart, A2ADataPart, A2AFilePart]
 
 class A2AMessage(BaseModel):
     """Core A2A message type"""
+
     model_config = {"frozen": True}
 
     role: Literal["user", "agent"]
@@ -81,6 +87,7 @@ class A2AMessage(BaseModel):
 
 class TaskState(str, Enum):
     """Task state enumeration"""
+
     SUBMITTED = "submitted"
     WORKING = "working"
     INPUT_REQUIRED = "input-required"
@@ -94,6 +101,7 @@ class TaskState(str, Enum):
 
 class A2ATaskStatus(BaseModel):
     """Task status information"""
+
     model_config = {"frozen": True}
 
     state: TaskState
@@ -103,6 +111,7 @@ class A2ATaskStatus(BaseModel):
 
 class A2AArtifact(BaseModel):
     """A2A artifact type"""
+
     model_config = {"frozen": True}
 
     artifact_id: str = Field(alias="artifactId")
@@ -115,6 +124,7 @@ class A2AArtifact(BaseModel):
 
 class A2ATask(BaseModel):
     """A2A task representation"""
+
     model_config = {"frozen": True}
 
     id: str
@@ -128,6 +138,7 @@ class A2ATask(BaseModel):
 
 class AgentSkill(BaseModel):
     """Agent skill definition"""
+
     model_config = {"frozen": True}
 
     id: str
@@ -141,6 +152,7 @@ class AgentSkill(BaseModel):
 
 class AgentCapabilities(BaseModel):
     """Agent capabilities definition"""
+
     model_config = {"frozen": True}
 
     streaming: Optional[bool] = None
@@ -150,6 +162,7 @@ class AgentCapabilities(BaseModel):
 
 class AgentProvider(BaseModel):
     """Agent provider information"""
+
     model_config = {"frozen": True}
 
     organization: str
@@ -158,6 +171,7 @@ class AgentProvider(BaseModel):
 
 class AgentCard(BaseModel):
     """A2A agent card for discovery"""
+
     model_config = {"frozen": True}
 
     protocol_version: str = Field(alias="protocolVersion")
@@ -177,6 +191,7 @@ class AgentCard(BaseModel):
 
 class JSONRPCError(BaseModel):
     """JSON-RPC error format"""
+
     model_config = {"frozen": True}
 
     code: int
@@ -186,6 +201,7 @@ class JSONRPCError(BaseModel):
 
 class JSONRPCRequest(BaseModel):
     """JSON-RPC request format"""
+
     model_config = {"frozen": True}
 
     jsonrpc: Literal["2.0"]
@@ -196,6 +212,7 @@ class JSONRPCRequest(BaseModel):
 
 class JSONRPCSuccessResponse(BaseModel):
     """JSON-RPC success response"""
+
     model_config = {"frozen": True}
 
     jsonrpc: Literal["2.0"]
@@ -205,6 +222,7 @@ class JSONRPCSuccessResponse(BaseModel):
 
 class JSONRPCErrorResponse(BaseModel):
     """JSON-RPC error response"""
+
     model_config = {"frozen": True}
 
     jsonrpc: Literal["2.0"]
@@ -217,6 +235,7 @@ JSONRPCResponse = Union[JSONRPCSuccessResponse, JSONRPCErrorResponse]
 
 class MessageSendConfiguration(BaseModel):
     """Configuration for message sending"""
+
     model_config = {"frozen": True}
 
     model: Optional[str] = None
@@ -228,6 +247,7 @@ class MessageSendConfiguration(BaseModel):
 
 class SendMessageParams(BaseModel):
     """Parameters for message/send method"""
+
     model_config = {"frozen": True}
 
     message: A2AMessage
@@ -237,6 +257,7 @@ class SendMessageParams(BaseModel):
 
 class SendMessageRequest(JSONRPCRequest):
     """A2A message/send request"""
+
     model_config = {"frozen": True}
 
     method: Literal["message/send"]
@@ -245,6 +266,7 @@ class SendMessageRequest(JSONRPCRequest):
 
 class SendStreamingMessageRequest(JSONRPCRequest):
     """A2A message/stream request"""
+
     model_config = {"frozen": True}
 
     method: Literal["message/stream"]
@@ -253,6 +275,7 @@ class SendStreamingMessageRequest(JSONRPCRequest):
 
 class GetTaskParams(BaseModel):
     """Parameters for tasks/get method"""
+
     model_config = {"frozen": True}
 
     id: str
@@ -262,6 +285,7 @@ class GetTaskParams(BaseModel):
 
 class GetTaskRequest(JSONRPCRequest):
     """A2A tasks/get request"""
+
     model_config = {"frozen": True}
 
     method: Literal["tasks/get"]
@@ -270,6 +294,7 @@ class GetTaskRequest(JSONRPCRequest):
 
 class A2AError(BaseModel):
     """A2A error format"""
+
     model_config = {"frozen": True}
 
     code: int
@@ -279,6 +304,7 @@ class A2AError(BaseModel):
 
 class StreamEvent(BaseModel):
     """Base stream event"""
+
     model_config = {"frozen": True}
 
     isTaskComplete: bool
@@ -290,6 +316,7 @@ class StreamEvent(BaseModel):
 
 class A2AStatusUpdateEvent(BaseModel):
     """A2A status update stream event"""
+
     model_config = {"frozen": True}
 
     kind: Literal["status-update"]
@@ -301,6 +328,7 @@ class A2AStatusUpdateEvent(BaseModel):
 
 class A2AArtifactUpdateEvent(BaseModel):
     """A2A artifact update stream event"""
+
     model_config = {"frozen": True}
 
     kind: Literal["artifact-update"]
@@ -313,6 +341,7 @@ class A2AArtifactUpdateEvent(BaseModel):
 
 class A2AMessageEvent(BaseModel):
     """A2A message stream event"""
+
     model_config = {"frozen": True}
 
     kind: Literal["message"]
@@ -324,6 +353,7 @@ A2AStreamEvent = Union[A2AStatusUpdateEvent, A2AArtifactUpdateEvent, A2AMessageE
 
 class AgentState(BaseModel):
     """Agent state representation"""
+
     model_config = {"frozen": True}
 
     sessionId: str
@@ -335,6 +365,7 @@ class AgentState(BaseModel):
 
 class ToolContext(BaseModel):
     """Tool execution context"""
+
     model_config = {"frozen": True}
 
     actions: Dict[str, bool]
@@ -343,6 +374,7 @@ class ToolContext(BaseModel):
 
 class A2AToolResult(BaseModel):
     """A2A tool execution result"""
+
     model_config = {"frozen": True}
 
     status: str
@@ -354,6 +386,7 @@ class A2AToolResult(BaseModel):
 
 class A2AAgentTool(BaseModel):
     """A2A agent tool definition"""
+
     model_config = {"frozen": True}
 
     name: str
@@ -364,6 +397,7 @@ class A2AAgentTool(BaseModel):
 
 class A2AAgent(BaseModel):
     """A2A agent definition"""
+
     model_config = {"frozen": True}
 
     name: str
@@ -375,6 +409,7 @@ class A2AAgent(BaseModel):
 
 class A2AServerConfig(BaseModel):
     """A2A server configuration"""
+
     model_config = {"frozen": True}
 
     agents: Dict[str, A2AAgent]
@@ -386,6 +421,7 @@ class A2AServerConfig(BaseModel):
 
 class A2AClientConfig(BaseModel):
     """A2A client configuration"""
+
     model_config = {"frozen": True}
 
     base_url: str = Field(alias="baseUrl")
@@ -394,6 +430,7 @@ class A2AClientConfig(BaseModel):
 
 class A2AClientState(BaseModel):
     """A2A client state"""
+
     model_config = {"frozen": True}
 
     config: A2AClientConfig
@@ -402,6 +439,7 @@ class A2AClientState(BaseModel):
 
 # Factory functions for creating instances
 
+
 def create_a2a_text_part(text: str, metadata: Optional[Dict[str, Any]] = None) -> A2ATextPart:
     """Create an A2A text part"""
     if metadata is None:
@@ -409,7 +447,9 @@ def create_a2a_text_part(text: str, metadata: Optional[Dict[str, Any]] = None) -
     return A2ATextPart(kind="text", text=text, metadata=metadata)
 
 
-def create_a2a_data_part(data: Dict[str, Any], metadata: Optional[Dict[str, Any]] = None) -> A2ADataPart:
+def create_a2a_data_part(
+    data: Dict[str, Any], metadata: Optional[Dict[str, Any]] = None
+) -> A2ADataPart:
     """Create an A2A data part"""
     if metadata is None:
         return A2ADataPart(kind="data", data=data)
@@ -421,12 +461,16 @@ def create_a2a_file_part(file: A2AFile, metadata: Optional[Dict[str, Any]] = Non
     return A2AFilePart(kind="file", file=file, metadata=metadata)
 
 
-def create_jsonrpc_success_response(id: Union[str, int, None], result: Any) -> JSONRPCSuccessResponse:
+def create_jsonrpc_success_response(
+    id: Union[str, int, None], result: Any
+) -> JSONRPCSuccessResponse:
     """Create a JSON-RPC success response"""
     return JSONRPCSuccessResponse(jsonrpc="2.0", id=id, result=result)
 
 
-def create_jsonrpc_error_response(id: Union[str, int, None], error: Union[JSONRPCError, A2AError]) -> JSONRPCErrorResponse:
+def create_jsonrpc_error_response(
+    id: Union[str, int, None], error: Union[JSONRPCError, A2AError]
+) -> JSONRPCErrorResponse:
     """Create a JSON-RPC error response"""
     if isinstance(error, A2AError):
         jsonrpc_error = JSONRPCError(code=error.code, message=error.message, data=error.data)
@@ -444,7 +488,7 @@ def create_a2a_message(
     role: Literal["user", "agent"],
     parts: List[A2APart],
     context_id: str,
-    task_id: Optional[str] = None
+    task_id: Optional[str] = None,
 ) -> A2AMessage:
     """Create an A2A message"""
     import time
@@ -456,14 +500,11 @@ def create_a2a_message(
         messageId=f"msg_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}",
         contextId=context_id,
         taskId=task_id,
-        kind="message"
+        kind="message",
     )
 
 
-def create_a2a_task(
-    initial_message: A2AMessage,
-    context_id: str
-) -> A2ATask:
+def create_a2a_task(initial_message: A2AMessage, context_id: str) -> A2ATask:
     """Create an A2A task"""
     import time
     import uuid
@@ -472,20 +513,14 @@ def create_a2a_task(
     return A2ATask(
         id=f"task_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}",
         contextId=context_id,
-        status=A2ATaskStatus(
-            state="submitted",
-            timestamp=datetime.now().isoformat()
-        ),
+        status=A2ATaskStatus(state="submitted", timestamp=datetime.now().isoformat()),
         history=[initial_message],
         artifacts=[],
-        kind="task"
+        kind="task",
     )
 
 
-def create_a2a_artifact(
-    name: str,
-    parts: List[A2APart]
-) -> A2AArtifact:
+def create_a2a_artifact(name: str, parts: List[A2APart]) -> A2AArtifact:
     """Create an A2A artifact"""
     import time
     import uuid
@@ -495,29 +530,23 @@ def create_a2a_artifact(
         artifactId=f"artifact_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}",
         name=name,
         parts=parts,
-        timestamp=datetime.now().isoformat()
+        timestamp=datetime.now().isoformat(),
     )
 
 
 def create_a2a_agent_tool(
-    name: str,
-    description: str,
-    parameters: Dict[str, Any],
-    execute_func: Any
+    name: str, description: str, parameters: Dict[str, Any], execute_func: Any
 ) -> A2AAgentTool:
     """Create an A2A agent tool"""
     return A2AAgentTool(
-        name=name,
-        description=description,
-        parameters=parameters,
-        execute=execute_func
+        name=name, description=description, parameters=parameters, execute=execute_func
     )
 
 
 def create_jsonrpc_request(
     method: str,
     params: Optional[Dict[str, Any]] = None,
-    request_id: Optional[Union[str, int]] = None
+    request_id: Optional[Union[str, int]] = None,
 ) -> JSONRPCRequest:
     """Create a JSON-RPC request"""
     import time
@@ -526,9 +555,4 @@ def create_jsonrpc_request(
     if request_id is None:
         request_id = f"req_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}"
 
-    return JSONRPCRequest(
-        jsonrpc="2.0",
-        method=method,
-        params=params,
-        id=request_id
-    )
+    return JSONRPCRequest(jsonrpc="2.0", method=method, params=params, id=request_id)

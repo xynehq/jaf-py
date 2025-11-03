@@ -39,29 +39,35 @@ async def time_execute(args: TimeArgs, context: Dict[str, Any]) -> str:
     return json.dumps({"now": datetime.utcnow().isoformat() + "Z"})
 
 
-greet_tool = create_function_tool({
-    "name": "greet",
-    "description": "Greet the user by name",
-    "execute": greet_execute,
-    "parameters": GreetArgs,
-})
+greet_tool = create_function_tool(
+    {
+        "name": "greet",
+        "description": "Greet the user by name",
+        "execute": greet_execute,
+        "parameters": GreetArgs,
+    }
+)
 
-time_tool = create_function_tool({
-    "name": "get_current_time",
-    "description": "Get the current server time",
-    "execute": time_execute,
-    "parameters": TimeArgs,
-})
+time_tool = create_function_tool(
+    {
+        "name": "get_current_time",
+        "description": "Get the current server time",
+        "execute": time_execute,
+        "parameters": TimeArgs,
+    }
+)
 
 
 def make_agent() -> Agent[Dict[str, Any], str]:
     def instructions(state: RunState[Dict[str, Any]]) -> str:
-        return "\n".join([
-            "You are StreamerBot. You can greet users and tell the current time. Along with your response give the list of PMs of India with their detailed brief",
-            "- If user tells their name, use the greet tool.",
-            "- If user asks for time, use the get_current_time tool.",
-            "- Otherwise, reply helpfully.",
-        ])
+        return "\n".join(
+            [
+                "You are StreamerBot. You can greet users and tell the current time. Along with your response give the list of PMs of India with their detailed brief",
+                "- If user tells their name, use the greet tool.",
+                "- If user asks for time, use the get_current_time tool.",
+                "- Otherwise, reply helpfully.",
+            ]
+        )
 
     return Agent[Dict[str, Any], str](
         name="StreamerPlainPy",

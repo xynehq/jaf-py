@@ -9,7 +9,7 @@ Usage:
 
 The server will start on http://localhost:3000 with the following endpoints:
 - /.well-known/agent-card - Agent discovery
-- /a2a - Main A2A JSON-RPC endpoint  
+- /a2a - Main A2A JSON-RPC endpoint
 - /a2a/agents/{name} - Agent-specific endpoints
 - /a2a/health - Health check
 - /a2a/capabilities - Server capabilities
@@ -39,21 +39,21 @@ class MockModelProvider:
             return {
                 "message": {
                     "content": f"I can help with math! I see you said: '{last_message}'",
-                    "tool_calls": None
+                    "tool_calls": None,
                 }
             }
         elif "weather" in agent_name:
             return {
                 "message": {
                     "content": f"I can check weather! You asked: '{last_message}'",
-                    "tool_calls": None
+                    "tool_calls": None,
                 }
             }
         else:
             return {
                 "message": {
                     "content": f"Hello! I'm {agent.name}. You said: '{last_message}'",
-                    "tool_calls": None
+                    "tool_calls": None,
                 }
             }
 
@@ -61,17 +61,20 @@ class MockModelProvider:
 # Tool argument models
 class CalculateArgs(BaseModel):
     """Arguments for calculator tool"""
+
     expression: str = Field(description="Mathematical expression to evaluate")
 
 
 class WeatherArgs(BaseModel):
     """Arguments for weather tool"""
+
     location: str = Field(description="City or location name")
     units: str = Field(default="celsius", description="Temperature units (celsius/fahrenheit)")
 
 
 class TranslateArgs(BaseModel):
     """Arguments for translation tool"""
+
     text: str = Field(description="Text to translate")
     target_language: str = Field(description="Target language code (e.g., 'es', 'fr', 'de')")
 
@@ -95,10 +98,10 @@ async def calculator_tool(args: CalculateArgs, context) -> Dict[str, Any]:
     }
 
     allowed_functions = {
-        'abs': abs,
-        'round': round,
-        'min': min,
-        'max': max,
+        "abs": abs,
+        "round": round,
+        "min": min,
+        "max": max,
     }
 
     def safe_eval_node(node):
@@ -107,8 +110,9 @@ async def calculator_tool(args: CalculateArgs, context) -> Dict[str, Any]:
             return node.value
         elif isinstance(node, ast.Name):
             # Only allow specific constants
-            if node.id in ['pi', 'e']:
+            if node.id in ["pi", "e"]:
                 import math
+
                 return getattr(math, node.id)
             else:
                 raise ValueError(f"Name '{node.id}' is not allowed")
@@ -139,9 +143,24 @@ async def calculator_tool(args: CalculateArgs, context) -> Dict[str, Any]:
 
         # Additional security checks
         dangerous_patterns = [
-            'import', 'exec', 'eval', '__', 'open', 'file', 'input',
-            'raw_input', 'compile', 'globals', 'locals', 'vars', 'dir',
-            'getattr', 'setattr', 'hasattr', 'delattr', 'callable'
+            "import",
+            "exec",
+            "eval",
+            "__",
+            "open",
+            "file",
+            "input",
+            "raw_input",
+            "compile",
+            "globals",
+            "locals",
+            "vars",
+            "dir",
+            "getattr",
+            "setattr",
+            "hasattr",
+            "delattr",
+            "callable",
         ]
 
         expression_lower = expression.lower()
@@ -149,51 +168,33 @@ async def calculator_tool(args: CalculateArgs, context) -> Dict[str, Any]:
             if pattern in expression_lower:
                 return {
                     "error": f"Security violation: '{pattern}' is not allowed in expressions",
-                    "result": None
+                    "result": None,
                 }
 
         # Parse expression into AST
         try:
-            parsed = ast.parse(expression, mode='eval')
+            parsed = ast.parse(expression, mode="eval")
         except SyntaxError as e:
-            return {
-                "error": f"Invalid mathematical expression: {e!s}",
-                "result": None
-            }
+            return {"error": f"Invalid mathematical expression: {e!s}", "result": None}
 
         # Evaluate safely
         result = safe_eval_node(parsed.body)
 
         # Handle division by zero and other math errors
         if not isinstance(result, (int, float, complex)):
-            return {
-                "error": "Expression must evaluate to a number",
-                "result": None
-            }
+            return {"error": "Expression must evaluate to a number", "result": None}
 
         return {
             "result": f"The result of {expression} is {result}",
-            "calculation": {
-                "expression": expression,
-                "result": result
-            }
+            "calculation": {"expression": expression, "result": result},
         }
 
     except ZeroDivisionError:
-        return {
-            "error": "Division by zero is not allowed",
-            "result": None
-        }
+        return {"error": "Division by zero is not allowed", "result": None}
     except ValueError as e:
-        return {
-            "error": f"Invalid expression: {e!s}",
-            "result": None
-        }
+        return {"error": f"Invalid expression: {e!s}", "result": None}
     except Exception as e:
-        return {
-            "error": f"Calculation error: {e!s}",
-            "result": None
-        }
+        return {"error": f"Calculation error: {e!s}", "result": None}
 
 
 async def weather_tool(args: WeatherArgs, context) -> Dict[str, Any]:
@@ -205,14 +206,14 @@ async def weather_tool(args: WeatherArgs, context) -> Dict[str, Any]:
         "units": args.units,
         "condition": "Partly cloudy",
         "humidity": 65,
-        "wind_speed": 15
+        "wind_speed": 15,
     }
 
     temp_unit = "°C" if args.units == "celsius" else "°F"
 
     return {
         "result": f"Weather in {args.location}: {weather_data['temperature']}{temp_unit}, {weather_data['condition']}",
-        "weather_data": weather_data
+        "weather_data": weather_data,
     }
 
 
@@ -224,18 +225,20 @@ async def translate_tool(args: TranslateArgs, context) -> Dict[str, Any]:
         "fr": f"[French] {args.text}",
         "de": f"[German] {args.text}",
         "it": f"[Italian] {args.text}",
-        "pt": f"[Portuguese] {args.text}"
+        "pt": f"[Portuguese] {args.text}",
     }
 
-    translated = translations.get(args.target_language, f"[{args.target_language.upper()}] {args.text}")
+    translated = translations.get(
+        args.target_language, f"[{args.target_language.upper()}] {args.text}"
+    )
 
     return {
         "result": f"Translation to {args.target_language}: {translated}",
         "translation": {
             "original": args.text,
             "translated": translated,
-            "target_language": args.target_language
-        }
+            "target_language": args.target_language,
+        },
     }
 
 
@@ -247,14 +250,14 @@ def create_example_agents():
         "calculator",
         "Perform mathematical calculations",
         CalculateArgs.model_json_schema(),
-        calculator_tool
+        calculator_tool,
     )
 
     math_agent = create_a2a_agent(
         "MathTutor",
         "A mathematical assistant that can solve equations and calculations",
         "You are a helpful math tutor. Use the calculator tool for computations.",
-        [calc_tool]
+        [calc_tool],
     )
 
     # Weather Agent with weather tool
@@ -262,14 +265,14 @@ def create_example_agents():
         "get_weather",
         "Get current weather information for a location",
         WeatherArgs.model_json_schema(),
-        weather_tool
+        weather_tool,
     )
 
     weather_agent = create_a2a_agent(
         "WeatherBot",
         "A weather assistant that provides current weather information",
         "You are a weather assistant. Use the weather tool to get current conditions.",
-        [weather_tool_obj]
+        [weather_tool_obj],
     )
 
     # Translation Agent with translation tool
@@ -277,14 +280,14 @@ def create_example_agents():
         "translate_text",
         "Translate text between languages",
         TranslateArgs.model_json_schema(),
-        translate_tool
+        translate_tool,
     )
 
     translation_agent = create_a2a_agent(
         "Translator",
         "A multilingual assistant that can translate text between languages",
         "You are a translation assistant. Use the translation tool for language conversion.",
-        [translate_tool_obj]
+        [translate_tool_obj],
     )
 
     # General Assistant (no specific tools)
@@ -292,14 +295,14 @@ def create_example_agents():
         "Assistant",
         "A general-purpose helpful assistant",
         "You are a helpful, friendly assistant ready to help with various tasks.",
-        []
+        [],
     )
 
     return {
         "MathTutor": math_agent,
         "WeatherBot": weather_agent,
         "Translator": translation_agent,
-        "Assistant": general_agent
+        "Assistant": general_agent,
     }
 
 
@@ -321,7 +324,7 @@ async def main():
             name="JAF A2A Example Server",
             description="Multi-agent server showcasing A2A protocol capabilities",
             host="localhost",
-            port=3000
+            port=3000,
         )
 
         # Add mock model provider

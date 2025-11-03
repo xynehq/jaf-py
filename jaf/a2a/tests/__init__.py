@@ -5,7 +5,7 @@ Comprehensive tests for the Agent-to-Agent Communication Protocol implementation
 
 Test Structure:
 - test_types.py: Core type validation and Pydantic model tests
-- test_protocol.py: JSON-RPC protocol handler tests  
+- test_protocol.py: JSON-RPC protocol handler tests
 - test_client.py: HTTP client functionality tests
 - test_agent.py: Agent creation and execution tests
 - test_integration.py: End-to-end integration tests
@@ -13,13 +13,13 @@ Test Structure:
 Usage:
     # Run all A2A tests
     python -m pytest jaf/a2a/tests/
-    
+
     # Run specific test file
     python -m pytest jaf/a2a/tests/test_types.py
-    
+
     # Run with verbose output
     python -m pytest jaf/a2a/tests/ -v
-    
+
     # Run with coverage
     python -m pytest jaf/a2a/tests/ --cov=jaf.a2a
 
@@ -55,20 +55,19 @@ def run_all_tests():
     # Configure pytest for async tests
     pytest_args = [
         str(test_dir),
-        "-v",                    # Verbose output
-        "--tb=short",           # Short traceback format
+        "-v",  # Verbose output
+        "--tb=short",  # Short traceback format
         "--asyncio-mode=auto",  # Auto async mode
-        "-x",                   # Stop on first failure
+        "-x",  # Stop on first failure
     ]
 
     # Add coverage if available
     try:
         import pytest_cov
-        pytest_args.extend([
-            "--cov=jaf.a2a",
-            "--cov-report=term-missing",
-            "--cov-report=html:htmlcov"
-        ])
+
+        pytest_args.extend(
+            ["--cov=jaf.a2a", "--cov-report=term-missing", "--cov-report=html:htmlcov"]
+        )
     except ImportError:
         print("pytest-cov not available, skipping coverage report")
 
@@ -93,12 +92,7 @@ def run_specific_test(test_name: str):
         print(f"Test file not found: {test_path}")
         return 1
 
-    pytest_args = [
-        str(test_path),
-        "-v",
-        "--tb=short",
-        "--asyncio-mode=auto"
-    ]
+    pytest_args = [str(test_path), "-v", "--tb=short", "--asyncio-mode=auto"]
 
     return pytest.main(pytest_args)
 
@@ -108,12 +102,7 @@ def run_integration_tests_only():
     test_dir = Path(__file__).parent
     integration_test = test_dir / "test_integration.py"
 
-    pytest_args = [
-        str(integration_test),
-        "-v",
-        "--tb=short",
-        "--asyncio-mode=auto"
-    ]
+    pytest_args = [str(integration_test), "-v", "--tb=short", "--asyncio-mode=auto"]
 
     return pytest.main(pytest_args)
 
@@ -127,7 +116,7 @@ def run_unit_tests_only():
         "-v",
         "--tb=short",
         "--asyncio-mode=auto",
-        "--ignore=test_integration.py"
+        "--ignore=test_integration.py",
     ]
 
     return pytest.main(pytest_args)
@@ -137,14 +126,8 @@ def run_unit_tests_only():
 def pytest_configure(config):
     """Configure pytest for A2A tests"""
     # Add custom markers
-    config.addinivalue_line(
-        "markers",
-        "integration: mark test as integration test"
-    )
-    config.addinivalue_line(
-        "markers",
-        "slow: mark test as slow running"
-    )
+    config.addinivalue_line("markers", "integration: mark test as integration test")
+    config.addinivalue_line("markers", "slow: mark test as slow running")
 
 
 # Test collection

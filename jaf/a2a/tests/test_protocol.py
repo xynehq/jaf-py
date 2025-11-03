@@ -5,7 +5,6 @@ Tests JSON-RPC protocol validation, request routing, and response handling
 for the A2A implementation.
 """
 
-
 import pytest
 
 from jaf.a2a.protocol import (
@@ -40,7 +39,7 @@ def create_mock_agent():
         name="test_tool",
         description="A test tool",
         parameters={"type": "object"},
-        execute=mock_tool_execute
+        execute=mock_tool_execute,
     )
 
     return A2AAgent(
@@ -48,7 +47,7 @@ def create_mock_agent():
         description="A test agent",
         supportedContentTypes=["text/plain"],
         instruction="You are a test agent",
-        tools=[tool]
+        tools=[tool],
     )
 
 
@@ -61,7 +60,7 @@ class TestJSONRPCValidation:
             "jsonrpc": "2.0",
             "id": "req_123",
             "method": "message/send",
-            "params": {"test": "data"}
+            "params": {"test": "data"},
         }
 
         assert validate_jsonrpc_request(valid_request) is True
@@ -69,36 +68,19 @@ class TestJSONRPCValidation:
     def test_validate_jsonrpc_request_invalid(self):
         """Test validation of invalid JSON-RPC requests"""
         # Missing jsonrpc field
-        invalid1 = {
-            "id": "req_123",
-            "method": "test",
-            "params": {}
-        }
+        invalid1 = {"id": "req_123", "method": "test", "params": {}}
         assert validate_jsonrpc_request(invalid1) is False
 
         # Wrong jsonrpc version
-        invalid2 = {
-            "jsonrpc": "1.0",
-            "id": "req_123",
-            "method": "test",
-            "params": {}
-        }
+        invalid2 = {"jsonrpc": "1.0", "id": "req_123", "method": "test", "params": {}}
         assert validate_jsonrpc_request(invalid2) is False
 
         # Missing id
-        invalid3 = {
-            "jsonrpc": "2.0",
-            "method": "test",
-            "params": {}
-        }
+        invalid3 = {"jsonrpc": "2.0", "method": "test", "params": {}}
         assert validate_jsonrpc_request(invalid3) is False
 
         # Missing method
-        invalid4 = {
-            "jsonrpc": "2.0",
-            "id": "req_123",
-            "params": {}
-        }
+        invalid4 = {"jsonrpc": "2.0", "id": "req_123", "params": {}}
         assert validate_jsonrpc_request(invalid4) is False
 
         # Non-dict input
@@ -117,9 +99,9 @@ class TestJSONRPCValidation:
                     "parts": [{"kind": "text", "text": "Hello"}],
                     "messageId": "msg_123",
                     "contextId": "ctx_123",
-                    "kind": "message"
+                    "kind": "message",
                 }
-            }
+            },
         }
 
         result = validate_send_message_request(valid_request)
@@ -129,11 +111,7 @@ class TestJSONRPCValidation:
     def test_validate_send_message_request_invalid(self):
         """Test validation of invalid send message requests"""
         # Invalid JSON-RPC base
-        invalid1 = {
-            "id": "req_123",
-            "method": "message/send",
-            "params": {"message": {}}
-        }
+        invalid1 = {"id": "req_123", "method": "message/send", "params": {"message": {}}}
 
         result1 = validate_send_message_request(invalid1)
         assert result1["is_valid"] is False
@@ -144,7 +122,7 @@ class TestJSONRPCValidation:
             "jsonrpc": "2.0",
             "id": "req_123",
             "method": "wrong/method",
-            "params": {"message": {}}
+            "params": {"message": {}},
         }
 
         result2 = validate_send_message_request(invalid2)
@@ -156,7 +134,7 @@ class TestJSONRPCValidation:
             "jsonrpc": "2.0",
             "id": "req_123",
             "method": "message/send",
-            "params": "not a dict"
+            "params": "not a dict",
         }
 
         result3 = validate_send_message_request(invalid3)
@@ -168,9 +146,7 @@ class TestJSONRPCValidation:
             "jsonrpc": "2.0",
             "id": "req_123",
             "method": "message/send",
-            "params": {
-                "message": "not a dict"
-            }
+            "params": {"message": "not a dict"},
         }
 
         result4 = validate_send_message_request(invalid4)
@@ -182,12 +158,7 @@ class TestJSONRPCValidation:
             "jsonrpc": "2.0",
             "id": "req_123",
             "method": "message/send",
-            "params": {
-                "message": {
-                    "kind": "wrong_kind",
-                    "parts": []
-                }
-            }
+            "params": {"message": {"kind": "wrong_kind", "parts": []}},
         }
 
         result5 = validate_send_message_request(invalid5)
@@ -199,12 +170,7 @@ class TestJSONRPCValidation:
             "jsonrpc": "2.0",
             "id": "req_123",
             "method": "message/send",
-            "params": {
-                "message": {
-                    "kind": "message",
-                    "parts": "not a list"
-                }
-            }
+            "params": {"message": {"kind": "message", "parts": "not a list"}},
         }
 
         result6 = validate_send_message_request(invalid6)
@@ -226,7 +192,7 @@ class TestMessageHandlers:
                 "final_task": {
                     "id": "task_123",
                     "status": {"state": "completed"},
-                    "result": "Success"
+                    "result": "Success",
                 }
             }
 
@@ -240,14 +206,12 @@ class TestMessageHandlers:
                     "parts": [{"kind": "text", "text": "Hello"}],
                     "messageId": "msg_123",
                     "contextId": "ctx_123",
-                    "kind": "message"
+                    "kind": "message",
                 }
-            }
+            },
         }
 
-        result = await handle_message_send(
-            request, agent, None, mock_executor
-        )
+        result = await handle_message_send(request, agent, None, mock_executor)
 
         assert result["jsonrpc"] == "2.0"
         assert result["id"] == "req_123"
@@ -261,9 +225,7 @@ class TestMessageHandlers:
 
         # Mock executor function that returns error
         async def mock_executor_error(context, agent, model_provider):
-            return {
-                "error": "Something went wrong"
-            }
+            return {"error": "Something went wrong"}
 
         request = {
             "jsonrpc": "2.0",
@@ -275,14 +237,12 @@ class TestMessageHandlers:
                     "parts": [{"kind": "text", "text": "Hello"}],
                     "messageId": "msg_123",
                     "contextId": "ctx_123",
-                    "kind": "message"
+                    "kind": "message",
                 }
-            }
+            },
         }
 
-        result = await handle_message_send(
-            request, agent, None, mock_executor_error
-        )
+        result = await handle_message_send(request, agent, None, mock_executor_error)
 
         assert result["jsonrpc"] == "2.0"
         assert result["id"] == "req_123"
@@ -308,14 +268,12 @@ class TestMessageHandlers:
                     "parts": [{"kind": "text", "text": "Hello"}],
                     "messageId": "msg_123",
                     "contextId": "ctx_123",
-                    "kind": "message"
+                    "kind": "message",
                 }
-            }
+            },
         }
 
-        result = await handle_message_send(
-            request, agent, None, mock_executor_exception
-        )
+        result = await handle_message_send(request, agent, None, mock_executor_exception)
 
         assert result["jsonrpc"] == "2.0"
         assert result["id"] == "req_123"
@@ -342,15 +300,13 @@ class TestMessageHandlers:
                     "parts": [{"kind": "text", "text": "Hello"}],
                     "messageId": "msg_123",
                     "contextId": "ctx_123",
-                    "kind": "message"
+                    "kind": "message",
                 }
-            }
+            },
         }
 
         events = []
-        async for event in handle_message_stream(
-            request, agent, None, mock_streaming_executor
-        ):
+        async for event in handle_message_stream(request, agent, None, mock_streaming_executor):
             events.append(event)
 
         assert len(events) == 2
@@ -379,9 +335,9 @@ class TestMessageHandlers:
                     "parts": [{"kind": "text", "text": "Hello"}],
                     "messageId": "msg_123",
                     "contextId": "ctx_123",
-                    "kind": "message"
+                    "kind": "message",
                 }
-            }
+            },
         }
 
         events = []
@@ -409,9 +365,9 @@ class TestTaskHandlers:
                 "status": {"state": "completed"},
                 "history": [
                     {"role": "user", "content": "Hello"},
-                    {"role": "agent", "content": "Hi there"}
+                    {"role": "agent", "content": "Hi there"},
                 ],
-                "artifacts": []
+                "artifacts": [],
             }
         }
 
@@ -419,9 +375,7 @@ class TestTaskHandlers:
             "jsonrpc": "2.0",
             "id": "req_123",
             "method": "tasks/get",
-            "params": {
-                "id": "task_123"
-            }
+            "params": {"id": "task_123"},
         }
 
         result = await handle_tasks_get(request, task_storage)
@@ -441,9 +395,7 @@ class TestTaskHandlers:
             "jsonrpc": "2.0",
             "id": "req_123",
             "method": "tasks/get",
-            "params": {
-                "id": "nonexistent_task"
-            }
+            "params": {"id": "nonexistent_task"},
         }
 
         result = await handle_tasks_get(request, task_storage)
@@ -458,12 +410,7 @@ class TestTaskHandlers:
         """Test task retrieval with missing task ID"""
         task_storage = {}
 
-        request = {
-            "jsonrpc": "2.0",
-            "id": "req_123",
-            "method": "tasks/get",
-            "params": {}
-        }
+        request = {"jsonrpc": "2.0", "id": "req_123", "method": "tasks/get", "params": {}}
 
         result = await handle_tasks_get(request, task_storage)
 
@@ -486,8 +433,8 @@ class TestTaskHandlers:
                     {"role": "user", "content": "Message 2"},
                     {"role": "agent", "content": "Response 2"},
                     {"role": "user", "content": "Message 3"},
-                    {"role": "agent", "content": "Response 3"}
-                ]
+                    {"role": "agent", "content": "Response 3"},
+                ],
             }
         }
 
@@ -495,10 +442,7 @@ class TestTaskHandlers:
             "jsonrpc": "2.0",
             "id": "req_123",
             "method": "tasks/get",
-            "params": {
-                "id": "task_123",
-                "historyLength": 2
-            }
+            "params": {"id": "task_123", "historyLength": 2},
         }
 
         result = await handle_tasks_get(request, task_storage)
@@ -514,20 +458,14 @@ class TestTaskHandlers:
     async def test_handle_tasks_cancel_success(self):
         """Test successful task cancellation"""
         task_storage = {
-            "task_123": {
-                "id": "task_123",
-                "status": {"state": "working"},
-                "history": []
-            }
+            "task_123": {"id": "task_123", "status": {"state": "working"}, "history": []}
         }
 
         request = {
             "jsonrpc": "2.0",
             "id": "req_123",
             "method": "tasks/cancel",
-            "params": {
-                "id": "task_123"
-            }
+            "params": {"id": "task_123"},
         }
 
         result = await handle_tasks_cancel(request, task_storage)
@@ -541,20 +479,14 @@ class TestTaskHandlers:
     async def test_handle_tasks_cancel_not_cancelable(self):
         """Test task cancellation for non-cancelable task"""
         task_storage = {
-            "task_123": {
-                "id": "task_123",
-                "status": {"state": "completed"},
-                "history": []
-            }
+            "task_123": {"id": "task_123", "status": {"state": "completed"}, "history": []}
         }
 
         request = {
             "jsonrpc": "2.0",
             "id": "req_123",
             "method": "tasks/cancel",
-            "params": {
-                "id": "task_123"
-            }
+            "params": {"id": "task_123"},
         }
 
         result = await handle_tasks_cancel(request, task_storage)
@@ -576,13 +508,13 @@ class TestAgentCardHandler:
             "name": "Test Agent",
             "description": "A test agent",
             "url": "http://localhost:3000/a2a",
-            "skills": []
+            "skills": [],
         }
 
         request = {
             "jsonrpc": "2.0",
             "id": "req_123",
-            "method": "agent/getAuthenticatedExtendedCard"
+            "method": "agent/getAuthenticatedExtendedCard",
         }
 
         result = await handle_get_authenticated_extended_card(request, agent_card)
@@ -616,14 +548,12 @@ class TestRequestRouting:
                     "parts": [{"kind": "text", "text": "Hello"}],
                     "messageId": "msg_123",
                     "contextId": "ctx_123",
-                    "kind": "message"
+                    "kind": "message",
                 }
-            }
+            },
         }
 
-        result = await route_a2a_request(
-            request, agent, None, {}, {}, mock_executor, None
-        )
+        result = await route_a2a_request(request, agent, None, {}, {}, mock_executor, None)
 
         assert result["jsonrpc"] == "2.0"
         assert result["id"] == "req_123"
@@ -634,16 +564,9 @@ class TestRequestRouting:
         """Test routing invalid method requests"""
         agent = create_mock_agent()
 
-        request = {
-            "jsonrpc": "2.0",
-            "id": "req_123",
-            "method": "invalid/method",
-            "params": {}
-        }
+        request = {"jsonrpc": "2.0", "id": "req_123", "method": "invalid/method", "params": {}}
 
-        result = await route_a2a_request(
-            request, agent, None, {}, {}, None, None
-        )
+        result = await route_a2a_request(request, agent, None, {}, {}, None, None)
 
         assert result["jsonrpc"] == "2.0"
         assert result["id"] == "req_123"
@@ -657,13 +580,11 @@ class TestRequestRouting:
 
         invalid_request = {
             "id": "req_123",
-            "method": "message/send"
+            "method": "message/send",
             # Missing jsonrpc field
         }
 
-        result = await route_a2a_request(
-            invalid_request, agent, None, {}, {}, None, None
-        )
+        result = await route_a2a_request(invalid_request, agent, None, {}, {}, None, None)
 
         assert result["jsonrpc"] == "2.0"
         assert result["id"] == "req_123"
@@ -676,10 +597,7 @@ class TestUtilityFunctions:
 
     def test_create_jsonrpc_success_response_dict(self):
         """Test creating JSON-RPC success response dict"""
-        response = create_jsonrpc_success_response_dict(
-            "req_123",
-            {"status": "success"}
-        )
+        response = create_jsonrpc_success_response_dict("req_123", {"status": "success"})
 
         assert response["jsonrpc"] == "2.0"
         assert response["id"] == "req_123"
@@ -687,10 +605,7 @@ class TestUtilityFunctions:
 
     def test_create_jsonrpc_error_response_dict(self):
         """Test creating JSON-RPC error response dict"""
-        error = {
-            "code": -32603,
-            "message": "Internal error"
-        }
+        error = {"code": -32603, "message": "Internal error"}
 
         response = create_jsonrpc_error_response_dict("req_123", error)
 

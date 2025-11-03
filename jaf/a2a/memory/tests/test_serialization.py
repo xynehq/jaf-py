@@ -40,7 +40,7 @@ class TestA2ATaskSerialization:
         self,
         task_id: str = "task_123",
         context_id: str = "ctx_456",
-        state: TaskState = TaskState.WORKING
+        state: TaskState = TaskState.WORKING,
     ) -> A2ATask:
         """Helper to create a comprehensive test task"""
         return A2ATask(
@@ -54,9 +54,9 @@ class TestA2ATaskSerialization:
                     parts=[A2ATextPart(kind="text", text=f"Processing task {task_id}...")],
                     messageId=f"msg_{task_id}",
                     contextId=context_id,
-                    kind="message"
+                    kind="message",
                 ),
-                timestamp=datetime.now(timezone.utc).isoformat()
+                timestamp=datetime.now(timezone.utc).isoformat(),
             ),
             history=[
                 A2AMessage(
@@ -64,15 +64,15 @@ class TestA2ATaskSerialization:
                     parts=[A2ATextPart(kind="text", text="Hello, please help me")],
                     messageId="msg_001",
                     contextId=context_id,
-                    kind="message"
+                    kind="message",
                 ),
                 A2AMessage(
                     role="agent",
                     parts=[A2ADataPart(kind="data", data={"progress": 50, "status": "processing"})],
                     messageId="msg_002",
                     contextId=context_id,
-                    kind="message"
-                )
+                    kind="message",
+                ),
             ],
             artifacts=[
                 A2AArtifact(
@@ -81,15 +81,17 @@ class TestA2ATaskSerialization:
                     description="A comprehensive test artifact",
                     parts=[
                         A2ATextPart(kind="text", text="Artifact content"),
-                        A2AFilePart(kind="file", file=A2AFile(name="test.txt", mimeType="text/plain"))
-                    ]
+                        A2AFilePart(
+                            kind="file", file=A2AFile(name="test.txt", mimeType="text/plain")
+                        ),
+                    ],
                 )
             ],
             metadata={
                 "createdAt": datetime.now(timezone.utc).isoformat(),
                 "priority": "normal",
-                "source": "test"
-            }
+                "source": "test",
+            },
         )
 
 
@@ -137,7 +139,7 @@ class TestSerializeA2ATask(TestA2ATaskSerialization):
             id="task_minimal",
             contextId="ctx_minimal",
             kind="task",
-            status=A2ATaskStatus(state=TaskState.SUBMITTED)
+            status=A2ATaskStatus(state=TaskState.SUBMITTED),
         )
 
         result = serialize_a2a_task(minimal_task)
@@ -151,12 +153,14 @@ class TestSerializeA2ATask(TestA2ATaskSerialization):
         """Should gracefully handle circular references"""
         task = self.create_test_task()
         # Create circular reference by adding task to its own metadata
-        task.metadata['circular'] = task
+        task.metadata["circular"] = task
 
         result = serialize_a2a_task(task)
-        
+
         assert result.error is not None, "Should fail with circular reference"
-        assert "JSON serializable" in str(result.error.cause), "Should indicate JSON serialization error"
+        assert "JSON serializable" in str(result.error.cause), (
+            "Should indicate JSON serialization error"
+        )
 
     def test_serialize_datetime_objects(self):
         """Should properly convert datetime objects to ISO strings"""
@@ -169,7 +173,7 @@ class TestSerializeA2ATask(TestA2ATaskSerialization):
         stored_metadata = json.loads(result.data.metadata)
         assert isinstance(stored_metadata["timestamp"], str)
         # Should be parseable as ISO datetime
-        datetime.fromisoformat(stored_metadata["timestamp"].replace('Z', '+00:00'))
+        datetime.fromisoformat(stored_metadata["timestamp"].replace("Z", "+00:00"))
 
 
 class TestDeserializeA2ATask(TestA2ATaskSerialization):
@@ -200,7 +204,7 @@ class TestDeserializeA2ATask(TestA2ATaskSerialization):
             state="failed",
             task_data="invalid json {{{",  # Malformed JSON
             created_at=datetime.now(timezone.utc).isoformat(),
-            updated_at=datetime.now(timezone.utc).isoformat()
+            updated_at=datetime.now(timezone.utc).isoformat(),
         )
 
         result = deserialize_a2a_task(invalid_serialized)
@@ -221,7 +225,7 @@ class TestDeserializeA2ATask(TestA2ATaskSerialization):
             state="failed",
             task_data=json.dumps(incomplete_task_data),
             created_at=datetime.now(timezone.utc).isoformat(),
-            updated_at=datetime.now(timezone.utc).isoformat()
+            updated_at=datetime.now(timezone.utc).isoformat(),
         )
 
         result = deserialize_a2a_task(incomplete_serialized)
@@ -241,9 +245,9 @@ class TestDeserializeA2ATask(TestA2ATaskSerialization):
                     "role": "agent",
                     "parts": "not_a_list",  # Should be a list
                     "messageId": "msg_corrupt",
-                    "kind": "message"
-                }
-            }
+                    "kind": "message",
+                },
+            },
         }
 
         corrupt_serialized = A2ATaskSerialized(
@@ -252,7 +256,7 @@ class TestDeserializeA2ATask(TestA2ATaskSerialization):
             state="working",
             task_data=json.dumps(task_data),
             created_at=datetime.now(timezone.utc).isoformat(),
-            updated_at=datetime.now(timezone.utc).isoformat()
+            updated_at=datetime.now(timezone.utc).isoformat(),
         )
 
         result = deserialize_a2a_task(corrupt_serialized)
@@ -313,17 +317,20 @@ class TestRoundTripSerialization(TestA2ATaskSerialization):
                 message=A2AMessage(
                     role="agent",
                     parts=[
-                        A2ADataPart(kind="data", data={
-                            "nested": {"level": 2, "items": [1, 2, 3]},
-                            "arrays": [{"id": 1}, {"id": 2}],
-                            "unicode": "🔥 Special chars & symbols"
-                        })
+                        A2ADataPart(
+                            kind="data",
+                            data={
+                                "nested": {"level": 2, "items": [1, 2, 3]},
+                                "arrays": [{"id": 1}, {"id": 2}],
+                                "unicode": "🔥 Special chars & symbols",
+                            },
+                        )
                     ],
                     messageId="complex_msg",
                     contextId="complex_ctx",
-                    kind="message"
-                )
-            )
+                    kind="message",
+                ),
+            ),
         )
 
         # Round trip
@@ -338,7 +345,7 @@ class TestRoundTripSerialization(TestA2ATaskSerialization):
         # Verify complex data structure preservation
         if round_trip_task.status.message and round_trip_task.status.message.parts:
             data_part = round_trip_task.status.message.parts[0]
-            if hasattr(data_part, 'data'):
+            if hasattr(data_part, "data"):
                 assert data_part.data["nested"]["level"] == 2
                 assert data_part.data["arrays"][0]["id"] == 1
                 assert data_part.data["unicode"] == "🔥 Special chars & symbols"
@@ -368,7 +375,7 @@ class TestCreateTaskIndex(TestA2ATaskSerialization):
             id="minimal",
             contextId="ctx_minimal",
             kind="task",
-            status=A2ATaskStatus(state=TaskState.SUBMITTED)
+            status=A2ATaskStatus(state=TaskState.SUBMITTED),
         )
 
         result = create_task_index(minimal_task)
@@ -412,19 +419,21 @@ class TestExtractTaskSearchText(TestA2ATaskSerialization):
                 state=TaskState.WORKING,
                 message=A2AMessage(
                     role="agent",
-                    parts=[A2ADataPart(
-                        kind="data",
-                        data={
-                            "title": "Important Document",
-                            "summary": "This is a critical summary",
-                            "count": 42  # Non-string data should be ignored
-                        }
-                    )],
+                    parts=[
+                        A2ADataPart(
+                            kind="data",
+                            data={
+                                "title": "Important Document",
+                                "summary": "This is a critical summary",
+                                "count": 42,  # Non-string data should be ignored
+                            },
+                        )
+                    ],
                     messageId="data_msg",
                     contextId="ctx_data",
-                    kind="message"
-                )
-            )
+                    kind="message",
+                ),
+            ),
         )
 
         result = extract_task_search_text(task_with_data)
@@ -440,7 +449,7 @@ class TestExtractTaskSearchText(TestA2ATaskSerialization):
             id="empty",
             contextId="ctx_empty",
             kind="task",
-            status=A2ATaskStatus(state=TaskState.SUBMITTED)
+            status=A2ATaskStatus(state=TaskState.SUBMITTED),
         )
 
         result = extract_task_search_text(empty_task)
@@ -468,7 +477,9 @@ class TestValidateTaskIntegrity(TestA2ATaskSerialization):
         result = validate_task_integrity(None)  # Simulate missing ID scenario
 
         assert result.error is not None
-        assert "Task ID is required" in str(result.error.message) or "validate" in str(result.error.message)
+        assert "Task ID is required" in str(result.error.message) or "validate" in str(
+            result.error.message
+        )
 
     def test_reject_task_without_context_id(self):
         """Should reject task missing contextId"""
@@ -478,7 +489,7 @@ class TestValidateTaskIntegrity(TestA2ATaskSerialization):
             id="test",
             contextId="",  # Invalid empty context ID
             kind="task",
-            status=A2ATaskStatus(state=TaskState.SUBMITTED)
+            status=A2ATaskStatus(state=TaskState.SUBMITTED),
         )
 
         result = validate_task_integrity(invalid_task)
@@ -515,7 +526,7 @@ class TestValidateTaskIntegrity(TestA2ATaskSerialization):
             id="test",
             contextId="ctx",
             kind="task",  # This is actually correct, but we'll test the validation logic
-            status=A2ATaskStatus(state=TaskState.SUBMITTED)
+            status=A2ATaskStatus(state=TaskState.SUBMITTED),
         )
 
         # Manually set wrong kind for test
@@ -581,10 +592,7 @@ class TestSanitizeTask(TestA2ATaskSerialization):
             id="timestamp_test",
             contextId="ctx_test",
             kind="task",
-            status=A2ATaskStatus(
-                state=TaskState.WORKING,
-                timestamp="invalid-date-string"
-            )
+            status=A2ATaskStatus(state=TaskState.WORKING, timestamp="invalid-date-string"),
         )
 
         result = sanitize_task(invalid_timestamp_task)
@@ -595,7 +603,7 @@ class TestSanitizeTask(TestA2ATaskSerialization):
         # The sanitizer should either fix or remove the invalid timestamp
         if sanitized.status.timestamp:
             # If timestamp exists, it should be valid
-            datetime.fromisoformat(sanitized.status.timestamp.replace('Z', '+00:00'))
+            datetime.fromisoformat(sanitized.status.timestamp.replace("Z", "+00:00"))
 
     def test_convert_valid_timestamp_strings(self):
         """Should convert valid timestamp strings to ISO format"""
@@ -603,10 +611,7 @@ class TestSanitizeTask(TestA2ATaskSerialization):
             id="timestamp_convert",
             contextId="ctx_convert",
             kind="task",
-            status=A2ATaskStatus(
-                state=TaskState.WORKING,
-                timestamp="2024-01-01T12:00:00.000Z"
-            )
+            status=A2ATaskStatus(state=TaskState.WORKING, timestamp="2024-01-01T12:00:00.000Z"),
         )
 
         result = sanitize_task(task)
@@ -615,7 +620,7 @@ class TestSanitizeTask(TestA2ATaskSerialization):
         # Should have valid ISO timestamp
         if result.data.status.timestamp:
             # Should be parseable as ISO datetime
-            datetime.fromisoformat(result.data.status.timestamp.replace('Z', '+00:00'))
+            datetime.fromisoformat(result.data.status.timestamp.replace("Z", "+00:00"))
 
     def test_reject_fundamentally_invalid_tasks(self):
         """Should reject tasks that cannot be sanitized"""
@@ -644,9 +649,9 @@ class TestAdversarialScenarios(TestA2ATaskSerialization):
                     parts=[A2ATextPart(kind="text", text=large_text)],
                     messageId="large_msg",
                     contextId="large_ctx",
-                    kind="message"
-                )
-            )
+                    kind="message",
+                ),
+            ),
         )
 
         # Should handle serialization
@@ -677,9 +682,9 @@ class TestAdversarialScenarios(TestA2ATaskSerialization):
                     parts=[A2ADataPart(kind="data", data=nested_data)],
                     messageId="nested_msg",
                     contextId="nested_ctx",
-                    kind="message"
-                )
-            )
+                    kind="message",
+                ),
+            ),
         )
 
         # Should handle without errors
@@ -701,13 +706,13 @@ class TestAdversarialScenarios(TestA2ATaskSerialization):
                     role="agent",
                     parts=[
                         A2ATextPart(kind="text", text=special_chars),
-                        A2ATextPart(kind="text", text=unicode_text)
+                        A2ATextPart(kind="text", text=unicode_text),
                     ],
                     messageId="unicode_msg",
                     contextId="unicode_ctx",
-                    kind="message"
-                )
-            )
+                    kind="message",
+                ),
+            ),
         )
 
         # Round trip should preserve special characters
@@ -734,11 +739,11 @@ class TestAdversarialScenarios(TestA2ATaskSerialization):
             status=A2ATaskStatus(
                 state=TaskState.WORKING,
                 message=None,  # None message
-                timestamp=None  # None timestamp
+                timestamp=None,  # None timestamp
             ),
             history=None,  # None history
             artifacts=None,  # None artifacts
-            metadata=None  # None metadata
+            metadata=None,  # None metadata
         )
 
         # Should handle gracefully

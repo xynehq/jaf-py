@@ -9,7 +9,15 @@ import os
 from typing import Any
 
 # JAF imports
-from jaf.core.types import Agent, RunState, RunConfig, Message, ContentRole, generate_run_id, generate_trace_id
+from jaf.core.types import (
+    Agent,
+    RunState,
+    RunConfig,
+    Message,
+    ContentRole,
+    generate_run_id,
+    generate_trace_id,
+)
 from jaf.core.handoff import handoff_tool
 from jaf.core.engine import run
 from jaf.core.tracing import ConsoleTraceCollector
@@ -28,6 +36,7 @@ class TranslateArgs(BaseModel):
     text: str
     target_language: str
 
+
 async def translate_text(args: TranslateArgs, context: Any) -> str:
     """Mock translation tool."""
     translations = {
@@ -36,32 +45,37 @@ async def translate_text(args: TranslateArgs, context: Any) -> str:
             "goodbye": "au revoir",
             "thank you": "merci",
             "help": "aide",
-            "how are you": "comment allez-vous"
+            "how are you": "comment allez-vous",
         },
         "german": {
             "hello": "hallo",
             "goodbye": "auf wiedersehen",
             "thank you": "danke",
             "help": "hilfe",
-            "how are you": "wie geht es dir"
-        }
+            "how are you": "wie geht es dir",
+        },
     }
 
     text_lower = args.text.lower()
     if args.target_language.lower() in translations:
         lang_dict = translations[args.target_language.lower()]
-        translated = lang_dict.get(text_lower, f"[Translation of '{args.text}' to {args.target_language}]")
+        translated = lang_dict.get(
+            text_lower, f"[Translation of '{args.text}' to {args.target_language}]"
+        )
         return f"Translated '{args.text}' to {args.target_language}: '{translated}'"
 
     return f"Mock translation: '{args.text}' -> {args.target_language}"
 
+
 # Create translation tool
-translate_tool = create_function_tool({
-    'name': 'translate',
-    'description': 'Translate text to specified language',
-    'execute': translate_text,
-    'parameters': TranslateArgs
-})
+translate_tool = create_function_tool(
+    {
+        "name": "translate",
+        "description": "Translate text to specified language",
+        "execute": translate_text,
+        "parameters": TranslateArgs,
+    }
+)
 
 
 def create_language_support_agents():
@@ -115,40 +129,40 @@ If the customer needs help with other languages, use handoff tool to route them 
         name="triage_agent",
         instructions=triage_instructions,
         tools=[handoff_tool],
-        handoffs=["french_agent", "german_agent"]
+        handoffs=["french_agent", "german_agent"],
     )
 
     french_agent = Agent(
         name="french_agent",
         instructions=french_instructions,
         tools=[translate_tool, handoff_tool],
-        handoffs=["german_agent"]
+        handoffs=["german_agent"],
     )
 
     german_agent = Agent(
         name="german_agent",
         instructions=german_instructions,
         tools=[translate_tool, handoff_tool],
-        handoffs=["french_agent"]
+        handoffs=["french_agent"],
     )
 
     return {
         "triage_agent": triage_agent,
         "french_agent": french_agent,
-        "german_agent": german_agent
+        "german_agent": german_agent,
     }
 
 
 async def demo_handoff(user_message: str):
     """Demonstrate handoff with a single message."""
     print(f"\nDemo: {user_message}")
-    print("="*60)
+    print("=" * 60)
 
     # Setup model provider
     model_provider = make_litellm_provider(
-        base_url=os.getenv('LITELLM_BASE_URL'),
-        api_key=os.getenv('LITELLM_API_KEY'),
-        default_timeout=30.0
+        base_url=os.getenv("LITELLM_BASE_URL"),
+        api_key=os.getenv("LITELLM_API_KEY"),
+        default_timeout=30.0,
     )
 
     # Create agents
@@ -164,7 +178,7 @@ async def demo_handoff(user_message: str):
         messages=[Message(role=ContentRole.USER, content=user_message)],
         current_agent_name="triage_agent",
         context={"user_id": "demo_user"},
-        turn_count=0
+        turn_count=0,
     )
 
     # Create run configuration
@@ -172,8 +186,8 @@ async def demo_handoff(user_message: str):
         agent_registry=agent_registry,
         model_provider=model_provider,
         max_turns=5,
-        model_override=os.getenv('LITELLM_MODEL', 'gemini-2.5-pro'),
-        on_event=trace_collector.collect
+        model_override=os.getenv("LITELLM_MODEL", "gemini-2.5-pro"),
+        on_event=trace_collector.collect,
     )
 
     try:
@@ -192,10 +206,14 @@ async def demo_handoff(user_message: str):
         for i, message in enumerate(result.final_state.messages):
             role_prefix = {"user": "[USER]", "assistant": "[AGENT]", "tool": "[TOOL]"}
             prefix = role_prefix.get(message.role, "[UNKNOWN]")
-            content = str(message.content)[:100] + "..." if len(str(message.content)) > 100 else str(message.content)
-            print(f"{i+1}. {prefix} {message.role}: {content}")
+            content = (
+                str(message.content)[:100] + "..."
+                if len(str(message.content)) > 100
+                else str(message.content)
+            )
+            print(f"{i + 1}. {prefix} {message.role}: {content}")
 
-        return result.outcome.status == 'completed'
+        return result.outcome.status == "completed"
 
     except Exception as e:
         print(f"Error: {e}")
@@ -206,7 +224,7 @@ async def main():
     """Run the language support handoff demo."""
     print("JAF Language Support Handoff Demo")
     print("Simple example showing triage -> language specialist handoffs")
-    print("="*60)
+    print("=" * 60)
 
     # Demo scenarios
     scenarios = [
@@ -214,7 +232,7 @@ async def main():
         "Can you help me with German translations?",
         "How do you say 'thank you' in French?",
         "I want to learn some German phrases",
-        "What's the weather like today?"  # Should stay with triage
+        "What's the weather like today?",  # Should stay with triage
     ]
 
     print(f"\nRunning {len(scenarios)} demo scenarios...\n")
@@ -227,12 +245,12 @@ async def main():
 
     # Summary
     print(f"\nDemo Summary")
-    print("="*30)
+    print("=" * 30)
     print(f"Scenarios completed: {sum(results)}/{len(results)}")
 
     for i, (scenario, success) in enumerate(zip(scenarios, results)):
         status = "[PASS]" if success else "[FAIL]"
-        print(f"{i+1}. {status} {scenario[:50]}...")
+        print(f"{i + 1}. {status} {scenario[:50]}...")
 
     if all(results):
         print(f"\nAll handoff demos completed successfully!")
@@ -248,8 +266,8 @@ if __name__ == "__main__":
     print("   - Handoffs to French/German specialists")
     print("   - Tool usage by specialist agents")
     print("   - Complete conversation flows")
-    model = os.getenv('LITELLM_MODEL')
-    base_url = os.getenv('LITELLM_BASE_URL')
+    model = os.getenv("LITELLM_MODEL")
+    base_url = os.getenv("LITELLM_BASE_URL")
     print(f"\nUsing model: {model if model is not None else 'Not set'}")
     print(f"Base URL: {base_url if base_url is not None else 'Not set'}")
 

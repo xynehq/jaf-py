@@ -17,7 +17,7 @@ from jaf.core.types import ModelConfig
 
 def create_attachment_agent() -> Agent[Any, str]:
     """Create an agent that can analyze attachments."""
-    
+
     def instructions(state: RunState[Any]) -> str:
         return """You are an AI assistant that can analyze various types of attachments including images and documents.
 When users send you attachments, analyze them carefully and provide helpful, detailed responses about their content.
@@ -29,27 +29,23 @@ Supported document types: PDF, DOCX, XLSX, CSV, TXT, JSON, ZIP files."""
     return Agent(
         name="attachment-analyst",
         instructions=instructions,
-        model_config=ModelConfig(
-            name="claude-sonnet-4",
-            temperature=0.7,
-            max_tokens=1000
-        )
+        model_config=ModelConfig(name="claude-sonnet-4", temperature=0.7, max_tokens=1000),
     )
 
 
 def main():
     """Main function to run the attachment demo server."""
-    
+
     # Configuration
-    DEFAULT_BASE_URL = 'https://api.openai.com/v1'
-    DEFAULT_API_KEY = 'your-api-key-here'
+    DEFAULT_BASE_URL = "https://api.openai.com/v1"
+    DEFAULT_API_KEY = "your-api-key-here"
     DEFAULT_PORT = 3002
-    DEFAULT_HOST = 'localhost'
+    DEFAULT_HOST = "localhost"
     DEFAULT_MAX_TURNS = 5
 
     # Get environment variables with defaults
-    litellm_base_url = os.getenv('LITELLM_BASE_URL', DEFAULT_BASE_URL)
-    litellm_api_key = os.getenv('LITELLM_API_KEY', DEFAULT_API_KEY)
+    litellm_base_url = os.getenv("LITELLM_BASE_URL", DEFAULT_BASE_URL)
+    litellm_api_key = os.getenv("LITELLM_API_KEY", DEFAULT_API_KEY)
 
     if litellm_api_key == DEFAULT_API_KEY:
         print("Warning: LITELLM_API_KEY not set. Server will start but may not function correctly.")
@@ -61,31 +57,24 @@ def main():
     attachment_agent = create_attachment_agent()
 
     # Create agent registry
-    agent_registry = {
-        'attachment-analyst': attachment_agent
-    }
+    agent_registry = {"attachment-analyst": attachment_agent}
 
     # Create run configuration
     run_config = RunConfig(
-        agent_registry=agent_registry,
-        model_provider=model_provider,
-        max_turns=DEFAULT_MAX_TURNS
+        agent_registry=agent_registry, model_provider=model_provider, max_turns=DEFAULT_MAX_TURNS
     )
 
     # Create server configuration
     server_config = ServerConfig(
-        port=DEFAULT_PORT,
-        host=DEFAULT_HOST,
-        agent_registry=agent_registry,
-        run_config=run_config
+        port=DEFAULT_PORT, host=DEFAULT_HOST, agent_registry=agent_registry, run_config=run_config
     )
 
     # Create and start server
     app = create_jaf_server(server_config)
-    
+
     print(f"JAF Attachment Demo Server starting on http://{DEFAULT_HOST}:{DEFAULT_PORT}")
     print("\nTesting Attachment Support - Use these curl commands:\n")
-    
+
     print("1. Simple text message:")
     print(f"""curl -X POST http://{DEFAULT_HOST}:{DEFAULT_PORT}/chat \\
   -H "Content-Type: application/json" \\
@@ -99,7 +88,7 @@ def main():
     ]
   }}'
 """)
-    
+
     print("2. Image with URL attachment:")
     print(f"""curl -X POST http://{DEFAULT_HOST}:{DEFAULT_PORT}/chat \\
   -H "Content-Type: application/json" \\
@@ -282,10 +271,12 @@ def main():
     print("\nConfiguration:")
     print("- Use Ctrl+C to stop the server")
     print("- Image attachments: Full visual analysis")
-    print("- Document attachments: Text extraction and analysis for PDF, DOCX, XLSX, CSV, TXT, JSON, ZIP")
+    print(
+        "- Document attachments: Text extraction and analysis for PDF, DOCX, XLSX, CSV, TXT, JSON, ZIP"
+    )
     print("- LiteLLM format: Use 'use_litellm_format': true for efficient large file processing")
     print("  * Large PDFs: No context window waste, native model processing")
-    print("  * Better layout understanding, tables, images preserved")  
+    print("  * Better layout understanding, tables, images preserved")
     print("  * Automatic provider optimization (Bedrock, Gemini, OpenAI)")
     print("- URL support: Both remote URLs and base64 data supported")
     print("- Base64 strings in examples contain real document content")
@@ -299,12 +290,8 @@ def main():
     # Import uvicorn and run server
     try:
         import uvicorn
-        uvicorn.run(
-            app,
-            host=DEFAULT_HOST,
-            port=DEFAULT_PORT,
-            log_level="info"
-        )
+
+        uvicorn.run(app, host=DEFAULT_HOST, port=DEFAULT_PORT, log_level="info")
     except KeyboardInterrupt:
         print("\nShutting down attachment demo server...")
     except ImportError:

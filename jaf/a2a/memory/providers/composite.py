@@ -21,16 +21,15 @@ from ..types import (
 
 
 def create_composite_a2a_task_provider(
-    primary: A2ATaskProvider,
-    fallback: Optional[A2ATaskProvider] = None
+    primary: A2ATaskProvider, fallback: Optional[A2ATaskProvider] = None
 ) -> A2ATaskProvider:
     """
     Create a composite A2A task provider that can use multiple backends
-    
+
     Args:
         primary: Primary task provider
         fallback: Optional fallback provider for failover
-        
+
     Returns:
         Composite A2ATaskProvider
     """
@@ -39,9 +38,7 @@ def create_composite_a2a_task_provider(
         """Composite implementation of A2ATaskProvider"""
 
         async def store_task(
-            self,
-            task: A2ATask,
-            metadata: Optional[Dict[str, Any]] = None
+            self, task: A2ATask, metadata: Optional[Dict[str, Any]] = None
         ) -> A2AResult[None]:
             """Store task in primary, fallback to secondary if primary fails"""
             result = await primary.store_task(task, metadata)
@@ -57,9 +54,7 @@ def create_composite_a2a_task_provider(
             return result
 
         async def update_task(
-            self,
-            task: A2ATask,
-            metadata: Optional[Dict[str, Any]] = None
+            self, task: A2ATask, metadata: Optional[Dict[str, Any]] = None
         ) -> A2AResult[None]:
             """Update task in primary, fallback to secondary if primary fails"""
             result = await primary.update_task(task, metadata)
@@ -72,7 +67,7 @@ def create_composite_a2a_task_provider(
             task_id: str,
             state: TaskState,
             status_message: Optional[Any] = None,
-            timestamp: Optional[str] = None
+            timestamp: Optional[str] = None,
         ) -> A2AResult[None]:
             """Update task status in primary, fallback to secondary if primary fails"""
             result = await primary.update_task_status(task_id, state, status_message, timestamp)
@@ -88,9 +83,7 @@ def create_composite_a2a_task_provider(
             return result
 
         async def get_tasks_by_context(
-            self,
-            context_id: str,
-            limit: Optional[int] = None
+            self, context_id: str, limit: Optional[int] = None
         ) -> A2AResult[List[A2ATask]]:
             """Get tasks by context from primary, fallback to secondary if primary fails"""
             result = await primary.get_tasks_by_context(context_id, limit)
@@ -144,8 +137,7 @@ def create_composite_a2a_task_provider(
             return primary_result
 
         async def get_task_stats(
-            self,
-            context_id: Optional[str] = None
+            self, context_id: Optional[str] = None
         ) -> A2AResult[Dict[str, Any]]:
             """Get task stats from primary, fallback to secondary if primary fails"""
             result = await primary.get_task_stats(context_id)
@@ -162,21 +154,24 @@ def create_composite_a2a_task_provider(
                 fallback_health = await fallback.health_check()
 
             # Determine overall health
-            primary_healthy = (
-                isinstance(primary_health.data, dict) and
-                primary_health.data.get('healthy', False)
+            primary_healthy = isinstance(primary_health.data, dict) and primary_health.data.get(
+                "healthy", False
             )
-            fallback_healthy = (
-                fallback_health is None or
-                (isinstance(fallback_health.data, dict) and fallback_health.data.get('healthy', False))
+            fallback_healthy = fallback_health is None or (
+                isinstance(fallback_health.data, dict)
+                and fallback_health.data.get("healthy", False)
             )
 
             overall_healthy = primary_healthy or fallback_healthy
 
             health_data = {
-                'healthy': overall_healthy,
-                'primary': primary_health.data if isinstance(primary_health.data, dict) else {'healthy': False},
-                'fallback': fallback_health.data if fallback_health and isinstance(fallback_health.data, dict) else None
+                "healthy": overall_healthy,
+                "primary": primary_health.data
+                if isinstance(primary_health.data, dict)
+                else {"healthy": False},
+                "fallback": fallback_health.data
+                if fallback_health and isinstance(fallback_health.data, dict)
+                else None,
             }
 
             return create_a2a_success(health_data)
@@ -195,7 +190,7 @@ def create_composite_a2a_task_provider(
 
             except Exception as error:
                 return create_a2a_failure(
-                    create_a2a_task_storage_error('close', 'composite', None, error)
+                    create_a2a_task_storage_error("close", "composite", None, error)
                 )
 
     return CompositeA2ATaskProvider()

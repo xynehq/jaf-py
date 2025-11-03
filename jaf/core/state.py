@@ -8,7 +8,15 @@ and integrate with approval storage systems.
 from typing import Dict, Any, Optional, List
 from dataclasses import replace
 
-from .types import RunState, RunConfig, Interruption, ApprovalValue, Message, ContentRole, Attachment
+from .types import (
+    RunState,
+    RunConfig,
+    Interruption,
+    ApprovalValue,
+    Message,
+    ContentRole,
+    Attachment,
+)
 
 
 def _extract_attachments_from_messages(messages: List[Dict[str, Any]]) -> List[Attachment]:
@@ -16,18 +24,18 @@ def _extract_attachments_from_messages(messages: List[Dict[str, Any]]) -> List[A
     attachments = []
 
     for msg in messages:
-        msg_attachments = msg.get('attachments', [])
+        msg_attachments = msg.get("attachments", [])
         for att in msg_attachments:
             try:
                 # Convert dict to Attachment object
                 attachment = Attachment(
-                    kind=att.get('kind', 'image'),
-                    mime_type=att.get('mime_type'),
-                    name=att.get('name'),
-                    url=att.get('url'),
-                    data=att.get('data'),
-                    format=att.get('format'),
-                    use_litellm_format=att.get('use_litellm_format')
+                    kind=att.get("kind", "image"),
+                    mime_type=att.get("mime_type"),
+                    name=att.get("name"),
+                    url=att.get("url"),
+                    data=att.get("data"),
+                    format=att.get("format"),
+                    use_litellm_format=att.get("use_litellm_format"),
                 )
                 attachments.append(attachment)
             except Exception as e:
@@ -36,7 +44,9 @@ def _extract_attachments_from_messages(messages: List[Dict[str, Any]]) -> List[A
     return attachments
 
 
-def _process_additional_context_images(additional_context: Optional[Dict[str, Any]]) -> List[Attachment]:
+def _process_additional_context_images(
+    additional_context: Optional[Dict[str, Any]],
+) -> List[Attachment]:
     """Process additional context and extract any image attachments."""
     if not additional_context:
         return []
@@ -44,27 +54,27 @@ def _process_additional_context_images(additional_context: Optional[Dict[str, An
     attachments = []
 
     # Handle messages with attachments
-    messages = additional_context.get('messages', [])
+    messages = additional_context.get("messages", [])
     if messages:
         attachments.extend(_extract_attachments_from_messages(messages))
 
     # Handle legacy image_context format
-    image_context = additional_context.get('image_context')
-    if image_context and image_context.get('type') == 'image_url':
+    image_context = additional_context.get("image_context")
+    if image_context and image_context.get("type") == "image_url":
         try:
-            image_url = image_context.get('image_url', {})
-            url = image_url.get('url', '')
+            image_url = image_context.get("image_url", {})
+            url = image_url.get("url", "")
 
-            if url.startswith('data:'):
+            if url.startswith("data:"):
                 # Parse data URL: data:image/png;base64,iVBORw0KGgo...
-                header, data = url.split(',', 1)
-                mime_type = header.split(':')[1].split(';')[0]
+                header, data = url.split(",", 1)
+                mime_type = header.split(":")[1].split(";")[0]
 
                 attachment = Attachment(
-                    kind='image',
+                    kind="image",
                     mime_type=mime_type,
                     data=data,
-                    name=f"approval_image.{mime_type.split('/')[-1]}"
+                    name=f"approval_image.{mime_type.split('/')[-1]}",
                 )
                 attachments.append(attachment)
         except Exception as e:
@@ -74,8 +84,7 @@ def _process_additional_context_images(additional_context: Optional[Dict[str, An
 
 
 def _add_approval_context_to_conversation(
-    state: RunState[Any],
-    additional_context: Optional[Dict[str, Any]]
+    state: RunState[Any], additional_context: Optional[Dict[str, Any]]
 ) -> RunState[Any]:
     """Add approval context including images to the conversation."""
     if not additional_context:
@@ -91,11 +100,11 @@ def _add_approval_context_to_conversation(
     approval_message = "Additional context provided during approval process."
 
     # Check if there are text messages to include
-    messages = additional_context.get('messages', [])
+    messages = additional_context.get("messages", [])
     if messages:
         text_content = []
         for msg in messages:
-            content = msg.get('content', '')
+            content = msg.get("content", "")
             if content:
                 text_content.append(content)
 
@@ -104,9 +113,7 @@ def _add_approval_context_to_conversation(
 
     # Create user message with attachments (using USER role for better compatibility)
     context_message = Message(
-        role=ContentRole.USER,
-        content=approval_message,
-        attachments=attachments
+        role=ContentRole.USER, content=approval_message, attachments=attachments
     )
 
     # Add to conversation
@@ -118,38 +125,35 @@ async def approve(
     state: RunState[Any],
     interruption: Interruption,
     additional_context: Optional[Dict[str, Any]] = None,
-    config: Optional[RunConfig[Any]] = None
+    config: Optional[RunConfig[Any]] = None,
 ) -> RunState[Any]:
     """
     Approve a tool call interruption and update the run state.
-    
+
     Args:
         state: Current run state
         interruption: The interruption to approve
         additional_context: Optional additional context for the approval
         config: Optional run configuration for approval storage
-        
+
     Returns:
         Updated run state with approval recorded
     """
-    if interruption.type == 'tool_approval':
+    if interruption.type == "tool_approval":
         approval_value = ApprovalValue(
-            status='approved',
+            status="approved",
             approved=True,
-            additional_context={
-                **(additional_context or {}), 
-                'status': 'approved'
-            }
+            additional_context={**(additional_context or {}), "status": "approved"},
         )
-        
+
         # Store in approval storage if available
         if config and config.approval_storage:
             try:
-                print(f"[JAF:APPROVAL] Storing approval for tool_call_id {interruption.tool_call.id}: {approval_value}")
+                print(
+                    f"[JAF:APPROVAL] Storing approval for tool_call_id {interruption.tool_call.id}: {approval_value}"
+                )
                 result = await config.approval_storage.store_approval(
-                    state.run_id,
-                    interruption.tool_call.id,
-                    approval_value
+                    state.run_id, interruption.tool_call.id, approval_value
                 )
                 if not result.success:
                     print(f"[JAF:APPROVAL] Failed to store approval: {result.error}")
@@ -159,7 +163,7 @@ async def approve(
             except Exception as e:
                 print(f"[JAF:APPROVAL] Approval storage error: {e}")
                 # Continue with in-memory fallback
-        
+
         # Update in-memory state
         new_approvals = {**state.approvals}
         new_approvals[interruption.tool_call.id] = approval_value
@@ -169,7 +173,7 @@ async def approve(
         updated_state = _add_approval_context_to_conversation(updated_state, additional_context)
 
         return updated_state
-    
+
     return state
 
 
@@ -177,38 +181,35 @@ async def reject(
     state: RunState[Any],
     interruption: Interruption,
     additional_context: Optional[Dict[str, Any]] = None,
-    config: Optional[RunConfig[Any]] = None
+    config: Optional[RunConfig[Any]] = None,
 ) -> RunState[Any]:
     """
     Reject a tool call interruption and update the run state.
-    
+
     Args:
         state: Current run state
         interruption: The interruption to reject
         additional_context: Optional additional context for the rejection
         config: Optional run configuration for approval storage
-        
+
     Returns:
         Updated run state with rejection recorded
     """
-    if interruption.type == 'tool_approval':
+    if interruption.type == "tool_approval":
         approval_value = ApprovalValue(
-            status='rejected',
+            status="rejected",
             approved=False,
-            additional_context={
-                **(additional_context or {}), 
-                'status': 'rejected'
-            }
+            additional_context={**(additional_context or {}), "status": "rejected"},
         )
-        
+
         # Store in approval storage if available
         if config and config.approval_storage:
             try:
-                print(f"[JAF:APPROVAL] Storing approval for tool_call_id {interruption.tool_call.id}: {approval_value}")
+                print(
+                    f"[JAF:APPROVAL] Storing approval for tool_call_id {interruption.tool_call.id}: {approval_value}"
+                )
                 result = await config.approval_storage.store_approval(
-                    state.run_id,
-                    interruption.tool_call.id,
-                    approval_value
+                    state.run_id, interruption.tool_call.id, approval_value
                 )
                 if not result.success:
                     print(f"[JAF:APPROVAL] Failed to store approval: {result.error}")
@@ -218,7 +219,7 @@ async def reject(
             except Exception as e:
                 print(f"[JAF:APPROVAL] Approval storage error: {e}")
                 # Continue with in-memory fallback
-        
+
         # Update in-memory state
         new_approvals = {**state.approvals}
         new_approvals[interruption.tool_call.id] = approval_value
@@ -228,28 +229,29 @@ async def reject(
         updated_state = _add_approval_context_to_conversation(updated_state, additional_context)
 
         return updated_state
-    
+
     return state
 
 
 async def load_approvals_into_state(
-    state: RunState[Any],
-    config: Optional[RunConfig[Any]] = None
+    state: RunState[Any], config: Optional[RunConfig[Any]] = None
 ) -> RunState[Any]:
     """
     Load approvals from storage into the run state.
-    
+
     Args:
         state: Current run state
         config: Optional run configuration with approval storage
-        
+
     Returns:
         Updated run state with loaded approvals
     """
     if not config or not config.approval_storage:
-        print(f"[JAF:APPROVAL] No approval storage configured, using existing approvals: {state.approvals}")
+        print(
+            f"[JAF:APPROVAL] No approval storage configured, using existing approvals: {state.approvals}"
+        )
         return state
-    
+
     try:
         print(f"[JAF:APPROVAL] Loading approvals from storage for run_id: {state.run_id}")
         result = await config.approval_storage.get_run_approvals(state.run_id)

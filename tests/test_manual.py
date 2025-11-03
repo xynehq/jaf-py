@@ -12,61 +12,61 @@ from jaf.core.types import generate_run_id, generate_trace_id, ContentRole
 # Load environment variables
 load_dotenv()
 
+
 async def test_openai():
     print("🧪 Testing OpenAI with LiteLLM SDK Provider...")
-    
+
     # Check if OpenAI API key is available
     openai_key = os.getenv("OPENAI_API_KEY")
     if not openai_key:
         print("⏭️  Skipping OpenAI test - OPENAI_API_KEY not found in environment")
         return None
-    
+
     # OpenAI provider
-    openai_provider = make_litellm_sdk_provider(
-        api_key=openai_key,
-        model="gpt-3.5-turbo"
-    )
-    
+    openai_provider = make_litellm_sdk_provider(api_key=openai_key, model="gpt-3.5-turbo")
+
     print("✅ OpenAI provider created")
-    
+
     # Create a test conversation
     state = RunState(
         run_id=generate_run_id(),
         trace_id=generate_trace_id(),
         messages=[
-            Message(role=ContentRole.USER, content="Explain the difference between AI and Machine Learning in one sentence.")
+            Message(
+                role=ContentRole.USER,
+                content="Explain the difference between AI and Machine Learning in one sentence.",
+            )
         ],
         current_agent_name="OpenAIAgent",
         context={},
-        turn_count=1
+        turn_count=1,
     )
-    
+
     agent = Agent(
         name="OpenAIAgent",
         instructions=lambda s: "You are a helpful AI assistant powered by OpenAI.",
-        tools=[]
+        tools=[],
     )
-    
-    config = RunConfig(
-        agent_registry={"OpenAIAgent": agent},
-        model_provider=openai_provider
-    )
-    
+
+    config = RunConfig(agent_registry={"OpenAIAgent": agent}, model_provider=openai_provider)
+
     # Test completion
     try:
         print("📤 Sending message to OpenAI...")
         result = await openai_provider.get_completion(state, agent, config)
-        
+
         print("✅ OpenAI API call successful!")
         print(f"📥 Response: {result['message']['content']}")
         print(f"🔧 Model used: {result.get('model', 'unknown')}")
-        
-        if result.get('usage'):
-            usage = result['usage']
-            print(f"📊 Token usage: {usage.get('prompt_tokens', 0)} prompt + {usage.get('completion_tokens', 0)} completion = {usage.get('total_tokens', 0)} total")
-        
+
+        if result.get("usage"):
+            usage = result["usage"]
+            print(
+                f"📊 Token usage: {usage.get('prompt_tokens', 0)} prompt + {usage.get('completion_tokens', 0)} completion = {usage.get('total_tokens', 0)} total"
+            )
+
         return True
-        
+
     except Exception as e:
         print(f"❌ OpenAI API call failed: {e}")
         print("\n🔧 Troubleshooting:")
@@ -74,61 +74,61 @@ async def test_openai():
         print("2. Ensure you have sufficient OpenAI credits")
         return False
 
+
 async def test_gemini():
     print("\n🧪 Testing Google Gemini with LiteLLM SDK Provider...")
-    
+
     # Check if Google API key is available
     google_key = os.getenv("GOOGLE_API_KEY")
     if not google_key:
         print("⏭️  Skipping Gemini test - GOOGLE_API_KEY not found in environment")
         return None
-    
+
     # Gemini provider (consumer API)
-    gemini_provider = make_litellm_sdk_provider(
-        api_key=google_key,
-        model="gemini/gemini-2.5-pro"
-    )
-    
+    gemini_provider = make_litellm_sdk_provider(api_key=google_key, model="gemini/gemini-2.5-pro")
+
     print("✅ Gemini provider created")
-    
+
     # Create a test conversation
     state = RunState(
         run_id=generate_run_id(),
         trace_id=generate_trace_id(),
         messages=[
-            Message(role=ContentRole.USER, content="What are the key advantages of transformer architecture in deep learning?")
+            Message(
+                role=ContentRole.USER,
+                content="What are the key advantages of transformer architecture in deep learning?",
+            )
         ],
         current_agent_name="GeminiAgent",
         context={},
-        turn_count=1
+        turn_count=1,
     )
-    
+
     agent = Agent(
         name="GeminiAgent",
         instructions=lambda s: "You are a helpful AI assistant powered by Google Gemini.",
-        tools=[]
+        tools=[],
     )
-    
-    config = RunConfig(
-        agent_registry={"GeminiAgent": agent},
-        model_provider=gemini_provider
-    )
-    
+
+    config = RunConfig(agent_registry={"GeminiAgent": agent}, model_provider=gemini_provider)
+
     # Test completion
     try:
         print("📤 Sending message to Google Gemini...")
         result = await gemini_provider.get_completion(state, agent, config)
-        
+
         print("✅ Gemini API call successful!")
         print(f"📥 Response: {result['message']['content']}")
         print(f"🔧 Model used: {result.get('model', 'unknown')}")
-        
-        if result.get('usage'):
-            usage = result['usage']
-            print(f"📊 Token usage: {usage.get('prompt_tokens', 0)} prompt + {usage.get('completion_tokens', 0)} completion = {usage.get('total_tokens', 0)} total")
-        
+
+        if result.get("usage"):
+            usage = result["usage"]
+            print(
+                f"📊 Token usage: {usage.get('prompt_tokens', 0)} prompt + {usage.get('completion_tokens', 0)} completion = {usage.get('total_tokens', 0)} total"
+            )
+
         return True
-        
+
     except Exception as e:
         print(f"❌ Gemini API call failed: {e}")
         print("\n🔧 Troubleshooting:")
@@ -137,64 +137,62 @@ async def test_gemini():
         print("3. Verify your Google Cloud project has Gemini API enabled")
         return False
 
+
 async def test_vertex_ai():
     print("\n🧪 Testing Vertex AI with LiteLLM SDK Provider...")
-    
+
     # Check if Vertex AI configuration is available
     vertex_project = os.getenv("VERTEX_PROJECT")
     vertex_location = os.getenv("VERTEX_LOCATION", "us-central1")
-    
+
     if not vertex_project:
         print("⏭️  Skipping Vertex AI test - VERTEX_PROJECT not found in environment")
         return None
-    
+
     # Vertex AI provider
     vertex_provider = make_litellm_sdk_provider(
         model="vertex_ai/gemini-2.5-pro",
         vertex_project=vertex_project,
-        vertex_location=vertex_location
+        vertex_location=vertex_location,
     )
-    
+
     print("✅ Vertex AI provider created")
-    
+
     # Create a test conversation
     state = RunState(
         run_id=generate_run_id(),
         trace_id=generate_trace_id(),
-        messages=[
-            Message(role=ContentRole.USER, content="Hello! how is ML different from DL?")
-        ],
+        messages=[Message(role=ContentRole.USER, content="Hello! how is ML different from DL?")],
         current_agent_name="VertexAgent",
         context={},
-        turn_count=1
+        turn_count=1,
     )
-    
+
     agent = Agent(
         name="VertexAgent",
         instructions=lambda s: "You are a helpful AI assistant powered by Google's Vertex AI.",
-        tools=[]
+        tools=[],
     )
-    
-    config = RunConfig(
-        agent_registry={"VertexAgent": agent},
-        model_provider=vertex_provider
-    )
-    
+
+    config = RunConfig(agent_registry={"VertexAgent": agent}, model_provider=vertex_provider)
+
     # Test completion
     try:
         print("📤 Sending message to Vertex AI...")
         result = await vertex_provider.get_completion(state, agent, config)
-        
+
         print("✅ Vertex AI API call successful!")
         print(f"📥 Response: {result['message']['content']}")
         print(f"🔧 Model used: {result.get('model', 'unknown')}")
-        
-        if result.get('usage'):
-            usage = result['usage']
-            print(f"📊 Token usage: {usage.get('prompt_tokens', 0)} prompt + {usage.get('completion_tokens', 0)} completion = {usage.get('total_tokens', 0)} total")
-        
+
+        if result.get("usage"):
+            usage = result["usage"]
+            print(
+                f"📊 Token usage: {usage.get('prompt_tokens', 0)} prompt + {usage.get('completion_tokens', 0)} completion = {usage.get('total_tokens', 0)} total"
+            )
+
         return True
-        
+
     except Exception as e:
         print(f"❌ Vertex AI API call failed: {e}")
         print("\n🔧 Troubleshooting:")
@@ -203,6 +201,7 @@ async def test_vertex_ai():
         print("3. Ensure your Google Cloud Project has Vertex AI enabled")
         print("4. Verify you have access to the specified model in your region")
         return False
+
 
 async def test_azure_openai():
     print("\n🧪 Testing Azure OpenAI with LiteLLM SDK Provider...")
@@ -223,7 +222,7 @@ async def test_azure_openai():
         model=f"azure/{azure_deployment}",  # Use azure/deployment-name format
         api_key=azure_api_key,
         api_base=azure_api_base,
-        api_version=azure_api_version
+        api_version=azure_api_version,
     )
 
     print("✅ Azure OpenAI provider created")
@@ -233,23 +232,22 @@ async def test_azure_openai():
         run_id=generate_run_id(),
         trace_id=generate_trace_id(),
         messages=[
-            Message(role=ContentRole.USER, content="Explain the concept of neural networks in detail.")
+            Message(
+                role=ContentRole.USER, content="Explain the concept of neural networks in detail."
+            )
         ],
         current_agent_name="AzureAgent",
         context={},
-        turn_count=1
+        turn_count=1,
     )
 
     agent = Agent(
         name="AzureAgent",
         instructions=lambda s: "You are a helpful AI assistant powered by Azure OpenAI.",
-        tools=[]
+        tools=[],
     )
 
-    config = RunConfig(
-        agent_registry={"AzureAgent": agent},
-        model_provider=azure_provider
-    )
+    config = RunConfig(agent_registry={"AzureAgent": agent}, model_provider=azure_provider)
 
     # Test completion
     try:
@@ -260,9 +258,11 @@ async def test_azure_openai():
         print(f"📥 Response: {result['message']['content']}")
         print(f"🔧 Model used: {result.get('model', 'unknown')}")
 
-        if result.get('usage'):
-            usage = result['usage']
-            print(f"📊 Token usage: {usage.get('prompt_tokens', 0)} prompt + {usage.get('completion_tokens', 0)} completion = {usage.get('total_tokens', 0)} total")
+        if result.get("usage"):
+            usage = result["usage"]
+            print(
+                f"📊 Token usage: {usage.get('prompt_tokens', 0)} prompt + {usage.get('completion_tokens', 0)} completion = {usage.get('total_tokens', 0)} total"
+            )
 
         return True
 
@@ -276,19 +276,20 @@ async def test_azure_openai():
         print("5. Verify your Azure OpenAI resource has the deployment enabled")
         return False
 
+
 async def run_all_tests():
     print("🚀 Testing LiteLLM SDK Provider with Multiple AI Providers")
     print("=" * 60)
-    
+
     # Test all providers
     results = []
-    
+
     # print("\n1️⃣ OpenAI Test:")
     # results.append(await test_openai())
-    
+
     # print("\n2️⃣ Google Gemini Test:")
     # results.append(await test_gemini())
-    
+
     # print("\n3️⃣ Vertex AI Test:")
     # results.append(await test_vertex_ai())
 
@@ -296,13 +297,13 @@ async def run_all_tests():
     results.append(await test_azure_openai())
 
     # Summary
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("🎯 Test Results Summary:")
     providers = ["OpenAI", "Google Gemini", "Vertex AI", "Azure OpenAI"]
-    
+
     tested_count = 0
     passed_count = 0
-    
+
     for i, (provider, result) in enumerate(zip(providers, results)):
         if result is None:
             status = "⏭️  SKIPPED"
@@ -313,17 +314,18 @@ async def run_all_tests():
         else:
             status = "❌ FAILED"
             tested_count += 1
-        print(f"{i+1}. {provider}: {status}")
-    
+        print(f"{i + 1}. {provider}: {status}")
+
     if tested_count == 0:
         print("\n⚠️  No providers tested - check your .env file configuration")
     else:
         print(f"\n🏆 Results: {passed_count}/{tested_count} tested providers working")
-        
+
         if passed_count == tested_count:
             print("🎉 All tested providers working! LiteLLM SDK integration is successful!")
         else:
             print("💡 Check API keys and authentication for failed providers")
+
 
 if __name__ == "__main__":
     asyncio.run(run_all_tests())

@@ -3,7 +3,7 @@ A2A Memory Stress & Concurrency Tests - Phase 3: Advanced Scenarios
 
 Comprehensive stress testing for A2A task memory system including:
 - High concurrency scenarios
-- Large-scale data operations  
+- Large-scale data operations
 - Performance under load
 - Race condition detection
 - Resource exhaustion handling
@@ -46,14 +46,14 @@ class StressTestBase:
         count: int,
         context_id: str = "stress_ctx",
         base_id: str = "stress_task",
-        distribute_contexts: bool = True
+        distribute_contexts: bool = True,
     ) -> List[A2ATask]:
         """Create multiple tasks for bulk operations"""
         tasks = []
         for i in range(count):
             # Distribute across contexts by default for stress testing, but allow single context
             actual_context_id = f"{context_id}_{i % 10}" if distribute_contexts else context_id
-            
+
             task = A2ATask(
                 id=f"{base_id}_{i:05d}",
                 contextId=actual_context_id,
@@ -65,24 +65,21 @@ class StressTestBase:
                         parts=[A2ATextPart(kind="text", text=f"Bulk task number {i}")],
                         messageId=f"bulk_msg_{i}",
                         contextId=actual_context_id,
-                        kind="message"
+                        kind="message",
                     ),
-                    timestamp=datetime.now(timezone.utc).isoformat()
+                    timestamp=datetime.now(timezone.utc).isoformat(),
                 ),
                 metadata={
                     "created_at": datetime.now(timezone.utc).isoformat(),
                     "batch_id": "stress_test",
-                    "sequence": i
-                }
+                    "sequence": i,
+                },
             )
             tasks.append(task)
         return tasks
 
     def create_large_task(
-        self,
-        task_id: str,
-        context_id: str,
-        size_multiplier: int = 100
+        self, task_id: str, context_id: str, size_multiplier: int = 100
     ) -> A2ATask:
         """Create a task with large data payload"""
         # Create large text content
@@ -92,7 +89,7 @@ class StressTestBase:
         large_data = {
             "data": list(range(size_multiplier * 10)),
             "metadata": {f"key_{i}": f"value_{i}" * 50 for i in range(size_multiplier)},
-            "content": large_text
+            "content": large_text,
         }
 
         return A2ATask(
@@ -105,13 +102,13 @@ class StressTestBase:
                     role="agent",
                     parts=[
                         A2ATextPart(kind="text", text=large_text),
-                        A2ADataPart(kind="data", data=large_data)
+                        A2ADataPart(kind="data", data=large_data),
                     ],
                     messageId=f"large_msg_{task_id}",
                     contextId=context_id,
-                    kind="message"
+                    kind="message",
                 ),
-                timestamp=datetime.now(timezone.utc).isoformat()
+                timestamp=datetime.now(timezone.utc).isoformat(),
             ),
             history=[
                 A2AMessage(
@@ -119,7 +116,7 @@ class StressTestBase:
                     parts=[A2ATextPart(kind="text", text="Process this large dataset")],
                     messageId=f"init_{task_id}",
                     contextId=context_id,
-                    kind="message"
+                    kind="message",
                 )
             ],
             artifacts=[
@@ -129,10 +126,10 @@ class StressTestBase:
                     description="An artifact containing large amounts of data",
                     parts=[
                         A2ATextPart(kind="text", text=large_text),
-                        A2ADataPart(kind="data", data=large_data)
-                    ]
+                        A2ADataPart(kind="data", data=large_data),
+                    ],
                 )
-            ]
+            ],
         )
 
     async def measure_operation_time(self, operation_func, *args, **kwargs) -> Tuple[Any, float]:
@@ -148,7 +145,7 @@ async def stress_provider() -> A2ATaskProvider:
     """Create provider for stress testing with higher limits"""
     config = A2AInMemoryTaskConfig(
         max_tasks=50000,  # Higher limits for stress testing
-        max_tasks_per_context=10000
+        max_tasks_per_context=10000,
     )
     provider = create_a2a_in_memory_task_provider(config)
     yield provider
@@ -179,14 +176,18 @@ class TestConcurrencyTorture(StressTestBase):
 
         # Verify all operations succeeded
         success_count = sum(1 for result in results if result.data is None)
-        assert success_count == concurrent_tasks, f"Expected all {concurrent_tasks} stores to succeed, got {success_count}"
+        assert success_count == concurrent_tasks, (
+            f"Expected all {concurrent_tasks} stores to succeed, got {success_count}"
+        )
 
         # Performance check - should complete within reasonable time
         total_time = end_time - start_time
         avg_time_per_op = total_time / concurrent_tasks
         assert total_time < 30.0, f"Concurrent writes took too long: {total_time:.2f}s"
 
-        print(f"Concurrent writes: {concurrent_tasks} tasks in {total_time:.2f}s ({avg_time_per_op*1000:.2f}ms avg)")
+        print(
+            f"Concurrent writes: {concurrent_tasks} tasks in {total_time:.2f}s ({avg_time_per_op * 1000:.2f}ms avg)"
+        )
 
         # Verify data integrity
         for task in tasks[:10]:  # Sample check
@@ -228,8 +229,8 @@ class TestConcurrencyTorture(StressTestBase):
                         parts=[A2ATextPart(kind="text", text=f"Updated task {i}")],
                         messageId=f"update_{i}",
                         contextId=f"rw_ctx_{i % 10}",
-                        kind="message"
-                    )
+                        kind="message",
+                    ),
                 )
             )
 
@@ -240,9 +241,9 @@ class TestConcurrencyTorture(StressTestBase):
         end_time = time.perf_counter()
 
         # Analyze results
-        read_results = results[:len(read_operations)]
-        write_results = results[len(read_operations):len(read_operations) + len(write_operations)]
-        update_results = results[len(read_operations) + len(write_operations):]
+        read_results = results[: len(read_operations)]
+        write_results = results[len(read_operations) : len(read_operations) + len(write_operations)]
+        update_results = results[len(read_operations) + len(write_operations) :]
 
         # Verify read operations
         successful_reads = sum(1 for result in read_results if result.data is not None)
@@ -270,9 +271,8 @@ class TestConcurrencyTorture(StressTestBase):
             contextId=context_id,
             kind="task",
             status=A2ATaskStatus(
-                state=TaskState.SUBMITTED,
-                timestamp=datetime.now(timezone.utc).isoformat()
-            )
+                state=TaskState.SUBMITTED, timestamp=datetime.now(timezone.utc).isoformat()
+            ),
         )
         await stress_provider.store_task(initial_task)
 
@@ -289,9 +289,9 @@ class TestConcurrencyTorture(StressTestBase):
                     parts=[A2ATextPart(kind="text", text=f"Concurrent update {i}")],
                     messageId=f"concurrent_{i}",
                     contextId=context_id,
-                    kind="message"
+                    kind="message",
                 ),
-                timestamp=datetime.now(timezone.utc).isoformat()
+                timestamp=datetime.now(timezone.utc).isoformat(),
             )
             update_operations.append(operation)
 
@@ -300,7 +300,9 @@ class TestConcurrencyTorture(StressTestBase):
 
         # All updates should succeed
         successful_updates = sum(1 for result in results if result.data is None)
-        assert successful_updates == update_count, f"Expected {update_count} successful updates, got {successful_updates}"
+        assert successful_updates == update_count, (
+            f"Expected {update_count} successful updates, got {successful_updates}"
+        )
 
         # Verify final state consistency
         final_result = await stress_provider.get_task(task_id)
@@ -334,12 +336,16 @@ class TestConcurrencyTorture(StressTestBase):
                         state=TaskState.SUBMITTED,
                         message=A2AMessage(
                             role="user",
-                            parts=[A2ATextPart(kind="text", text=f"Task {task_idx} in context {ctx_idx}")],
+                            parts=[
+                                A2ATextPart(
+                                    kind="text", text=f"Task {task_idx} in context {ctx_idx}"
+                                )
+                            ],
                             messageId=f"iso_msg_{ctx_idx}_{task_idx}",
                             contextId=context_id,
-                            kind="message"
-                        )
-                    )
+                            kind="message",
+                        ),
+                    ),
                 )
                 expected_context_tasks[context_id].append(task.id)
                 all_store_operations.append(stress_provider.store_task(task))
@@ -350,7 +356,9 @@ class TestConcurrencyTorture(StressTestBase):
         # Verify all stores succeeded
         successful_stores = sum(1 for result in results if result.data is None)
         expected_total = contexts_count * tasks_per_context
-        assert successful_stores == expected_total, f"Expected {expected_total} stores, got {successful_stores}"
+        assert successful_stores == expected_total, (
+            f"Expected {expected_total} stores, got {successful_stores}"
+        )
 
         # Verify context isolation
         for context_id, expected_task_ids in expected_context_tasks.items():
@@ -360,8 +368,12 @@ class TestConcurrencyTorture(StressTestBase):
             actual_task_ids = {task.id for task in context_result.data}
             expected_task_ids_set = set(expected_task_ids)
 
-            assert actual_task_ids == expected_task_ids_set, f"Context {context_id} has incorrect tasks"
-            assert len(context_result.data) == tasks_per_context, f"Context {context_id} should have {tasks_per_context} tasks"
+            assert actual_task_ids == expected_task_ids_set, (
+                f"Context {context_id} has incorrect tasks"
+            )
+            assert len(context_result.data) == tasks_per_context, (
+                f"Context {context_id} should have {tasks_per_context} tasks"
+            )
 
 
 class TestLargeScaleOperations(StressTestBase):
@@ -381,23 +393,23 @@ class TestLargeScaleOperations(StressTestBase):
             # Store tasks in batches to avoid overwhelming the system
             batch_size = 50
             for i in range(0, len(tasks), batch_size):
-                batch = tasks[i:i + batch_size]
+                batch = tasks[i : i + batch_size]
                 batch_operations = [stress_provider.store_task(task) for task in batch]
                 batch_results = await asyncio.gather(*batch_operations)
 
                 # Verify batch success
                 batch_success = sum(1 for result in batch_results if result.data is None)
-                assert batch_success == len(batch), f"Batch {i//batch_size} failed: {batch_success}/{len(batch)} succeeded"
+                assert batch_success == len(batch), (
+                    f"Batch {i // batch_size} failed: {batch_success}/{len(batch)} succeeded"
+                )
 
             end_time = time.perf_counter()
             total_time = end_time - start_time
             ops_per_second = count / total_time
 
-            performance_results.append({
-                "count": count,
-                "time": total_time,
-                "ops_per_second": ops_per_second
-            })
+            performance_results.append(
+                {"count": count, "time": total_time, "ops_per_second": ops_per_second}
+            )
 
             print(f"Bulk storage: {count} tasks in {total_time:.2f}s ({ops_per_second:.2f} ops/s)")
 
@@ -411,7 +423,9 @@ class TestLargeScaleOperations(StressTestBase):
             degradation_ratio = smallest_ops / largest_ops
 
             # Performance shouldn't degrade by more than 10x
-            assert degradation_ratio < 10, f"Performance degraded {degradation_ratio:.2f}x from {smallest_ops:.2f} to {largest_ops:.2f} ops/s"
+            assert degradation_ratio < 10, (
+                f"Performance degraded {degradation_ratio:.2f}x from {smallest_ops:.2f} to {largest_ops:.2f} ops/s"
+            )
 
     async def test_large_data_payload_handling(self, stress_provider):
         """Test handling of tasks with large data payloads"""
@@ -428,13 +442,17 @@ class TestLargeScaleOperations(StressTestBase):
             store_result, store_time = await self.measure_operation_time(
                 stress_provider.store_task, large_task
             )
-            assert store_result.data is None, f"Large task storage should succeed for size {multiplier}"
+            assert store_result.data is None, (
+                f"Large task storage should succeed for size {multiplier}"
+            )
 
             # Measure retrieval time
             get_result, get_time = await self.measure_operation_time(
                 stress_provider.get_task, task_id
             )
-            assert get_result.data is not None, f"Large task retrieval should succeed for size {multiplier}"
+            assert get_result.data is not None, (
+                f"Large task retrieval should succeed for size {multiplier}"
+            )
 
             # Verify data integrity
             retrieved_task = get_result.data
@@ -443,7 +461,9 @@ class TestLargeScaleOperations(StressTestBase):
             assert len(retrieved_task.artifacts or []) == 1, "Artifacts should be preserved"
 
             # Performance checks
-            assert store_time < 5000, f"Store time too slow for size {multiplier}: {store_time:.2f}ms"
+            assert store_time < 5000, (
+                f"Store time too slow for size {multiplier}: {store_time:.2f}ms"
+            )
             assert get_time < 5000, f"Get time too slow for size {multiplier}: {get_time:.2f}ms"
 
             print(f"Large payload {multiplier}x: store={store_time:.2f}ms, get={get_time:.2f}ms")
@@ -455,32 +475,30 @@ class TestLargeScaleOperations(StressTestBase):
         context_id = "pagination_perf_ctx"
 
         # Create large dataset - use single context for pagination test
-        tasks = self.create_bulk_tasks(total_tasks, context_id, "page_task", distribute_contexts=False)
+        tasks = self.create_bulk_tasks(
+            total_tasks, context_id, "page_task", distribute_contexts=False
+        )
 
         # Store in batches and verify success
         batch_size = 50
         stored_count = 0
         for i in range(0, len(tasks), batch_size):
-            batch = tasks[i:i + batch_size]
+            batch = tasks[i : i + batch_size]
             batch_operations = [stress_provider.store_task(task) for task in batch]
             batch_results = await asyncio.gather(*batch_operations)
-            
+
             # Verify batch success
             for result in batch_results:
-                if hasattr(result, 'data') and result.data is None:
+                if hasattr(result, "data") and result.data is None:
                     stored_count += 1
-        
+
         assert stored_count == total_tasks, f"Only stored {stored_count}/{total_tasks} tasks"
 
         # Test pagination performance at different offsets
         test_offsets = [0, 250, 500, 750, 900]  # Beginning, middle, end
 
         for offset in test_offsets:
-            query = A2ATaskQuery(
-                context_id=context_id,
-                limit=page_size,
-                offset=offset
-            )
+            query = A2ATaskQuery(context_id=context_id, limit=page_size, offset=offset)
 
             # Measure query time
             result, query_time = await self.measure_operation_time(
@@ -492,7 +510,9 @@ class TestLargeScaleOperations(StressTestBase):
             # Verify correct page size (except possibly last page)
             page_tasks = result.data
             expected_size = min(page_size, total_tasks - offset)
-            assert len(page_tasks) == expected_size, f"Page at offset {offset} should have {expected_size} tasks"
+            assert len(page_tasks) == expected_size, (
+                f"Page at offset {offset} should have {expected_size} tasks"
+            )
 
             # Performance check - deep pagination shouldn't be too slow
             assert query_time < 1000, f"Query at offset {offset} too slow: {query_time:.2f}ms"
@@ -517,19 +537,19 @@ class TestLargeScaleOperations(StressTestBase):
                 kind="task",
                 status=A2ATaskStatus(
                     state=states[state_idx],
-                    timestamp=(datetime.now(timezone.utc) - timedelta(hours=i % 24)).isoformat()
+                    timestamp=(datetime.now(timezone.utc) - timedelta(hours=i % 24)).isoformat(),
                 ),
                 metadata={
                     "priority": "high" if i % 3 == 0 else "normal",
-                    "category": f"cat_{i % 5}"
-                }
+                    "category": f"cat_{i % 5}",
+                },
             )
             all_tasks.append(task)
 
         # Store all tasks
         batch_size = 100
         for i in range(0, len(all_tasks), batch_size):
-            batch = all_tasks[i:i + batch_size]
+            batch = all_tasks[i : i + batch_size]
             batch_operations = [stress_provider.store_task(task) for task in batch]
             await asyncio.gather(*batch_operations)
 
@@ -537,22 +557,16 @@ class TestLargeScaleOperations(StressTestBase):
         complex_queries = [
             # Query by state
             A2ATaskQuery(state=TaskState.WORKING, limit=100),
-
             # Query by context
             A2ATaskQuery(context_id="complex_ctx_005", limit=100),
-
             # Query by time range
-            A2ATaskQuery(
-                since=datetime.now(timezone.utc) - timedelta(hours=12),
-                limit=100
-            ),
-
+            A2ATaskQuery(since=datetime.now(timezone.utc) - timedelta(hours=12), limit=100),
             # Query with multiple filters
             A2ATaskQuery(
                 state=TaskState.COMPLETED,
                 since=datetime.now(timezone.utc) - timedelta(hours=6),
-                limit=50
-            )
+                limit=50,
+            ),
         ]
 
         for i, query in enumerate(complex_queries):
@@ -581,7 +595,7 @@ class TestResourceExhaustion(StressTestBase):
             large_task = self.create_large_task(
                 f"memory_task_{i:03d}",
                 f"memory_ctx_{i % 10}",
-                size_multiplier=200  # Large payloads
+                size_multiplier=200,  # Large payloads
             )
             large_tasks.append(large_task)
 
@@ -614,7 +628,7 @@ class TestResourceExhaustion(StressTestBase):
         # Create provider with low limits for testing
         limited_config = A2AInMemoryTaskConfig(
             max_tasks=100,  # Low limit for testing
-            max_tasks_per_context=20
+            max_tasks_per_context=20,
         )
         limited_provider = create_a2a_in_memory_task_provider(limited_config)
 
@@ -627,16 +641,22 @@ class TestResourceExhaustion(StressTestBase):
 
             for task in tasks:
                 result = await limited_provider.store_task(task)
-                if hasattr(result, 'data') and result.data is None:
+                if hasattr(result, "data") and result.data is None:
                     stored_count += 1
-                elif hasattr(result, 'error'):
+                elif hasattr(result, "error"):
                     rejected_count += 1
 
                     # Should get appropriate error message about storage limits
                     error_msg = str(result.error.message).lower()
                     # Check for storage-related error messages
-                    assert ("limit" in error_msg or "full" in error_msg or "maximum" in error_msg or
-                           "storage" in error_msg or "exceeded" in error_msg or "failed to store" in error_msg)
+                    assert (
+                        "limit" in error_msg
+                        or "full" in error_msg
+                        or "maximum" in error_msg
+                        or "storage" in error_msg
+                        or "exceeded" in error_msg
+                        or "failed to store" in error_msg
+                    )
                 else:
                     rejected_count += 1
 
@@ -653,7 +673,7 @@ class TestResourceExhaustion(StressTestBase):
 
             for task in context_tasks:
                 result = await limited_provider.store_task(task)
-                if hasattr(result, 'data') and result.data is None:
+                if hasattr(result, "data") and result.data is None:
                     ctx_stored += 1
                 else:
                     ctx_rejected += 1
@@ -677,7 +697,7 @@ class TestResourceExhaustion(StressTestBase):
                     id=f"exhaust_task_{i}",
                     contextId=f"exhaust_ctx_{i % 10}",
                     kind="task",
-                    status=A2ATaskStatus(state=TaskState.SUBMITTED)
+                    status=A2ATaskStatus(state=TaskState.SUBMITTED),
                 )
                 operations.append(stress_provider.store_task(task))
             elif i % 3 == 1:
@@ -706,7 +726,9 @@ class TestResourceExhaustion(StressTestBase):
         print(f"Connection exhaustion test: {success_count} succeeded, {error_count} failed")
 
         # Should handle at least some operations successfully
-        assert success_count > concurrent_ops * 0.1, "Should handle at least 10% of operations successfully"
+        assert success_count > concurrent_ops * 0.1, (
+            "Should handle at least 10% of operations successfully"
+        )
 
         # Provider should recover and be healthy
         await asyncio.sleep(1)  # Allow recovery time
@@ -735,7 +757,7 @@ class TestMemoryLeakDetection(StressTestBase):
                 id=f"leak_task_{cycle}",
                 contextId=context_id,
                 kind="task",
-                status=A2ATaskStatus(state=TaskState.SUBMITTED)
+                status=A2ATaskStatus(state=TaskState.SUBMITTED),
             )
 
             # Store task
@@ -750,23 +772,25 @@ class TestMemoryLeakDetection(StressTestBase):
                     parts=[A2ATextPart(kind="text", text="Working on it")],
                     messageId=f"work_{cycle}",
                     contextId=context_id,
-                    kind="message"
-                )
+                    kind="message",
+                ),
             )
 
             # Complete task
-            completed_task = task.model_copy(update={
-                "status": A2ATaskStatus(
-                    state=TaskState.COMPLETED,
-                    message=A2AMessage(
-                        role="agent",
-                        parts=[A2ATextPart(kind="text", text="Completed")],
-                        messageId=f"done_{cycle}",
-                        contextId=context_id,
-                        kind="message"
+            completed_task = task.model_copy(
+                update={
+                    "status": A2ATaskStatus(
+                        state=TaskState.COMPLETED,
+                        message=A2AMessage(
+                            role="agent",
+                            parts=[A2ATextPart(kind="text", text="Completed")],
+                            messageId=f"done_{cycle}",
+                            contextId=context_id,
+                            kind="message",
+                        ),
                     )
-                )
-            })
+                }
+            )
             await stress_provider.update_task(completed_task)
 
             # Delete task
@@ -784,12 +808,16 @@ class TestMemoryLeakDetection(StressTestBase):
         object_growth = final_objects - initial_objects
         growth_per_cycle = object_growth / cycles if cycles > 0 else 0
 
-        print(f"Memory leak test: {object_growth} objects growth over {cycles} cycles ({growth_per_cycle:.2f} per cycle)")
+        print(
+            f"Memory leak test: {object_growth} objects growth over {cycles} cycles ({growth_per_cycle:.2f} per cycle)"
+        )
 
         # Should not have significant memory growth
         # Allow some growth but flag if it's excessive
         max_allowed_growth_per_cycle = 100  # objects per cycle
-        assert growth_per_cycle < max_allowed_growth_per_cycle, f"Potential memory leak: {growth_per_cycle:.2f} objects per cycle"
+        assert growth_per_cycle < max_allowed_growth_per_cycle, (
+            f"Potential memory leak: {growth_per_cycle:.2f} objects per cycle"
+        )
 
     async def test_provider_cleanup_on_close(self, stress_provider):
         """Test that provider properly cleans up resources on close"""
@@ -805,7 +833,7 @@ class TestMemoryLeakDetection(StressTestBase):
         # (This is implementation-specific and might need adjustment)
         try:
             # Access provider internals if possible
-            if hasattr(stress_provider, '_state'):
+            if hasattr(stress_provider, "_state"):
                 weak_refs.append(weakref.ref(stress_provider._state))
         except Exception:
             pass  # Provider might not expose internals
@@ -829,12 +857,14 @@ class TestMemoryLeakDetection(StressTestBase):
         """Test cleanup efficiency with large datasets"""
         # Create large dataset - use single context for cleanup test
         large_dataset_size = 1000
-        tasks = self.create_bulk_tasks(large_dataset_size, "large_cleanup_ctx", "large_cleanup_task", distribute_contexts=False)
+        tasks = self.create_bulk_tasks(
+            large_dataset_size, "large_cleanup_ctx", "large_cleanup_task", distribute_contexts=False
+        )
 
         # Store all tasks
         batch_size = 50
         for i in range(0, len(tasks), batch_size):
-            batch = tasks[i:i + batch_size]
+            batch = tasks[i : i + batch_size]
             batch_operations = [stress_provider.store_task(task) for task in batch]
             await asyncio.gather(*batch_operations)
 
@@ -848,7 +878,9 @@ class TestMemoryLeakDetection(StressTestBase):
         cleanup_time = end_time - start_time
 
         # Verify cleanup was successful
-        assert delete_result.data == large_dataset_size, f"Should delete all {large_dataset_size} tasks"
+        assert delete_result.data == large_dataset_size, (
+            f"Should delete all {large_dataset_size} tasks"
+        )
 
         # Verify context is empty
         remaining_result = await stress_provider.get_tasks_by_context("large_cleanup_ctx")
@@ -859,7 +891,9 @@ class TestMemoryLeakDetection(StressTestBase):
         cleanup_rate = large_dataset_size / cleanup_time
         assert cleanup_rate > 100, f"Cleanup too slow: {cleanup_rate:.2f} tasks/second"
 
-        print(f"Large dataset cleanup: {large_dataset_size} tasks in {cleanup_time:.2f}s ({cleanup_rate:.2f} tasks/s)")
+        print(
+            f"Large dataset cleanup: {large_dataset_size} tasks in {cleanup_time:.2f}s ({cleanup_rate:.2f} tasks/s)"
+        )
 
 
 class TestPerformanceRegression(StressTestBase):
@@ -869,11 +903,11 @@ class TestPerformanceRegression(StressTestBase):
         """Benchmark key operations to detect performance regressions"""
         # Define performance benchmarks (in milliseconds)
         benchmarks = {
-            "store_task": 100,      # Single task store should be < 100ms
-            "get_task": 50,         # Single task get should be < 50ms
-            "update_task": 100,     # Single task update should be < 100ms
-            "find_tasks": 200,      # Query should be < 200ms
-            "delete_task": 50       # Single task delete should be < 50ms
+            "store_task": 100,  # Single task store should be < 100ms
+            "get_task": 50,  # Single task get should be < 50ms
+            "update_task": 100,  # Single task update should be < 100ms
+            "find_tasks": 200,  # Query should be < 200ms
+            "delete_task": 50,  # Single task delete should be < 50ms
         }
 
         # Setup test data
@@ -884,11 +918,15 @@ class TestPerformanceRegression(StressTestBase):
         # Test store performance
         new_task = self.create_bulk_tasks(1, "perf_new_ctx", "perf_new_task")[0]
         _, store_time = await self.measure_operation_time(stress_provider.store_task, new_task)
-        assert store_time < benchmarks["store_task"], f"Store performance regression: {store_time:.2f}ms > {benchmarks['store_task']}ms"
+        assert store_time < benchmarks["store_task"], (
+            f"Store performance regression: {store_time:.2f}ms > {benchmarks['store_task']}ms"
+        )
 
         # Test get performance
         _, get_time = await self.measure_operation_time(stress_provider.get_task, "perf_task_00050")
-        assert get_time < benchmarks["get_task"], f"Get performance regression: {get_time:.2f}ms > {benchmarks['get_task']}ms"
+        assert get_time < benchmarks["get_task"], (
+            f"Get performance regression: {get_time:.2f}ms > {benchmarks['get_task']}ms"
+        )
 
         # Test update performance
         update_message = A2AMessage(
@@ -896,24 +934,29 @@ class TestPerformanceRegression(StressTestBase):
             parts=[A2ATextPart(kind="text", text="Performance test update")],
             messageId="perf_update",
             contextId="perf_ctx_5",
-            kind="message"
+            kind="message",
         )
         _, update_time = await self.measure_operation_time(
-            stress_provider.update_task_status,
-            "perf_task_00025",
-            TaskState.WORKING,
-            update_message
+            stress_provider.update_task_status, "perf_task_00025", TaskState.WORKING, update_message
         )
-        assert update_time < benchmarks["update_task"], f"Update performance regression: {update_time:.2f}ms > {benchmarks['update_task']}ms"
+        assert update_time < benchmarks["update_task"], (
+            f"Update performance regression: {update_time:.2f}ms > {benchmarks['update_task']}ms"
+        )
 
         # Test query performance
         query = A2ATaskQuery(context_id="perf_ctx_1", limit=10)
         _, query_time = await self.measure_operation_time(stress_provider.find_tasks, query)
-        assert query_time < benchmarks["find_tasks"], f"Query performance regression: {query_time:.2f}ms > {benchmarks['find_tasks']}ms"
+        assert query_time < benchmarks["find_tasks"], (
+            f"Query performance regression: {query_time:.2f}ms > {benchmarks['find_tasks']}ms"
+        )
 
         # Test delete performance
-        _, delete_time = await self.measure_operation_time(stress_provider.delete_task, "perf_task_00075")
-        assert delete_time < benchmarks["delete_task"], f"Delete performance regression: {delete_time:.2f}ms > {benchmarks['delete_task']}ms"
+        _, delete_time = await self.measure_operation_time(
+            stress_provider.delete_task, "perf_task_00075"
+        )
+        assert delete_time < benchmarks["delete_task"], (
+            f"Delete performance regression: {delete_time:.2f}ms > {benchmarks['delete_task']}ms"
+        )
 
         print("Performance benchmark results:")
         print(f"  Store: {store_time:.2f}ms (limit: {benchmarks['store_task']}ms)")
@@ -946,16 +989,20 @@ class TestPerformanceRegression(StressTestBase):
             query_time = time.perf_counter() - start_time
 
             # Calculate metrics
-            storage_ops_per_sec = size / storage_time if storage_time > 0 else float('inf')
-            query_ops_per_sec = size / query_time if query_time > 0 else float('inf')
+            storage_ops_per_sec = size / storage_time if storage_time > 0 else float("inf")
+            query_ops_per_sec = size / query_time if query_time > 0 else float("inf")
 
-            scaling_results.append({
-                "size": size,
-                "storage_ops_per_sec": storage_ops_per_sec,
-                "query_ops_per_sec": query_ops_per_sec
-            })
+            scaling_results.append(
+                {
+                    "size": size,
+                    "storage_ops_per_sec": storage_ops_per_sec,
+                    "query_ops_per_sec": query_ops_per_sec,
+                }
+            )
 
-            print(f"Scalability {size} tasks: storage={storage_ops_per_sec:.2f} ops/s, query={query_ops_per_sec:.2f} ops/s")
+            print(
+                f"Scalability {size} tasks: storage={storage_ops_per_sec:.2f} ops/s, query={query_ops_per_sec:.2f} ops/s"
+            )
 
         # Analyze scaling characteristics
         if len(scaling_results) >= 2:
@@ -963,10 +1010,16 @@ class TestPerformanceRegression(StressTestBase):
             last_result = scaling_results[-1]
 
             # Performance shouldn't degrade too severely with scale
-            storage_degradation = first_result["storage_ops_per_sec"] / last_result["storage_ops_per_sec"]
+            storage_degradation = (
+                first_result["storage_ops_per_sec"] / last_result["storage_ops_per_sec"]
+            )
             query_degradation = first_result["query_ops_per_sec"] / last_result["query_ops_per_sec"]
 
             max_allowed_degradation = 5.0  # 5x degradation is acceptable
 
-            assert storage_degradation < max_allowed_degradation, f"Storage performance degraded {storage_degradation:.2f}x"
-            assert query_degradation < max_allowed_degradation, f"Query performance degraded {query_degradation:.2f}x"
+            assert storage_degradation < max_allowed_degradation, (
+                f"Storage performance degraded {storage_degradation:.2f}x"
+            )
+            assert query_degradation < max_allowed_degradation, (
+                f"Query performance degraded {query_degradation:.2f}x"
+            )

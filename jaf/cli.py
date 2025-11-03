@@ -30,27 +30,21 @@ def create_default_config() -> ServerConfig:
         tools=None,
         output_codec=None,
         handoffs=None,
-        model_config=None
+        model_config=None,
     )
 
     # Create model provider
     model_provider = make_litellm_provider(
-        base_url="https://api.openai.com/v1",
-        api_key="your-api-key-here"
+        base_url="https://api.openai.com/v1", api_key="your-api-key-here"
     )
 
     # Create run config
     run_config = RunConfig(
-        agent_registry={"echo": echo_agent},
-        model_provider=model_provider,
-        max_turns=10
+        agent_registry={"echo": echo_agent}, model_provider=model_provider, max_turns=10
     )
 
     return ServerConfig(
-        host="0.0.0.0",
-        port=8000,
-        agent_registry={"echo": echo_agent},
-        run_config=run_config
+        host="0.0.0.0", port=8000, agent_registry={"echo": echo_agent}, run_config=run_config
     )
 
 
@@ -63,17 +57,15 @@ async def run_server_command(args: argparse.Namespace) -> None:
 
     # Override with command line arguments
     if args.host:
-        config = config.__class__(
-            **{**config.__dict__, 'host': args.host}
-        )
+        config = config.__class__(**{**config.__dict__, "host": args.host})
 
     if args.port:
-        config = config.__class__(
-            **{**config.__dict__, 'port': args.port}
-        )
+        config = config.__class__(**{**config.__dict__, "port": args.port})
 
     print(f"📍 Server will run on {config.host}:{config.port}")
-    print("💡 This is a default configuration. For production use, provide your own agents and model provider.")
+    print(
+        "💡 This is a default configuration. For production use, provide your own agents and model provider."
+    )
     print("📚 See documentation for how to create custom agents and configurations.")
 
     try:
@@ -88,8 +80,7 @@ async def run_server_command(args: argparse.Namespace) -> None:
 def create_parser() -> argparse.ArgumentParser:
     """Create the argument parser."""
     parser = argparse.ArgumentParser(
-        prog="jaf",
-        description="JAF (Juspay Agent Framework) - Command Line Interface"
+        prog="jaf", description="JAF (Juspay Agent Framework) - Command Line Interface"
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
@@ -97,21 +88,13 @@ def create_parser() -> argparse.ArgumentParser:
     # Server command
     server_parser = subparsers.add_parser("server", help="Run the JAF server")
     server_parser.add_argument(
-        "--host",
-        type=str,
-        default="0.0.0.0",
-        help="Host to bind the server to (default: 0.0.0.0)"
+        "--host", type=str, default="0.0.0.0", help="Host to bind the server to (default: 0.0.0.0)"
     )
     server_parser.add_argument(
-        "--port",
-        type=int,
-        default=8000,
-        help="Port to bind the server to (default: 8000)"
+        "--port", type=int, default=8000, help="Port to bind the server to (default: 8000)"
     )
     server_parser.add_argument(
-        "--config",
-        type=str,
-        help="Path to configuration file (not implemented yet)"
+        "--config", type=str, help="Path to configuration file (not implemented yet)"
     )
 
     # Version command
@@ -119,11 +102,7 @@ def create_parser() -> argparse.ArgumentParser:
 
     # Init command for creating project templates
     init_parser = subparsers.add_parser("init", help="Initialize a new JAF project")
-    init_parser.add_argument(
-        "project_name",
-        type=str,
-        help="Name of the project to create"
-    )
+    init_parser.add_argument("project_name", type=str, help="Name of the project to create")
 
     return parser
 
@@ -132,6 +111,7 @@ def show_version() -> None:
     """Show version information."""
     try:
         from . import __version__
+
         print(f"JAF (Juspay Agent Framework) version {__version__}")
     except ImportError:
         print("JAF (Juspay Agent Framework) version unknown")
@@ -216,13 +196,13 @@ if __name__ == "__main__":
     (project_path / "main.py").write_text(main_py_content)
 
     # Create requirements.txt
-    requirements_content = '''jaf-py>=2.0.0
+    requirements_content = """jaf-py>=2.0.0
 python-dotenv>=1.0.0
-'''
+"""
     (project_path / "requirements.txt").write_text(requirements_content)
 
     # Create .env.example
-    env_example_content = '''# OpenAI API Configuration
+    env_example_content = """# OpenAI API Configuration
 OPENAI_API_KEY=your_openai_api_key_here
 
 # Server Configuration
@@ -233,11 +213,11 @@ JAF_PORT=8000
 JAF_MODEL=gpt-4o
 JAF_TEMPERATURE=0.7
 JAF_MAX_TOKENS=1000
-'''
+"""
     (project_path / ".env.example").write_text(env_example_content)
 
     # Create README.md
-    readme_content = f'''# {project_name}
+    readme_content = f"""# {project_name}
 
 A JAF (Juspay Agent Framework) project.
 
@@ -282,7 +262,7 @@ Edit `main.py` to:
 - Configure model providers
 - Add tools and capabilities
 - Customize server settings
-'''
+"""
 
     (project_path / "README.md").write_text(readme_content)
 

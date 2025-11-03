@@ -18,6 +18,7 @@ from .types import A2AResult, create_a2a_failure, create_a2a_success, create_a2a
 @dataclass(frozen=True)
 class A2ATaskSerialized:
     """Serialized representation of an A2A task for storage"""
+
     task_id: str
     context_id: str
     state: str
@@ -27,17 +28,17 @@ class A2ATaskSerialized:
     status_message: Optional[str] = None  # Serialized status message for quick access
     metadata: Optional[str] = None  # JSON string of metadata
 
+
 def serialize_a2a_task(
-    task: A2ATask,
-    metadata: Optional[Dict[str, Any]] = None
+    task: A2ATask, metadata: Optional[Dict[str, Any]] = None
 ) -> A2AResult[A2ATaskSerialized]:
     """
     Pure function to serialize an A2A task for storage
-    
+
     Args:
         task: The A2A task to serialize
         metadata: Optional metadata to store with the task
-        
+
     Returns:
         A2AResult containing the serialized task or an error
     """
@@ -67,7 +68,7 @@ def serialize_a2a_task(
                 for key, value in task.metadata.items():
                     if isinstance(value, A2ATask):
                         raise TypeError(f"Object of type A2ATask is not JSON serializable")
-            
+
             task_data = task.model_dump_json(by_alias=True)
         except TypeError as e:
             # Re-raise TypeError (including circular reference errors) directly
@@ -83,9 +84,10 @@ def serialize_a2a_task(
             if isinstance(obj, datetime):
                 return obj.isoformat()
             raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+
         metadata_str = None
         if metadata:
-            metadata_str = json.dumps(metadata, separators=(',', ':'), default=datetime_converter)
+            metadata_str = json.dumps(metadata, separators=(",", ":"), default=datetime_converter)
 
         serialized = A2ATaskSerialized(
             task_id=task.id,
@@ -102,16 +104,17 @@ def serialize_a2a_task(
 
     except Exception as error:
         return create_a2a_failure(
-            create_a2a_task_storage_error('serialize', 'memory', task.id, error)
+            create_a2a_task_storage_error("serialize", "memory", task.id, error)
         )
+
 
 def deserialize_a2a_task(stored: A2ATaskSerialized) -> A2AResult[A2ATask]:
     """
     Pure function to deserialize an A2A task from storage
-    
+
     Args:
         stored: The serialized task data
-        
+
     Returns:
         A2AResult containing the deserialized task or an error
     """
@@ -126,10 +129,7 @@ def deserialize_a2a_task(stored: A2ATaskSerialized) -> A2AResult[A2ATask]:
             # Convert Pydantic validation errors to our format
             return create_a2a_failure(
                 create_a2a_task_storage_error(
-                    'deserialize',
-                    'memory',
-                    stored.task_id,
-                    Exception('Invalid task structure')
+                    "deserialize", "memory", stored.task_id, Exception("Invalid task structure")
                 )
             )
 
@@ -137,10 +137,7 @@ def deserialize_a2a_task(stored: A2ATaskSerialized) -> A2AResult[A2ATask]:
         if not task.id or not task.context_id or not task.status or task.kind != "task":
             return create_a2a_failure(
                 create_a2a_task_storage_error(
-                    'deserialize',
-                    'memory',
-                    stored.task_id,
-                    Exception('Invalid task structure')
+                    "deserialize", "memory", stored.task_id, Exception("Invalid task structure")
                 )
             )
 
@@ -148,43 +145,43 @@ def deserialize_a2a_task(stored: A2ATaskSerialized) -> A2AResult[A2ATask]:
 
     except Exception as error:
         return create_a2a_failure(
-            create_a2a_task_storage_error('deserialize', 'memory', stored.task_id, error)
+            create_a2a_task_storage_error("deserialize", "memory", stored.task_id, error)
         )
+
 
 def create_task_index(task: A2ATask) -> A2AResult[Dict[str, Any]]:
     """
     Pure function to create a minimal task representation for indexing
-    
+
     Args:
         task: The A2A task to index
-        
+
     Returns:
         A2AResult containing the task index data or an error
     """
     try:
         index_data = {
-            'task_id': task.id,
-            'context_id': task.context_id,
-            'state': task.status.state.value,
-            'timestamp': task.status.timestamp or datetime.now().isoformat(),
-            'has_history': bool(task.history and len(task.history) > 0),
-            'has_artifacts': bool(task.artifacts and len(task.artifacts) > 0)
+            "task_id": task.id,
+            "context_id": task.context_id,
+            "state": task.status.state.value,
+            "timestamp": task.status.timestamp or datetime.now().isoformat(),
+            "has_history": bool(task.history and len(task.history) > 0),
+            "has_artifacts": bool(task.artifacts and len(task.artifacts) > 0),
         }
 
         return create_a2a_success(index_data)
 
     except Exception as error:
-        return create_a2a_failure(
-            create_a2a_task_storage_error('index', 'memory', task.id, error)
-        )
+        return create_a2a_failure(create_a2a_task_storage_error("index", "memory", task.id, error))
+
 
 def extract_task_search_text(task: A2ATask) -> A2AResult[str]:
     """
     Pure function to extract searchable text from a task for full-text search
-    
+
     Args:
         task: The A2A task to extract text from
-        
+
     Returns:
         A2AResult containing the extracted text or an error
     """
@@ -212,12 +209,13 @@ def extract_task_search_text(task: A2ATask) -> A2AResult[str]:
                     if part.kind == "text":
                         text_parts.append(part.text)
 
-        return create_a2a_success(' '.join(text_parts).strip())
+        return create_a2a_success(" ".join(text_parts).strip())
 
     except Exception as error:
         return create_a2a_failure(
-            create_a2a_task_storage_error('extract-text', 'memory', task.id, error)
+            create_a2a_task_storage_error("extract-text", "memory", task.id, error)
         )
+
 
 def _extract_text_from_message(message: A2AMessage, text_parts: List[str]) -> None:
     """Helper function to extract text from A2A message parts"""
@@ -232,13 +230,14 @@ def _extract_text_from_message(message: A2AMessage, text_parts: List[str]) -> No
         elif part.kind == "file" and part.file.name:
             text_parts.append(part.file.name)
 
+
 def validate_task_integrity(task: A2ATask) -> A2AResult[bool]:
     """
     Pure function to validate task data integrity
-    
+
     Args:
         task: The A2A task to validate
-        
+
     Returns:
         A2AResult containing True if valid or an error
     """
@@ -247,40 +246,31 @@ def validate_task_integrity(task: A2ATask) -> A2AResult[bool]:
         if not task.id or not isinstance(task.id, str):
             return create_a2a_failure(
                 create_a2a_task_storage_error(
-                    'validate',
-                    'memory',
-                    getattr(task, 'id', None),
-                    Exception('Task ID is required and must be a string')
+                    "validate",
+                    "memory",
+                    getattr(task, "id", None),
+                    Exception("Task ID is required and must be a string"),
                 )
             )
 
         if not task.context_id or not isinstance(task.context_id, str):
             return create_a2a_failure(
                 create_a2a_task_storage_error(
-                    'validate',
-                    'memory',
-                    task.id,
-                    Exception('Context ID is required')
+                    "validate", "memory", task.id, Exception("Context ID is required")
                 )
             )
 
         if not task.status or not task.status.state:
             return create_a2a_failure(
                 create_a2a_task_storage_error(
-                    'validate',
-                    'memory',
-                    task.id,
-                    Exception('Task status and state are required')
+                    "validate", "memory", task.id, Exception("Task status and state are required")
                 )
             )
 
         if task.kind != "task":
             return create_a2a_failure(
                 create_a2a_task_storage_error(
-                    'validate',
-                    'memory',
-                    task.id,
-                    Exception('Task kind must be "task"')
+                    "validate", "memory", task.id, Exception('Task kind must be "task"')
                 )
             )
 
@@ -289,21 +279,22 @@ def validate_task_integrity(task: A2ATask) -> A2AResult[bool]:
             if not isinstance(task.history, list):
                 return create_a2a_failure(
                     create_a2a_task_storage_error(
-                        'validate',
-                        'memory',
-                        task.id,
-                        Exception('Task history must be a list')
+                        "validate", "memory", task.id, Exception("Task history must be a list")
                     )
                 )
 
             for i, message in enumerate(task.history):
-                if not message.message_id or not message.parts or not isinstance(message.parts, list):
+                if (
+                    not message.message_id
+                    or not message.parts
+                    or not isinstance(message.parts, list)
+                ):
                     return create_a2a_failure(
                         create_a2a_task_storage_error(
-                            'validate',
-                            'memory',
+                            "validate",
+                            "memory",
                             task.id,
-                            Exception(f'Invalid message at index {i} in task history')
+                            Exception(f"Invalid message at index {i} in task history"),
                         )
                     )
 
@@ -312,21 +303,22 @@ def validate_task_integrity(task: A2ATask) -> A2AResult[bool]:
             if not isinstance(task.artifacts, list):
                 return create_a2a_failure(
                     create_a2a_task_storage_error(
-                        'validate',
-                        'memory',
-                        task.id,
-                        Exception('Task artifacts must be a list')
+                        "validate", "memory", task.id, Exception("Task artifacts must be a list")
                     )
                 )
 
             for i, artifact in enumerate(task.artifacts):
-                if not artifact.artifact_id or not artifact.parts or not isinstance(artifact.parts, list):
+                if (
+                    not artifact.artifact_id
+                    or not artifact.parts
+                    or not isinstance(artifact.parts, list)
+                ):
                     return create_a2a_failure(
                         create_a2a_task_storage_error(
-                            'validate',
-                            'memory',
+                            "validate",
+                            "memory",
                             task.id,
-                            Exception(f'Invalid artifact at index {i} in task')
+                            Exception(f"Invalid artifact at index {i} in task"),
                         )
                     )
 
@@ -334,16 +326,17 @@ def validate_task_integrity(task: A2ATask) -> A2AResult[bool]:
 
     except Exception as error:
         return create_a2a_failure(
-            create_a2a_task_storage_error('validate', 'memory', getattr(task, 'id', None), error)
+            create_a2a_task_storage_error("validate", "memory", getattr(task, "id", None), error)
         )
+
 
 def clone_task(task: A2ATask) -> A2AResult[A2ATask]:
     """
     Pure function to create a deep copy of a task (for immutability)
-    
+
     Args:
         task: The A2A task to clone
-        
+
     Returns:
         A2AResult containing the cloned task or an error
     """
@@ -353,18 +346,17 @@ def clone_task(task: A2ATask) -> A2AResult[A2ATask]:
         return create_a2a_success(cloned)
 
     except Exception as error:
-        return create_a2a_failure(
-            create_a2a_task_storage_error('clone', 'memory', task.id, error)
-        )
+        return create_a2a_failure(create_a2a_task_storage_error("clone", "memory", task.id, error))
+
 
 def sanitize_task(task: A2ATask) -> A2AResult[A2ATask]:
     """
     Pure function to sanitize task data for storage
     Removes any potentially dangerous or invalid data
-    
+
     Args:
         task: The A2A task to sanitize
-        
+
     Returns:
         A2AResult containing the sanitized task or an error
     """
@@ -385,24 +377,22 @@ def sanitize_task(task: A2ATask) -> A2AResult[A2ATask]:
         if sanitized.status.timestamp:
             try:
                 # Parse and re-format timestamp to ensure it's valid
-                dt = datetime.fromisoformat(sanitized.status.timestamp.replace('Z', '+00:00'))
+                dt = datetime.fromisoformat(sanitized.status.timestamp.replace("Z", "+00:00"))
                 # Create a new task with the corrected timestamp
-                sanitized = sanitized.model_copy(update={
-                    'status': sanitized.status.model_copy(update={
-                        'timestamp': dt.isoformat()
-                    })
-                })
+                sanitized = sanitized.model_copy(
+                    update={
+                        "status": sanitized.status.model_copy(update={"timestamp": dt.isoformat()})
+                    }
+                )
             except Exception:
                 # Remove invalid timestamp
-                sanitized = sanitized.model_copy(update={
-                    'status': sanitized.status.model_copy(update={
-                        'timestamp': None
-                    })
-                })
+                sanitized = sanitized.model_copy(
+                    update={"status": sanitized.status.model_copy(update={"timestamp": None})}
+                )
 
         return create_a2a_success(sanitized)
 
     except Exception as error:
         return create_a2a_failure(
-            create_a2a_task_storage_error('sanitize', 'memory', getattr(task, 'id', None), error)
+            create_a2a_task_storage_error("sanitize", "memory", getattr(task, "id", None), error)
         )

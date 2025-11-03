@@ -18,7 +18,7 @@ class TestSuite:
         markers: Optional[str] = None,
         fast: bool = False,
         parallel: bool = False,
-        extra_args: List[str] = None
+        extra_args: List[str] = None,
     ):
         self.name = name
         self.description = description
@@ -32,73 +32,48 @@ class TestSuite:
 # Predefined test suites
 TEST_SUITES: Dict[str, TestSuite] = {
     "all": TestSuite(
-        name="all",
-        description="Run all tests in the repository",
-        fast=False,
-        parallel=False
+        name="all", description="Run all tests in the repository", fast=False, parallel=False
     ),
-
     "fast": TestSuite(
-        name="fast",
-        description="Run all tests quickly without coverage",
-        fast=True,
-        parallel=True
+        name="fast", description="Run all tests quickly without coverage", fast=True, parallel=True
     ),
-
-    "unit": TestSuite(
-        name="unit",
-        description="Run only unit tests",
-        markers="unit",
-        fast=True
-    ),
-
+    "unit": TestSuite(name="unit", description="Run only unit tests", markers="unit", fast=True),
     "integration": TestSuite(
-        name="integration",
-        description="Run only integration tests",
-        markers="integration"
+        name="integration", description="Run only integration tests", markers="integration"
     ),
-
     "core": TestSuite(
         name="core",
         description="Run core JAF framework tests",
-        paths=["tests/test_engine.py", "tests/test_validation.py"]
+        paths=["tests/test_engine.py", "tests/test_validation.py"],
     ),
-
     "a2a": TestSuite(
-        name="a2a",
-        description="Run A2A protocol tests",
-        paths=["jaf/a2a/tests"],
-        markers="a2a"
+        name="a2a", description="Run A2A protocol tests", paths=["jaf/a2a/tests"], markers="a2a"
     ),
-
     "memory": TestSuite(
         name="memory",
         description="Run memory provider tests",
         paths=["jaf/a2a/memory/tests"],
-        markers="memory"
+        markers="memory",
     ),
-
     "visualization": TestSuite(
         name="visualization",
         description="Run visualization tests",
         paths=["tests/visualization"],
-        markers="visualization"
+        markers="visualization",
     ),
-
     "smoke": TestSuite(
         name="smoke",
         description="Run basic smoke tests to verify system health",
         fast=True,
-        extra_args=["--maxfail=1", "-q"]
+        extra_args=["--maxfail=1", "-q"],
     ),
-
     "ci": TestSuite(
         name="ci",
         description="Run tests suitable for CI/CD pipeline",
         fast=False,
         parallel=True,
-        extra_args=["--tb=short", "--maxfail=5"]
-    )
+        extra_args=["--tb=short", "--maxfail=5"],
+    ),
 }
 
 

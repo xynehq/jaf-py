@@ -13,16 +13,16 @@ from .manager import PluginManager
 from .decorators import plugin, tool_provider, model_provider, memory_provider
 
 __all__ = [
-    'JAFPlugin',
-    'PluginMetadata', 
-    'PluginStatus',
-    'PluginRegistry',
-    'PluginLoader',
-    'PluginManager',
-    'get_plugin_registry',
-    'load_plugins_from_directory',
-    'plugin',
-    'tool_provider',
-    'model_provider',
-    'memory_provider'
+    "JAFPlugin",
+    "PluginMetadata",
+    "PluginStatus",
+    "PluginRegistry",
+    "PluginLoader",
+    "PluginManager",
+    "get_plugin_registry",
+    "load_plugins_from_directory",
+    "plugin",
+    "tool_provider",
+    "model_provider",
+    "memory_provider",
 ]

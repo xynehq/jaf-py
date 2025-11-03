@@ -26,11 +26,7 @@ class TaskCleanupTestBase:
     """Base class for cleanup testing utilities"""
 
     def create_aged_task(
-        self,
-        task_id: str,
-        context_id: str,
-        state: TaskState,
-        age_hours: int = 0
+        self, task_id: str, context_id: str, state: TaskState, age_hours: int = 0
     ) -> A2ATask:
         """Create a task with a specific age"""
         timestamp = (datetime.now(timezone.utc) - timedelta(hours=age_hours)).isoformat()
@@ -46,14 +42,11 @@ class TaskCleanupTestBase:
                     parts=[A2ATextPart(kind="text", text=f"Task in {state.value} state")],
                     messageId=f"msg_{task_id}",
                     contextId=context_id,
-                    kind="message"
+                    kind="message",
                 ),
-                timestamp=timestamp
+                timestamp=timestamp,
             ),
-            metadata={
-                "created_at": timestamp,
-                "test_age_hours": age_hours
-            }
+            metadata={"created_at": timestamp, "test_age_hours": age_hours},
         )
 
     def create_diverse_aged_dataset(self, context_id: str = "cleanup_test_ctx") -> List[A2ATask]:
@@ -61,37 +54,61 @@ class TaskCleanupTestBase:
         tasks = []
 
         # Fresh tasks (0-2 hours old) in various states
-        tasks.extend([
-            self.create_aged_task(f"fresh_submitted_{i}", context_id, TaskState.SUBMITTED, i)
-            for i in range(2)
-        ])
-        tasks.extend([
-            self.create_aged_task(f"fresh_working_{i}", context_id, TaskState.WORKING, i)
-            for i in range(2)
-        ])
-        tasks.extend([
-            self.create_aged_task(f"fresh_completed_{i}", context_id, TaskState.COMPLETED, i)
-            for i in range(3)
-        ])
+        tasks.extend(
+            [
+                self.create_aged_task(f"fresh_submitted_{i}", context_id, TaskState.SUBMITTED, i)
+                for i in range(2)
+            ]
+        )
+        tasks.extend(
+            [
+                self.create_aged_task(f"fresh_working_{i}", context_id, TaskState.WORKING, i)
+                for i in range(2)
+            ]
+        )
+        tasks.extend(
+            [
+                self.create_aged_task(f"fresh_completed_{i}", context_id, TaskState.COMPLETED, i)
+                for i in range(3)
+            ]
+        )
 
         # Medium age tasks (1-3 days old)
         medium_age_hours = [24, 48, 72]  # 1, 2, 3 days
         for hours in medium_age_hours:
-            tasks.extend([
-                self.create_aged_task(f"medium_completed_{hours}h", context_id, TaskState.COMPLETED, hours),
-                self.create_aged_task(f"medium_failed_{hours}h", context_id, TaskState.FAILED, hours),
-                self.create_aged_task(f"medium_working_{hours}h", context_id, TaskState.WORKING, hours)
-            ])
+            tasks.extend(
+                [
+                    self.create_aged_task(
+                        f"medium_completed_{hours}h", context_id, TaskState.COMPLETED, hours
+                    ),
+                    self.create_aged_task(
+                        f"medium_failed_{hours}h", context_id, TaskState.FAILED, hours
+                    ),
+                    self.create_aged_task(
+                        f"medium_working_{hours}h", context_id, TaskState.WORKING, hours
+                    ),
+                ]
+            )
 
         # Old tasks (1-2 weeks old)
         old_age_hours = [168, 336]  # 1 week, 2 weeks
         for hours in old_age_hours:
-            tasks.extend([
-                self.create_aged_task(f"old_completed_{hours}h", context_id, TaskState.COMPLETED, hours),
-                self.create_aged_task(f"old_failed_{hours}h", context_id, TaskState.FAILED, hours),
-                self.create_aged_task(f"old_canceled_{hours}h", context_id, TaskState.CANCELED, hours),
-                self.create_aged_task(f"old_working_{hours}h", context_id, TaskState.WORKING, hours)  # Should NOT be cleaned
-            ])
+            tasks.extend(
+                [
+                    self.create_aged_task(
+                        f"old_completed_{hours}h", context_id, TaskState.COMPLETED, hours
+                    ),
+                    self.create_aged_task(
+                        f"old_failed_{hours}h", context_id, TaskState.FAILED, hours
+                    ),
+                    self.create_aged_task(
+                        f"old_canceled_{hours}h", context_id, TaskState.CANCELED, hours
+                    ),
+                    self.create_aged_task(
+                        f"old_working_{hours}h", context_id, TaskState.WORKING, hours
+                    ),  # Should NOT be cleaned
+                ]
+            )
 
         return tasks
 
@@ -101,7 +118,7 @@ async def cleanup_provider() -> A2ATaskProvider:
     """Create provider for cleanup testing"""
     config = A2AInMemoryTaskConfig(
         max_tasks=1000,
-        cleanup_interval=3600  # 1 hour
+        cleanup_interval=3600,  # 1 hour
     )
     provider = create_a2a_in_memory_task_provider(config)
     yield provider
@@ -131,7 +148,10 @@ class TestTaskCleanupByAge(TaskCleanupTestBase):
         cleanup_config = A2ATaskCleanupConfig(
             max_age=168 * 3600,  # 7 days in seconds
             dry_run=False,
-            retain_states=[TaskState.SUBMITTED.value, TaskState.WORKING.value]  # Retain active states
+            retain_states=[
+                TaskState.SUBMITTED.value,
+                TaskState.WORKING.value,
+            ],  # Retain active states
         )
 
         cleanup_result = await perform_task_cleanup(cleanup_provider, cleanup_config)
@@ -151,15 +171,13 @@ class TestTaskCleanupByAge(TaskCleanupTestBase):
 
         # Recent completed tasks should remain
         recent_completed = [
-            t for t in remaining_tasks
-            if t.status.state == TaskState.COMPLETED and "fresh_" in t.id
+            t for t in remaining_tasks if t.status.state == TaskState.COMPLETED and "fresh_" in t.id
         ]
         assert len(recent_completed) > 0, "Recent completed tasks should be preserved"
 
         # Old completed tasks should be removed
         old_completed = [
-            t for t in remaining_tasks
-            if t.status.state == TaskState.COMPLETED and "old_" in t.id
+            t for t in remaining_tasks if t.status.state == TaskState.COMPLETED and "old_" in t.id
         ]
         assert len(old_completed) == 0, "Old completed tasks should be cleaned up"
 
@@ -176,7 +194,7 @@ class TestTaskCleanupByAge(TaskCleanupTestBase):
             self.create_aged_task("old_working", context_id, TaskState.WORKING, old_age),
             self.create_aged_task("old_completed", context_id, TaskState.COMPLETED, old_age),
             self.create_aged_task("old_failed", context_id, TaskState.FAILED, old_age),
-            self.create_aged_task("old_canceled", context_id, TaskState.CANCELED, old_age)
+            self.create_aged_task("old_canceled", context_id, TaskState.CANCELED, old_age),
         ]
 
         # Store all tasks
@@ -185,9 +203,9 @@ class TestTaskCleanupByAge(TaskCleanupTestBase):
 
         # Cleanup only completed and failed tasks
         cleanup_config = A2ATaskCleanupConfig(
-            max_age=168*3600,  # 7 days (all tasks are older)
+            max_age=168 * 3600,  # 7 days (all tasks are older)
             dry_run=False,
-            retain_states=[TaskState.SUBMITTED.value, TaskState.WORKING.value]
+            retain_states=[TaskState.SUBMITTED.value, TaskState.WORKING.value],
         )
 
         cleanup_result = await perform_task_cleanup(cleanup_provider, cleanup_config)
@@ -204,7 +222,7 @@ class TestTaskCleanupByAge(TaskCleanupTestBase):
         # Should preserve submitted and working tasks
         assert TaskState.SUBMITTED in remaining_states, "Submitted task should be preserved"
         assert TaskState.WORKING in remaining_states, "Working task should be preserved"
-        
+
         # Should not have completed, failed, or canceled tasks
         assert TaskState.COMPLETED not in remaining_states, "Completed task should be cleaned"
         assert TaskState.FAILED not in remaining_states, "Failed task should be cleaned"
@@ -225,9 +243,9 @@ class TestTaskCleanupByAge(TaskCleanupTestBase):
 
         # Perform dry run cleanup
         dry_run_config = A2ATaskCleanupConfig(
-            max_age=168*3600,  # 7 days
+            max_age=168 * 3600,  # 7 days
             dry_run=True,  # Dry run mode
-            retain_states=[TaskState.SUBMITTED.value, TaskState.WORKING.value]
+            retain_states=[TaskState.SUBMITTED.value, TaskState.WORKING.value],
         )
 
         dry_run_result = await perform_task_cleanup(cleanup_provider, dry_run_config)
@@ -244,15 +262,17 @@ class TestTaskCleanupByAge(TaskCleanupTestBase):
 
         # Now perform actual cleanup and verify it matches dry run prediction
         actual_config = A2ATaskCleanupConfig(
-            max_age=168*3600,
+            max_age=168 * 3600,
             dry_run=False,
-            retain_states=[TaskState.SUBMITTED.value, TaskState.WORKING.value]
+            retain_states=[TaskState.SUBMITTED.value, TaskState.WORKING.value],
         )
 
         actual_result = await perform_task_cleanup(cleanup_provider, actual_config)
         actual_delete_count = actual_result.data.total_cleaned
 
-        assert actual_delete_count == would_delete_count, f"Actual cleanup ({actual_delete_count}) should match dry run prediction ({would_delete_count})"
+        assert actual_delete_count == would_delete_count, (
+            f"Actual cleanup ({actual_delete_count}) should match dry run prediction ({would_delete_count})"
+        )
 
         print(f"Dry run test: predicted {would_delete_count}, actual {actual_delete_count}")
 
@@ -268,14 +288,16 @@ class TestTaskCleanupByCount(TaskCleanupTestBase):
         completed_tasks = []
         for i in range(20):  # Create 20 completed tasks
             age_hours = i  # Age from 0 to 19 hours
-            task = self.create_aged_task(f"completed_{i:02d}", context_id, TaskState.COMPLETED, age_hours)
+            task = self.create_aged_task(
+                f"completed_{i:02d}", context_id, TaskState.COMPLETED, age_hours
+            )
             completed_tasks.append(task)
 
         # Also create some non-completed tasks that should be preserved
         other_tasks = [
             self.create_aged_task("working_1", context_id, TaskState.WORKING, 50),
             self.create_aged_task("submitted_1", context_id, TaskState.SUBMITTED, 100),
-            self.create_aged_task("failed_1", context_id, TaskState.FAILED, 10)
+            self.create_aged_task("failed_1", context_id, TaskState.FAILED, 10),
         ]
 
         # Store all tasks
@@ -287,7 +309,12 @@ class TestTaskCleanupByCount(TaskCleanupTestBase):
         cleanup_config = A2ATaskCleanupConfig(
             max_completed_tasks=10,
             dry_run=False,
-            retain_states=[TaskState.SUBMITTED.value, TaskState.WORKING.value, TaskState.FAILED.value, TaskState.CANCELED.value]
+            retain_states=[
+                TaskState.SUBMITTED.value,
+                TaskState.WORKING.value,
+                TaskState.FAILED.value,
+                TaskState.CANCELED.value,
+            ],
         )
 
         cleanup_result = await perform_task_cleanup(cleanup_provider, cleanup_config)
@@ -322,13 +349,17 @@ class TestTaskCleanupByCount(TaskCleanupTestBase):
         # 15 old completed tasks (> 7 days)
         for i in range(15):
             age_hours = 200 + i  # 8+ days old
-            task = self.create_aged_task(f"old_completed_{i:02d}", context_id, TaskState.COMPLETED, age_hours)
+            task = self.create_aged_task(
+                f"old_completed_{i:02d}", context_id, TaskState.COMPLETED, age_hours
+            )
             tasks.append(task)
 
         # 15 new completed tasks (< 7 days)
         for i in range(15):
             age_hours = i  # 0-14 hours old
-            task = self.create_aged_task(f"new_completed_{i:02d}", context_id, TaskState.COMPLETED, age_hours)
+            task = self.create_aged_task(
+                f"new_completed_{i:02d}", context_id, TaskState.COMPLETED, age_hours
+            )
             tasks.append(task)
 
         # Store all tasks
@@ -337,10 +368,15 @@ class TestTaskCleanupByCount(TaskCleanupTestBase):
 
         # Cleanup with both age limit (7 days) and count limit (10)
         cleanup_config = A2ATaskCleanupConfig(
-            max_age=168*3600,  # 7 days
+            max_age=168 * 3600,  # 7 days
             max_completed_tasks=10,
             dry_run=False,
-            retain_states=[TaskState.SUBMITTED.value, TaskState.WORKING.value, TaskState.FAILED.value, TaskState.CANCELED.value]
+            retain_states=[
+                TaskState.SUBMITTED.value,
+                TaskState.WORKING.value,
+                TaskState.FAILED.value,
+                TaskState.CANCELED.value,
+            ],
         )
 
         cleanup_result = await perform_task_cleanup(cleanup_provider, cleanup_config)
@@ -351,7 +387,9 @@ class TestTaskCleanupByCount(TaskCleanupTestBase):
         # 2. 5 additional new tasks (due to count limit: 15 new - 10 limit = 5)
         # Total: 20 deleted
         expected_deletions = 15 + 5  # old tasks + excess new tasks
-        assert cleanup_count == expected_deletions, f"Expected {expected_deletions} deletions, got {cleanup_count}"
+        assert cleanup_count == expected_deletions, (
+            f"Expected {expected_deletions} deletions, got {cleanup_count}"
+        )
 
         # Verify exactly 10 tasks remain (all new)
         remaining_result = await cleanup_provider.get_tasks_by_context(context_id)
@@ -378,9 +416,13 @@ class TestCleanupContextIsolation(TaskCleanupTestBase):
             for i in range(tasks_per_context):
                 # Mix of old completed and old working tasks
                 if i % 2 == 0:
-                    task = self.create_aged_task(f"task_{ctx}_{i}", ctx, TaskState.COMPLETED, 200)  # Old
+                    task = self.create_aged_task(
+                        f"task_{ctx}_{i}", ctx, TaskState.COMPLETED, 200
+                    )  # Old
                 else:
-                    task = self.create_aged_task(f"task_{ctx}_{i}", ctx, TaskState.WORKING, 200)    # Old but should be preserved
+                    task = self.create_aged_task(
+                        f"task_{ctx}_{i}", ctx, TaskState.WORKING, 200
+                    )  # Old but should be preserved
                 all_tasks.append(task)
 
         # Store all tasks
@@ -389,12 +431,19 @@ class TestCleanupContextIsolation(TaskCleanupTestBase):
 
         # Cleanup only context_a
         cleanup_config = A2ATaskCleanupConfig(
-            max_age=168*3600,  # 7 days (all tasks are older)
+            max_age=168 * 3600,  # 7 days (all tasks are older)
             dry_run=False,
-            retain_states=[TaskState.SUBMITTED.value, TaskState.WORKING.value, TaskState.FAILED.value, TaskState.CANCELED.value]
+            retain_states=[
+                TaskState.SUBMITTED.value,
+                TaskState.WORKING.value,
+                TaskState.FAILED.value,
+                TaskState.CANCELED.value,
+            ],
         )
 
-        cleanup_result = await perform_task_cleanup(cleanup_provider, cleanup_config, context_id="ctx_a")
+        cleanup_result = await perform_task_cleanup(
+            cleanup_provider, cleanup_config, context_id="ctx_a"
+        )
         cleanup_count = cleanup_result.data.total_cleaned
 
         # Should delete 5 completed tasks from ctx_a (half of 10)
@@ -404,7 +453,9 @@ class TestCleanupContextIsolation(TaskCleanupTestBase):
         ctx_a_result = await cleanup_provider.get_tasks_by_context("ctx_a")
         ctx_a_remaining = ctx_a_result.data
         assert len(ctx_a_remaining) == 5, "ctx_a should have 5 tasks remaining"
-        assert all(t.status.state == TaskState.WORKING for t in ctx_a_remaining), "Only working tasks should remain in ctx_a"
+        assert all(t.status.state == TaskState.WORKING for t in ctx_a_remaining), (
+            "Only working tasks should remain in ctx_a"
+        )
 
         # Verify other contexts are unaffected
         for ctx in ["ctx_b", "ctx_c"]:
@@ -424,7 +475,9 @@ class TestCleanupContextIsolation(TaskCleanupTestBase):
         for ctx in contexts:
             # Create mix of old and new completed tasks
             for i in range(5):
-                old_task = self.create_aged_task(f"old_task_{ctx}_{i}", ctx, TaskState.COMPLETED, 200)
+                old_task = self.create_aged_task(
+                    f"old_task_{ctx}_{i}", ctx, TaskState.COMPLETED, 200
+                )
                 new_task = self.create_aged_task(f"new_task_{ctx}_{i}", ctx, TaskState.COMPLETED, 1)
                 all_tasks.extend([old_task, new_task])
 
@@ -434,9 +487,14 @@ class TestCleanupContextIsolation(TaskCleanupTestBase):
 
         # Global cleanup (no context filter)
         cleanup_config = A2ATaskCleanupConfig(
-            max_age=168*3600,  # 7 days
+            max_age=168 * 3600,  # 7 days
             dry_run=False,
-            retain_states=[TaskState.SUBMITTED.value, TaskState.WORKING.value, TaskState.FAILED.value, TaskState.CANCELED.value]
+            retain_states=[
+                TaskState.SUBMITTED.value,
+                TaskState.WORKING.value,
+                TaskState.FAILED.value,
+                TaskState.CANCELED.value,
+            ],
         )
 
         cleanup_result = await perform_task_cleanup(cleanup_provider, cleanup_config)
@@ -451,7 +509,9 @@ class TestCleanupContextIsolation(TaskCleanupTestBase):
             ctx_tasks = ctx_result.data
 
             assert len(ctx_tasks) == 5, f"{ctx} should have 5 tasks remaining"
-            assert all("new_task_" in t.id for t in ctx_tasks), f"Only new tasks should remain in {ctx}"
+            assert all("new_task_" in t.id for t in ctx_tasks), (
+                f"Only new tasks should remain in {ctx}"
+            )
 
 
 class TestCleanupPerformanceAndReliability(TaskCleanupTestBase):
@@ -483,18 +543,19 @@ class TestCleanupPerformanceAndReliability(TaskCleanupTestBase):
         # Store all tasks in batches
         batch_size = 100
         for i in range(0, len(tasks), batch_size):
-            batch = tasks[i:i + batch_size]
+            batch = tasks[i : i + batch_size]
             batch_operations = [cleanup_provider.store_task(task) for task in batch]
             await asyncio.gather(*batch_operations)
 
         # Measure cleanup performance
         import time
+
         start_time = time.perf_counter()
 
         cleanup_config = A2ATaskCleanupConfig(
-            max_age=168*3600,  # 7 days
+            max_age=168 * 3600,  # 7 days
             dry_run=False,
-            retain_states=[TaskState.SUBMITTED.value, TaskState.WORKING.value]
+            retain_states=[TaskState.SUBMITTED.value, TaskState.WORKING.value],
         )
 
         cleanup_result = await perform_task_cleanup(cleanup_provider, cleanup_config)
@@ -507,15 +568,24 @@ class TestCleanupPerformanceAndReliability(TaskCleanupTestBase):
         cleanup_count = cleanup_result.data.total_cleaned
 
         # Calculate expected deletions (old completed and failed tasks)
-        expected_deletions = sum(1 for t in tasks if t.status.state in [TaskState.COMPLETED, TaskState.FAILED, TaskState.CANCELED] and t.metadata.get("test_age_hours", 0) >= 168)
+        expected_deletions = sum(
+            1
+            for t in tasks
+            if t.status.state in [TaskState.COMPLETED, TaskState.FAILED, TaskState.CANCELED]
+            and t.metadata.get("test_age_hours", 0) >= 168
+        )
 
-        assert cleanup_count == expected_deletions, f"Expected {expected_deletions} deletions, got {cleanup_count}"
+        assert cleanup_count == expected_deletions, (
+            f"Expected {expected_deletions} deletions, got {cleanup_count}"
+        )
 
         # Performance check
-        cleanup_rate = cleanup_count / cleanup_time if cleanup_time > 0 else float('inf')
+        cleanup_rate = cleanup_count / cleanup_time if cleanup_time > 0 else float("inf")
         assert cleanup_rate > 50, f"Cleanup too slow: {cleanup_rate:.2f} tasks/second"
 
-        print(f"Large dataset cleanup: {cleanup_count} tasks cleaned in {cleanup_time:.2f}s ({cleanup_rate:.2f} tasks/s)")
+        print(
+            f"Large dataset cleanup: {cleanup_count} tasks cleaned in {cleanup_time:.2f}s ({cleanup_rate:.2f} tasks/s)"
+        )
 
     async def test_cleanup_error_recovery(self, cleanup_provider):
         """Test cleanup behavior when encountering errors"""
@@ -524,7 +594,9 @@ class TestCleanupPerformanceAndReliability(TaskCleanupTestBase):
         # Create test dataset
         tasks = []
         for i in range(20):
-            task = self.create_aged_task(f"error_task_{i:02d}", context_id, TaskState.COMPLETED, 200)
+            task = self.create_aged_task(
+                f"error_task_{i:02d}", context_id, TaskState.COMPLETED, 200
+            )
             tasks.append(task)
 
         # Store tasks
@@ -534,10 +606,15 @@ class TestCleanupPerformanceAndReliability(TaskCleanupTestBase):
         # Simulate cleanup with potential errors
         # (This test depends on implementation details and might need adjustment)
         cleanup_config = A2ATaskCleanupConfig(
-            max_age=168*3600,
+            max_age=168 * 3600,
             dry_run=False,
-            retain_states=[TaskState.SUBMITTED.value, TaskState.WORKING.value, TaskState.FAILED.value, TaskState.CANCELED.value],
-            batch_size=5  # Small batches to test error handling
+            retain_states=[
+                TaskState.SUBMITTED.value,
+                TaskState.WORKING.value,
+                TaskState.FAILED.value,
+                TaskState.CANCELED.value,
+            ],
+            batch_size=5,  # Small batches to test error handling
         )
 
         try:
@@ -549,11 +626,15 @@ class TestCleanupPerformanceAndReliability(TaskCleanupTestBase):
             if cleanup_result.data:
                 # If successful, verify some tasks were cleaned
                 assert cleanup_result.data.total_cleaned > 0
-                print(f"Error recovery test: {cleanup_result.data.total_cleaned} tasks cleaned successfully")
+                print(
+                    f"Error recovery test: {cleanup_result.data.total_cleaned} tasks cleaned successfully"
+                )
             else:
                 # If failed, should have meaningful error
                 assert "cleanup" in str(cleanup_result.error.message).lower()
-                print(f"Error recovery test: Cleanup failed gracefully with error: {cleanup_result.error.message}")
+                print(
+                    f"Error recovery test: Cleanup failed gracefully with error: {cleanup_result.error.message}"
+                )
 
         except Exception as e:
             # Even exceptions should be handled gracefully
@@ -562,7 +643,9 @@ class TestCleanupPerformanceAndReliability(TaskCleanupTestBase):
             # Provider should still be functional after error
             health_result = await cleanup_provider.health_check()
             assert health_result.data is not None
-            assert health_result.data.get("healthy", False), "Provider should remain healthy after cleanup error"
+            assert health_result.data.get("healthy", False), (
+                "Provider should remain healthy after cleanup error"
+            )
 
     async def test_cleanup_consistency_under_concurrent_operations(self, cleanup_provider):
         """Test cleanup consistency when running concurrently with other operations"""
@@ -573,7 +656,9 @@ class TestCleanupPerformanceAndReliability(TaskCleanupTestBase):
         for i in range(50):
             # Mix of old and new completed tasks
             age = 200 if i % 2 == 0 else 1
-            task = self.create_aged_task(f"concurrent_task_{i:02d}", context_id, TaskState.COMPLETED, age)
+            task = self.create_aged_task(
+                f"concurrent_task_{i:02d}", context_id, TaskState.COMPLETED, age
+            )
             initial_tasks.append(task)
 
         # Store initial tasks
@@ -582,9 +667,14 @@ class TestCleanupPerformanceAndReliability(TaskCleanupTestBase):
 
         # Start cleanup operation
         cleanup_config = A2ATaskCleanupConfig(
-            max_age=168*3600,
+            max_age=168 * 3600,
             dry_run=False,
-            retain_states=[TaskState.SUBMITTED.value, TaskState.WORKING.value, TaskState.FAILED.value, TaskState.CANCELED.value]
+            retain_states=[
+                TaskState.SUBMITTED.value,
+                TaskState.WORKING.value,
+                TaskState.FAILED.value,
+                TaskState.CANCELED.value,
+            ],
         )
         cleanup_operation = perform_task_cleanup(cleanup_provider, cleanup_config)
 
@@ -593,13 +683,15 @@ class TestCleanupPerformanceAndReliability(TaskCleanupTestBase):
 
         # Add new tasks
         for i in range(10):
-            new_task = self.create_aged_task(f"new_concurrent_{i}", context_id, TaskState.COMPLETED, 1)
+            new_task = self.create_aged_task(
+                f"new_concurrent_{i}", context_id, TaskState.COMPLETED, 1
+            )
             concurrent_operations.append(cleanup_provider.store_task(new_task))
 
         # Query tasks
         query_operations = [
             cleanup_provider.get_tasks_by_context(context_id),
-            cleanup_provider.get_task_stats(context_id)
+            cleanup_provider.get_task_stats(context_id),
         ]
         concurrent_operations.extend(query_operations)
 
@@ -626,7 +718,9 @@ class TestCleanupPerformanceAndReliability(TaskCleanupTestBase):
         final_result = await cleanup_provider.get_tasks_by_context(context_id)
         assert final_result.data is not None, "Final state should be queryable"
 
-        print(f"Concurrent cleanup test: {cleanup_result.data.total_cleaned} cleaned, {successful_concurrent}/{total_concurrent} concurrent ops succeeded")
+        print(
+            f"Concurrent cleanup test: {cleanup_result.data.total_cleaned} cleaned, {successful_concurrent}/{total_concurrent} concurrent ops succeeded"
+        )
 
 
 class TestCleanupConfigurationValidation(TaskCleanupTestBase):
@@ -646,7 +740,10 @@ class TestCleanupConfigurationValidation(TaskCleanupTestBase):
         for config in invalid_configs:
             result = await perform_task_cleanup(cleanup_provider, config)
             assert isinstance(result, Failure), f"Config {config} should have failed validation"
-            assert "invalid" in str(result.error.message).lower() or "validation" in str(result.error.message).lower()
+            assert (
+                "invalid" in str(result.error.message).lower()
+                or "validation" in str(result.error.message).lower()
+            )
 
     async def test_edge_case_configurations(self, cleanup_provider):
         """Test edge case cleanup configurations"""
@@ -658,8 +755,13 @@ class TestCleanupConfigurationValidation(TaskCleanupTestBase):
 
         # Test very large age limit (should clean nothing)
         large_age_config = A2ATaskCleanupConfig(
-            max_age=10000*3600,  # ~1 year
-            retain_states=[TaskState.SUBMITTED.value, TaskState.WORKING.value, TaskState.FAILED.value, TaskState.CANCELED.value]
+            max_age=10000 * 3600,  # ~1 year
+            retain_states=[
+                TaskState.SUBMITTED.value,
+                TaskState.WORKING.value,
+                TaskState.FAILED.value,
+                TaskState.CANCELED.value,
+            ],
         )
 
         large_age_result = await perform_task_cleanup(cleanup_provider, large_age_config)
@@ -667,8 +769,13 @@ class TestCleanupConfigurationValidation(TaskCleanupTestBase):
 
         # Test very small age limit (should clean everything eligible)
         small_age_config = A2ATaskCleanupConfig(
-            max_age=1*3600,  # 1 hour
-            retain_states=[TaskState.SUBMITTED.value, TaskState.WORKING.value, TaskState.FAILED.value, TaskState.CANCELED.value]
+            max_age=1 * 3600,  # 1 hour
+            retain_states=[
+                TaskState.SUBMITTED.value,
+                TaskState.WORKING.value,
+                TaskState.FAILED.value,
+                TaskState.CANCELED.value,
+            ],
         )
 
         small_age_result = await perform_task_cleanup(cleanup_provider, small_age_config)
@@ -680,7 +787,12 @@ class TestCleanupConfigurationValidation(TaskCleanupTestBase):
         # Test very large count limit (should clean nothing)
         large_count_config = A2ATaskCleanupConfig(
             max_completed_tasks=10000,
-            retain_states=[TaskState.SUBMITTED.value, TaskState.WORKING.value, TaskState.FAILED.value, TaskState.CANCELED.value]
+            retain_states=[
+                TaskState.SUBMITTED.value,
+                TaskState.WORKING.value,
+                TaskState.FAILED.value,
+                TaskState.CANCELED.value,
+            ],
         )
 
         large_count_result = await perform_task_cleanup(cleanup_provider, large_count_config)
@@ -689,7 +801,12 @@ class TestCleanupConfigurationValidation(TaskCleanupTestBase):
         # Test zero count limit (should clean everything)
         zero_count_config = A2ATaskCleanupConfig(
             max_completed_tasks=0,
-            retain_states=[TaskState.SUBMITTED.value, TaskState.WORKING.value, TaskState.FAILED.value, TaskState.CANCELED.value]
+            retain_states=[
+                TaskState.SUBMITTED.value,
+                TaskState.WORKING.value,
+                TaskState.FAILED.value,
+                TaskState.CANCELED.value,
+            ],
         )
 
         zero_count_result = await perform_task_cleanup(cleanup_provider, zero_count_config)

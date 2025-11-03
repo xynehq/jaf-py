@@ -25,9 +25,11 @@ from jaf.visualization.types import GraphOptions, GraphResult
 
 # ========== Test Tool Implementation ==========
 
+
 @dataclass
 class VisualizationTestArgs:
     """Test tool arguments."""
+
     value: str
 
 
@@ -37,9 +39,9 @@ class VisualizationTestTool:
     @property
     def schema(self) -> ToolSchema[VisualizationTestArgs]:
         return ToolSchema(
-            name='test_tool',
-            description='A test tool for visualization testing',
-            parameters=VisualizationTestArgs
+            name="test_tool",
+            description="A test tool for visualization testing",
+            parameters=VisualizationTestArgs,
         )
 
     async def execute(self, args: VisualizationTestArgs, context: Any) -> str:
@@ -47,6 +49,7 @@ class VisualizationTestTool:
 
 
 # ========== Test Fixtures ==========
+
 
 @pytest.fixture
 def test_tool():
@@ -57,33 +60,36 @@ def test_tool():
 @pytest.fixture
 def test_agent(test_tool):
     """Create a test agent instance."""
+
     def instructions(state: RunState[Any]) -> str:
         return "I am a test agent for visualization testing."
 
     return Agent(
-        name='TestAgent',
+        name="TestAgent",
         instructions=instructions,
         tools=[test_tool],
-        model_config=ModelConfig(name='gpt-4'),
-        handoffs=['OtherAgent']
+        model_config=ModelConfig(name="gpt-4"),
+        handoffs=["OtherAgent"],
     )
 
 
 @pytest.fixture
 def second_test_agent():
     """Create a second test agent instance."""
+
     def instructions(state: RunState[Any]) -> str:
         return "I am another test agent."
 
     return Agent(
-        name='OtherAgent',
+        name="OtherAgent",
         instructions=instructions,
         tools=[],
-        model_config=ModelConfig(name='gpt-3.5-turbo')
+        model_config=ModelConfig(name="gpt-3.5-turbo"),
     )
 
 
 # ========== DOT Language Tests ==========
+
 
 class TestDOTGeneration:
     """Test DOT language generation and validation."""
@@ -93,22 +99,20 @@ class TestDOTGeneration:
         dot_source = get_graph_dot([test_agent])
 
         # Check basic DOT structure
-        assert 'digraph AgentGraph' in dot_source
-        assert 'TestAgent' in dot_source
-        assert 'test_tool' in dot_source
-        assert '->' in dot_source  # Should have edges
+        assert "digraph AgentGraph" in dot_source
+        assert "TestAgent" in dot_source
+        assert "test_tool" in dot_source
+        assert "->" in dot_source  # Should have edges
 
     def test_get_graph_dot_with_options(self, test_agent):
         """Test DOT generation with custom options."""
         options = GraphOptions(
-            title='Custom Test Graph',
-            color_scheme='modern',
-            show_tool_details=False
+            title="Custom Test Graph", color_scheme="modern", show_tool_details=False
         )
 
         dot_source = get_graph_dot([test_agent], options)
 
-        assert 'Custom Test Graph' in dot_source
+        assert "Custom Test Graph" in dot_source
         # With show_tool_details=False, tool nodes should not be present
         # but we can't fully test this without running the full graph generation
 
@@ -116,23 +120,24 @@ class TestDOTGeneration:
         """Test DOT generation with multiple agents."""
         dot_source = get_graph_dot([test_agent, second_test_agent])
 
-        assert 'TestAgent' in dot_source
-        assert 'OtherAgent' in dot_source
-        assert 'handoff' in dot_source  # Should show handoff edge
+        assert "TestAgent" in dot_source
+        assert "OtherAgent" in dot_source
+        assert "handoff" in dot_source  # Should show handoff edge
 
     def test_color_scheme_attributes(self, test_agent):
         """Test that color schemes affect DOT attributes."""
-        for scheme in ['default', 'modern', 'minimal']:
+        for scheme in ["default", "modern", "minimal"]:
             options = GraphOptions(color_scheme=scheme)
             dot_source = get_graph_dot([test_agent], options)
 
             # Check that color scheme colors are present
             scheme_config = COLOR_SCHEMES[scheme]
-            agent_color = scheme_config['agent']['fillcolor']
+            agent_color = scheme_config["agent"]["fillcolor"]
             assert agent_color in dot_source
 
 
 # ========== Validation Tests ==========
+
 
 class TestValidation:
     """Test option validation functionality."""
@@ -140,10 +145,7 @@ class TestValidation:
     def test_validate_valid_options(self):
         """Test validation of valid options."""
         options = GraphOptions(
-            layout='dot',
-            rankdir='TB',
-            output_format='png',
-            color_scheme='default'
+            layout="dot", rankdir="TB", output_format="png", color_scheme="default"
         )
 
         errors = validate_graph_options(options)
@@ -154,40 +156,40 @@ class TestValidation:
         from pydantic import ValidationError
 
         with pytest.raises(ValidationError) as exc_info:
-            GraphOptions(layout='invalid_layout')
+            GraphOptions(layout="invalid_layout")
 
         # Check that the error mentions layout
-        assert 'layout' in str(exc_info.value)
+        assert "layout" in str(exc_info.value)
 
     def test_validate_invalid_rankdir(self):
         """Test validation of invalid rankdir."""
         from pydantic import ValidationError
 
         with pytest.raises(ValidationError) as exc_info:
-            GraphOptions(rankdir='INVALID')
+            GraphOptions(rankdir="INVALID")
 
         # Check that the error mentions rankdir
-        assert 'rankdir' in str(exc_info.value)
+        assert "rankdir" in str(exc_info.value)
 
     def test_validate_invalid_output_format(self):
         """Test validation of invalid output format."""
         from pydantic import ValidationError
 
         with pytest.raises(ValidationError) as exc_info:
-            GraphOptions(output_format='invalid')
+            GraphOptions(output_format="invalid")
 
         # Check that the error mentions output_format
-        assert 'output_format' in str(exc_info.value)
+        assert "output_format" in str(exc_info.value)
 
     def test_validate_invalid_color_scheme(self):
         """Test validation of invalid color scheme."""
         from pydantic import ValidationError
 
         with pytest.raises(ValidationError) as exc_info:
-            GraphOptions(color_scheme='invalid')
+            GraphOptions(color_scheme="invalid")
 
         # Check that the error mentions color_scheme
-        assert 'color_scheme' in str(exc_info.value)
+        assert "color_scheme" in str(exc_info.value)
 
     def test_validate_multiple_errors(self):
         """Test validation with multiple errors."""
@@ -195,21 +197,19 @@ class TestValidation:
 
         with pytest.raises(ValidationError) as exc_info:
             GraphOptions(
-                layout='invalid',
-                rankdir='INVALID',
-                output_format='bad',
-                color_scheme='wrong'
+                layout="invalid", rankdir="INVALID", output_format="bad", color_scheme="wrong"
             )
 
         # Check that multiple fields are mentioned in the error
         error_str = str(exc_info.value)
-        assert 'layout' in error_str
-        assert 'rankdir' in error_str
-        assert 'output_format' in error_str
-        assert 'color_scheme' in error_str
+        assert "layout" in error_str
+        assert "rankdir" in error_str
+        assert "output_format" in error_str
+        assert "color_scheme" in error_str
 
 
 # ========== Graph Generation Tests ==========
+
 
 class TestGraphGeneration:
     """Test actual graph generation functionality."""
@@ -218,12 +218,9 @@ class TestGraphGeneration:
     async def test_generate_agent_graph_success(self, test_agent):
         """Test successful agent graph generation."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            output_path = os.path.join(temp_dir, 'test_agent.png')
+            output_path = os.path.join(temp_dir, "test_agent.png")
 
-            options = GraphOptions(
-                output_path=output_path,
-                output_format='png'
-            )
+            options = GraphOptions(output_path=output_path, output_format="png")
 
             try:
                 result = await generate_agent_graph([test_agent], options)
@@ -235,11 +232,14 @@ class TestGraphGeneration:
                 if result.success:
                     assert result.output_path == output_path
                     assert result.graph_dot is not None
-                    assert 'TestAgent' in result.graph_dot
+                    assert "TestAgent" in result.graph_dot
                 else:
                     # If it fails, it's likely due to missing Graphviz system dependency
                     assert result.error is not None
-                    assert 'graphviz' in result.error.lower() or 'command not found' in result.error.lower()
+                    assert (
+                        "graphviz" in result.error.lower()
+                        or "command not found" in result.error.lower()
+                    )
 
             except Exception as e:
                 # If Graphviz is not installed, the test should not fail
@@ -252,7 +252,7 @@ class TestGraphGeneration:
 
         # Since Pydantic validates at creation time, we expect a ValidationError
         with pytest.raises(ValidationError):
-            GraphOptions(layout='invalid_layout')
+            GraphOptions(layout="invalid_layout")
 
         # Test that our validate_graph_options function still works for edge cases
         # that might get through Pydantic (though this is mostly for completeness)
@@ -264,12 +264,9 @@ class TestGraphGeneration:
     async def test_generate_tool_graph_success(self, test_tool):
         """Test successful tool graph generation."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            output_path = os.path.join(temp_dir, 'test_tools.png')
+            output_path = os.path.join(temp_dir, "test_tools.png")
 
-            options = GraphOptions(
-                output_path=output_path,
-                output_format='png'
-            )
+            options = GraphOptions(output_path=output_path, output_format="png")
 
             try:
                 result = await generate_tool_graph([test_tool], options)
@@ -280,7 +277,7 @@ class TestGraphGeneration:
                 if result.success:
                     assert result.output_path == output_path
                     assert result.graph_dot is not None
-                    assert 'test_tool' in result.graph_dot
+                    assert "test_tool" in result.graph_dot
                 else:
                     assert result.error is not None
 
@@ -291,17 +288,11 @@ class TestGraphGeneration:
     async def test_generate_runner_graph_success(self, test_agent, second_test_agent):
         """Test successful runner graph generation."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            output_path = os.path.join(temp_dir, 'test_runner.png')
+            output_path = os.path.join(temp_dir, "test_runner.png")
 
-            agent_registry = {
-                'TestAgent': test_agent,
-                'OtherAgent': second_test_agent
-            }
+            agent_registry = {"TestAgent": test_agent, "OtherAgent": second_test_agent}
 
-            options = GraphOptions(
-                output_path=output_path,
-                output_format='png'
-            )
+            options = GraphOptions(output_path=output_path, output_format="png")
 
             try:
                 result = await generate_runner_graph(agent_registry, options)
@@ -312,8 +303,8 @@ class TestGraphGeneration:
                 if result.success:
                     assert result.output_path == output_path
                     assert result.graph_dot is not None
-                    assert 'Runner' in result.graph_dot
-                    assert 'TestAgent' in result.graph_dot
+                    assert "Runner" in result.graph_dot
+                    assert "TestAgent" in result.graph_dot
                 else:
                     assert result.error is not None
 
@@ -323,27 +314,28 @@ class TestGraphGeneration:
 
 # ========== Color Scheme Tests ==========
 
+
 class TestColorSchemes:
     """Test color scheme configurations."""
 
     def test_all_color_schemes_exist(self):
         """Test that all expected color schemes are defined."""
-        expected_schemes = ['default', 'modern', 'minimal']
+        expected_schemes = ["default", "modern", "minimal"]
 
         for scheme in expected_schemes:
             assert scheme in COLOR_SCHEMES
 
     def test_color_scheme_structure(self):
         """Test that color schemes have required structure."""
-        required_keys = ['agent', 'tool', 'sub_agent', 'edge', 'tool_edge']
+        required_keys = ["agent", "tool", "sub_agent", "edge", "tool_edge"]
 
         for scheme_name, scheme in COLOR_SCHEMES.items():
             for key in required_keys:
                 assert key in scheme, f"Missing '{key}' in color scheme '{scheme_name}'"
 
             # Test agent style has required attributes
-            agent_style = scheme['agent']
-            required_agent_attrs = ['shape', 'fillcolor', 'fontcolor', 'style']
+            agent_style = scheme["agent"]
+            required_agent_attrs = ["shape", "fillcolor", "fontcolor", "style"]
             for attr in required_agent_attrs:
                 assert attr in agent_style, f"Missing '{attr}' in agent style for '{scheme_name}'"
 
@@ -351,19 +343,20 @@ class TestColorSchemes:
         """Test that color scheme values are valid."""
         for scheme_name, scheme in COLOR_SCHEMES.items():
             # Test that colors are valid (hex colors or named colors)
-            agent_fillcolor = scheme['agent']['fillcolor']
+            agent_fillcolor = scheme["agent"]["fillcolor"]
             assert isinstance(agent_fillcolor, str)
             assert len(agent_fillcolor) > 0
 
             # Test that shapes are valid
-            agent_shape = scheme['agent']['shape']
-            valid_shapes = ['box', 'ellipse', 'circle', 'diamond', 'rect']
+            agent_shape = scheme["agent"]["shape"]
+            valid_shapes = ["box", "ellipse", "circle", "diamond", "rect"]
             # Note: Graphviz supports many shapes, so we'll just check it's a string
             assert isinstance(agent_shape, str)
             assert len(agent_shape) > 0
 
 
 # ========== Integration Tests ==========
+
 
 class TestIntegration:
     """Integration tests for the visualization system."""
@@ -377,27 +370,24 @@ class TestIntegration:
         dot_source = get_graph_dot(agents)
 
         # Verify DOT contains expected elements
-        assert 'digraph AgentGraph' in dot_source
+        assert "digraph AgentGraph" in dot_source
         assert test_agent.name in dot_source
         assert test_tool.schema.name in dot_source
 
         # Verify structure
-        lines = dot_source.split('\n')
-        assert any('rankdir=' in line for line in lines)
-        assert any('label=' in line for line in lines)
+        lines = dot_source.split("\n")
+        assert any("rankdir=" in line for line in lines)
+        assert any("label=" in line for line in lines)
 
     @pytest.mark.asyncio
     async def test_multiple_format_generation(self, test_agent):
         """Test generation of multiple output formats."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            formats = ['png', 'svg', 'pdf']
+            formats = ["png", "svg", "pdf"]
 
             for fmt in formats:
-                output_path = os.path.join(temp_dir, f'test.{fmt}')
-                options = GraphOptions(
-                    output_path=output_path,
-                    output_format=fmt
-                )
+                output_path = os.path.join(temp_dir, f"test.{fmt}")
+                options = GraphOptions(output_path=output_path, output_format=fmt)
 
                 try:
                     result = await generate_agent_graph([test_agent], options)
@@ -416,6 +406,7 @@ class TestIntegration:
 
 # ========== Error Handling Tests ==========
 
+
 class TestErrorHandling:
     """Test error handling and edge cases."""
 
@@ -431,14 +422,15 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_agent_without_tools(self):
         """Test handling of agents without tools."""
+
         def instructions(state: RunState[Any]) -> str:
             return "I am an agent without tools."
 
         agent_no_tools = Agent(
-            name='NoToolsAgent',
+            name="NoToolsAgent",
             instructions=instructions,
             tools=[],
-            model_config=ModelConfig(name='gpt-4')
+            model_config=ModelConfig(name="gpt-4"),
         )
 
         result = await generate_agent_graph([agent_no_tools])
@@ -447,7 +439,7 @@ class TestErrorHandling:
         # Should succeed even without tools
         if result.success:
             assert result.graph_dot is not None
-            assert 'NoToolsAgent' in result.graph_dot
+            assert "NoToolsAgent" in result.graph_dot
 
     def test_malformed_options(self):
         """Test handling of edge case options."""
@@ -455,4 +447,4 @@ class TestErrorHandling:
         options = GraphOptions(title=None)
         errors = validate_graph_options(options)
         # Should not error on None title
-        assert len(errors) == 0 or all('title' not in error.lower() for error in errors)
+        assert len(errors) == 0 or all("title" not in error.lower() for error in errors)

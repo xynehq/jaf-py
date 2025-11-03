@@ -20,30 +20,19 @@ from .types import A2AAgent
 def create_a2a_server_config(config: Dict[str, Any]) -> Dict[str, Any]:
     """Pure function to create A2A server configuration"""
     host = config.get("host", "localhost")
-    capabilities = config.get("capabilities", {
-        "streaming": True,
-        "pushNotifications": False,
-        "stateTransitionHistory": True
-    })
+    capabilities = config.get(
+        "capabilities",
+        {"streaming": True, "pushNotifications": False, "stateTransitionHistory": True},
+    )
 
     agent_card = generate_agent_card(
-        config["agentCard"],
-        config["agents"],
-        f"http://{host}:{config['port']}"
+        config["agentCard"], config["agents"], f"http://{host}:{config['port']}"
     )
 
     # Override the capabilities in the generated agent card
-    updated_agent_card = {
-        **agent_card,
-        "capabilities": capabilities
-    }
+    updated_agent_card = {**agent_card, "capabilities": capabilities}
 
-    return {
-        **config,
-        "host": host,
-        "capabilities": capabilities,
-        "agentCard": updated_agent_card
-    }
+    return {**config, "host": host, "capabilities": capabilities, "agentCard": updated_agent_card}
 
 
 def create_fastapi_app() -> FastAPI:
@@ -53,7 +42,7 @@ def create_fastapi_app() -> FastAPI:
         description="Agent-to-Agent protocol server for JAF",
         version="1.0.0",
         docs_url="/docs",
-        redoc_url="/redoc"
+        redoc_url="/redoc",
     )
 
     # Add CORS middleware
@@ -93,8 +82,8 @@ def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
                     "error": {
                         "code": -32700,  # Parse Error
                         "message": "Parse error",
-                        "data": {"details": str(e)}
-                    }
+                        "data": {"details": str(e)},
+                    },
                 }
             except Exception as e:
                 return {
@@ -103,8 +92,8 @@ def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
                     "error": {
                         "code": -32700,  # Parse Error
                         "message": "Parse error",
-                        "data": {"details": str(e)}
-                    }
+                        "data": {"details": str(e)},
+                    },
                 }
 
             # Handle batch requests
@@ -116,8 +105,8 @@ def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
                         "error": {
                             "code": -32600,  # Invalid Request
                             "message": "Invalid Request",
-                            "data": {"details": "Batch request cannot be empty"}
-                        }
+                            "data": {"details": "Batch request cannot be empty"},
+                        },
                     }
 
                 # Process batch requests functionally
@@ -129,8 +118,8 @@ def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
                             "error": {
                                 "code": -32600,  # Invalid Request
                                 "message": "Invalid Request",
-                                "data": {"details": "Each batch item must be an object"}
-                            }
+                                "data": {"details": "Each batch item must be an object"},
+                            },
                         }
 
                     single_result = await handle_a2a_request_internal(config, single_request)
@@ -143,8 +132,8 @@ def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
                             "id": single_request.get("id"),
                             "error": {
                                 "code": -32005,  # Content Type Not Supported
-                                "message": "Streaming not supported in batch requests"
-                            }
+                                "message": "Streaming not supported in batch requests",
+                            },
                         }
 
                 # Process all batch items
@@ -160,8 +149,8 @@ def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
                     "error": {
                         "code": -32600,  # Invalid Request
                         "message": "Invalid Request",
-                        "data": {"details": "Request must be an object"}
-                    }
+                        "data": {"details": "Request must be an object"},
+                    },
                 }
 
             result = await handle_a2a_request_internal(config, body)
@@ -171,6 +160,7 @@ def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
             if method == "message/stream":
                 # For streaming, result should be an async generator
                 if hasattr(result, "__aiter__"):
+
                     async def generate_sse():
                         async for chunk in result:
                             yield f"data: {json.dumps(chunk)}\n\n"
@@ -178,10 +168,7 @@ def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
                     return StreamingResponse(
                         generate_sse(),
                         media_type="text/event-stream",
-                        headers={
-                            "Cache-Control": "no-cache",
-                            "Connection": "keep-alive"
-                        }
+                        headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
                     )
                 else:
                     # If it's not iterable, wrap single response
@@ -191,10 +178,7 @@ def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
                     return StreamingResponse(
                         generate_sse(),
                         media_type="text/event-stream",
-                        headers={
-                            "Cache-Control": "no-cache",
-                            "Connection": "keep-alive"
-                        }
+                        headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
                     )
 
             return result
@@ -202,6 +186,7 @@ def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
         except Exception as error:
             # Log the error for debugging but don't expose internal details
             import logging
+
             logging.error(f"Internal server error: {error!s}")
 
             return {
@@ -210,8 +195,8 @@ def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
                 "error": {
                     "code": -32603,  # Internal Error
                     "message": "Internal error",
-                    "data": {"type": "server_error"}
-                }
+                    "data": {"type": "server_error"},
+                },
             }
 
     # Agent-specific endpoints
@@ -233,8 +218,8 @@ def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
                         "error": {
                             "code": -32700,  # Parse Error
                             "message": "Parse error",
-                            "data": {"details": str(e)}
-                        }
+                            "data": {"details": str(e)},
+                        },
                     }
                 except Exception as e:
                     return {
@@ -243,8 +228,8 @@ def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
                         "error": {
                             "code": -32700,  # Parse Error
                             "message": "Parse error",
-                            "data": {"details": str(e)}
-                        }
+                            "data": {"details": str(e)},
+                        },
                     }
 
                 # Validate request structure
@@ -255,8 +240,8 @@ def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
                         "error": {
                             "code": -32600,  # Invalid Request
                             "message": "Invalid Request",
-                            "data": {"details": "Request must be an object"}
-                        }
+                            "data": {"details": "Request must be an object"},
+                        },
                     }
 
                 result = await handle_a2a_request_for_agent(config, body, agent_name)
@@ -266,6 +251,7 @@ def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
                 if method == "message/stream":
                     # For streaming, result should be an async generator
                     if hasattr(result, "__aiter__"):
+
                         async def generate_sse():
                             async for chunk in result:
                                 yield f"data: {json.dumps(chunk)}\n\n"
@@ -273,10 +259,7 @@ def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
                         return StreamingResponse(
                             generate_sse(),
                             media_type="text/event-stream",
-                            headers={
-                                "Cache-Control": "no-cache",
-                                "Connection": "keep-alive"
-                            }
+                            headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
                         )
                     else:
                         # If it's not iterable, wrap single response
@@ -286,10 +269,7 @@ def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
                         return StreamingResponse(
                             generate_sse(),
                             media_type="text/event-stream",
-                            headers={
-                                "Cache-Control": "no-cache",
-                                "Connection": "keep-alive"
-                            }
+                            headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
                         )
 
                 return result
@@ -297,6 +277,7 @@ def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
             except Exception as error:
                 # Log the error for debugging but don't expose internal details
                 import logging
+
                 logging.error(f"Internal server error: {error!s}")
 
                 return {
@@ -305,8 +286,8 @@ def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
                     "error": {
                         "code": -32603,  # Internal Error
                         "message": "Internal error",
-                        "data": {"type": "server_error"}
-                    }
+                        "data": {"type": "server_error"},
+                    },
                 }
 
         # Agent-specific card endpoint - fix closure issue
@@ -318,16 +299,16 @@ def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
                         "name": current_agent.name,
                         "description": current_agent.description,
                         "version": "1.0.0",
-                        "provider": config["agentCard"].get("provider", {
-                            "organization": "Unknown",
-                            "url": ""
-                        })
+                        "provider": config["agentCard"].get(
+                            "provider", {"organization": "Unknown", "url": ""}
+                        ),
                     },
                     {current_agent_name: current_agent},
-                    f"http://{config.get('host', 'localhost')}:{config['port']}"
+                    f"http://{config.get('host', 'localhost')}:{config['port']}",
                 )
 
                 return agent_card
+
             return get_agent_card_specific
 
         # Create the endpoint with proper closure
@@ -341,7 +322,7 @@ def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
             "protocol": "A2A",
             "version": "0.3.0",
             "agents": list(config["agents"].keys()),
-            "timestamp": None  # Would be set by the system
+            "timestamp": None,  # Would be set by the system
         }
 
     # A2A capabilities endpoint
@@ -353,19 +334,16 @@ def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
                 "message/stream",
                 "tasks/get",
                 "tasks/cancel",
-                "agent/getAuthenticatedExtendedCard"
+                "agent/getAuthenticatedExtendedCard",
             ],
             "supportedTransports": ["JSONRPC"],
             "capabilities": config["agentCard"]["capabilities"],
             "inputModes": config["agentCard"]["defaultInputModes"],
-            "outputModes": config["agentCard"]["defaultOutputModes"]
+            "outputModes": config["agentCard"]["defaultOutputModes"],
         }
 
 
-async def handle_a2a_request_internal(
-    config: Dict[str, Any],
-    request: Dict[str, Any]
-) -> Any:
+async def handle_a2a_request_internal(config: Dict[str, Any], request: Dict[str, Any]) -> Any:
     """Pure function to handle A2A requests"""
     # Validate JSON-RPC request structure first
     if not validate_jsonrpc_request(request):
@@ -375,15 +353,18 @@ async def handle_a2a_request_internal(
             "error": {
                 "code": -32600,  # Invalid Request
                 "message": "Invalid Request",
-                "data": {"details": "Missing required JSON-RPC fields"}
-            }
+                "data": {"details": "Missing required JSON-RPC fields"},
+            },
         }
 
     # Check if method is supported
     method = request.get("method")
     supported_methods = [
-        "message/send", "message/stream", "tasks/get",
-        "tasks/cancel", "agent/getAuthenticatedExtendedCard"
+        "message/send",
+        "message/stream",
+        "tasks/get",
+        "tasks/cancel",
+        "agent/getAuthenticatedExtendedCard",
     ]
 
     if method not in supported_methods:
@@ -393,8 +374,8 @@ async def handle_a2a_request_internal(
             "error": {
                 "code": -32601,  # Method Not Found
                 "message": f"Method '{method}' not found",
-                "data": {"supported_methods": supported_methods}
-            }
+                "data": {"supported_methods": supported_methods},
+            },
         }
 
     # Use the first available agent by default
@@ -403,10 +384,7 @@ async def handle_a2a_request_internal(
         return {
             "jsonrpc": "2.0",
             "id": request.get("id"),
-            "error": {
-                "code": -32001,
-                "message": "No agents available"
-            }
+            "error": {"code": -32001, "message": "No agents available"},
         }
 
     first_agent = next(iter(agents.values()))
@@ -414,9 +392,7 @@ async def handle_a2a_request_internal(
 
 
 async def handle_a2a_request_for_agent(
-    config: Dict[str, Any],
-    request: Dict[str, Any],
-    agent_name: str
+    config: Dict[str, Any], request: Dict[str, Any], agent_name: str
 ) -> Any:
     """Pure function to handle agent-specific A2A requests"""
     # Validate JSON-RPC request structure first
@@ -427,15 +403,18 @@ async def handle_a2a_request_for_agent(
             "error": {
                 "code": -32600,  # Invalid Request
                 "message": "Invalid Request",
-                "data": {"details": "Missing required JSON-RPC fields"}
-            }
+                "data": {"details": "Missing required JSON-RPC fields"},
+            },
         }
 
     # Check if method is supported
     method = request.get("method")
     supported_methods = [
-        "message/send", "message/stream", "tasks/get",
-        "tasks/cancel", "agent/getAuthenticatedExtendedCard"
+        "message/send",
+        "message/stream",
+        "tasks/get",
+        "tasks/cancel",
+        "agent/getAuthenticatedExtendedCard",
     ]
 
     if method not in supported_methods:
@@ -445,8 +424,8 @@ async def handle_a2a_request_for_agent(
             "error": {
                 "code": -32601,  # Method Not Found
                 "message": f"Method '{method}' not found",
-                "data": {"supported_methods": supported_methods}
-            }
+                "data": {"supported_methods": supported_methods},
+            },
         }
 
     agent = config["agents"].get(agent_name)
@@ -454,19 +433,14 @@ async def handle_a2a_request_for_agent(
         return {
             "jsonrpc": "2.0",
             "id": request.get("id"),
-            "error": {
-                "code": -32001,
-                "message": f"Agent {agent_name} not found"
-            }
+            "error": {"code": -32001, "message": f"Agent {agent_name} not found"},
         }
 
     return await route_a2a_request_wrapper(config, request, agent)
 
 
 async def route_a2a_request_wrapper(
-    config: Dict[str, Any],
-    request: Dict[str, Any],
-    agent: A2AAgent
+    config: Dict[str, Any], request: Dict[str, Any], agent: A2AAgent
 ) -> Any:
     """Wrapper for route_a2a_request to provide required dependencies"""
     try:
@@ -482,7 +456,7 @@ async def route_a2a_request_wrapper(
             task_storage,
             agent_card,
             execute_a2a_agent,
-            execute_a2a_agent_with_streaming
+            execute_a2a_agent_with_streaming,
         )
 
         # Check if result is a coroutine/awaitable
@@ -499,6 +473,7 @@ async def route_a2a_request_wrapper(
     except Exception as e:
         # Return proper JSON-RPC error
         import logging
+
         logging.error(f"Route wrapper error: {e!s}")
 
         return {
@@ -507,8 +482,8 @@ async def route_a2a_request_wrapper(
             "error": {
                 "code": -32603,  # Internal Error
                 "message": "Internal error",
-                "data": {"type": "route_error"}
-            }
+                "data": {"type": "route_error"},
+            },
         }
 
 
@@ -523,7 +498,7 @@ def create_a2a_server(config: Dict[str, Any]) -> Dict[str, Any]:
         app,
         host=server_config.get("host", "localhost"),
         port=server_config["port"],
-        log_level="info"
+        log_level="info",
     )
     server = uvicorn.Server(uvicorn_config)
 
@@ -561,14 +536,13 @@ def create_a2a_server(config: Dict[str, Any]) -> Dict[str, Any]:
             "agentCard": generate_agent_card(
                 {
                     **server_config["agentCard"],
-                    "provider": server_config["agentCard"].get("provider", {
-                        "organization": "Unknown",
-                        "url": ""
-                    })
+                    "provider": server_config["agentCard"].get(
+                        "provider", {"organization": "Unknown", "url": ""}
+                    ),
                 },
                 new_agents,
-                server_config["agentCard"]["url"].replace("/a2a", "")
-            )
+                server_config["agentCard"]["url"].replace("/a2a", ""),
+            ),
         }
 
     def remove_agent(name: str) -> Dict[str, Any]:
@@ -581,14 +555,13 @@ def create_a2a_server(config: Dict[str, Any]) -> Dict[str, Any]:
             "agentCard": generate_agent_card(
                 {
                     **server_config["agentCard"],
-                    "provider": server_config["agentCard"].get("provider", {
-                        "organization": "Unknown",
-                        "url": ""
-                    })
+                    "provider": server_config["agentCard"].get(
+                        "provider", {"organization": "Unknown", "url": ""}
+                    ),
                 },
                 new_agents,
-                server_config["agentCard"]["url"].replace("/a2a", "")
-            )
+                server_config["agentCard"]["url"].replace("/a2a", ""),
+            ),
         }
 
     return {
@@ -598,7 +571,7 @@ def create_a2a_server(config: Dict[str, Any]) -> Dict[str, Any]:
         "stop": stop_server,
         "add_agent": add_agent,
         "remove_agent": remove_agent,
-        "get_agent_card": lambda: server_config["agentCard"]
+        "get_agent_card": lambda: server_config["agentCard"],
     }
 
 
@@ -611,6 +584,7 @@ async def start_a2a_server(config: Dict[str, Any]) -> Dict[str, Any]:
 
 # Utility functions for configuration
 
+
 def create_server_config(
     agents: Dict[str, A2AAgent],
     name: str,
@@ -618,7 +592,7 @@ def create_server_config(
     port: int,
     host: str = "localhost",
     version: str = "1.0.0",
-    provider: Optional[Dict[str, str]] = None
+    provider: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     """Utility function to create server configuration"""
     return {
@@ -627,11 +601,9 @@ def create_server_config(
             "name": name,
             "description": description,
             "version": version,
-            "provider": provider or {
-                "organization": "JAF Framework",
-                "url": "https://functional-agent-framework.com"
-            }
+            "provider": provider
+            or {"organization": "JAF Framework", "url": "https://functional-agent-framework.com"},
         },
         "port": port,
-        "host": host
+        "host": host,
     }
