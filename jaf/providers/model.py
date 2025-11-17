@@ -230,8 +230,15 @@ def make_litellm_provider(
             if agent.model_config:
                 if agent.model_config.temperature is not None:
                     request_params["temperature"] = agent.model_config.temperature
-                if agent.model_config.max_tokens is not None:
-                    request_params["max_tokens"] = agent.model_config.max_tokens
+                # Use agent's max_tokens if set, otherwise fall back to config's max_tokens
+                max_tokens = agent.model_config.max_tokens
+                if max_tokens is None:
+                    max_tokens = config.max_tokens
+                if max_tokens is not None:
+                    request_params["max_tokens"] = max_tokens
+            elif config.max_tokens is not None:
+                # No model_config but config has max_tokens
+                request_params["max_tokens"] = config.max_tokens
 
             if tools:
                 request_params["tools"] = tools
@@ -338,8 +345,15 @@ def make_litellm_provider(
             if agent.model_config:
                 if agent.model_config.temperature is not None:
                     request_params["temperature"] = agent.model_config.temperature
-                if agent.model_config.max_tokens is not None:
-                    request_params["max_tokens"] = agent.model_config.max_tokens
+                # Use agent's max_tokens if set, otherwise fall back to config's max_tokens
+                max_tokens = agent.model_config.max_tokens
+                if max_tokens is None:
+                    max_tokens = config.max_tokens
+                if max_tokens is not None:
+                    request_params["max_tokens"] = max_tokens
+            elif config.max_tokens is not None:
+                # No model_config but config has max_tokens
+                request_params["max_tokens"] = config.max_tokens
 
             if tools:
                 request_params["tools"] = tools
@@ -542,8 +556,15 @@ def make_litellm_sdk_provider(
             if agent.model_config:
                 if agent.model_config.temperature is not None:
                     request_params["temperature"] = agent.model_config.temperature
-                if agent.model_config.max_tokens is not None:
-                    request_params["max_tokens"] = agent.model_config.max_tokens
+                # Use agent's max_tokens if set, otherwise fall back to config's max_tokens
+                max_tokens = agent.model_config.max_tokens
+                if max_tokens is None:
+                    max_tokens = config.max_tokens
+                if max_tokens is not None:
+                    request_params["max_tokens"] = max_tokens
+            elif config.max_tokens is not None:
+                # No model_config but config has max_tokens
+                request_params["max_tokens"] = config.max_tokens
 
             if tools:
                 request_params["tools"] = tools
@@ -648,8 +669,15 @@ def make_litellm_sdk_provider(
             if agent.model_config:
                 if agent.model_config.temperature is not None:
                     request_params["temperature"] = agent.model_config.temperature
-                if agent.model_config.max_tokens is not None:
-                    request_params["max_tokens"] = agent.model_config.max_tokens
+                # Use agent's max_tokens if set, otherwise fall back to config's max_tokens
+                max_tokens = agent.model_config.max_tokens
+                if max_tokens is None:
+                    max_tokens = config.max_tokens
+                if max_tokens is not None:
+                    request_params["max_tokens"] = max_tokens
+            elif config.max_tokens is not None:
+                # No model_config but config has max_tokens
+                request_params["max_tokens"] = config.max_tokens
 
             if tools:
                 request_params["tools"] = tools

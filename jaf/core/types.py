@@ -1064,6 +1064,7 @@ class RunConfig(Generic[Ctx]):
     agent_registry: Dict[str, Agent[Ctx, Any]]
     model_provider: ModelProvider[Ctx]
     max_turns: Optional[int] = 50
+    max_tokens: Optional[int] = None  # Default max_tokens for all agents (can be overridden per agent)
     model_override: Optional[str] = None
     initial_input_guardrails: Optional[List[Guardrail]] = None
     final_output_guardrails: Optional[List[Guardrail]] = None
