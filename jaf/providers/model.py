@@ -10,6 +10,7 @@ import httpx
 import time
 import os
 import base64
+import asyncio
 
 from openai import AsyncOpenAI
 from pydantic import BaseModel
@@ -27,6 +28,8 @@ from ..core.types import (
     ToolCallFunctionDelta,
     MessageContentPart,
     get_text_content,
+    RetryEvent,
+    RetryEventData,
 )
 from ..core.proxy import ProxyConfig
 from ..utils.document_processor import (
@@ -108,6 +111,102 @@ async def _is_vision_model(model: str, base_url: str) -> bool:
     _vision_model_cache[cache_key] = {"supports": is_known_vision_model, "timestamp": time.time()}
 
     return is_known_vision_model
+
+
+async def _retry_with_events(
+    operation_func,
+    state: RunState,
+    config: RunConfig,
+    operation_name: str = "llm_call",
+    max_retries: int = 3,
+    backoff_factor: float = 1.0,
+):
+    """
+    Wrapper that retries an async operation and emits retry events.
+
+    Args:
+        operation_func: Async function to execute (should accept no arguments)
+        state: Current run state
+        config: Run configuration with event handler
+        operation_name: Name of the operation for logging
+        max_retries: Maximum number of retry attempts
+        backoff_factor: Exponential backoff multiplier
+
+    Returns:
+        Result from operation_func
+
+    Raises:
+        Last exception if all retries are exhausted
+    """
+    last_exception = None
+
+    for attempt in range(max_retries + 1):
+        try:
+            return await operation_func()
+        except Exception as e:
+            last_exception = e
+
+            # Check if this is a retryable HTTP error
+            is_retryable = False
+            reason = str(e)
+            error_details = {"error_type": type(e).__name__, "error_message": str(e)}
+
+            # Check for HTTP errors (common in OpenAI/LiteLLM)
+            if hasattr(e, "status_code"):
+                status_code = e.status_code
+                error_details["status_code"] = status_code
+
+                # Retry on rate limits (429) and server errors (5xx)
+                if status_code == 429:
+                    is_retryable = True
+                    reason = f"HTTP {status_code} - Rate Limit"
+                elif 500 <= status_code < 600:
+                    is_retryable = True
+                    reason = f"HTTP {status_code} - Server Error"
+                else:
+                    reason = f"HTTP {status_code}"
+
+            # Check for common exception names
+            elif "RateLimitError" in type(e).__name__:
+                is_retryable = True
+                reason = "Rate Limit Error"
+            elif "ServiceUnavailableError" in type(e).__name__ or "APIError" in type(e).__name__:
+                is_retryable = True
+                reason = "API Error"
+            elif "Timeout" in type(e).__name__:
+                is_retryable = True
+                reason = "Timeout"
+
+            # If not last attempt and is retryable, retry with backoff
+            if attempt < max_retries and is_retryable:
+                delay = backoff_factor * (2**attempt)  # Exponential backoff
+
+                # Emit retry event
+                if config.on_event:
+                    retry_event = RetryEvent(
+                        data=RetryEventData(
+                            attempt=attempt + 1,
+                            max_retries=max_retries,
+                            reason=reason,
+                            operation=operation_name,
+                            trace_id=state.trace_id,
+                            run_id=state.run_id,
+                            delay=delay,
+                            error_details=error_details,
+                        )
+                    )
+                    config.on_event(retry_event)
+
+                print(
+                    f"[JAF:RETRY] Attempt {attempt + 1}/{max_retries} failed: {reason}. Retrying in {delay}s..."
+                )
+                await asyncio.sleep(delay)
+            else:
+                # Not retryable or last attempt, re-raise
+                raise
+
+    # Should never reach here, but just in case
+    raise last_exception
 
 
 def make_litellm_provider(
@@ -248,8 +347,14 @@ def make_litellm_provider(
             if agent.output_codec:
                 request_params["response_format"] = {"type": "json_object"}
 
-            # Make the API call
-            response = await self.client.chat.completions.create(**request_params)
+            # Make the API call with retry handling
+            async def _api_call():
+                return await self.client.chat.completions.create(**request_params)
+
+            # Use retry wrapper to track retries in Langfuse
+            response = await _retry_with_events(
+                _api_call, state, config, operation_name="llm_call", max_retries=3, backoff_factor=1.0
+            )
 
             # Return in the expected format that the engine expects
             choice = response.choices[0]
@@ -577,8 +682,14 @@ def make_litellm_sdk_provider(
             if self.base_url:
                 request_params["api_base"] = self.base_url
 
-            # Make the API call using litellm
-            response = await litellm.acompletion(**request_params)
+            # Make the API call using litellm with retry handling
+            async def _api_call():
+                return await litellm.acompletion(**request_params)
+
+            # Use retry wrapper to track retries in Langfuse
+            response = await _retry_with_events(
+                _api_call, state, config, operation_name="llm_call", max_retries=3, backoff_factor=1.0
+            )
 
             # Return in the expected format that the engine expects
             choice = response.choices[0]

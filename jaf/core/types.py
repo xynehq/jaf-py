@@ -978,6 +978,37 @@ class OutputParseEvent:
     data: OutputParseEventData = field(default_factory=lambda: OutputParseEventData("", "start"))
 
 
+@dataclass(frozen=True)
+class RetryEventData:
+    """Data for retry events."""
+
+    attempt: int  # Current retry attempt (1-indexed)
+    max_retries: int  # Maximum number of retries configured
+    reason: str  # Reason for retry (e.g., "HTTP 429 - Rate Limit", "HTTP 500 - Server Error")
+    operation: Literal["llm_call", "tool_call", "workflow_step"]  # What operation is being retried
+    trace_id: TraceId
+    run_id: RunId
+    delay: Optional[float] = None  # Backoff delay in seconds before next retry
+    error_details: Optional[Dict[str, Any]] = None  # Additional error context
+
+
+@dataclass(frozen=True)
+class RetryEvent:
+    """Event emitted when a retry occurs."""
+
+    type: Literal["retry"] = "retry"
+    data: RetryEventData = field(
+        default_factory=lambda: RetryEventData(
+            attempt=1,
+            max_retries=3,
+            reason="",
+            operation="llm_call",
+            trace_id=TraceId(""),
+            run_id=RunId(""),
+        )
+    )
+
+
 # Union type for all trace events
 TraceEvent = Union[
     RunStartEvent,
@@ -992,6 +1023,7 @@ TraceEvent = Union[
     ToolCallEndEvent,
     HandoffEvent,
     RunEndEvent,
+    RetryEvent,
 ]
 
 
