@@ -1069,6 +1069,47 @@ class LangfuseTraceCollector:
                 )
                 print(f"[LANGFUSE] Handoff event created")
 
+            elif event.type == "retry":
+                # Create an event for retry attempts
+                attempt = self._get_event_data(event, "attempt", 1)
+                max_retries = self._get_event_data(event, "max_retries", 3)
+                reason = self._get_event_data(event, "reason", "Unknown")
+                operation = self._get_event_data(event, "operation", "llm_call")
+                delay = self._get_event_data(event, "delay")
+                error_details = self._get_event_data(event, "error_details", {})
+
+                print(
+                    f"[LANGFUSE] Recording retry event: attempt {attempt}/{max_retries} for {operation}, reason: {reason}"
+                )
+
+                # Create comprehensive retry event data
+                retry_input = {
+                    "attempt": attempt,
+                    "max_retries": max_retries,
+                    "reason": reason,
+                    "operation": operation,
+                    "delay_seconds": delay,
+                    "error_details": error_details,
+                    "timestamp": datetime.now().isoformat(),
+                }
+
+                # Use compatibility layer to create event (works with both v2 and v3)
+                self._create_event(
+                    parent_span=self.trace_spans[trace_id],
+                    name=f"retry-{operation}",
+                    input=retry_input,
+                    metadata={
+                        "framework": "jaf",
+                        "event_type": "retry",
+                        "retry_attempt": attempt,
+                        "max_retries": max_retries,
+                        "operation": operation,
+                        "reason": reason,
+                        "is_final_retry": attempt >= max_retries,
+                    },
+                )
+                print(f"[LANGFUSE] Retry event created for attempt {attempt}/{max_retries}")
+
             else:
                 # Create a generic event for other event types
                 print(f"[LANGFUSE] Creating generic event for: {event.type}")
