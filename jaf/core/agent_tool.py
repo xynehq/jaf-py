@@ -189,6 +189,8 @@ def create_agent_tool(
             initial_input_guardrails=parent_config.initial_input_guardrails,
             final_output_guardrails=parent_config.final_output_guardrails,
             on_event=parent_config.on_event,
+            before_llm_call=parent_config.before_llm_call,
+            after_llm_call=parent_config.after_llm_call,
             memory=parent_config.memory if preserve_session else None,
             conversation_id=parent_config.conversation_id if preserve_session else None,
             default_tool_timeout=parent_config.default_tool_timeout,
