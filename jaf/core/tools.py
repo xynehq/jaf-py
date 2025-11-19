@@ -224,38 +224,18 @@ def create_async_function_tool_legacy(
 
 
 def _extract_docstring_info(func):
-    """Extract description and parameter info from function docstring."""
+    """Extract description from function docstring.
+
+    Returns the entire docstring as the description since parameters are
+    extracted from the function signature, not the docstring.
+    """
     doc = inspect.getdoc(func)
     if not doc:
         return func.__name__.replace("_", " ").title(), {}
 
-    lines = doc.strip().split("\n")
-    if not lines:
-        return func.__name__.replace("_", " ").title(), {}
-
-    # First non-empty line is the description
-    description = lines[0].strip()
-
-    # Look for Args section to extract parameter descriptions
-    param_descriptions = {}
-    in_args_section = False
-
-    for line in lines[1:]:
-        line = line.strip()
-        if line.lower().startswith("args:"):
-            in_args_section = True
-            continue
-        elif line.lower().startswith(
-            ("returns:", "return:", "raises:", "raise:", "examples:", "example:")
-        ):
-            in_args_section = False
-            continue
-        elif in_args_section and line and ":" in line:
-            # Parse parameter description like "location: The location to fetch the weather for."
-            param_name, param_desc = line.split(":", 1)
-            param_descriptions[param_name.strip()] = param_desc.strip()
-
-    return description, param_descriptions
+    # Return the entire docstring as description
+    # param_descriptions is kept for backward compatibility but is not used
+    return doc.strip(), {}
 
 
 def _create_parameter_schema_from_signature(func):
