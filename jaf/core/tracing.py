@@ -407,6 +407,7 @@ class LangfuseTraceCollector:
         httpx_client: Optional[httpx.Client] = None,
         proxy: Optional[str] = None,
         timeout: Optional[int] = None,
+        include_system_prompt: bool = False,
     ):
         """Initialize Langfuse trace collector.
 
@@ -417,6 +418,7 @@ class LangfuseTraceCollector:
                   Only used if httpx_client is not provided.
                   Falls back to LANGFUSE_PROXY environment variable.
             timeout: Optional timeout in seconds for HTTP requests. Defaults to 10.
+            include_system_prompt: Whether to include system prompt in trace metadata. Defaults to False.
         """
         public_key = os.environ.get("LANGFUSE_PUBLIC_KEY")
         secret_key = os.environ.get("LANGFUSE_SECRET_KEY")
@@ -471,6 +473,7 @@ class LangfuseTraceCollector:
             httpx_client=client,
         )
         self._httpx_client = client
+        self.include_system_prompt = include_system_prompt
 
         # Detect Langfuse version (v2 has trace() method, v3 does not)
         self._is_langfuse_v3 = not hasattr(self.langfuse, "trace")
@@ -741,6 +744,17 @@ class LangfuseTraceCollector:
                                 f"[LANGFUSE DEBUG] Added to conversation history: role={role}, content_length={len(str(content))}, has_tool_calls={bool(msg_data.get('tool_calls'))}"
                             )
 
+                # Extract system prompt from context if enabled
+                system_prompt = None
+                if self.include_system_prompt and context:
+                    if isinstance(context, dict):
+                        system_prompt = context.get("system_prompt")
+                    elif hasattr(context, "system_prompt"):
+                        system_prompt = context.system_prompt
+
+                    if system_prompt:
+                        print(f"[LANGFUSE DEBUG] Extracted system_prompt: {system_prompt[:100] if isinstance(system_prompt, str) else system_prompt}...")
+
                 print(
                     f"[LANGFUSE DEBUG] Final extracted - user_query: {user_query}, user_id: {user_id}"
                 )
@@ -778,6 +792,27 @@ class LangfuseTraceCollector:
                 # Extract agent_name for tagging
                 agent_name = self._get_event_data(event, "agent_name") or "analytics_agent_jaf"
 
+                # Build metadata with optional system_prompt
+                metadata = {
+                    "framework": "jaf",
+                    "event_type": "run_start",
+                    "trace_id": str(trace_id),
+                    "user_query": user_query,
+                    "user_id": user_id or self._get_event_data(event, "user_id"),
+                    "agent_name": agent_name,
+                    "conversation_history": conversation_history,
+                    "tool_calls": [],
+                    "tool_results": [],
+                    "user_info": self._get_event_data(event, "context").user_info
+                    if self._get_event_data(event, "context")
+                    and hasattr(self._get_event_data(event, "context"), "user_info")
+                    else None,
+                }
+
+                # Add system_prompt to metadata if enabled and available
+                if self.include_system_prompt and system_prompt:
+                    metadata["system_prompt"] = system_prompt
+
                 # Use compatibility layer to create trace (works with both v2 and v3)
                 trace = self._create_trace(
                     trace_id=trace_id,
@@ -786,27 +821,15 @@ class LangfuseTraceCollector:
                     session_id=self._get_event_data(event, "session_id"),
                     input=trace_input,
                     tags=[agent_name],  # Add agent_name as a tag for dashboard filtering
-                    metadata={
-                        "framework": "jaf",
-                        "event_type": "run_start",
-                        "trace_id": str(trace_id),
-                        "user_query": user_query,
-                        "user_id": user_id or self._get_event_data(event, "user_id"),
-                        "agent_name": agent_name,
-                        "conversation_history": conversation_history,
-                        "tool_calls": [],
-                        "tool_results": [],
-                        "user_info": self._get_event_data(event, "context").user_info
-                        if self._get_event_data(event, "context")
-                        and hasattr(self._get_event_data(event, "context"), "user_info")
-                        else None,
-                    },
+                    metadata=metadata,
                 )
                 self.trace_spans[trace_id] = trace
-                # Store user_id, user_query, and conversation_history for later use
+                # Store user_id, user_query, conversation_history, and system_prompt for later use
                 trace._user_id = user_id or self._get_event_data(event, "user_id")
                 trace._user_query = user_query
                 trace._conversation_history = conversation_history
+                if self.include_system_prompt:
+                    trace._system_prompt = system_prompt
                 print(
                     f"[LANGFUSE] Created trace with user query: {user_query[:100] if user_query else 'None'}..."
                 )
@@ -832,6 +855,12 @@ class LangfuseTraceCollector:
                         "tool_calls": self.trace_tool_calls.get(trace_id, []),
                         "tool_results": self.trace_tool_results.get(trace_id, []),
                     }
+
+                    # Add system_prompt to final metadata if enabled and available
+                    if self.include_system_prompt:
+                        system_prompt = getattr(self.trace_spans[trace_id], "_system_prompt", None)
+                        if system_prompt:
+                            final_metadata["system_prompt"] = system_prompt
 
                     # End the trace with updated metadata
                     self.trace_spans[trace_id].update(output=event.data, metadata=final_metadata)
@@ -1198,6 +1227,7 @@ def create_composite_trace_collector(
     otel_session: Optional[Any] = None,
     proxy: Optional[str] = None,
     timeout: Optional[int] = None,
+    include_system_prompt: bool = False,
 ) -> TraceCollector:
     """Create a composite trace collector that forwards events to multiple collectors.
 
@@ -1213,6 +1243,7 @@ def create_composite_trace_collector(
                If not set, both respect standard HTTP_PROXY/HTTPS_PROXY environment variables.
         timeout: Optional timeout in seconds for HTTP requests (applies to both Langfuse and OTEL).
                 For Langfuse: Falls back to LANGFUSE_TIMEOUT environment variable (default: 10).
+        include_system_prompt: Whether to include system prompt in Langfuse trace metadata. Defaults to False.
     """
     collector_list = list(collectors)
 
@@ -1229,7 +1260,7 @@ def create_composite_trace_collector(
     # Automatically add Langfuse collector if keys are configured
     if os.getenv("LANGFUSE_PUBLIC_KEY") and os.getenv("LANGFUSE_SECRET_KEY"):
         langfuse_collector = LangfuseTraceCollector(
-            httpx_client=httpx_client, proxy=proxy, timeout=timeout
+            httpx_client=httpx_client, proxy=proxy, timeout=timeout, include_system_prompt=include_system_prompt
         )
         collector_list.append(langfuse_collector)
 
