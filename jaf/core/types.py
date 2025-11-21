@@ -1115,6 +1115,12 @@ class RunConfig(Generic[Ctx]):
             Union[ModelCompletionResponse, Awaitable[ModelCompletionResponse]],
         ]
     ] = None  # Callback after LLM call - can process response
+    before_memory_store: Optional[
+        Callable[
+            [List[Message], RunState[Ctx]],
+            Union[List[Message], Awaitable[List[Message]]],
+        ]
+    ] = None 
     max_empty_response_retries: int = 3  # Maximum retries when LLM returns empty response
     empty_response_retry_delay: float = (
         1.0  # Initial delay in seconds before retrying empty response (uses exponential backoff)

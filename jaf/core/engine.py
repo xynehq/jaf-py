@@ -395,6 +395,17 @@ async def _store_conversation_history(state: RunState[Ctx], config: RunConfig[Ct
         )
 
     messages_to_store = list(state.messages)
+
+    if config.before_memory_store:
+        if asyncio.iscoroutinefunction(config.before_memory_store):
+            messages_to_store = await config.before_memory_store(messages_to_store, state)
+        else:
+            result = config.before_memory_store(messages_to_store, state)
+            if asyncio.iscoroutine(result):
+                messages_to_store = await result
+            else:
+                messages_to_store = result
+
     if (
         config.memory.compression_threshold
         and len(messages_to_store) > config.memory.compression_threshold
