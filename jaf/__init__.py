@@ -201,7 +201,7 @@ def generate_run_id() -> RunId:
     return create_run_id(str(uuid.uuid4()))
 
 
-__version__ = "2.6.1"
+__version__ = "2.6.2"
 __all__ = [
     # Core types and functions
     "TraceId",
