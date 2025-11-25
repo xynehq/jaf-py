@@ -540,6 +540,30 @@ def make_litellm_provider(
     return LiteLLMProvider()
 
 
+def _normalize_model_name(model_name: str) -> str:
+    """
+    Normalize LiteLLM model names to Langfuse-compatible format.
+
+    Removes provider prefixes so that Langfuse can match the model name
+    with its internal pricing database.
+
+    Args:
+        model_name: Model name from LiteLLM response (may include provider prefix)
+
+    Returns:
+        Normalized model name without provider prefix
+
+    Examples:
+        anthropic/claude-3-sonnet-20240229 → claude-3-sonnet-20240229
+        gemini/gemini-pro → gemini-pro
+        azure/gpt-4 → gpt-4
+        gpt-4-turbo → gpt-4-turbo (unchanged)
+    """
+    if '/' in model_name:
+        return model_name.split('/', 1)[1]
+    return model_name
+
+
 def make_litellm_sdk_provider(
     api_key: Optional[str] = None,
     model: str = "gpt-3.5-turbo",
@@ -718,7 +742,7 @@ def make_litellm_sdk_provider(
             return {
                 "id": response.id,
                 "created": response.created,
-                "model": response.model,
+                "model": _normalize_model_name(response.model),
                 "system_fingerprint": getattr(response, "system_fingerprint", None),
                 "message": {"content": choice.message.content, "tool_calls": tool_calls},
                 "usage": usage_data,
