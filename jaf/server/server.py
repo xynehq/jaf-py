@@ -220,7 +220,7 @@ def _convert_core_message_to_http(core_msg: Message) -> HttpMessage:
         content=content,
         attachments=attachments,
         tool_call_id=core_msg.tool_call_id,
-        tool_calls=core_msg.tool_calls,
+        tool_calls=[asdict(tc) for tc in core_msg.tool_calls] if core_msg.tool_calls else None,
     )
 
 
