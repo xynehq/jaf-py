@@ -469,7 +469,7 @@ class LangfuseTraceCollector:
             public_key=public_key,
             secret_key=secret_key,
             host=host,
-            release="jaf-py-v2.6.2",
+            release="jaf-py-v2.6.3",
             httpx_client=client,
         )
         self._httpx_client = client
