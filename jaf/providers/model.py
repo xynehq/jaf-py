@@ -801,16 +801,36 @@ def make_litellm_sdk_provider(
             if self.base_url:
                 request_params["api_base"] = self.base_url
 
+            # Request usage data in streaming chunks
+            request_params["stream_options"] = {"include_usage": True}
+
             # Stream using litellm
             stream = await litellm.acompletion(**request_params)
+
+            # Variables to accumulate usage and model from streaming chunks
+            accumulated_usage = None
+            response_model = None
 
             async for chunk in stream:
                 try:
                     # Best-effort extraction of raw for debugging
                     try:
                         raw_obj = chunk.model_dump() if hasattr(chunk, "model_dump") else None
+                        
+                        # Capture usage from chunk if present
+                        if raw_obj and "usage" in raw_obj and raw_obj["usage"]:
+                            accumulated_usage = raw_obj["usage"]
+                        
+                        # Capture model from chunk if present
+                        if raw_obj and "model" in raw_obj and raw_obj["model"]:
+                            response_model = raw_obj["model"]
+                            
                     except Exception:
                         raw_obj = None
+
+                    if raw_obj and "usage" in raw_obj and raw_obj["usage"]:
+                        # Yield this chunk so engine.py can capture usage from raw
+                        yield CompletionStreamChunk(delta="", raw=raw_obj)
 
                     choice = None
                     if getattr(chunk, "choices", None):
@@ -826,6 +846,12 @@ def make_litellm_sdk_provider(
                     if delta is not None:
                         content_delta = getattr(delta, "content", None)
                         if content_delta:
+                            # Include accumulated usage and model in raw_obj for engine
+                            if raw_obj and (accumulated_usage or response_model):
+                                if accumulated_usage:
+                                    raw_obj["usage"] = accumulated_usage
+                                if response_model:
+                                    raw_obj["model"] = response_model
                             yield CompletionStreamChunk(delta=content_delta, raw=raw_obj)
 
                         # Tool call deltas
@@ -840,6 +866,13 @@ def make_litellm_sdk_provider(
                                     args_delta = (
                                         getattr(fn, "arguments", None) if fn is not None else None
                                     )
+
+                                    # Include accumulated usage and model in raw_obj
+                                    if raw_obj and (accumulated_usage or response_model):
+                                        if accumulated_usage:
+                                            raw_obj["usage"] = accumulated_usage
+                                        if response_model:
+                                            raw_obj["model"] = response_model
 
                                     yield CompletionStreamChunk(
                                         tool_call_delta=ToolCallDelta(
@@ -857,6 +890,12 @@ def make_litellm_sdk_provider(
 
                     # Completion ended
                     if finish_reason:
+                        # Include accumulated usage and model in final chunk
+                        if raw_obj and (accumulated_usage or response_model):
+                            if accumulated_usage:
+                                raw_obj["usage"] = accumulated_usage
+                            if response_model:
+                                raw_obj["model"] = response_model
                         yield CompletionStreamChunk(
                             is_done=True, finish_reason=finish_reason, raw=raw_obj
                         )
