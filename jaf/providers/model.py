@@ -706,21 +706,37 @@ def make_litellm_sdk_provider(
                     for tc in choice.message.tool_calls
                 ]
 
-            # Extract usage data
-            usage_data = None
+            # Extract usage data - ALWAYS return a dict with defaults for Langfuse cost tracking
+            # Initialize with zeros as defensive default (matches AzureDirectProvider pattern)
+            usage_data = {
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+            }
+            
+            actual_model = getattr(response, "model", model_name)
+            
             if response.usage:
                 usage_data = {
                     "prompt_tokens": response.usage.prompt_tokens,
                     "completion_tokens": response.usage.completion_tokens,
                     "total_tokens": response.usage.total_tokens,
                 }
-
+            
+            message_content = {
+                "content": choice.message.content,
+                "tool_calls": tool_calls,
+                # CRITICAL: Embed usage and model here so trace collector can find them
+                "_usage": usage_data,
+                "_model": actual_model,
+            }
+            
             return {
                 "id": response.id,
                 "created": response.created,
-                "model": response.model,
+                "model": actual_model,
                 "system_fingerprint": getattr(response, "system_fingerprint", None),
-                "message": {"content": choice.message.content, "tool_calls": tool_calls},
+                "message": message_content,
                 "usage": usage_data,
                 "prompt": messages,
             }
@@ -769,6 +785,7 @@ def make_litellm_sdk_provider(
                 "model": model_name,
                 "messages": messages,
                 "stream": True,
+                "stream_options": {"include_usage": True},  # Request usage data in streaming
                 **self.litellm_kwargs,
             }
 
@@ -803,14 +820,30 @@ def make_litellm_sdk_provider(
 
             # Stream using litellm
             stream = await litellm.acompletion(**request_params)
+          
+            accumulated_usage: Optional[Dict[str, int]] = None
+            response_model: Optional[str] = None
 
             async for chunk in stream:
                 try:
                     # Best-effort extraction of raw for debugging
                     try:
                         raw_obj = chunk.model_dump() if hasattr(chunk, "model_dump") else None
-                    except Exception:
+                        
+                        # Capture usage from chunk if present
+                        if raw_obj and "usage" in raw_obj and raw_obj["usage"]:
+                            accumulated_usage = raw_obj["usage"]
+                        
+                        # Capture model from chunk if present
+                        if raw_obj and "model" in raw_obj and raw_obj["model"]:
+                            response_model = raw_obj["model"]
+                            
+                    except Exception as e:
                         raw_obj = None
+
+                    if raw_obj and "usage" in raw_obj and raw_obj["usage"]:
+                        # Yield this chunk so engine.py can capture usage from raw
+                        yield CompletionStreamChunk(delta="", raw=raw_obj)
 
                     choice = None
                     if getattr(chunk, "choices", None):
@@ -826,6 +859,12 @@ def make_litellm_sdk_provider(
                     if delta is not None:
                         content_delta = getattr(delta, "content", None)
                         if content_delta:
+                            # Include accumulated usage and model in raw_obj for engine
+                            if raw_obj and (accumulated_usage or response_model):
+                                if accumulated_usage:
+                                    raw_obj["usage"] = accumulated_usage
+                                if response_model:
+                                    raw_obj["model"] = response_model
                             yield CompletionStreamChunk(delta=content_delta, raw=raw_obj)
 
                         # Tool call deltas
@@ -840,6 +879,13 @@ def make_litellm_sdk_provider(
                                     args_delta = (
                                         getattr(fn, "arguments", None) if fn is not None else None
                                     )
+
+                                    # Include accumulated usage and model in raw_obj
+                                    if raw_obj and (accumulated_usage or response_model):
+                                        if accumulated_usage:
+                                            raw_obj["usage"] = accumulated_usage
+                                        if response_model:
+                                            raw_obj["model"] = response_model
 
                                     yield CompletionStreamChunk(
                                         tool_call_delta=ToolCallDelta(
@@ -857,6 +903,12 @@ def make_litellm_sdk_provider(
 
                     # Completion ended
                     if finish_reason:
+                        # Include accumulated usage and model in final chunk
+                        if raw_obj and (accumulated_usage or response_model):
+                            if accumulated_usage:
+                                raw_obj["usage"] = accumulated_usage
+                            if response_model:
+                                raw_obj["model"] = response_model
                         yield CompletionStreamChunk(
                             is_done=True, finish_reason=finish_reason, raw=raw_obj
                         )

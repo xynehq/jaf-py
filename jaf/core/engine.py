@@ -692,8 +692,19 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
                 aggregated_text = ""
                 # Working array of partial tool calls
                 partial_tool_calls: List[Dict[str, Any]] = []
+                # Capture usage and model from streaming chunks
+                stream_usage: Optional[Dict[str, int]] = None
+                stream_model: Optional[str] = None
 
                 async for chunk in get_stream(state, current_agent, config):  # type: ignore[arg-type]
+                    # Extract usage and model from raw chunk if available
+                    raw_chunk = getattr(chunk, "raw", None)
+                    if raw_chunk:
+                        if not stream_usage and "usage" in raw_chunk and raw_chunk["usage"]:
+                            stream_usage = raw_chunk["usage"]
+                        if not stream_model and "model" in raw_chunk and raw_chunk["model"]:
+                            stream_model = raw_chunk["model"]
+                    
                     # Text deltas
                     delta_text = getattr(chunk, "delta", None)
                     if delta_text:
@@ -803,6 +814,13 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
                 llm_response = {
                     "message": {"content": aggregated_text or None, "tool_calls": final_tool_calls}
                 }
+
+                # Preserve usage and model from streaming if captured
+                if stream_usage:
+                    llm_response["usage"] = stream_usage
+                if stream_model:
+                    llm_response["model"] = stream_model
+                    
             except Exception:
                 # Fallback to non-streaming on error
                 assistant_event_streamed = False
