@@ -911,18 +911,18 @@ class LangfuseTraceCollector:
                     print(f"[LANGFUSE] Ending generation for LLM call")
                     # End the generation
                     generation = self.active_spans[span_id]
+
+                    
                     choice = self._get_event_data(event, "choice", {})
-
-                    # Extract usage from the event data
                     usage = self._get_event_data(event, "usage", {})
-
-                    # Extract model information from choice data or event data
-                    model = choice.get("model", "unknown")
-                    if model == "unknown":
-                        # Try to get model from the choice response structure
-                        if isinstance(choice, dict):
-                            model = choice.get("model") or choice.get("id", "unknown")
-
+                    model = self._get_event_data(event, "model", "unknown")
+                    
+                    # Also try to get model from the choice if not at top level
+                    if model == "unknown" and isinstance(choice, dict):
+                        model = choice.get("model", "unknown")
+                    
+                    print(f"[LANGFUSE] Extracted - model: '{model}', usage: {usage}")
+                    
                     # Convert to Langfuse v2 format - let Langfuse handle cost calculation automatically
                     langfuse_usage = None
                     if usage:

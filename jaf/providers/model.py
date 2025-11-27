@@ -706,7 +706,8 @@ def make_litellm_sdk_provider(
                     for tc in choice.message.tool_calls
                 ]
 
-            # Extract usage data with defensive defaults
+            # Extract usage data - ALWAYS return a dict with defaults for Langfuse cost tracking
+            # Initialize with zeros as defensive default (matches AzureDirectProvider pattern)
             usage_data = {
                 "prompt_tokens": 0,
                 "completion_tokens": 0,
@@ -725,6 +726,7 @@ def make_litellm_sdk_provider(
             message_content = {
                 "content": choice.message.content,
                 "tool_calls": tool_calls,
+                # CRITICAL: Embed usage and model here so trace collector can find them
                 "_usage": usage_data,
                 "_model": actual_model,
             }
@@ -836,7 +838,7 @@ def make_litellm_sdk_provider(
                         if raw_obj and "model" in raw_obj and raw_obj["model"]:
                             response_model = raw_obj["model"]
                             
-                    except Exception:
+                    except Exception as e:
                         raw_obj = None
 
                     if raw_obj and "usage" in raw_obj and raw_obj["usage"]:
