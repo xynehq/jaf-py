@@ -706,21 +706,35 @@ def make_litellm_sdk_provider(
                     for tc in choice.message.tool_calls
                 ]
 
-            # Extract usage data
-            usage_data = None
+            # Extract usage data with defensive defaults
+            usage_data = {
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+            }
+            
+            actual_model = getattr(response, "model", model_name)
+            
             if response.usage:
                 usage_data = {
                     "prompt_tokens": response.usage.prompt_tokens,
                     "completion_tokens": response.usage.completion_tokens,
                     "total_tokens": response.usage.total_tokens,
                 }
-
+            
+            message_content = {
+                "content": choice.message.content,
+                "tool_calls": tool_calls,
+                "_usage": usage_data,
+                "_model": actual_model,
+            }
+            
             return {
                 "id": response.id,
                 "created": response.created,
-                "model": response.model,
+                "model": actual_model,
                 "system_fingerprint": getattr(response, "system_fingerprint", None),
-                "message": {"content": choice.message.content, "tool_calls": tool_calls},
+                "message": message_content,
                 "usage": usage_data,
                 "prompt": messages,
             }
@@ -769,6 +783,7 @@ def make_litellm_sdk_provider(
                 "model": model_name,
                 "messages": messages,
                 "stream": True,
+                "stream_options": {"include_usage": True},  # Request usage data in streaming
                 **self.litellm_kwargs,
             }
 
@@ -801,15 +816,11 @@ def make_litellm_sdk_provider(
             if self.base_url:
                 request_params["api_base"] = self.base_url
 
-            # Request usage data in streaming chunks
-            request_params["stream_options"] = {"include_usage": True}
-
             # Stream using litellm
             stream = await litellm.acompletion(**request_params)
-
-            # Variables to accumulate usage and model from streaming chunks
-            accumulated_usage = None
-            response_model = None
+          
+            accumulated_usage: Optional[Dict[str, int]] = None
+            response_model: Optional[str] = None
 
             async for chunk in stream:
                 try:
