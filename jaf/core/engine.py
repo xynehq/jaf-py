@@ -704,7 +704,7 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
                             stream_usage = raw_chunk["usage"]
                         if not stream_model and "model" in raw_chunk and raw_chunk["model"]:
                             stream_model = raw_chunk["model"]
-                    
+
                     # Text deltas
                     delta_text = getattr(chunk, "delta", None)
                     if delta_text:
@@ -820,7 +820,7 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
                     llm_response["usage"] = stream_usage
                 if stream_model:
                     llm_response["model"] = stream_model
-                    
+
             except Exception:
                 # Fallback to non-streaming on error
                 assistant_event_streamed = False

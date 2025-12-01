@@ -1129,7 +1129,9 @@ class RunConfig(Generic[Ctx]):
     agent_registry: Dict[str, Agent[Ctx, Any]]
     model_provider: ModelProvider[Ctx]
     max_turns: Optional[int] = 50
-    max_tokens: Optional[int] = None  # Default max_tokens for all agents (can be overridden per agent)
+    max_tokens: Optional[int] = (
+        None  # Default max_tokens for all agents (can be overridden per agent)
+    )
     model_override: Optional[str] = None
     initial_input_guardrails: Optional[List[Guardrail]] = None
     final_output_guardrails: Optional[List[Guardrail]] = None
@@ -1153,7 +1155,7 @@ class RunConfig(Generic[Ctx]):
             [List[Message], RunState[Ctx]],
             Union[List[Message], Awaitable[List[Message]]],
         ]
-    ] = None 
+    ] = None
     max_empty_response_retries: int = 3  # Maximum retries when LLM returns empty response
     empty_response_retry_delay: float = (
         1.0  # Initial delay in seconds before retrying empty response (uses exponential backoff)
@@ -1164,8 +1166,12 @@ class RunConfig(Generic[Ctx]):
     )
     # Model fallback configuration
     fallbacks: Optional[List[str]] = None  # List of fallback models to try if primary model fails
-    content_policy_fallbacks: Optional[List[str]] = None  # Fallback models for content policy violations
-    context_window_fallbacks: Optional[List[str]] = None  # Fallback models for context window exceeded errors
+    content_policy_fallbacks: Optional[List[str]] = (
+        None  # Fallback models for content policy violations
+    )
+    context_window_fallbacks: Optional[List[str]] = (
+        None  # Fallback models for context window exceeded errors
+    )
 
 
 # Regeneration types for conversation management

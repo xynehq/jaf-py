@@ -130,7 +130,8 @@ def _classify_error_for_fallback(e: Exception) -> tuple[str, str]:
 
     # Check for content policy violations
     if (
-        "content" in error_message and ("policy" in error_message or "filter" in error_message)
+        "content" in error_message
+        and ("policy" in error_message or "filter" in error_message)
         or "contentpolicyviolation" in error_type.lower()
         or "content_filter" in error_message
         or "safety" in error_message
@@ -139,12 +140,14 @@ def _classify_error_for_fallback(e: Exception) -> tuple[str, str]:
 
     # Check for context window exceeded
     if (
-        "context" in error_message and "window" in error_message
+        "context" in error_message
+        and "window" in error_message
         or "too long" in error_message
         or "maximum context" in error_message
         or "contextwindowexceeded" in error_type.lower()
         or "prompt is too long" in error_message
-        or "tokens" in error_message and "limit" in error_message
+        or "tokens" in error_message
+        and "limit" in error_message
     ):
         return ("context_window", "Context Window Exceeded")
 
@@ -403,7 +406,12 @@ def make_litellm_provider(
 
                 # Use retry wrapper to track retries in Langfuse
                 return await _retry_with_events(
-                    _api_call, state, config, operation_name="llm_call", max_retries=3, backoff_factor=1.0
+                    _api_call,
+                    state,
+                    config,
+                    operation_name="llm_call",
+                    max_retries=3,
+                    backoff_factor=1.0,
                 )
 
             # Try primary model first
@@ -462,7 +470,9 @@ def make_litellm_provider(
                             # Try the fallback model
                             response = await _make_completion_call(fallback_model)
                             current_model = fallback_model
-                            print(f"[JAF:FALLBACK] Successfully used fallback model: {fallback_model}")
+                            print(
+                                f"[JAF:FALLBACK] Successfully used fallback model: {fallback_model}"
+                            )
                             break  # Success - exit the fallback loop
 
                         except Exception as fallback_error:
@@ -507,26 +517,40 @@ def make_litellm_provider(
 
                 # Extract cache-related fields if available (for prompt caching support)
                 if hasattr(response.usage, "cache_creation_input_tokens"):
-                    usage_data["cache_creation_input_tokens"] = response.usage.cache_creation_input_tokens
+                    usage_data["cache_creation_input_tokens"] = (
+                        response.usage.cache_creation_input_tokens
+                    )
                 if hasattr(response.usage, "cache_read_input_tokens"):
                     usage_data["cache_read_input_tokens"] = response.usage.cache_read_input_tokens
 
                 # Extract detailed token breakdowns
-                if hasattr(response.usage, "prompt_tokens_details") and response.usage.prompt_tokens_details:
+                if (
+                    hasattr(response.usage, "prompt_tokens_details")
+                    and response.usage.prompt_tokens_details
+                ):
                     details = {}
                     if hasattr(response.usage.prompt_tokens_details, "cached_tokens"):
-                        details["cached_tokens"] = response.usage.prompt_tokens_details.cached_tokens
+                        details["cached_tokens"] = (
+                            response.usage.prompt_tokens_details.cached_tokens
+                        )
                     if hasattr(response.usage.prompt_tokens_details, "audio_tokens"):
                         details["audio_tokens"] = response.usage.prompt_tokens_details.audio_tokens
                     if details:
                         usage_data["prompt_tokens_details"] = details
 
-                if hasattr(response.usage, "completion_tokens_details") and response.usage.completion_tokens_details:
+                if (
+                    hasattr(response.usage, "completion_tokens_details")
+                    and response.usage.completion_tokens_details
+                ):
                     details = {}
                     if hasattr(response.usage.completion_tokens_details, "reasoning_tokens"):
-                        details["reasoning_tokens"] = response.usage.completion_tokens_details.reasoning_tokens
+                        details["reasoning_tokens"] = (
+                            response.usage.completion_tokens_details.reasoning_tokens
+                        )
                     if hasattr(response.usage.completion_tokens_details, "audio_tokens"):
-                        details["audio_tokens"] = response.usage.completion_tokens_details.audio_tokens
+                        details["audio_tokens"] = (
+                            response.usage.completion_tokens_details.audio_tokens
+                        )
                     if details:
                         usage_data["completion_tokens_details"] = details
 
@@ -838,7 +862,12 @@ def make_litellm_sdk_provider(
 
             # Use retry wrapper to track retries in Langfuse
             response = await _retry_with_events(
-                _api_call, state, config, operation_name="llm_call", max_retries=3, backoff_factor=1.0
+                _api_call,
+                state,
+                config,
+                operation_name="llm_call",
+                max_retries=3,
+                backoff_factor=1.0,
             )
 
             # Return in the expected format that the engine expects
@@ -863,16 +892,55 @@ def make_litellm_sdk_provider(
                 "completion_tokens": 0,
                 "total_tokens": 0,
             }
-            
+
             actual_model = getattr(response, "model", model_name)
-            
+
             if response.usage:
                 usage_data = {
                     "prompt_tokens": response.usage.prompt_tokens,
                     "completion_tokens": response.usage.completion_tokens,
                     "total_tokens": response.usage.total_tokens,
                 }
-            
+
+                # Extract cache-related fields if available (for prompt caching support)
+                if hasattr(response.usage, "cache_creation_input_tokens"):
+                    usage_data["cache_creation_input_tokens"] = (
+                        response.usage.cache_creation_input_tokens
+                    )
+                if hasattr(response.usage, "cache_read_input_tokens"):
+                    usage_data["cache_read_input_tokens"] = response.usage.cache_read_input_tokens
+
+                # Extract detailed token breakdowns
+                if (
+                    hasattr(response.usage, "prompt_tokens_details")
+                    and response.usage.prompt_tokens_details
+                ):
+                    details = {}
+                    if hasattr(response.usage.prompt_tokens_details, "cached_tokens"):
+                        details["cached_tokens"] = (
+                            response.usage.prompt_tokens_details.cached_tokens
+                        )
+                    if hasattr(response.usage.prompt_tokens_details, "audio_tokens"):
+                        details["audio_tokens"] = response.usage.prompt_tokens_details.audio_tokens
+                    if details:
+                        usage_data["prompt_tokens_details"] = details
+
+                if (
+                    hasattr(response.usage, "completion_tokens_details")
+                    and response.usage.completion_tokens_details
+                ):
+                    details = {}
+                    if hasattr(response.usage.completion_tokens_details, "reasoning_tokens"):
+                        details["reasoning_tokens"] = (
+                            response.usage.completion_tokens_details.reasoning_tokens
+                        )
+                    if hasattr(response.usage.completion_tokens_details, "audio_tokens"):
+                        details["audio_tokens"] = (
+                            response.usage.completion_tokens_details.audio_tokens
+                        )
+                    if details:
+                        usage_data["completion_tokens_details"] = details
+
             message_content = {
                 "content": choice.message.content,
                 "tool_calls": tool_calls,
@@ -880,31 +948,6 @@ def make_litellm_sdk_provider(
                 "_usage": usage_data,
                 "_model": actual_model,
             }
-            
-                # Extract cache-related fields if available (for prompt caching support)
-                if hasattr(response.usage, "cache_creation_input_tokens"):
-                    usage_data["cache_creation_input_tokens"] = response.usage.cache_creation_input_tokens
-                if hasattr(response.usage, "cache_read_input_tokens"):
-                    usage_data["cache_read_input_tokens"] = response.usage.cache_read_input_tokens
-
-                # Extract detailed token breakdowns
-                if hasattr(response.usage, "prompt_tokens_details") and response.usage.prompt_tokens_details:
-                    details = {}
-                    if hasattr(response.usage.prompt_tokens_details, "cached_tokens"):
-                        details["cached_tokens"] = response.usage.prompt_tokens_details.cached_tokens
-                    if hasattr(response.usage.prompt_tokens_details, "audio_tokens"):
-                        details["audio_tokens"] = response.usage.prompt_tokens_details.audio_tokens
-                    if details:
-                        usage_data["prompt_tokens_details"] = details
-
-                if hasattr(response.usage, "completion_tokens_details") and response.usage.completion_tokens_details:
-                    details = {}
-                    if hasattr(response.usage.completion_tokens_details, "reasoning_tokens"):
-                        details["reasoning_tokens"] = response.usage.completion_tokens_details.reasoning_tokens
-                    if hasattr(response.usage.completion_tokens_details, "audio_tokens"):
-                        details["audio_tokens"] = response.usage.completion_tokens_details.audio_tokens
-                    if details:
-                        usage_data["completion_tokens_details"] = details
 
             return {
                 "id": response.id,
@@ -995,7 +1038,7 @@ def make_litellm_sdk_provider(
 
             # Stream using litellm
             stream = await litellm.acompletion(**request_params)
-          
+
             accumulated_usage: Optional[Dict[str, int]] = None
             response_model: Optional[str] = None
 
@@ -1004,15 +1047,15 @@ def make_litellm_sdk_provider(
                     # Best-effort extraction of raw for debugging
                     try:
                         raw_obj = chunk.model_dump() if hasattr(chunk, "model_dump") else None
-                        
+
                         # Capture usage from chunk if present
                         if raw_obj and "usage" in raw_obj and raw_obj["usage"]:
                             accumulated_usage = raw_obj["usage"]
-                        
+
                         # Capture model from chunk if present
                         if raw_obj and "model" in raw_obj and raw_obj["model"]:
                             response_model = raw_obj["model"]
-                            
+
                     except Exception as e:
                         raw_obj = None
 

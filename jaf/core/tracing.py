@@ -753,7 +753,9 @@ class LangfuseTraceCollector:
                         system_prompt = context.system_prompt
 
                     if system_prompt:
-                        print(f"[LANGFUSE DEBUG] Extracted system_prompt: {system_prompt[:100] if isinstance(system_prompt, str) else system_prompt}...")
+                        print(
+                            f"[LANGFUSE DEBUG] Extracted system_prompt: {system_prompt[:100] if isinstance(system_prompt, str) else system_prompt}..."
+                        )
 
                 print(
                     f"[LANGFUSE DEBUG] Final extracted - user_query: {user_query}, user_id: {user_id}"
@@ -912,17 +914,16 @@ class LangfuseTraceCollector:
                     # End the generation
                     generation = self.active_spans[span_id]
 
-                    
                     choice = self._get_event_data(event, "choice", {})
                     usage = self._get_event_data(event, "usage", {})
                     model = self._get_event_data(event, "model", "unknown")
-                    
+
                     # Also try to get model from the choice if not at top level
                     if model == "unknown" and isinstance(choice, dict):
                         model = choice.get("model", "unknown")
-                    
+
                     print(f"[LANGFUSE] Extracted - model: '{model}', usage: {usage}")
-                    
+
                     # Convert to Langfuse format with detailed cache information
                     langfuse_usage = None
                     if usage:
@@ -939,10 +940,17 @@ class LangfuseTraceCollector:
                         }
 
                         # Add cache-related fields if available (for prompt caching support)
-                        if "cache_creation_input_tokens" in usage and usage["cache_creation_input_tokens"]:
-                            langfuse_usage["cache_creation_input_tokens"] = usage["cache_creation_input_tokens"]
+                        if (
+                            "cache_creation_input_tokens" in usage
+                            and usage["cache_creation_input_tokens"]
+                        ):
+                            langfuse_usage["cache_creation_input_tokens"] = usage[
+                                "cache_creation_input_tokens"
+                            ]
                         if "cache_read_input_tokens" in usage and usage["cache_read_input_tokens"]:
-                            langfuse_usage["cache_read_input_tokens"] = usage["cache_read_input_tokens"]
+                            langfuse_usage["cache_read_input_tokens"] = usage[
+                                "cache_read_input_tokens"
+                            ]
 
                         # Add detailed token breakdowns if available
                         if "prompt_tokens_details" in usage and usage["prompt_tokens_details"]:
@@ -952,16 +960,19 @@ class LangfuseTraceCollector:
                             if "audio_tokens" in details and details["audio_tokens"]:
                                 langfuse_usage["input_audio_tokens"] = details["audio_tokens"]
 
-                        if "completion_tokens_details" in usage and usage["completion_tokens_details"]:
+                        if (
+                            "completion_tokens_details" in usage
+                            and usage["completion_tokens_details"]
+                        ):
                             details = usage["completion_tokens_details"]
                             if "reasoning_tokens" in details and details["reasoning_tokens"]:
-                                langfuse_usage["output_reasoning_tokens"] = details["reasoning_tokens"]
+                                langfuse_usage["output_reasoning_tokens"] = details[
+                                    "reasoning_tokens"
+                                ]
                             if "audio_tokens" in details and details["audio_tokens"]:
                                 langfuse_usage["output_audio_tokens"] = details["audio_tokens"]
 
-                        print(
-                            f"[LANGFUSE] Usage data with cache details: {langfuse_usage}"
-                        )
+                        print(f"[LANGFUSE] Usage data with cache details: {langfuse_usage}")
 
                     # Include model information in the generation end - Langfuse will calculate costs automatically
                     # Use compatibility wrapper for ending spans/generations
@@ -1282,7 +1293,10 @@ def create_composite_trace_collector(
     # Automatically add Langfuse collector if keys are configured
     if os.getenv("LANGFUSE_PUBLIC_KEY") and os.getenv("LANGFUSE_SECRET_KEY"):
         langfuse_collector = LangfuseTraceCollector(
-            httpx_client=httpx_client, proxy=proxy, timeout=timeout, include_system_prompt=include_system_prompt
+            httpx_client=httpx_client,
+            proxy=proxy,
+            timeout=timeout,
+            include_system_prompt=include_system_prompt,
         )
         collector_list.append(langfuse_collector)
 
