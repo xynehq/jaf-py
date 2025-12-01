@@ -1009,6 +1009,38 @@ class RetryEvent:
     )
 
 
+@dataclass(frozen=True)
+class FallbackEventData:
+    """Data for model fallback events."""
+
+    from_model: str  # Model that failed
+    to_model: str  # Fallback model being tried
+    reason: str  # Reason for fallback (e.g., "Content Policy Violation", "Context Window Exceeded", "Rate Limit")
+    fallback_type: Literal["general", "content_policy", "context_window"]  # Type of fallback
+    attempt: int  # Which fallback attempt this is (1-indexed)
+    trace_id: TraceId
+    run_id: RunId
+    error_details: Optional[Dict[str, Any]] = None  # Additional error context
+
+
+@dataclass(frozen=True)
+class FallbackEvent:
+    """Event emitted when a model fallback occurs."""
+
+    type: Literal["fallback"] = "fallback"
+    data: FallbackEventData = field(
+        default_factory=lambda: FallbackEventData(
+            from_model="",
+            to_model="",
+            reason="",
+            fallback_type="general",
+            attempt=1,
+            trace_id=TraceId(""),
+            run_id=RunId(""),
+        )
+    )
+
+
 # Union type for all trace events
 TraceEvent = Union[
     RunStartEvent,
@@ -1024,6 +1056,7 @@ TraceEvent = Union[
     HandoffEvent,
     RunEndEvent,
     RetryEvent,
+    FallbackEvent,
 ]
 
 
@@ -1096,7 +1129,9 @@ class RunConfig(Generic[Ctx]):
     agent_registry: Dict[str, Agent[Ctx, Any]]
     model_provider: ModelProvider[Ctx]
     max_turns: Optional[int] = 50
-    max_tokens: Optional[int] = None  # Default max_tokens for all agents (can be overridden per agent)
+    max_tokens: Optional[int] = (
+        None  # Default max_tokens for all agents (can be overridden per agent)
+    )
     model_override: Optional[str] = None
     initial_input_guardrails: Optional[List[Guardrail]] = None
     final_output_guardrails: Optional[List[Guardrail]] = None
@@ -1120,7 +1155,7 @@ class RunConfig(Generic[Ctx]):
             [List[Message], RunState[Ctx]],
             Union[List[Message], Awaitable[List[Message]]],
         ]
-    ] = None 
+    ] = None
     max_empty_response_retries: int = 3  # Maximum retries when LLM returns empty response
     empty_response_retry_delay: float = (
         1.0  # Initial delay in seconds before retrying empty response (uses exponential backoff)
@@ -1128,6 +1163,14 @@ class RunConfig(Generic[Ctx]):
     log_empty_responses: bool = True  # Whether to log diagnostic info for empty responses
     prefer_streaming: Optional[bool] = (
         None  # Whether to prefer streaming responses. None (default) = use streaming if available, True = prefer streaming, False = disable streaming
+    )
+    # Model fallback configuration
+    fallbacks: Optional[List[str]] = None  # List of fallback models to try if primary model fails
+    content_policy_fallbacks: Optional[List[str]] = (
+        None  # Fallback models for content policy violations
+    )
+    context_window_fallbacks: Optional[List[str]] = (
+        None  # Fallback models for context window exceeded errors
     )
 
 
