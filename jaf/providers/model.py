@@ -30,6 +30,8 @@ from ..core.types import (
     get_text_content,
     RetryEvent,
     RetryEventData,
+    FallbackEvent,
+    FallbackEventData,
 )
 from ..core.proxy import ProxyConfig
 from ..utils.document_processor import (
@@ -111,6 +113,52 @@ async def _is_vision_model(model: str, base_url: str) -> bool:
     _vision_model_cache[cache_key] = {"supports": is_known_vision_model, "timestamp": time.time()}
 
     return is_known_vision_model
+
+
+def _classify_error_for_fallback(e: Exception) -> tuple[str, str]:
+    """
+    Classify an error to determine the fallback type and reason.
+
+    Args:
+        e: Exception from model call
+
+    Returns:
+        Tuple of (fallback_type, reason)
+    """
+    error_message = str(e).lower()
+    error_type = type(e).__name__
+
+    # Check for content policy violations
+    if (
+        "content" in error_message and ("policy" in error_message or "filter" in error_message)
+        or "contentpolicyviolation" in error_type.lower()
+        or "content_filter" in error_message
+        or "safety" in error_message
+    ):
+        return ("content_policy", "Content Policy Violation")
+
+    # Check for context window exceeded
+    if (
+        "context" in error_message and "window" in error_message
+        or "too long" in error_message
+        or "maximum context" in error_message
+        or "contextwindowexceeded" in error_type.lower()
+        or "prompt is too long" in error_message
+        or "tokens" in error_message and "limit" in error_message
+    ):
+        return ("context_window", "Context Window Exceeded")
+
+    # Default to general fallback
+    if hasattr(e, "status_code"):
+        status_code = e.status_code
+        if status_code == 429:
+            return ("general", f"HTTP {status_code} - Rate Limit")
+        elif 500 <= status_code < 600:
+            return ("general", f"HTTP {status_code} - Server Error")
+        else:
+            return ("general", f"HTTP {status_code}")
+
+    return ("general", error_type)
 
 
 async def _retry_with_events(
@@ -259,10 +307,10 @@ def make_litellm_provider(
         async def get_completion(
             self, state: RunState[Ctx], agent: Agent[Ctx, Any], config: RunConfig[Ctx]
         ) -> Dict[str, Any]:
-            """Get completion from the model."""
+            """Get completion from the model with fallback support."""
 
-            # Determine model to use
-            model = config.model_override or (
+            # Determine initial model to use
+            primary_model = config.model_override or (
                 agent.model_config.name if agent.model_config else "gpt-4o"
             )
 
@@ -277,10 +325,10 @@ def make_litellm_provider(
             )
 
             if has_image_content:
-                supports_vision = await _is_vision_model(model, base_url)
+                supports_vision = await _is_vision_model(primary_model, base_url)
                 if not supports_vision:
                     raise ValueError(
-                        f"Model {model} does not support vision capabilities. "
+                        f"Model {primary_model} does not support vision capabilities. "
                         f"Please use a vision-capable model like gpt-4o, claude-3-5-sonnet, or gemini-1.5-pro."
                     )
 
@@ -322,39 +370,116 @@ def make_litellm_provider(
                 last_message.role == ContentRole.TOOL or last_message.role == "tool"
             )
 
-            # Prepare request parameters
-            request_params = {"model": model, "messages": messages, "stream": False}
+            # Helper function to make API call with a specific model
+            async def _make_completion_call(model_name: str) -> Dict[str, Any]:
+                # Prepare request parameters
+                request_params = {"model": model_name, "messages": messages, "stream": False}
 
-            # Add optional parameters
-            if agent.model_config:
-                if agent.model_config.temperature is not None:
-                    request_params["temperature"] = agent.model_config.temperature
-                # Use agent's max_tokens if set, otherwise fall back to config's max_tokens
-                max_tokens = agent.model_config.max_tokens
-                if max_tokens is None:
-                    max_tokens = config.max_tokens
-                if max_tokens is not None:
-                    request_params["max_tokens"] = max_tokens
-            elif config.max_tokens is not None:
-                # No model_config but config has max_tokens
-                request_params["max_tokens"] = config.max_tokens
+                # Add optional parameters
+                if agent.model_config:
+                    if agent.model_config.temperature is not None:
+                        request_params["temperature"] = agent.model_config.temperature
+                    # Use agent's max_tokens if set, otherwise fall back to config's max_tokens
+                    max_tokens = agent.model_config.max_tokens
+                    if max_tokens is None:
+                        max_tokens = config.max_tokens
+                    if max_tokens is not None:
+                        request_params["max_tokens"] = max_tokens
+                elif config.max_tokens is not None:
+                    # No model_config but config has max_tokens
+                    request_params["max_tokens"] = config.max_tokens
 
-            if tools:
-                request_params["tools"] = tools
-                # Always set tool_choice to auto when tools are available
-                request_params["tool_choice"] = "auto"
+                if tools:
+                    request_params["tools"] = tools
+                    # Always set tool_choice to auto when tools are available
+                    request_params["tool_choice"] = "auto"
 
-            if agent.output_codec:
-                request_params["response_format"] = {"type": "json_object"}
+                if agent.output_codec:
+                    request_params["response_format"] = {"type": "json_object"}
 
-            # Make the API call with retry handling
-            async def _api_call():
-                return await self.client.chat.completions.create(**request_params)
+                # Make the API call with retry handling
+                async def _api_call():
+                    return await self.client.chat.completions.create(**request_params)
 
-            # Use retry wrapper to track retries in Langfuse
-            response = await _retry_with_events(
-                _api_call, state, config, operation_name="llm_call", max_retries=3, backoff_factor=1.0
-            )
+                # Use retry wrapper to track retries in Langfuse
+                return await _retry_with_events(
+                    _api_call, state, config, operation_name="llm_call", max_retries=3, backoff_factor=1.0
+                )
+
+            # Try primary model first
+            last_exception = None
+            current_model = primary_model
+
+            try:
+                response = await _make_completion_call(current_model)
+            except Exception as e:
+                last_exception = e
+
+                # Classify the error to determine which fallback list to use
+                fallback_type, reason = _classify_error_for_fallback(e)
+
+                # Determine which fallback list to use
+                fallback_models = []
+                if fallback_type == "content_policy" and config.content_policy_fallbacks:
+                    fallback_models = config.content_policy_fallbacks
+                elif fallback_type == "context_window" and config.context_window_fallbacks:
+                    fallback_models = config.context_window_fallbacks
+                elif config.fallbacks:
+                    fallback_models = config.fallbacks
+
+                # Try fallback models
+                if fallback_models:
+                    print(
+                        f"[JAF:FALLBACK] Primary model '{current_model}' failed with {reason}. "
+                        f"Trying {len(fallback_models)} fallback model(s)..."
+                    )
+
+                    for i, fallback_model in enumerate(fallback_models, 1):
+                        try:
+                            # Emit fallback event
+                            if config.on_event:
+                                fallback_event = FallbackEvent(
+                                    data=FallbackEventData(
+                                        from_model=current_model,
+                                        to_model=fallback_model,
+                                        reason=reason,
+                                        fallback_type=fallback_type,
+                                        attempt=i,
+                                        trace_id=state.trace_id,
+                                        run_id=state.run_id,
+                                        error_details={
+                                            "error_type": type(last_exception).__name__,
+                                            "error_message": str(last_exception),
+                                        },
+                                    )
+                                )
+                                config.on_event(fallback_event)
+
+                            print(
+                                f"[JAF:FALLBACK] Attempting fallback {i}/{len(fallback_models)}: {fallback_model}"
+                            )
+
+                            # Try the fallback model
+                            response = await _make_completion_call(fallback_model)
+                            current_model = fallback_model
+                            print(f"[JAF:FALLBACK] Successfully used fallback model: {fallback_model}")
+                            break  # Success - exit the fallback loop
+
+                        except Exception as fallback_error:
+                            last_exception = fallback_error
+                            print(
+                                f"[JAF:FALLBACK] Fallback model '{fallback_model}' also failed: {fallback_error}"
+                            )
+
+                            # If this was the last fallback, re-raise
+                            if i == len(fallback_models):
+                                print(
+                                    f"[JAF:FALLBACK] All fallback models exhausted. Raising last exception."
+                                )
+                                raise
+                else:
+                    # No fallbacks configured, re-raise original exception
+                    raise
 
             # Return in the expected format that the engine expects
             choice = response.choices[0]
@@ -371,7 +496,7 @@ def make_litellm_provider(
                     for tc in choice.message.tool_calls
                 ]
 
-            # Extract usage data
+            # Extract usage data with detailed cache information
             usage_data = None
             if response.usage:
                 usage_data = {
@@ -379,6 +504,31 @@ def make_litellm_provider(
                     "completion_tokens": response.usage.completion_tokens,
                     "total_tokens": response.usage.total_tokens,
                 }
+
+                # Extract cache-related fields if available (for prompt caching support)
+                if hasattr(response.usage, "cache_creation_input_tokens"):
+                    usage_data["cache_creation_input_tokens"] = response.usage.cache_creation_input_tokens
+                if hasattr(response.usage, "cache_read_input_tokens"):
+                    usage_data["cache_read_input_tokens"] = response.usage.cache_read_input_tokens
+
+                # Extract detailed token breakdowns
+                if hasattr(response.usage, "prompt_tokens_details") and response.usage.prompt_tokens_details:
+                    details = {}
+                    if hasattr(response.usage.prompt_tokens_details, "cached_tokens"):
+                        details["cached_tokens"] = response.usage.prompt_tokens_details.cached_tokens
+                    if hasattr(response.usage.prompt_tokens_details, "audio_tokens"):
+                        details["audio_tokens"] = response.usage.prompt_tokens_details.audio_tokens
+                    if details:
+                        usage_data["prompt_tokens_details"] = details
+
+                if hasattr(response.usage, "completion_tokens_details") and response.usage.completion_tokens_details:
+                    details = {}
+                    if hasattr(response.usage.completion_tokens_details, "reasoning_tokens"):
+                        details["reasoning_tokens"] = response.usage.completion_tokens_details.reasoning_tokens
+                    if hasattr(response.usage.completion_tokens_details, "audio_tokens"):
+                        details["audio_tokens"] = response.usage.completion_tokens_details.audio_tokens
+                    if details:
+                        usage_data["completion_tokens_details"] = details
 
             return {
                 "id": response.id,
@@ -706,7 +856,7 @@ def make_litellm_sdk_provider(
                     for tc in choice.message.tool_calls
                 ]
 
-            # Extract usage data - ALWAYS return a dict with defaults for Langfuse cost tracking
+            # Extract usage data with detailed cache information - ALWAYS return a dict with defaults for Langfuse cost tracking
             # Initialize with zeros as defensive default (matches AzureDirectProvider pattern)
             usage_data = {
                 "prompt_tokens": 0,
@@ -731,6 +881,31 @@ def make_litellm_sdk_provider(
                 "_model": actual_model,
             }
             
+                # Extract cache-related fields if available (for prompt caching support)
+                if hasattr(response.usage, "cache_creation_input_tokens"):
+                    usage_data["cache_creation_input_tokens"] = response.usage.cache_creation_input_tokens
+                if hasattr(response.usage, "cache_read_input_tokens"):
+                    usage_data["cache_read_input_tokens"] = response.usage.cache_read_input_tokens
+
+                # Extract detailed token breakdowns
+                if hasattr(response.usage, "prompt_tokens_details") and response.usage.prompt_tokens_details:
+                    details = {}
+                    if hasattr(response.usage.prompt_tokens_details, "cached_tokens"):
+                        details["cached_tokens"] = response.usage.prompt_tokens_details.cached_tokens
+                    if hasattr(response.usage.prompt_tokens_details, "audio_tokens"):
+                        details["audio_tokens"] = response.usage.prompt_tokens_details.audio_tokens
+                    if details:
+                        usage_data["prompt_tokens_details"] = details
+
+                if hasattr(response.usage, "completion_tokens_details") and response.usage.completion_tokens_details:
+                    details = {}
+                    if hasattr(response.usage.completion_tokens_details, "reasoning_tokens"):
+                        details["reasoning_tokens"] = response.usage.completion_tokens_details.reasoning_tokens
+                    if hasattr(response.usage.completion_tokens_details, "audio_tokens"):
+                        details["audio_tokens"] = response.usage.completion_tokens_details.audio_tokens
+                    if details:
+                        usage_data["completion_tokens_details"] = details
+
             return {
                 "id": response.id,
                 "created": response.created,

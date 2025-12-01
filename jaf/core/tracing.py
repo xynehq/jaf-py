@@ -923,13 +923,14 @@ class LangfuseTraceCollector:
                     
                     print(f"[LANGFUSE] Extracted - model: '{model}', usage: {usage}")
                     
-                    # Convert to Langfuse v2 format - let Langfuse handle cost calculation automatically
+                    # Convert to Langfuse format with detailed cache information
                     langfuse_usage = None
                     if usage:
                         prompt_tokens = usage.get("prompt_tokens", 0)
                         completion_tokens = usage.get("completion_tokens", 0)
                         total_tokens = usage.get("total_tokens", 0)
 
+                        # Build detailed usage dict with cache information
                         langfuse_usage = {
                             "input": prompt_tokens,
                             "output": completion_tokens,
@@ -937,8 +938,29 @@ class LangfuseTraceCollector:
                             "unit": "TOKENS",
                         }
 
+                        # Add cache-related fields if available (for prompt caching support)
+                        if "cache_creation_input_tokens" in usage and usage["cache_creation_input_tokens"]:
+                            langfuse_usage["cache_creation_input_tokens"] = usage["cache_creation_input_tokens"]
+                        if "cache_read_input_tokens" in usage and usage["cache_read_input_tokens"]:
+                            langfuse_usage["cache_read_input_tokens"] = usage["cache_read_input_tokens"]
+
+                        # Add detailed token breakdowns if available
+                        if "prompt_tokens_details" in usage and usage["prompt_tokens_details"]:
+                            details = usage["prompt_tokens_details"]
+                            if "cached_tokens" in details and details["cached_tokens"]:
+                                langfuse_usage["input_cached_tokens"] = details["cached_tokens"]
+                            if "audio_tokens" in details and details["audio_tokens"]:
+                                langfuse_usage["input_audio_tokens"] = details["audio_tokens"]
+
+                        if "completion_tokens_details" in usage and usage["completion_tokens_details"]:
+                            details = usage["completion_tokens_details"]
+                            if "reasoning_tokens" in details and details["reasoning_tokens"]:
+                                langfuse_usage["output_reasoning_tokens"] = details["reasoning_tokens"]
+                            if "audio_tokens" in details and details["audio_tokens"]:
+                                langfuse_usage["output_audio_tokens"] = details["audio_tokens"]
+
                         print(
-                            f"[LANGFUSE] Usage data for automatic cost calculation: {langfuse_usage}"
+                            f"[LANGFUSE] Usage data with cache details: {langfuse_usage}"
                         )
 
                     # Include model information in the generation end - Langfuse will calculate costs automatically
