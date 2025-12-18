@@ -8,7 +8,6 @@ by other agents, enabling hierarchical agent orchestration patterns.
 import asyncio
 import json
 import inspect
-import inspect
 import contextvars
 from typing import Any, Callable, Dict, List, Optional, Union, Awaitable, TypeVar, get_type_hints
 
@@ -181,11 +180,73 @@ def create_agent_tool(
         # Session inheritance is configurable via preserve_session.
         # - When True: inherit parent's conversation_id and memory (shared memory/session)
         # - When False: do not inherit (ephemeral, per-invocation sub-agent run)
+        #
+        # Model selection for subagents:
+        # - If subagent has its own model_config, use that model AND create appropriate provider
+        # - If subagent has no model_config, inherit parent's model_override and provider
+        # This allows subagents to run on different models than the parent agent
+        subagent_model_override = None
+        subagent_model_provider = parent_config.model_provider
+        
+        if agent.model_config and agent.model_config.name:
+            subagent_model_name = agent.model_config.name
+            # Subagent has explicit model_config - create appropriate provider for it
+            # Use model_override to force the subagent's model
+            subagent_model_override = subagent_model_name
+            
+            # Create provider based on model type
+            import os
+            if subagent_model_name.startswith("azure/"):
+                try:
+                    from jaf.providers import make_litellm_sdk_provider
+                    azure_api_key = os.getenv("AZURE_API_KEY")
+                    azure_api_base = os.getenv("AZURE_API_BASE")
+                    azure_api_version = os.getenv("AZURE_API_VERSION")
+                    subagent_model_provider = make_litellm_sdk_provider(
+                        model=subagent_model_name,
+                        api_key=azure_api_key,
+                        base_url=azure_api_base,
+                        api_version=azure_api_version,
+                    )
+                except Exception as e:
+                    # Fallback to parent provider if Azure provider creation fails
+                    subagent_model_provider = parent_config.model_provider
+            elif subagent_model_name.startswith("vertex_ai/"):
+                try:
+                    from jaf.providers import make_litellm_sdk_provider
+                    vertex_project = os.getenv("VERTEXAI_PROJECT")
+                    vertex_location = os.getenv("VERTEXAI_LOCATION")
+                    if not vertex_project or not vertex_location:
+                        raise ValueError(
+                            "VERTEXAI_PROJECT and VERTEXAI_LOCATION environment variables are required for vertex_ai/ models"
+                        )
+                    subagent_model_provider = make_litellm_sdk_provider(
+                        model=subagent_model_name,
+                        vertex_project=vertex_project,
+                        vertex_location=vertex_location,
+                    )
+                except Exception:
+                    subagent_model_provider = parent_config.model_provider
+            elif subagent_model_name.startswith("glm"):
+                try:
+                    from jaf.providers import make_litellm_provider
+                    subagent_model_provider = make_litellm_provider(
+                        base_url=os.getenv("LITELLM_BASE_URL"),
+                        api_key=os.getenv("LITELLM_KEY")
+                    )
+                except Exception:
+                    subagent_model_provider = parent_config.model_provider
+            # For other models, use parent's provider (may work or may not)
+        else:
+            # No subagent model_config - inherit from parent
+            subagent_model_override = parent_config.model_override
+            subagent_model_provider = parent_config.model_provider
+        
         sub_config = RunConfig(
             agent_registry={agent.name: agent, **parent_config.agent_registry},
-            model_provider=parent_config.model_provider,
+            model_provider=subagent_model_provider,
             max_turns=max_turns or parent_config.max_turns,
-            model_override=parent_config.model_override,
+            model_override=subagent_model_override,
             initial_input_guardrails=parent_config.initial_input_guardrails,
             final_output_guardrails=parent_config.final_output_guardrails,
             on_event=parent_config.on_event,
