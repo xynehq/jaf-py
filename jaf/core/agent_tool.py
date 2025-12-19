@@ -78,6 +78,7 @@ def create_agent_tool(
     metadata: Optional[Dict[str, Any]] = None,
     timeout: Optional[float] = None,
     preserve_session: bool = False,
+    preserve_session_id: bool = False,
 ) -> Tool[AgentToolInput, Ctx]:
     """
     Create a tool from an agent.
@@ -91,6 +92,10 @@ def create_agent_tool(
         is_enabled: Whether the tool is enabled (bool, sync function, or async function)
         metadata: Optional metadata for the tool
         timeout: Optional timeout for tool execution
+        preserve_session: When True, inherit parent's conversation_id AND memory (shared session)
+        preserve_session_id: When True, inherit ONLY parent's conversation_id for tracing (no memory).
+                            This allows subagent traces to appear together in Langfuse without
+                            loading previous invocation history. Mutually exclusive with preserve_session.
 
     Returns:
         A Tool that wraps the agent execution
@@ -242,6 +247,24 @@ def create_agent_tool(
             subagent_model_override = parent_config.model_override
             subagent_model_provider = parent_config.model_provider
         
+        # Determine conversation_id and memory inheritance based on session preservation settings:
+        # - preserve_session=True: inherit both conversation_id AND memory (full shared session)
+        # - preserve_session_id=True: inherit ONLY conversation_id for tracing (no memory, stateless calls)
+        # - Both False: completely ephemeral sub-agent run
+        #
+        # preserve_session_id is useful when you want:
+        # 1. Subagent traces to appear together in Langfuse under the same conversation
+        # 2. But each subagent invocation to be stateless (no accumulated history from previous calls)
+        if preserve_session:
+            subagent_memory = parent_config.memory
+            subagent_conversation_id = parent_config.conversation_id
+        elif preserve_session_id:
+            subagent_memory = None  # No memory inheritance - stateless
+            subagent_conversation_id = parent_config.conversation_id  # Only for tracing
+        else:
+            subagent_memory = None
+            subagent_conversation_id = None
+        
         sub_config = RunConfig(
             agent_registry={agent.name: agent, **parent_config.agent_registry},
             model_provider=subagent_model_provider,
@@ -252,8 +275,8 @@ def create_agent_tool(
             on_event=parent_config.on_event,
             before_llm_call=parent_config.before_llm_call,
             after_llm_call=parent_config.after_llm_call,
-            memory=parent_config.memory if preserve_session else None,
-            conversation_id=parent_config.conversation_id if preserve_session else None,
+            memory=subagent_memory,
+            conversation_id=subagent_conversation_id,
             default_tool_timeout=parent_config.default_tool_timeout,
             prefer_streaming=parent_config.prefer_streaming,
         )
