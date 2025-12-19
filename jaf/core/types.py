@@ -428,6 +428,7 @@ class Agent(Generic[Ctx, Out]):
         metadata: Optional[Dict[str, Any]] = None,
         timeout: Optional[float] = None,
         preserve_session: bool = False,
+        preserve_session_id: bool = False,
     ) -> Tool[Any, Ctx]:
         """
         Convert this agent into a tool that can be used by other agents.
@@ -440,6 +441,11 @@ class Agent(Generic[Ctx, Out]):
             is_enabled: Whether the tool is enabled (bool, sync function, or async function)
             metadata: Optional metadata for the tool
             timeout: Optional timeout for the tool execution
+            preserve_session: When True, inherit parent's conversation_id AND memory (shared session)
+            preserve_session_id: When True, inherit ONLY parent's conversation_id for tracing (no memory).
+                                This allows subagent traces to appear together in Langfuse without
+                                loading previous invocation history. Useful for stateless subagent calls
+                                that should still be grouped together in traces.
 
         Returns:
             A Tool that wraps this agent's execution
@@ -456,6 +462,7 @@ class Agent(Generic[Ctx, Out]):
             metadata=metadata,
             timeout=timeout,
             preserve_session=preserve_session,
+            preserve_session_id=preserve_session_id,
         )
 
 
