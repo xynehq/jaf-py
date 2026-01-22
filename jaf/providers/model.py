@@ -380,7 +380,7 @@ def make_litellm_provider(
 
                 # Add session_id from conversation_id for LiteLLM tracking
                 if config.conversation_id:
-                    request_params["extra_body"] = {"session_id": config.conversation_id}
+                    request_params["extra_body"] = {"litellm_session_id": config.conversation_id}
 
                 # Add optional parameters
                 if agent.model_config:
@@ -626,7 +626,7 @@ def make_litellm_provider(
 
             # Add session_id from conversation_id for LiteLLM tracking
             if config.conversation_id:
-                request_params["extra_body"] = {"session_id": config.conversation_id}
+                request_params["extra_body"] = {"litellm_session_id": config.conversation_id}
 
             # Add optional parameters
             if agent.model_config:
@@ -837,7 +837,7 @@ def make_litellm_sdk_provider(
 
             # Add session_id from conversation_id for LiteLLM tracking
             if config.conversation_id:
-                request_params["session_id"] = config.conversation_id
+                request_params["litellm_session_id"] = config.conversation_id
 
             # Add API key if provided
             if self.api_key:
@@ -1021,7 +1021,7 @@ def make_litellm_sdk_provider(
 
             # Add session_id from conversation_id for LiteLLM tracking
             if config.conversation_id:
-                request_params["session_id"] = config.conversation_id
+                request_params["litellm_session_id"] = config.conversation_id
 
             # Add API key if provided
             if self.api_key:
