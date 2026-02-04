@@ -232,15 +232,6 @@ def create_agent_tool(
                     )
                 except Exception:
                     subagent_model_provider = parent_config.model_provider
-            elif subagent_model_name.startswith("glm"):
-                try:
-                    from jaf.providers import make_litellm_provider
-                    subagent_model_provider = make_litellm_provider(
-                        base_url=os.getenv("LITELLM_BASE_URL"),
-                        api_key=os.getenv("LITELLM_KEY")
-                    )
-                except Exception:
-                    subagent_model_provider = parent_config.model_provider
             # For other models, use parent's provider (may work or may not)
         else:
             # No subagent model_config - inherit from parent
