@@ -662,6 +662,7 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
 
     # Emit LLM call start event
     if config.on_event:
+        _prompt_meta = (config.prompt_registry or {}).get(current_agent.name, {})
         config.on_event(
             LLMCallStartEvent(
                 data=to_event_data(
@@ -672,6 +673,8 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
                         run_id=state.run_id,
                         context=state.context,
                         messages=state.messages,
+                        prompt_name=_prompt_meta.get("name"),
+                        prompt_version=_prompt_meta.get("version"),
                     )
                 )
             )
@@ -1524,6 +1527,21 @@ async def _execute_tool_calls(
             print(f"[JAF:ENGINE] About to execute tool: {tool_call.function.name}")
             print(f"[JAF:ENGINE] Tool args:", validated_args)
             print(f"[JAF:ENGINE] Tool context:", state.context)
+
+            if config.on_tool_selected:
+                try:
+                    detailed_instructions = config.on_tool_selected(tool_call.function.name, state)
+                    if asyncio.iscoroutine(detailed_instructions):
+                        detailed_instructions = await detailed_instructions
+                    
+                    if detailed_instructions:
+                        if hasattr(context_with_additional, "__dict__"):
+                            setattr(context_with_additional, "_tool_instructions", detailed_instructions)
+                        elif isinstance(context_with_additional, dict):
+                            context_with_additional["_tool_instructions"] = detailed_instructions
+                        print(f"[JAF:ENGINE] Injected tool instructions for {tool_call.function.name}")
+                except Exception as hook_error:
+                    print(f"[JAF:ENGINE] Warning: on_tool_selected hook failed: {hook_error}")
 
             # Execute the tool with timeout
             try:

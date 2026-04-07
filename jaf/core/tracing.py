@@ -892,16 +892,24 @@ class LangfuseTraceCollector:
                 user_query = getattr(trace, "_user_query", None)
 
                 # Use compatibility layer to create generation (works with both v2 and v3)
+                prompt_name = self._get_event_data(event, "prompt_name")
+                prompt_version = self._get_event_data(event, "prompt_version")
+                generation_metadata = {
+                    "agent_name": self._get_event_data(event, "agent_name"),
+                    "model": model,
+                    "user_id": user_id,
+                    "user_query": user_query,
+                }
+                if prompt_name:
+                    generation_metadata["prompt_name"] = prompt_name
+                if prompt_version is not None:
+                    generation_metadata["prompt_version"] = prompt_version
+
                 generation = self._create_generation(
                     parent_span=trace,
                     name=f"llm-call-{model}",
                     input=self._get_event_data(event, "messages"),
-                    metadata={
-                        "agent_name": self._get_event_data(event, "agent_name"),
-                        "model": model,
-                        "user_id": user_id,
-                        "user_query": user_query,
-                    },
+                    metadata=generation_metadata,
                 )
                 span_id = self._get_span_id(event)
                 self.active_spans[span_id] = generation

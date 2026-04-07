@@ -266,6 +266,7 @@ def create_agent_tool(
             on_event=parent_config.on_event,
             before_llm_call=parent_config.before_llm_call,
             after_llm_call=parent_config.after_llm_call,
+            on_tool_selected=parent_config.on_tool_selected, 
             memory=subagent_memory,
             conversation_id=subagent_conversation_id,
             default_tool_timeout=parent_config.default_tool_timeout,
