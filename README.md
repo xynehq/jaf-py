@@ -2,7 +2,7 @@
 
 <!-- ![JAF Banner](docs/cover.png) -->
 
-[![Version](https://img.shields.io/badge/version-2.6.9-blue.svg)](https://github.com/xynehq/jaf-py)
+[![Version](https://img.shields.io/badge/version-2.6.10-blue.svg)](https://github.com/xynehq/jaf-py)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Docs](https://img.shields.io/badge/Docs-Live-brightgreen)](https://xynehq.github.io/jaf-py/)
 
@@ -788,4 +788,4 @@ MIT
 
 ---
 
-**JAF (Juspay Agentic Framework) v2.2** - Building the future of functional AI agent systems 
+**JAF (Juspay Agentic Framework) v2.2** - Building the future of functional AI agent systems
