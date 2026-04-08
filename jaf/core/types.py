@@ -767,6 +767,8 @@ class LLMCallStartEventData:
     run_id: RunId
     context: Optional[Any] = None
     messages: Optional[List[Message]] = None
+    prompt_name: Optional[str] = None
+    prompt_version: Optional[int] = None
 
 
 @dataclass(frozen=True)
@@ -1179,6 +1181,10 @@ class RunConfig(Generic[Ctx]):
     context_window_fallbacks: Optional[List[str]] = (
         None  # Fallback models for context window exceeded errors
     )
+    on_tool_selected: Optional[
+        Callable[[str, "RunState[Ctx]"], Union[Optional[str], Awaitable[Optional[str]]]]
+    ] = None
+    prompt_registry: Optional[Dict[str, Dict[str, Any]]] = None  # Maps agent_name -> {"name": "...", "version": N}
 
 
 # Regeneration types for conversation management
