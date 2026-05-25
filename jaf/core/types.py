@@ -246,6 +246,35 @@ class MessageContentPart:
 
 
 @dataclass(frozen=True)
+class ToolImage:
+    """Image attachment carried by a MultiModalToolResult."""
+
+    data: str  # raw base64 (no data URL prefix)
+    mime_type: str = "image/jpeg"
+
+
+@dataclass(frozen=True)
+class MultiModalToolResult:
+    """
+    Tool return shape for tools that produce text + images together.
+
+    OpenAI's chat completions API does not accept image content inside
+    role:tool messages — only role:user can carry images. When a tool
+    returns this object, the engine emits TWO messages:
+
+      1. a role:tool message with `text` wrapped in the standard tool
+         envelope (so the tool_call_id is properly paired), and
+      2. a role:user message whose content is a list of MessageContentPart
+         entries (one text part, plus one image_url part per image).
+
+    This mirrors the path that user attachments take to reach the model.
+    """
+
+    text: str
+    images: List[ToolImage] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
 class Message:
     """
     A message in the conversation.
