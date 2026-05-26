@@ -22,6 +22,7 @@ from .types import (
     ApprovalValue,
     CompletedOutcome,
     ContentRole,
+    MessageContentPart,
     DecodeError,
     ErrorOutcome,
     HandoffError,
@@ -46,6 +47,7 @@ from .types import (
     AssistantMessageEventData,
     MaxTurnsExceeded,
     Message,
+    MultiModalToolResult,
     get_text_content,
     ModelBehaviorError,
     OutputGuardrailTripwire,
@@ -150,7 +152,7 @@ async def try_resume_pending_tool_calls(
                     completed_results = [r for r in tool_results if not r.get("interruption")]
                     interrupted_state = replace(
                         state,
-                        messages=list(state.messages) + [r["message"] for r in completed_results],
+                        messages=list(state.messages) + _flatten_tool_result_messages(completed_results),
                         turn_count=state.turn_count,
                         approvals=state.approvals,
                     )
@@ -162,7 +164,7 @@ async def try_resume_pending_tool_calls(
                 # Continue with normal execution
                 next_state = replace(
                     state,
-                    messages=list(state.messages) + [r["message"] for r in tool_results],
+                    messages=list(state.messages) + _flatten_tool_result_messages(tool_results),
                     turn_count=state.turn_count,
                     approvals=state.approvals,
                 )
@@ -940,7 +942,7 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
             # Create state with only completed tool results (for LLM context)
             interrupted_state = replace(
                 state,
-                messages=new_messages + [r["message"] for r in completed_results],
+                messages=new_messages + _flatten_tool_result_messages(completed_results),
                 turn_count=state.turn_count + 1,
                 approvals=updated_approvals,
             )
@@ -953,7 +955,7 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
                 state_for_storage = replace(
                     interrupted_state,
                     messages=interrupted_state.messages
-                    + [r["message"] for r in approval_required_results],
+                    + _flatten_tool_result_messages(approval_required_results),
                 )
                 await _store_conversation_history(state_for_storage, config)
 
@@ -1014,7 +1016,7 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
             # Continue with new agent
             next_state = replace(
                 state,
-                messages=cleaned_new_messages + [r["message"] for r in tool_results],
+                messages=cleaned_new_messages + _flatten_tool_result_messages(tool_results),
                 current_agent_name=target_agent,
                 turn_count=state.turn_count + 1,
                 approvals=state.approvals,
@@ -1048,7 +1050,7 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
         # Continue with tool results
         next_state = replace(
             state,
-            messages=cleaned_new_messages + [r["message"] for r in tool_results],
+            messages=cleaned_new_messages + _flatten_tool_result_messages(tool_results),
             turn_count=state.turn_count + 1,
             approvals=state.approvals,
         )
@@ -1293,6 +1295,64 @@ def _normalize_tool_call_arguments(arguments: Any) -> Any:
             return arguments
 
     return arguments
+
+
+def _build_multimodal_tool_messages(
+    tool_result: MultiModalToolResult, tool_call: ToolCall
+) -> Dict[str, Any]:
+    """
+    Convert a MultiModalToolResult into the pair of messages the engine emits:
+
+      - a role:tool message with a JSON envelope (text-only — OpenAI requires
+        tool messages to be plain text), satisfying tool_call_id pairing.
+      - a follow-up role:user message whose content is a list of
+        MessageContentPart entries (one text part, plus one image_url part
+        per image in the result).
+
+    Returned in the same dict shape as other tool execution results so the
+    engine's normal flattening logic appends both messages to the state.
+    """
+    envelope = json.dumps({
+        "hitl_status": "executed",
+        "result": tool_result.text,
+        "tool_name": tool_call.function.name,
+        "message": "Tool executed successfully. Image attached in the following user message.",
+    })
+    tool_message = Message(
+        role=ContentRole.TOOL,
+        content=envelope,
+        tool_call_id=tool_call.id,
+    )
+    parts: List[MessageContentPart] = [
+        MessageContentPart(type="text", text=tool_result.text)
+    ]
+    for img in tool_result.images:
+        url = f"data:{img.mime_type};base64,{img.data}"
+        parts.append(MessageContentPart(type="image_url", image_url={"url": url}))
+    followup_message = Message(role=ContentRole.USER, content=parts)
+    return {
+        "message": tool_message,
+        "extra_messages": [followup_message],
+    }
+
+
+def _flatten_tool_result_messages(tool_results: List[Dict[str, Any]]) -> List[Message]:
+    """
+    Flatten tool execution results into the final list of messages to append
+    to state.messages.
+
+    OpenAI's Chat Completions API requires that every role:tool message
+    responding to an assistant's tool_calls comes BEFORE any other role.
+    So we emit ALL primary tool messages first, then any `extra_messages`
+    (used by multimodal tool results to carry follow-up user messages with
+    image content). Interleaving tool-then-user-then-tool would be rejected
+    by the API when an assistant turn produced parallel tool calls.
+    """
+    primary = [r["message"] for r in tool_results]
+    extras = [
+        m for r in tool_results for m in (r.get("extra_messages") or [])
+    ]
+    return primary + extras
 
 
 async def _execute_tool_calls(
@@ -1582,6 +1642,32 @@ async def _execute_tool_calls(
                         tool_call_id=tool_call.id,
                     )
                 }
+
+            # Multimodal tool result — must be checked before the string/ToolResult
+            # block since this object isn't a ToolResult dataclass.
+            if isinstance(tool_result, MultiModalToolResult):
+                multimodal_result = _build_multimodal_tool_messages(tool_result, tool_call)
+                if config.on_event:
+                    config.on_event(
+                        ToolCallEndEvent(
+                            data=to_event_data(
+                                ToolCallEndEventData(
+                                    tool_name=tool_call.function.name,
+                                    result=multimodal_result["message"].content,
+                                    trace_id=state.trace_id,
+                                    run_id=state.run_id,
+                                    tool_result={
+                                        "type": "multimodal",
+                                        "text": tool_result.text,
+                                        "image_count": len(tool_result.images),
+                                    },
+                                    execution_status="success",
+                                    call_id=tool_call.id,
+                                )
+                            )
+                        )
+                    )
+                return multimodal_result
 
             # Handle both string and ToolResult formats
             if isinstance(tool_result, str):

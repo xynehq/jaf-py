@@ -80,12 +80,12 @@ class ConversationAnalyzer:
         tool_msgs = [m for m in messages if m.role == ContentRole.TOOL]
 
         # Calculate basic metrics
-        total_length = sum(len(m.content or "") for m in messages)
+        total_length = sum(len(get_text_content(m.content) or "") for m in messages)
         avg_length = total_length / len(messages) if messages else 0
         duration = (end_time - start_time) / 60  # Convert to minutes
 
         # Extract topics and keywords
-        all_text = " ".join(m.content or "" for m in messages)
+        all_text = " ".join(get_text_content(m.content) or "" for m in messages)
         keywords = self._extract_keywords(all_text)
 
         # Calculate sentiment and engagement
@@ -171,7 +171,7 @@ class ConversationAnalyzer:
             balance_score = 0
 
         # Message length variety (indicates thoughtful responses)
-        lengths = [len(m.content or "") for m in messages]
+        lengths = [len(get_text_content(m.content) or "") for m in messages]
         if lengths:
             length_variety = (max(lengths) - min(lengths)) / max(max(lengths), 1)
             variety_score = min(length_variety, 1.0) * 30
@@ -186,7 +186,7 @@ class ConversationAnalyzer:
             return "ongoing"
 
         last_messages = messages[-3:] if len(messages) >= 3 else messages
-        last_text = " ".join(m.content or "" for m in last_messages).lower()
+        last_text = " ".join(get_text_content(m.content) or "" for m in last_messages).lower()
 
         resolution_indicators = ["thank you", "thanks", "solved", "resolved", "perfect", "exactly"]
         escalation_indicators = ["escalate", "manager", "supervisor", "complaint"]
