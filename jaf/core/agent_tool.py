@@ -79,6 +79,7 @@ def create_agent_tool(
     timeout: Optional[float] = None,
     preserve_session: bool = False,
     preserve_session_id: bool = False,
+    custom_provider: Optional[Any] = None,
 ) -> Tool[AgentToolInput, Ctx]:
     """
     Create a tool from an agent.
@@ -187,20 +188,33 @@ def create_agent_tool(
         # - When False: do not inherit (ephemeral, per-invocation sub-agent run)
         #
         # Model selection for subagents:
-        # - If subagent has its own model_config, use that model AND create appropriate provider
-        # - If subagent has no model_config, inherit parent's model_override and provider
-        # This allows subagents to run on different models than the parent agent
+        # Priority order for provider:
+        # 1. custom_provider (passed to as_tool()) - HIGHEST PRIORITY
+        # 2. Create provider from env vars if subagent has model_config.name (for azure/vertex_ai)
+        # 3. Inherit parent's provider - FALLBACK
+        #
+        # This allows subagents to run on different models with different credentials
         subagent_model_override = None
         subagent_model_provider = parent_config.model_provider
         
-        if agent.model_config and agent.model_config.name:
+        # Priority 1: Use custom_provider if provided
+        if custom_provider is not None:
+            subagent_model_provider = custom_provider
+            # If agent has model_config.name, use it as model_override
+            if agent.model_config and agent.model_config.name:
+                subagent_model_override = agent.model_config.name
+            else:
+                subagent_model_override = parent_config.model_override
+        # Priority 2: Create provider from env vars based on model_config.name
+        elif agent.model_config and agent.model_config.name:
             subagent_model_name = agent.model_config.name
             # Subagent has explicit model_config - create appropriate provider for it
             # Use model_override to force the subagent's model
             subagent_model_override = subagent_model_name
             
-            # Create provider based on model type
+            # Create provider based on model type using generic env vars
             import os
+            
             if subagent_model_name.startswith("azure/"):
                 try:
                     from jaf.providers import make_litellm_sdk_provider
@@ -233,8 +247,8 @@ def create_agent_tool(
                 except Exception:
                     subagent_model_provider = parent_config.model_provider
             # For other models, use parent's provider (may work or may not)
+        # Priority 3: No model_config - inherit from parent
         else:
-            # No subagent model_config - inherit from parent
             subagent_model_override = parent_config.model_override
             subagent_model_provider = parent_config.model_provider
         

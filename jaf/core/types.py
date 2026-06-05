@@ -458,6 +458,7 @@ class Agent(Generic[Ctx, Out]):
         timeout: Optional[float] = None,
         preserve_session: bool = False,
         preserve_session_id: bool = False,
+        custom_provider: Optional["ModelProvider[Ctx]"] = None,
     ) -> Tool[Any, Ctx]:
         """
         Convert this agent into a tool that can be used by other agents.
@@ -475,6 +476,10 @@ class Agent(Generic[Ctx, Out]):
                                 This allows subagent traces to appear together in Langfuse without
                                 loading previous invocation history. Useful for stateless subagent calls
                                 that should still be grouped together in traces.
+            custom_provider: Optional custom ModelProvider for this subagent. When provided, the
+                            subagent will use this provider instead of creating one from env vars
+                            or inheriting from parent. This is useful when the subagent needs
+                            different credentials (e.g., a different Azure endpoint for gpt-5.4).
 
         Returns:
             A Tool that wraps this agent's execution
@@ -492,6 +497,7 @@ class Agent(Generic[Ctx, Out]):
             timeout=timeout,
             preserve_session=preserve_session,
             preserve_session_id=preserve_session_id,
+            custom_provider=custom_provider,
         )
 
 
