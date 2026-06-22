@@ -404,6 +404,9 @@ class LangfuseTraceCollector:
 
     def __init__(
         self,
+        public_key: Optional[str] = None,
+        secret_key: Optional[str] = None,
+        host: Optional[str] = None,
         httpx_client: Optional[httpx.Client] = None,
         proxy: Optional[str] = None,
         timeout: Optional[int] = None,
@@ -412,6 +415,12 @@ class LangfuseTraceCollector:
         """Initialize Langfuse trace collector.
 
         Args:
+            public_key: Langfuse public key. Falls back to the LANGFUSE_PUBLIC_KEY
+                       environment variable when not provided.
+            secret_key: Langfuse secret key. Falls back to the LANGFUSE_SECRET_KEY
+                       environment variable when not provided.
+            host: Langfuse host URL. Falls back to the LANGFUSE_HOST environment
+                  variable when not provided.
             httpx_client: Optional custom httpx.Client with proxy configuration.
                          If provided, this will be used for all API calls.
             proxy: Optional proxy URL (e.g., "http://my.proxy.example.com:8080").
@@ -420,9 +429,9 @@ class LangfuseTraceCollector:
             timeout: Optional timeout in seconds for HTTP requests. Defaults to 10.
             include_system_prompt: Whether to include system prompt in trace metadata. Defaults to False.
         """
-        public_key = os.environ.get("LANGFUSE_PUBLIC_KEY")
-        secret_key = os.environ.get("LANGFUSE_SECRET_KEY")
-        host = os.environ.get("LANGFUSE_HOST")
+        public_key = public_key or os.environ.get("LANGFUSE_PUBLIC_KEY")
+        secret_key = secret_key or os.environ.get("LANGFUSE_SECRET_KEY")
+        host = host or os.environ.get("LANGFUSE_HOST")
 
         print(f"[LANGFUSE] Initializing with host: {host}")
         print(
@@ -1264,6 +1273,9 @@ class LangfuseTraceCollector:
 
 def create_composite_trace_collector(
     *collectors: TraceCollector,
+    langfuse_public_key: Optional[str] = None,
+    langfuse_secret_key: Optional[str] = None,
+    langfuse_host: Optional[str] = None,
     httpx_client: Optional[httpx.Client] = None,
     otel_session: Optional[Any] = None,
     proxy: Optional[str] = None,
@@ -1274,6 +1286,12 @@ def create_composite_trace_collector(
 
     Args:
         *collectors: Variable length list of trace collectors
+        langfuse_public_key: Langfuse public key. Falls back to the LANGFUSE_PUBLIC_KEY
+                            environment variable. The Langfuse collector is added when both
+                            a public and secret key are resolved (from params or env).
+        langfuse_secret_key: Langfuse secret key. Falls back to the LANGFUSE_SECRET_KEY
+                            environment variable.
+        langfuse_host: Langfuse host URL. Falls back to the LANGFUSE_HOST environment variable.
         httpx_client: Optional custom httpx.Client for Langfuse API calls.
                      If provided, proxy and timeout parameters are ignored for Langfuse.
         otel_session: Optional custom requests.Session for OTLP HTTP calls.
@@ -1298,9 +1316,14 @@ def create_composite_trace_collector(
         otel_collector = OtelTraceCollector()
         collector_list.append(otel_collector)
 
-    # Automatically add Langfuse collector if keys are configured
-    if os.getenv("LANGFUSE_PUBLIC_KEY") and os.getenv("LANGFUSE_SECRET_KEY"):
+    # Automatically add Langfuse collector if keys are configured (via params or env)
+    effective_public_key = langfuse_public_key or os.getenv("LANGFUSE_PUBLIC_KEY")
+    effective_secret_key = langfuse_secret_key or os.getenv("LANGFUSE_SECRET_KEY")
+    if effective_public_key and effective_secret_key:
         langfuse_collector = LangfuseTraceCollector(
+            public_key=effective_public_key,
+            secret_key=effective_secret_key,
+            host=langfuse_host,
             httpx_client=httpx_client,
             proxy=proxy,
             timeout=timeout,

@@ -3,7 +3,12 @@
 from .engine import run
 from .errors import JAFError
 from .tool_results import *
-from .tracing import ConsoleTraceCollector, TraceCollector
+from .tracing import (
+    ConsoleTraceCollector,
+    LangfuseTraceCollector,
+    TraceCollector,
+    create_composite_trace_collector,
+)
 from .types import *
 from .agent_tool import (
     create_agent_tool,
@@ -34,6 +39,7 @@ __all__ = [
     "Agent",
     "ConsoleTraceCollector",
     "Guardrail",
+    "LangfuseTraceCollector",
     "JAFError",
     "Message",
     "ModelConfig",
@@ -56,6 +62,7 @@ __all__ = [
     "TraceId",
     "ValidationResult",
     "create_agent_tool",
+    "create_composite_trace_collector",
     "create_conditional_enabler",
     "create_default_output_extractor",
     "create_domain_experts_tool",

@@ -14,7 +14,12 @@ from .core.tools import (
     create_async_function_tool_legacy,
     function_tool,
 )
-from .core.tracing import ConsoleTraceCollector, TraceCollector
+from .core.tracing import (
+    ConsoleTraceCollector,
+    LangfuseTraceCollector,
+    TraceCollector,
+    create_composite_trace_collector,
+)
 from .core.types import *
 
 # Import attachment utilities for convenience
@@ -270,6 +275,8 @@ __all__ = [
     # Tracing
     "TraceCollector",
     "ConsoleTraceCollector",
+    "LangfuseTraceCollector",
+    "create_composite_trace_collector",
     # Tool results
     "ToolResult",
     "ToolResultStatus",
