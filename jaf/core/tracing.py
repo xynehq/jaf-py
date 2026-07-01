@@ -804,7 +804,6 @@ class LangfuseTraceCollector:
                 agent_name = self._get_event_data(event, "agent_name") or "analytics_agent_jaf"
 
                 # Allow callers to attach extra trace tags via the run_start event
-                # (e.g. tenant scoping). agent_name stays first for backward compat.
                 extra_tags = self._get_event_data(event, "tags", [])
                 if not isinstance(extra_tags, (list, tuple)):
                     extra_tags = [extra_tags]
@@ -831,8 +830,7 @@ class LangfuseTraceCollector:
                 if self.include_system_prompt and system_prompt:
                     metadata["system_prompt"] = system_prompt
 
-                # Merge any caller-supplied trace metadata (e.g. tenant fields)
-                # without clobbering jaf's own keys.
+                # Merge any caller-supplied trace metadata without clobbering jaf's own keys.
                 extra_metadata = self._get_event_data(event, "trace_metadata", None)
                 if isinstance(extra_metadata, dict):
                     for k, v in extra_metadata.items():
