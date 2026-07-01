@@ -803,6 +803,12 @@ class LangfuseTraceCollector:
                 # Extract agent_name for tagging
                 agent_name = self._get_event_data(event, "agent_name") or "analytics_agent_jaf"
 
+                # Allow callers to attach extra trace tags via the run_start event
+                extra_tags = self._get_event_data(event, "tags", [])
+                if not isinstance(extra_tags, (list, tuple)):
+                    extra_tags = [extra_tags]
+                trace_tags = [agent_name] + [t for t in extra_tags if t and t != agent_name]
+
                 # Build metadata with optional system_prompt
                 metadata = {
                     "framework": "jaf",
@@ -824,6 +830,12 @@ class LangfuseTraceCollector:
                 if self.include_system_prompt and system_prompt:
                     metadata["system_prompt"] = system_prompt
 
+                # Merge any caller-supplied trace metadata without clobbering jaf's own keys.
+                extra_metadata = self._get_event_data(event, "trace_metadata", None)
+                if isinstance(extra_metadata, dict):
+                    for k, v in extra_metadata.items():
+                        metadata.setdefault(k, v)
+
                 # Use compatibility layer to create trace (works with both v2 and v3)
                 trace = self._create_trace(
                     trace_id=trace_id,
@@ -831,7 +843,7 @@ class LangfuseTraceCollector:
                     user_id=user_id or self._get_event_data(event, "user_id"),
                     session_id=self._get_event_data(event, "session_id"),
                     input=trace_input,
-                    tags=[agent_name],  # Add agent_name as a tag for dashboard filtering
+                    tags=trace_tags,  # agent_name + any extra tags from the event
                     metadata=metadata,
                 )
                 self.trace_spans[trace_id] = trace
