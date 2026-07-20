@@ -5,7 +5,7 @@ This module provides model providers that integrate with various LLM services,
 starting with LiteLLM for multi-provider support.
 """
 
-from typing import Any, Dict, Optional, TypeVar, AsyncIterator
+from typing import Any, Dict, List, Optional, TypeVar, AsyncIterator
 import httpx
 import time
 import os
@@ -721,12 +721,201 @@ def make_litellm_provider(
 
     return LiteLLMProvider()
 
+_RESPONSES_API_REQUIRED_MARKERS = (
+    "use /v1/responses instead",
+    "please use /v1/responses",
+)
+
+
+def _requires_responses_api(error: Exception) -> bool:
+    """Detect the OpenAI/Azure error signaling a model only supports
+    reasoning + tools via the Responses API, not Chat Completions."""
+    message = str(error).lower()
+    return any(marker in message for marker in _RESPONSES_API_REQUIRED_MARKERS)
+
+
+def _chat_messages_to_responses_input(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Convert a Chat-Completions-style `messages` list into the Responses API's
+    `input` item list.
+
+    Chat Completions folds tool calls into the assistant message and matches
+    tool results by role="tool" + tool_call_id; Responses represents both as
+    standalone items keyed by call_id, so those need explicit expansion.
+    """
+    input_items: List[Dict[str, Any]] = []
+
+    for msg in messages:
+        role = msg.get("role")
+
+        if role == "tool":
+            input_items.append(
+                {
+                    "type": "function_call_output",
+                    "call_id": msg.get("tool_call_id"),
+                    "output": msg.get("content") or "",
+                }
+            )
+            continue
+
+        if role == "assistant":
+            content = msg.get("content")
+            tool_calls = msg.get("tool_calls") or []
+
+            if content:
+                input_items.append({"role": "assistant", "content": content})
+
+            for tc in tool_calls:
+                function = tc.get("function") or {}
+                input_items.append(
+                    {
+                        "type": "function_call",
+                        "call_id": tc.get("id"),
+                        "name": function.get("name"),
+                        "arguments": function.get("arguments", ""),
+                    }
+                )
+            continue
+
+        # system / user messages map through unchanged - Responses accepts
+        # both plain string content and structured content-part lists.
+        input_items.append({"role": role, "content": msg.get("content")})
+
+    return input_items
+
+
+def _chat_tools_to_responses_tools(
+    tools: Optional[List[Dict[str, Any]]],
+) -> Optional[List[Dict[str, Any]]]:
+    """Flatten Chat Completions' `{"type":"function","function":{...}}` tool
+    specs into the Responses API's flat `{"type":"function","name":...}` shape."""
+    if not tools:
+        return None
+
+    responses_tools = []
+    for tool in tools:
+        fn = tool.get("function") or {}
+        responses_tools.append(
+            {
+                "type": "function",
+                "name": fn.get("name"),
+                "description": fn.get("description"),
+                "parameters": fn.get("parameters"),
+            }
+        )
+    return responses_tools
+
+
+def _responses_output_to_message(response: Any) -> Dict[str, Any]:
+    """Parse a Responses API result into the {"content", "tool_calls"} shape
+    the rest of JAF already expects from Chat Completions."""
+    content_parts: List[str] = []
+    tool_calls: List[Dict[str, Any]] = []
+
+    for item in getattr(response, "output", None) or []:
+        item_type = getattr(item, "type", None)
+
+        if item_type == "message":
+            for part in getattr(item, "content", None) or []:
+                text = getattr(part, "text", None)
+                if text:
+                    content_parts.append(text)
+
+        elif item_type == "function_call":
+            tool_calls.append(
+                {
+                    "id": getattr(item, "call_id", None) or getattr(item, "id", None),
+                    "type": "function",
+                    "function": {
+                        "name": getattr(item, "name", None),
+                        "arguments": getattr(item, "arguments", "") or "",
+                    },
+                }
+            )
+
+    return {
+        "content": "\n".join(content_parts) if content_parts else None,
+        "tool_calls": tool_calls or None,
+    }
+
+
+def _responses_usage_to_chat_usage(response: Any) -> Dict[str, Any]:
+    """Normalize Responses API usage into the prompt/completion_tokens shape
+    used elsewhere in JAF for cost tracking."""
+    usage = getattr(response, "usage", None)
+    if not usage:
+        return {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+
+    usage_data = {
+        "prompt_tokens": getattr(usage, "input_tokens", 0) or 0,
+        "completion_tokens": getattr(usage, "output_tokens", 0) or 0,
+        "total_tokens": getattr(usage, "total_tokens", 0) or 0,
+    }
+
+    output_details = getattr(usage, "output_tokens_details", None)
+    reasoning_tokens = getattr(output_details, "reasoning_tokens", None) if output_details else None
+    if reasoning_tokens is not None:
+        usage_data["completion_tokens_details"] = {"reasoning_tokens": reasoning_tokens}
+
+    input_details = getattr(usage, "input_tokens_details", None)
+    cached_tokens = getattr(input_details, "cached_tokens", None) if input_details else None
+    if cached_tokens is not None:
+        usage_data["prompt_tokens_details"] = {"cached_tokens": cached_tokens}
+
+    return usage_data
+
+
+def _extract_reasoning_for_responses(request_params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Pop the Chat-Completions-style bare `reasoning_effort` kwarg out of a
+    request dict and translate it to the Responses API's nested `reasoning`
+    shape. Falls back to an already-nested `reasoning` kwarg if present."""
+    effort = request_params.pop("reasoning_effort", None)
+    if effort is not None:
+        return {"effort": effort}
+    return request_params.pop("reasoning", None)
+
+
+def _chat_request_params_to_responses_params(
+    request_params: Dict[str, Any],
+    messages: List[Dict[str, Any]],
+    tools: Optional[List[Dict[str, Any]]],
+) -> Dict[str, Any]:
+    """Build the kwargs for `litellm.aresponses()` from the Chat-Completions
+    style request dict JAF already assembled (model/api_key/api_base/etc. are
+    shared verbatim; messages/tools/reasoning need reshaping)."""
+    responses_params = {
+        k: v
+        for k, v in request_params.items()
+        if k not in ("messages", "tools", "tool_choice", "stream", "stream_options")
+    }
+
+    reasoning = _extract_reasoning_for_responses(responses_params)
+    if reasoning:
+        responses_params["reasoning"] = reasoning
+
+    if "max_tokens" in responses_params:
+        responses_params["max_output_tokens"] = responses_params.pop("max_tokens")
+
+    response_format = responses_params.pop("response_format", None)
+    if response_format and response_format.get("type"):
+        responses_params["text"] = {"format": {"type": response_format["type"]}}
+
+    responses_tools = _chat_tools_to_responses_tools(tools)
+    if responses_tools:
+        responses_params["tools"] = responses_tools
+        responses_params["tool_choice"] = "auto"
+
+    responses_params["input"] = _chat_messages_to_responses_input(messages)
+
+    return responses_params
+
 
 def make_litellm_sdk_provider(
     api_key: Optional[str] = None,
     model: str = "gpt-3.5-turbo",
     base_url: Optional[str] = None,
     default_timeout: Optional[float] = None,
+    api_type: str = "auto",
     **litellm_kwargs: Any,
 ) -> ModelProvider[Ctx]:
     """
@@ -740,6 +929,25 @@ def make_litellm_sdk_provider(
         model: Model name (e.g., "gpt-4", "claude-3-sonnet", "gemini-pro", "llama2", etc.)
         base_url: Optional base URL for custom endpoints
         default_timeout: Default timeout for model API calls in seconds
+        api_type: Which OpenAI-style API to call. One of:
+                  - "auto" (default): use Chat Completions as today. If the
+                    provider rejects a request because the model requires the
+                    Responses API (newer OpenAI/Azure reasoning models only
+                    support `reasoning_effort` + tools on `/v1/responses`, not
+                    `/v1/chat/completions`), automatically retry that call via
+                    the Responses API and remember the choice for that model
+                    for the lifetime of this provider instance, so later calls
+                    skip straight past the failing round trip.
+                  - "responses": always call the Responses API
+                    (`litellm.aresponses`). Use this when the caller already
+                    knows the model requires it.
+                  - "chat_completions": always call Chat Completions
+                    (`litellm.acompletion`) with no Responses API fallback -
+                    the exact pre-existing behavior.
+                  Existing callers are unaffected by this parameter: "auto"
+                  only engages the Responses API path for models that actively
+                  reject Chat Completions, and is a no-op for every model that
+                  already works today.
         **litellm_kwargs: Additional arguments passed to litellm.completion()
                          Common examples:
                          - vertex_project: "your-project" (for Google models)
@@ -793,6 +1001,58 @@ def make_litellm_sdk_provider(
             self.base_url = base_url
             self.default_timeout = default_timeout
             self.litellm_kwargs = litellm_kwargs
+            self.api_type = api_type
+            self._responses_only_models: set = set()
+
+        def _wants_responses_api(self, model_name: str) -> bool:
+            return self.api_type == "responses" or (
+                self.api_type == "auto" and model_name in self._responses_only_models
+            )
+
+        async def _call_responses_api(
+            self,
+            model_name: str,
+            messages: List[Dict[str, Any]],
+            tools: Optional[List[Dict[str, Any]]],
+            request_params: Dict[str, Any],
+            state: RunState[Ctx],
+            config: RunConfig[Ctx],
+        ) -> Dict[str, Any]:
+            """Non-streaming call via the Responses API, adapted back to the
+            Chat-Completions-shaped dict the rest of JAF expects."""
+            responses_params = _chat_request_params_to_responses_params(
+                request_params, messages, tools
+            )
+
+            async def _api_call():
+                return await litellm.aresponses(**responses_params)
+
+            response = await _retry_with_events(
+                _api_call,
+                state,
+                config,
+                operation_name="llm_call",
+                max_retries=3,
+                backoff_factor=1.0,
+            )
+
+            message_dict = _responses_output_to_message(response)
+            usage_data = _responses_usage_to_chat_usage(response)
+            actual_model = getattr(response, "model", model_name)
+
+            # CRITICAL: Embed usage and model here so trace collector can find them
+            message_dict["_usage"] = usage_data
+            message_dict["_model"] = actual_model
+
+            return {
+                "id": getattr(response, "id", None),
+                "created": getattr(response, "created_at", None),
+                "model": actual_model,
+                "system_fingerprint": None,
+                "message": message_dict,
+                "usage": usage_data,
+                "prompt": messages,
+            }
 
         async def get_completion(
             self, state: RunState[Ctx], agent: Agent[Ctx, Any], config: RunConfig[Ctx]
@@ -868,19 +1128,32 @@ def make_litellm_sdk_provider(
             if self.base_url:
                 request_params["api_base"] = self.base_url
 
+            if self._wants_responses_api(model_name):
+                return await self._call_responses_api(
+                    model_name, messages, tools, dict(request_params), state, config
+                )
+
             # Make the API call using litellm with retry handling
             async def _api_call():
                 return await litellm.acompletion(**request_params)
 
             # Use retry wrapper to track retries in Langfuse
-            response = await _retry_with_events(
-                _api_call,
-                state,
-                config,
-                operation_name="llm_call",
-                max_retries=3,
-                backoff_factor=1.0,
-            )
+            try:
+                response = await _retry_with_events(
+                    _api_call,
+                    state,
+                    config,
+                    operation_name="llm_call",
+                    max_retries=3,
+                    backoff_factor=1.0,
+                )
+            except Exception as e:
+                if self.api_type == "auto" and _requires_responses_api(e):
+                    self._responses_only_models.add(model_name)
+                    return await self._call_responses_api(
+                        model_name, messages, tools, dict(request_params), state, config
+                    )
+                raise
 
             # Return in the expected format that the engine expects
             choice = response.choices[0]
@@ -971,6 +1244,103 @@ def make_litellm_sdk_provider(
                 "prompt": messages,
             }
 
+        async def _stream_via_responses_api(
+            self,
+            model_name: str,
+            messages: List[Dict[str, Any]],
+            tools: Optional[List[Dict[str, Any]]],
+            request_params: Dict[str, Any],
+        ) -> AsyncIterator[CompletionStreamChunk]:
+            """Stream completion chunks via the Responses API, translated into
+            the same CompletionStreamChunk deltas Chat Completions streaming
+            produces so the engine's consumption logic doesn't need to change."""
+            responses_params = _chat_request_params_to_responses_params(
+                request_params, messages, tools
+            )
+            responses_params.pop("stream_options", None)
+            responses_params["stream"] = True
+
+            stream = await litellm.aresponses(**responses_params)
+
+            # Responses events key tool calls by output_index; JAF's
+            # ToolCallDelta expects a stable, densely-packed `index` per call.
+            tool_call_indices: Dict[int, int] = {}
+            next_tool_index = 0
+
+            async for event in stream:
+                try:
+                    event_type = getattr(event, "type", None)
+                    event_name = getattr(event_type, "value", event_type)
+
+                    if event_name == "response.output_text.delta":
+                        delta = getattr(event, "delta", None)
+                        if delta:
+                            yield CompletionStreamChunk(delta=delta)
+
+                    elif event_name == "response.output_item.added":
+                        item = getattr(event, "item", None) or {}
+                        item_type = (
+                            item.get("type") if isinstance(item, dict) else getattr(item, "type", None)
+                        )
+                        if item_type == "function_call":
+                            output_index = getattr(event, "output_index", 0) or 0
+                            if output_index not in tool_call_indices:
+                                tool_call_indices[output_index] = next_tool_index
+                                next_tool_index += 1
+                            call_id = (
+                                item.get("call_id")
+                                if isinstance(item, dict)
+                                else getattr(item, "call_id", None)
+                            )
+                            name = (
+                                item.get("name") if isinstance(item, dict) else getattr(item, "name", None)
+                            )
+                            yield CompletionStreamChunk(
+                                tool_call_delta=ToolCallDelta(
+                                    index=tool_call_indices[output_index],
+                                    id=call_id,
+                                    type="function",
+                                    function=ToolCallFunctionDelta(name=name, arguments_delta=None),
+                                )
+                            )
+
+                    elif event_name == "response.function_call_arguments.delta":
+                        output_index = getattr(event, "output_index", 0) or 0
+                        if output_index not in tool_call_indices:
+                            tool_call_indices[output_index] = next_tool_index
+                            next_tool_index += 1
+                        delta = getattr(event, "delta", None)
+                        yield CompletionStreamChunk(
+                            tool_call_delta=ToolCallDelta(
+                                index=tool_call_indices[output_index],
+                                id=None,
+                                type="function",
+                                function=ToolCallFunctionDelta(name=None, arguments_delta=delta),
+                            )
+                        )
+
+                    elif event_name == "response.completed":
+                        response = getattr(event, "response", None)
+                        finish_reason = "tool_calls" if tool_call_indices else "stop"
+                        raw_obj = None
+                        if response is not None:
+                            usage_data = _responses_usage_to_chat_usage(response)
+                            raw_obj = {
+                                "usage": usage_data,
+                                "model": getattr(response, "model", model_name),
+                            }
+                        yield CompletionStreamChunk(
+                            is_done=True, finish_reason=finish_reason, raw=raw_obj
+                        )
+
+                    elif event_name in ("response.failed", "error"):
+                        error_obj = getattr(event, "response", None) or getattr(event, "error", None)
+                        raise RuntimeError(f"Responses API stream failed: {error_obj}")
+                except RuntimeError:
+                    raise
+                except Exception:
+                    continue
+
         async def get_completion_stream(
             self, state: RunState[Ctx], agent: Agent[Ctx, Any], config: RunConfig[Ctx]
         ) -> AsyncIterator[CompletionStreamChunk]:
@@ -1052,8 +1422,25 @@ def make_litellm_sdk_provider(
             if self.base_url:
                 request_params["api_base"] = self.base_url
 
+            if self._wants_responses_api(model_name):
+                async for chunk in self._stream_via_responses_api(
+                    model_name, messages, tools, dict(request_params)
+                ):
+                    yield chunk
+                return
+
             # Stream using litellm
-            stream = await litellm.acompletion(**request_params)
+            try:
+                stream = await litellm.acompletion(**request_params)
+            except Exception as e:
+                if self.api_type == "auto" and _requires_responses_api(e):
+                    self._responses_only_models.add(model_name)
+                    async for chunk in self._stream_via_responses_api(
+                        model_name, messages, tools, dict(request_params)
+                    ):
+                        yield chunk
+                    return
+                raise
 
             accumulated_usage: Optional[Dict[str, int]] = None
             response_model: Optional[str] = None
