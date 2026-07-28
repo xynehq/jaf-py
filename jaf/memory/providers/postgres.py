@@ -501,6 +501,108 @@ class PostgresProvider(MemoryProvider):
                 )
             )
 
+    async def get_previous_response_id(
+        self, conversation_id: str
+    ) -> Result[Optional[str], MemoryStorageError]:
+        """Point lookup on metadata only -- doesn't fetch the messages column."""
+        try:
+            row = await self._db_fetchrow(
+                f"SELECT metadata->>'previous_response_id' AS response_id "
+                f"FROM {self.config.table_name} WHERE conversation_id = $1",
+                conversation_id,
+            )
+            return Success(row["response_id"] if row else None)
+        except Exception as e:
+            return Failure(
+                MemoryStorageError(
+                    operation="get_previous_response_id", provider="Postgres", message=str(e), cause=e
+                )
+            )
+
+    async def get_previous_response_message_id(
+        self, conversation_id: str
+    ) -> Result[Optional[str], MemoryStorageError]:
+        """Point lookup on metadata only -- doesn't fetch the messages column."""
+        try:
+            row = await self._db_fetchrow(
+                f"SELECT metadata->>'previous_response_message_id' AS message_id "
+                f"FROM {self.config.table_name} WHERE conversation_id = $1",
+                conversation_id,
+            )
+            return Success(row["message_id"] if row else None)
+        except Exception as e:
+            return Failure(
+                MemoryStorageError(
+                    operation="get_previous_response_message_id",
+                    provider="Postgres",
+                    message=str(e),
+                    cause=e,
+                )
+            )
+
+    async def get_prior_response_id(
+        self, conversation_id: str
+    ) -> Result[Optional[str], MemoryStorageError]:
+        """Point lookup on metadata only -- doesn't fetch the messages column."""
+        try:
+            row = await self._db_fetchrow(
+                f"SELECT metadata->>'prior_response_id' AS response_id "
+                f"FROM {self.config.table_name} WHERE conversation_id = $1",
+                conversation_id,
+            )
+            return Success(row["response_id"] if row else None)
+        except Exception as e:
+            return Failure(
+                MemoryStorageError(
+                    operation="get_prior_response_id", provider="Postgres", message=str(e), cause=e
+                )
+            )
+
+    async def set_previous_response_id(
+        self,
+        conversation_id: str,
+        response_id: str,
+        message_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+        shift: bool = True,
+    ) -> Result[None, MemoryStorageError]:
+        """Upsert into metadata only. shift=True moves the old previous_response_id
+        into prior_response_id first (normal turn); shift=False overwrites both
+        directly and clears prior_response_id (rewinding to an earlier point)."""
+        try:
+            metadata = {
+                "previous_response_id": response_id,
+                "previous_response_message_id": message_id,
+            }
+            if shift:
+                query = f"""
+                INSERT INTO {self.config.table_name} (conversation_id, user_id, messages, metadata)
+                VALUES ($1, $2, '[]'::jsonb, $3::jsonb)
+                ON CONFLICT (conversation_id) DO UPDATE SET
+                    metadata = {self.config.table_name}.metadata
+                        || jsonb_build_object(
+                            'prior_response_id',
+                            {self.config.table_name}.metadata->>'previous_response_id'
+                        )
+                        || $3::jsonb;
+                """
+            else:
+                metadata["prior_response_id"] = None
+                query = f"""
+                INSERT INTO {self.config.table_name} (conversation_id, user_id, messages, metadata)
+                VALUES ($1, $2, '[]'::jsonb, $3::jsonb)
+                ON CONFLICT (conversation_id) DO UPDATE SET
+                    metadata = {self.config.table_name}.metadata || $3::jsonb;
+                """
+            await self._db_execute(query, conversation_id, user_id, json.dumps(metadata))
+            return Success(None)
+        except Exception as e:
+            return Failure(
+                MemoryStorageError(
+                    operation="set_previous_response_id", provider="Postgres", message=str(e), cause=e
+                )
+            )
+
     async def close(self) -> Result[None, MemoryConnectionError]:
         try:
             if hasattr(self.client, "close"):

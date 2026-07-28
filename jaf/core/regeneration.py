@@ -17,6 +17,7 @@ from .types import (
     RegenerationContext,
     MessageId,
     Message,
+    ContentRole,
     ErrorOutcome,
     ModelBehaviorError,
     find_message_index,
@@ -30,6 +31,64 @@ from ..memory.types import Success, Failure
 
 Ctx = TypeVar("Ctx")
 Out = TypeVar("Out")
+
+
+def _error_result(agent_name: str, context: Ctx, detail: str) -> RunResult[Out]:
+    return RunResult(
+        final_state=RunState(
+            run_id=generate_run_id(),
+            trace_id=generate_trace_id(),
+            messages=[],
+            current_agent_name=agent_name,
+            context=context,
+            turn_count=0,
+        ),
+        outcome=ErrorOutcome(error=ModelBehaviorError(detail=detail)),
+    )
+
+
+async def _fork_regenerate(
+    regeneration_request: RegenerationRequest,
+    config: RunConfig[Ctx],
+    context: Ctx,
+    agent_name: str,
+) -> RunResult[Out]:
+    """Regenerate the latest turn in previous_response_id mode by forking from
+    the response before it, resending the same input. Only the latest turn is
+    supported -- there's no per-message history to locate an older one."""
+    provider = config.memory.provider
+    conversation_id = regeneration_request.conversation_id
+
+    latest_message_id = (await provider.get_previous_response_message_id(conversation_id)).data
+    if str(regeneration_request.message_id) != str(latest_message_id):
+        return _error_result(
+            agent_name,
+            context,
+            "previous_response_id mode only supports regenerating the most recent turn",
+        )
+
+    replacement_input = (regeneration_request.context or {}).get("replace_user_message")
+    if not replacement_input:
+        return _error_result(
+            agent_name,
+            context,
+            "Fork regeneration requires the original input via "
+            "context={'replace_user_message': ...}",
+        )
+
+    prior_response_id = (await provider.get_prior_response_id(conversation_id)).data
+
+    initial_state = RunState(
+        run_id=generate_run_id(),
+        trace_id=generate_trace_id(),
+        messages=[Message(role=ContentRole.USER, content=replacement_input)],
+        current_agent_name=agent_name,
+        context=context,
+        turn_count=0,
+        response_id=prior_response_id,
+    )
+
+    return await engine_run(initial_state, replace(config, conversation_id=conversation_id))
 
 
 async def regenerate_conversation(
@@ -71,6 +130,12 @@ async def regenerate_conversation(
                 )
             ),
         )
+
+    prev_response_id_result = await config.memory.provider.get_previous_response_id(
+        regeneration_request.conversation_id
+    )
+    if isinstance(prev_response_id_result, Success) and prev_response_id_result.data:
+        return await _fork_regenerate(regeneration_request, config, context, agent_name)
 
     # Load the conversation from memory
     conversation_result = await config.memory.provider.get_conversation(

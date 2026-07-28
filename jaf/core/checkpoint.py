@@ -40,6 +40,45 @@ class CheckpointResult:
     execution_time_ms: int
 
 
+async def _fork_checkpoint(
+    checkpoint_request: CheckpointRequest, config: RunConfig[Ctx], start_time: float
+) -> CheckpointResult:
+    """previous_response_id mode: same 2-deep limit as regeneration. Checkpointing
+    to the latest turn is a no-op; checkpointing to the prior turn rewinds the
+    live pointer there (no engine call, matches the manual-replay path below).
+    There's no independent way to verify message_id names the prior turn (only
+    its response_id is tracked) -- any id that isn't the latest is trusted as
+    the prior one."""
+    provider = config.memory.provider
+    conversation_id = checkpoint_request.conversation_id
+    target = str(checkpoint_request.message_id)
+    checkpoint_id = f"chk_{int(time.time() * 1000)}_{checkpoint_request.message_id}"
+
+    latest_message_id = (await provider.get_previous_response_message_id(conversation_id)).data
+    if target != str(latest_message_id):
+        prior_response_id = (await provider.get_prior_response_id(conversation_id)).data
+        if not prior_response_id:
+            raise ValueError(
+                "previous_response_id mode only supports checkpointing to the latest "
+                "or immediately prior turn -- no earlier turn is tracked"
+            )
+        set_result = await provider.set_previous_response_id(
+            conversation_id, prior_response_id, message_id=target, shift=False
+        )
+        if isinstance(set_result, Failure):
+            raise ValueError(f"Failed to checkpoint: {set_result.error}")
+
+    return CheckpointResult(
+        checkpoint_id=checkpoint_id,
+        conversation_id=conversation_id,
+        original_message_count=0,
+        checkpointed_at_index=-1,
+        checkpointed_message_id=checkpoint_request.message_id,
+        messages=[],
+        execution_time_ms=int((time.time() - start_time) * 1000),
+    )
+
+
 async def checkpoint_conversation(
     checkpoint_request: CheckpointRequest, config: RunConfig[Ctx]
 ) -> CheckpointResult:
@@ -66,6 +105,12 @@ async def checkpoint_conversation(
 
     if not config.memory or not config.memory.provider or not config.conversation_id:
         raise ValueError("Checkpoint requires memory provider and conversation_id to be configured")
+
+    prev_response_id_result = await config.memory.provider.get_previous_response_id(
+        config.conversation_id
+    )
+    if isinstance(prev_response_id_result, Success) and prev_response_id_result.data:
+        return await _fork_checkpoint(checkpoint_request, config, start_time)
 
     # Load the conversation from memory
     conversation_result = await config.memory.provider.get_conversation(

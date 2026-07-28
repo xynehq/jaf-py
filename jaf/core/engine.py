@@ -372,7 +372,11 @@ async def _load_conversation_history(state: RunState[Ctx], config: RunConfig[Ctx
             print(f"[JAF:MEMORY] Loaded {len(all_memory_messages)} messages from memory")
 
         return replace(
-            state, messages=combined_messages, turn_count=turn_count, approvals=approvals_map
+            state,
+            messages=combined_messages,
+            turn_count=turn_count,
+            approvals=approvals_map,
+            response_id=state.response_id or conversation_data.metadata.get("previous_response_id"),
         )
     return state
 
@@ -442,6 +446,15 @@ async def _store_conversation_history(state: RunState[Ctx], config: RunConfig[Ct
     result = await config.memory.provider.store_messages(
         config.conversation_id, messages_to_store, metadata
     )
+
+    if state.response_id:
+        last_message_id = messages_to_store[-1].message_id if messages_to_store else None
+        await config.memory.provider.set_previous_response_id(
+            config.conversation_id,
+            state.response_id,
+            message_id=last_message_id,
+            user_id=metadata.get("user_id"),
+        )
 
     if isinstance(result, Failure):
         print(f"[JAF:ENGINE] Warning: Failed to store conversation: {result.error}")
@@ -912,6 +925,7 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
     )
 
     new_messages = list(state.messages) + [assistant_message]
+    new_response_id = llm_response.get("id") or state.response_id
 
     # Handle tool calls
     if assistant_message.tool_calls:
@@ -945,6 +959,7 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
                 messages=new_messages + _flatten_tool_result_messages(completed_results),
                 turn_count=state.turn_count + 1,
                 approvals=updated_approvals,
+                response_id=new_response_id,
             )
 
             # Store conversation state with ALL messages including approval-required (for database records)
@@ -1020,6 +1035,7 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
                 current_agent_name=target_agent,
                 turn_count=state.turn_count + 1,
                 approvals=state.approvals,
+                response_id=new_response_id,
             )
 
             return await _run_internal(next_state, config)
@@ -1053,6 +1069,7 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
             messages=cleaned_new_messages + _flatten_tool_result_messages(tool_results),
             turn_count=state.turn_count + 1,
             approvals=state.approvals,
+            response_id=new_response_id,
         )
 
         return await _run_internal(next_state, config)
@@ -1153,6 +1170,7 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
                         messages=new_messages,
                         turn_count=state.turn_count + 1,
                         approvals=state.approvals,
+                        response_id=new_response_id,
                     ),
                     outcome=CompletedOutcome(output=output_data),
                 )
@@ -1245,6 +1263,7 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
                     messages=new_messages,
                     turn_count=state.turn_count + 1,
                     approvals=state.approvals,
+                    response_id=new_response_id,
                 ),
                 outcome=CompletedOutcome(output=get_text_content(assistant_message.content)),
             )

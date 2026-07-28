@@ -11,10 +11,14 @@ import time
 import os
 import base64
 import asyncio
+import json
+from urllib.parse import urlsplit, urlunsplit
 
 from openai import AsyncOpenAI
 from pydantic import BaseModel
 import litellm
+import websockets
+from websockets.exceptions import ConnectionClosed
 
 from ..core.types import (
     Agent,
@@ -865,6 +869,134 @@ def _responses_usage_to_chat_usage(response: Any) -> Dict[str, Any]:
     return usage_data
 
 
+# Azure Responses API WebSocket transport. litellm has no WS support for this,
+# so we talk to wss://{resource}.openai.azure.com/openai/v1/responses directly.
+
+# Azure caps connections at 60 min; reconnect a bit early to avoid racing it.
+_WS_CONNECTION_LIFETIME_SECONDS = 55 * 60
+
+# Auth/routing kwargs that don't belong in the response.create JSON body.
+_WS_PAYLOAD_EXCLUDED_KEYS = {
+    "api_key",
+    "api_base",
+    "api_version",
+    "azure_deployment",
+    "custom_llm_provider",
+    "timeout",
+    "litellm_session_id",
+    "stream",
+}
+
+
+def _azure_responses_ws_url(api_base: str) -> str:
+    """api_base -> Responses API WS URL. Accepts an existing ws(s):// URL too;
+    path is always normalized to /openai/v1/responses."""
+    parsed = urlsplit(api_base)
+    if not parsed.netloc:
+        raise ValueError(f"websocket=True needs a full api_base URL, got: {api_base!r}")
+    scheme = "wss" if parsed.scheme in ("https", "wss", "") else "ws"
+    return urlunsplit((scheme, parsed.netloc, "/openai/v1/responses", "", ""))
+
+
+def _responses_params_to_ws_payload(responses_params: Dict[str, Any]) -> Dict[str, Any]:
+    """Drop auth/routing kwargs; `model` becomes the deployment name."""
+    payload = {k: v for k, v in responses_params.items() if k not in _WS_PAYLOAD_EXCLUDED_KEYS}
+
+    deployment = responses_params.get("azure_deployment")
+    if deployment:
+        payload["model"] = deployment
+    elif isinstance(payload.get("model"), str) and "/" in payload["model"]:
+        payload["model"] = payload["model"].split("/")[-1]
+
+    return payload
+
+
+class _WSEventProxy(dict):
+    """Dict -> attribute access, so raw WS events reuse the existing (litellm
+    object-shaped) event translation code unchanged."""
+
+    def __getattr__(self, name: str) -> Any:
+        value = self.get(name)
+        if name == "response" and isinstance(value, dict):
+            from openai.types.responses import Response as _OpenAIResponse
+
+            try:
+                return _OpenAIResponse.model_validate(value)
+            except Exception:
+                return value
+        return value
+
+
+class _AzureResponsesWebSocketConnection:
+    """One persistent WS connection, owned by a provider instance. Caller must
+    reuse the provider across a session's turns for this to help. Azure allows
+    one response.create in flight per connection, so calls are serialized."""
+
+    def __init__(self, api_base: str, api_key: Optional[str], default_timeout: Optional[float]):
+        self._url = _azure_responses_ws_url(api_base)
+        self._api_key = api_key
+        self._default_timeout = default_timeout
+        self._ws: Optional[Any] = None
+        self._connected_at: Optional[float] = None
+        self._lock = asyncio.Lock()
+
+    async def _ensure_connected(self) -> None:
+        stale = (
+            self._ws is None
+            or self._connected_at is None
+            or (time.monotonic() - self._connected_at) > _WS_CONNECTION_LIFETIME_SECONDS
+        )
+        if not stale:
+            return
+
+        await self._close()
+        headers = {"Authorization": f"Bearer {self._api_key}"} if self._api_key else {}
+        self._ws = await websockets.connect(
+            self._url,
+            additional_headers=headers,
+            open_timeout=self._default_timeout,
+        )
+        self._connected_at = time.monotonic()
+
+    async def _close(self) -> None:
+        if self._ws is not None:
+            try:
+                await self._ws.close()
+            except Exception:
+                pass
+        self._ws = None
+        self._connected_at = None
+
+    async def create_response(self, payload: Dict[str, Any]) -> AsyncIterator[Dict[str, Any]]:
+        """Send one response.create, yield raw events until completed/failed.
+        Reconnects lazily next call if stale/closed/errored; payload already
+        carries previous_response_id so a fresh socket resumes the chain."""
+        async with self._lock:
+            await self._ensure_connected()
+            body = {"type": "response.create", **payload}
+
+            try:
+                await self._ws.send(json.dumps(body))
+
+                while True:
+                    raw = await self._ws.recv()
+                    event = json.loads(raw)
+                    yield event
+
+                    event_type = event.get("type")
+                    if event_type == "response.completed":
+                        return
+                    if event_type in ("response.failed", "error"):
+                        error = event.get("error") or (event.get("response") or {}).get("error")
+                        code = (error or {}).get("code")
+                        if code == "websocket_connection_limit_reached":
+                            await self._close()
+                        raise RuntimeError(f"Azure Responses WebSocket error: {error}")
+            except ConnectionClosed:
+                await self._close()
+                raise
+
+
 def _extract_reasoning_for_responses(request_params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Pop the Chat-Completions-style bare `reasoning_effort` kwarg out of a
     request dict and translate it to the Responses API's nested `reasoning`
@@ -916,6 +1048,7 @@ def make_litellm_sdk_provider(
     base_url: Optional[str] = None,
     default_timeout: Optional[float] = None,
     api_type: str = "auto",
+    websocket: bool = False,
     **litellm_kwargs: Any,
 ) -> ModelProvider[Ctx]:
     """
@@ -948,6 +1081,12 @@ def make_litellm_sdk_provider(
                   only engages the Responses API path for models that actively
                   reject Chat Completions, and is a no-op for every model that
                   already works today.
+        websocket: Use a persistent WebSocket to Azure's Responses API instead
+                  of per-call HTTPS. Requires api_type="responses" (or "auto"
+                  once it falls through). One connection per provider instance,
+                  reused across calls -- reuse the same provider across a
+                  session's turns to get the benefit. Default False, no effect
+                  on existing callers.
         **litellm_kwargs: Additional arguments passed to litellm.completion()
                          Common examples:
                          - vertex_project: "your-project" (for Google models)
@@ -994,6 +1133,9 @@ def make_litellm_sdk_provider(
         )
     """
 
+    if websocket and api_type == "chat_completions":
+        raise ValueError("websocket=True requires api_type='responses' or 'auto'")
+
     class LiteLLMSDKProvider:
         def __init__(self):
             self.api_key = api_key
@@ -1002,12 +1144,38 @@ def make_litellm_sdk_provider(
             self.default_timeout = default_timeout
             self.litellm_kwargs = litellm_kwargs
             self.api_type = api_type
+            self.websocket = websocket
             self._responses_only_models: set = set()
+            self._ws_connection: Optional[_AzureResponsesWebSocketConnection] = None
 
         def _wants_responses_api(self, model_name: str) -> bool:
             return self.api_type == "responses" or (
                 self.api_type == "auto" and model_name in self._responses_only_models
             )
+
+        def _get_ws_connection(self) -> _AzureResponsesWebSocketConnection:
+            if self._ws_connection is None:
+                api_base = self.litellm_kwargs.get("api_base") or self.base_url
+                self._ws_connection = _AzureResponsesWebSocketConnection(
+                    api_base=api_base, api_key=self.api_key, default_timeout=self.default_timeout
+                )
+            return self._ws_connection
+
+        async def _call_responses_api_via_ws(self, responses_params: Dict[str, Any]) -> Any:
+            """Drive one turn over the WS connection, return the same typed
+            Response object litellm.aresponses() would."""
+            from openai.types.responses import Response as _OpenAIResponse
+
+            payload = _responses_params_to_ws_payload(responses_params)
+            final_response = None
+            async for event in self._get_ws_connection().create_response(payload):
+                if event.get("type") == "response.completed":
+                    final_response = event.get("response")
+                    break
+
+            if final_response is None:
+                raise RuntimeError("Responses WebSocket stream ended without response.completed")
+            return _OpenAIResponse.model_validate(final_response)
 
         async def _call_responses_api(
             self,
@@ -1025,6 +1193,8 @@ def make_litellm_sdk_provider(
             )
 
             async def _api_call():
+                if self.websocket:
+                    return await self._call_responses_api_via_ws(responses_params)
                 return await litellm.aresponses(**responses_params)
 
             response = await _retry_with_events(
@@ -1129,6 +1299,8 @@ def make_litellm_sdk_provider(
                 request_params["api_base"] = self.base_url
 
             if self._wants_responses_api(model_name):
+                if state.response_id:
+                    request_params["previous_response_id"] = state.response_id
                 return await self._call_responses_api(
                     model_name, messages, tools, dict(request_params), state, config
                 )
@@ -1150,6 +1322,8 @@ def make_litellm_sdk_provider(
             except Exception as e:
                 if self.api_type == "auto" and _requires_responses_api(e):
                     self._responses_only_models.add(model_name)
+                    if state.response_id:
+                        request_params["previous_response_id"] = state.response_id
                     return await self._call_responses_api(
                         model_name, messages, tools, dict(request_params), state, config
                     )
@@ -1260,7 +1434,17 @@ def make_litellm_sdk_provider(
             responses_params.pop("stream_options", None)
             responses_params["stream"] = True
 
-            stream = await litellm.aresponses(**responses_params)
+            if self.websocket:
+                payload = _responses_params_to_ws_payload(responses_params)
+                connection = self._get_ws_connection()
+
+                async def _ws_events():
+                    async for event in connection.create_response(payload):
+                        yield _WSEventProxy(event)
+
+                stream = _ws_events()
+            else:
+                stream = await litellm.aresponses(**responses_params)
 
             # Responses events key tool calls by output_index; JAF's
             # ToolCallDelta expects a stable, densely-packed `index` per call.
@@ -1423,6 +1607,8 @@ def make_litellm_sdk_provider(
                 request_params["api_base"] = self.base_url
 
             if self._wants_responses_api(model_name):
+                if state.response_id:
+                    request_params["previous_response_id"] = state.response_id
                 async for chunk in self._stream_via_responses_api(
                     model_name, messages, tools, dict(request_params)
                 ):
@@ -1435,6 +1621,8 @@ def make_litellm_sdk_provider(
             except Exception as e:
                 if self.api_type == "auto" and _requires_responses_api(e):
                     self._responses_only_models.add(model_name)
+                    if state.response_id:
+                        request_params["previous_response_id"] = state.response_id
                     async for chunk in self._stream_via_responses_api(
                         model_name, messages, tools, dict(request_params)
                     ):

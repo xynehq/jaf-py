@@ -161,6 +161,42 @@ class MemoryProvider(Protocol):
         """
         ...
 
+    # Responses API `previous_response_id` continuation support
+    async def get_previous_response_id(
+        self, conversation_id: str
+    ) -> Result[Optional[str], "MemoryStorageError"]:
+        """Get the last Responses API response_id for a conversation."""
+        ...
+
+    async def get_previous_response_message_id(
+        self, conversation_id: str
+    ) -> Result[Optional[str], "MemoryStorageError"]:
+        """Get the message_id the last response_id corresponds to. Used to check
+        a regeneration target is the latest turn (the only one previous_response_id
+        mode can fork from)."""
+        ...
+
+    async def get_prior_response_id(
+        self, conversation_id: str
+    ) -> Result[Optional[str], "MemoryStorageError"]:
+        """Get the response_id from before the latest turn -- what regeneration
+        forks from to redo the latest turn."""
+        ...
+
+    async def set_previous_response_id(
+        self,
+        conversation_id: str,
+        response_id: str,
+        message_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+        shift: bool = True,
+    ) -> Result[None, "MemoryStorageError"]:
+        """Store the last Responses API response_id (and the message_id it
+        corresponds to) for a conversation. shift=True (normal turns) moves the
+        old previous_response_id into prior_response_id first; shift=False
+        (rewinding to an earlier point) overwrites both directly instead."""
+        ...
+
 
 # Configuration models using Pydantic for validation
 
