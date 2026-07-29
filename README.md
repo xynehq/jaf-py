@@ -2,7 +2,7 @@
 
 <!-- ![JAF Banner](docs/cover.png) -->
 
-[![Version](https://img.shields.io/badge/version-2.6.15-blue.svg)](https://github.com/xynehq/jaf-py)
+[![Version](https://img.shields.io/badge/version-2.6.16-blue.svg)](https://github.com/xynehq/jaf-py)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Docs](https://img.shields.io/badge/Docs-Live-brightgreen)](https://xynehq.github.io/jaf-py/)
 
@@ -133,7 +133,7 @@ pip install -r requirements-docs.txt
 The complete, searchable documentation is available at **[xynehq.github.io/jaf-py](https://xynehq.github.io/jaf-py/)** with:
 
 -  **Interactive navigation** with search and filtering
--  **Dark/light mode** with automatic system preference detection  
+-  **Dark/light mode** with automatic system preference detection
 -  **Mobile-responsive design** for documentation on any device
 -  **Live code examples** with syntax highlighting
 -  **API reference** with auto-generated documentation
@@ -184,7 +184,7 @@ First, install the system Graphviz dependency:
 # macOS
 brew install graphviz
 
-# Ubuntu/Debian  
+# Ubuntu/Debian
 sudo apt-get install graphviz
 
 # Windows (via Chocolatey)
@@ -222,7 +222,7 @@ async def main():
             show_tool_details=True
         )
     )
-    
+
     if result.success:
         print(f" Visualization saved to: {result.output_path}")
     else:
@@ -234,7 +234,7 @@ asyncio.run(main())
 ### Features
 
 - **Multiple Color Schemes**: Choose from `default`, `modern`, or `minimal` themes
-- **Agent Architecture**: Visualize agents, tools, and handoff relationships  
+- **Agent Architecture**: Visualize agents, tools, and handoff relationships
 - **Tool Ecosystems**: Generate dedicated tool interaction diagrams
 - **Runner Architecture**: Show complete system architecture with session layers
 - **Multiple Formats**: Export as PNG, SVG, or PDF
@@ -245,7 +245,7 @@ asyncio.run(main())
 The visualization system generates clear, professional diagrams showing:
 
 - **Agent Nodes**: Rounded rectangles with agent names and model information
-- **Tool Nodes**: Ellipses showing tool names and descriptions  
+- **Tool Nodes**: Ellipses showing tool names and descriptions
 - **Handoff Edges**: Dashed lines indicating agent handoff relationships
 - **Tool Connections**: Colored edges connecting agents to their tools
 - **Cluster Organization**: Grouped components in runner architecture views
@@ -260,7 +260,7 @@ await run_visualization_examples()
 
 # This generates multiple example files:
 # - ./examples/agent-graph.png (agent system overview)
-# - ./examples/tool-graph.png (tool ecosystem)  
+# - ./examples/tool-graph.png (tool ecosystem)
 # - ./examples/runner-architecture.png (complete system)
 # - ./examples/agent-modern.png (modern color scheme)
 ```
@@ -293,7 +293,7 @@ class CalculatorTool:
             'description': 'Perform mathematical calculations',
             'parameters': CalculateArgs
         })()
-    
+
     async def execute(self, args: CalculateArgs, context: MyContext) -> str:
         result = eval(args.expression)  # Don't do this in production!
         return f"{args.expression} = {result}"
@@ -302,7 +302,7 @@ class CalculatorTool:
 def create_math_agent():
     def instructions(state):
         return 'You are a helpful math tutor'
-    
+
     return Agent(
         name='MathTutor',
         instructions=instructions,
@@ -320,14 +320,14 @@ from jaf.core.types import RunState, RunConfig, Message
 async def main():
     model_provider = make_litellm_provider('http://localhost:4000')
     math_agent = create_math_agent()
-    
+
     config = RunConfig(
         agent_registry={'MathTutor': math_agent},
         model_provider=model_provider,
         max_turns=10,
         on_event=lambda event: print(event),  # Real-time tracing
     )
-    
+
     initial_state = RunState(
         run_id=generate_run_id(),
         trace_id=generate_trace_id(),
@@ -336,7 +336,7 @@ async def main():
         context=MyContext(user_id='user123', permissions=['user']),
         turn_count=0,
     )
-    
+
     result = await run(initial_state, config)
     print(result.outcome.output if result.outcome.status == 'completed' else result.outcome.error)
 
@@ -394,7 +394,7 @@ spanish_agent = Agent(
 )
 
 french_agent = Agent(
-    name="french_translator", 
+    name="french_translator",
     instructions=lambda state: "Translate text to French",
     output_codec=TranslationOutput
 )
@@ -409,7 +409,7 @@ spanish_tool = spanish_agent.as_tool(
 )
 
 french_tool = french_agent.as_tool(
-    tool_name="translate_to_french", 
+    tool_name="translate_to_french",
     tool_description="Translate text to French",
     max_turns=3,
     custom_output_extractor=create_json_output_extractor(),
@@ -447,7 +447,7 @@ class HandoffOutput(BaseModel):
 def create_triage_agent():
     def instructions(state):
         return 'Route requests to specialized agents'
-    
+
     return Agent(
         name='TriageAgent',
         instructions=instructions,
@@ -509,7 +509,7 @@ from jaf.core.tracing import create_composite_trace_collector, ConsoleTraceColle
 
 # Configure Langfuse credentials
 os.environ["LANGFUSE_PUBLIC_KEY"] = "pk-lf-your-public-key"
-os.environ["LANGFUSE_SECRET_KEY"] = "sk-lf-your-secret-key" 
+os.environ["LANGFUSE_SECRET_KEY"] = "sk-lf-your-secret-key"
 os.environ["LANGFUSE_HOST"] = "https://cloud.langfuse.com"  # or your self-hosted instance
 
 # Langfuse tracing will be automatically configured
@@ -530,7 +530,7 @@ if result.outcome.status == 'error':
     formatted_error = JAFErrorHandler.format_error(result.outcome.error)
     is_retryable = JAFErrorHandler.is_retryable(result.outcome.error)
     severity = JAFErrorHandler.get_severity(result.outcome.error)
-    
+
     print(f"[{severity}] {formatted_error} (retryable: {is_retryable})")
 ```
 
@@ -589,7 +589,7 @@ mcp_tools = await create_mcp_tools_from_client(mcp_client)
 def create_mcp_agent():
     def instructions(state):
         return "You have access to powerful MCP tools for various tasks."
-    
+
     return Agent(
         name='MCPAgent',
         instructions=instructions,
@@ -612,7 +612,7 @@ from jaf.providers.model import make_litellm_provider
 def create_my_agent():
     def instructions(state):
         return 'You are a helpful assistant'
-    
+
     return Agent(
         name='MyAgent',
         instructions=instructions,
@@ -623,7 +623,7 @@ model_provider = make_litellm_provider('http://localhost:4000')
 
 # Start server on port 3000
 await run_server(
-    [create_my_agent()], 
+    [create_my_agent()],
     {'model_provider': model_provider},
     {'port': 3000}
 )
@@ -631,7 +631,7 @@ await run_server(
 
 Server provides RESTful endpoints:
 - `GET /health` - Health check
-- `GET /agents` - List available agents  
+- `GET /agents` - List available agents
 - `POST /chat` - General chat endpoint
 - `POST /agents/{name}/chat` - Agent-specific endpoint
 
@@ -667,7 +667,7 @@ enhanced_tool = create_function_tool({
 
 **Key Benefits:**
 - **Reusability**: Write once, compose everywhere
-- **Testability**: Each function can be tested in isolation  
+- **Testability**: Each function can be tested in isolation
 - **Type Safety**: Full type checking support
 - **Performance**: Optimize individual pieces independently
 
@@ -720,7 +720,7 @@ python agent_as_tool_example.py --server
 cd examples
 python otel_tracing_demo.py
 
-# Langfuse tracing example  
+# Langfuse tracing example
 python langfuse_tracing_demo.py
 ```
 
@@ -733,7 +733,7 @@ python langfuse_tracing_demo.py
 ### 4. MCP Integration Demo
 
 ```bash
-cd examples/mcp_demo  
+cd examples/mcp_demo
 python main.py
 ```
 
