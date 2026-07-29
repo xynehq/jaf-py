@@ -371,8 +371,18 @@ async def _load_conversation_history(state: RunState[Ctx], config: RunConfig[Ctx
         else:
             print(f"[JAF:MEMORY] Loaded {len(all_memory_messages)} messages from memory")
 
+        loaded_response_id_index = conversation_data.metadata.get("previous_response_message_index")
         return replace(
-            state, messages=combined_messages, turn_count=turn_count, approvals=approvals_map
+            state,
+            messages=combined_messages,
+            turn_count=turn_count,
+            approvals=approvals_map,
+            response_id=state.response_id or conversation_data.metadata.get("previous_response_id"),
+            response_id_index=(
+                state.response_id_index
+                if state.response_id_index is not None
+                else loaded_response_id_index
+            ),
         )
     return state
 
@@ -442,6 +452,16 @@ async def _store_conversation_history(state: RunState[Ctx], config: RunConfig[Ct
     result = await config.memory.provider.store_messages(
         config.conversation_id, messages_to_store, metadata
     )
+
+    if state.response_id:
+        last_message_id = messages_to_store[-1].message_id if messages_to_store else None
+        await config.memory.provider.set_previous_response_id(
+            config.conversation_id,
+            state.response_id,
+            message_id=last_message_id,
+            message_index=state.response_id_index,
+            user_id=metadata.get("user_id"),
+        )
 
     if isinstance(result, Failure):
         print(f"[JAF:ENGINE] Warning: Failed to store conversation: {result.error}")
@@ -700,6 +720,7 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
                 # Capture usage and model from streaming chunks
                 stream_usage: Optional[Dict[str, int]] = None
                 stream_model: Optional[str] = None
+                stream_response_id: Optional[str] = None
 
                 async for chunk in get_stream(state, current_agent, config):  # type: ignore[arg-type]
                     # Extract usage and model from raw chunk if available
@@ -709,6 +730,8 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
                             stream_usage = raw_chunk["usage"]
                         if not stream_model and "model" in raw_chunk and raw_chunk["model"]:
                             stream_model = raw_chunk["model"]
+                        if not stream_response_id and raw_chunk.get("id"):
+                            stream_response_id = raw_chunk["id"]
 
                     # Text deltas
                     delta_text = getattr(chunk, "delta", None)
@@ -820,11 +843,13 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
                     "message": {"content": aggregated_text or None, "tool_calls": final_tool_calls}
                 }
 
-                # Preserve usage and model from streaming if captured
+                # Preserve usage, model, and response id from streaming if captured
                 if stream_usage:
                     llm_response["usage"] = stream_usage
                 if stream_model:
                     llm_response["model"] = stream_model
+                if stream_response_id:
+                    llm_response["id"] = stream_response_id
 
             except Exception:
                 # Fallback to non-streaming on error
@@ -912,6 +937,12 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
     )
 
     new_messages = list(state.messages) + [assistant_message]
+    if llm_response.get("id"):
+        new_response_id = llm_response["id"]
+        new_response_id_index = len(new_messages)
+    else:
+        new_response_id = state.response_id
+        new_response_id_index = state.response_id_index
 
     # Handle tool calls
     if assistant_message.tool_calls:
@@ -945,6 +976,8 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
                 messages=new_messages + _flatten_tool_result_messages(completed_results),
                 turn_count=state.turn_count + 1,
                 approvals=updated_approvals,
+                response_id=new_response_id,
+                response_id_index=new_response_id_index,
             )
 
             # Store conversation state with ALL messages including approval-required (for database records)
@@ -1020,6 +1053,8 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
                 current_agent_name=target_agent,
                 turn_count=state.turn_count + 1,
                 approvals=state.approvals,
+                response_id=new_response_id,
+                response_id_index=new_response_id_index,
             )
 
             return await _run_internal(next_state, config)
@@ -1053,6 +1088,8 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
             messages=cleaned_new_messages + _flatten_tool_result_messages(tool_results),
             turn_count=state.turn_count + 1,
             approvals=state.approvals,
+            response_id=new_response_id,
+            response_id_index=new_response_id_index,
         )
 
         return await _run_internal(next_state, config)
@@ -1153,6 +1190,8 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
                         messages=new_messages,
                         turn_count=state.turn_count + 1,
                         approvals=state.approvals,
+                        response_id=new_response_id,
+                        response_id_index=new_response_id_index,
                     ),
                     outcome=CompletedOutcome(output=output_data),
                 )
@@ -1245,6 +1284,8 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
                     messages=new_messages,
                     turn_count=state.turn_count + 1,
                     approvals=state.approvals,
+                    response_id=new_response_id,
+                    response_id_index=new_response_id_index,
                 ),
                 outcome=CompletedOutcome(output=get_text_content(assistant_message.content)),
             )

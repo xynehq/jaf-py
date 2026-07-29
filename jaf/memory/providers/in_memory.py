@@ -61,9 +61,11 @@ class InMemoryProvider(MemoryProvider):
                 now = datetime.now()
 
                 limited_messages = messages[-self.config.max_messages_per_conversation :]
+                existing = self._conversations.get(conversation_id)
 
                 conversation_metadata = {
-                    "created_at": now,
+                    **(existing.metadata if existing else {}),
+                    "created_at": (existing.metadata.get("created_at") if existing else None) or now,
                     "updated_at": now,
                     "total_messages": len(limited_messages),
                     "last_activity": now,
@@ -72,7 +74,8 @@ class InMemoryProvider(MemoryProvider):
 
                 conversation = ConversationMemory(
                     conversation_id=conversation_id,
-                    user_id=metadata.get("user_id") if metadata else None,
+                    user_id=(metadata.get("user_id") if metadata else None)
+                    or (existing.user_id if existing else None),
                     messages=limited_messages,
                     metadata=conversation_metadata,
                 )
@@ -514,6 +517,72 @@ class InMemoryProvider(MemoryProvider):
                         cause=e,
                     )
                 )
+
+    async def get_previous_response_id(
+        self, conversation_id: str
+    ) -> Result[Optional[str], MemoryStorageError]:
+        conversation = self._conversations.get(conversation_id)
+        return Success(conversation.metadata.get("previous_response_id") if conversation else None)
+
+    async def get_previous_response_message_id(
+        self, conversation_id: str
+    ) -> Result[Optional[str], MemoryStorageError]:
+        conversation = self._conversations.get(conversation_id)
+        return Success(
+            conversation.metadata.get("previous_response_message_id") if conversation else None
+        )
+
+    async def get_prior_response_id(
+        self, conversation_id: str
+    ) -> Result[Optional[str], MemoryStorageError]:
+        conversation = self._conversations.get(conversation_id)
+        return Success(conversation.metadata.get("prior_response_id") if conversation else None)
+
+    async def get_previous_response_message_index(
+        self, conversation_id: str
+    ) -> Result[Optional[int], MemoryStorageError]:
+        conversation = self._conversations.get(conversation_id)
+        return Success(
+            conversation.metadata.get("previous_response_message_index") if conversation else None
+        )
+
+    async def set_previous_response_id(
+        self,
+        conversation_id: str,
+        response_id: str,
+        message_id: Optional[str] = None,
+        message_index: Optional[int] = None,
+        user_id: Optional[str] = None,
+        shift: bool = True,
+    ) -> Result[None, MemoryStorageError]:
+        async with self._lock:
+            try:
+                conversation = self._conversations.get(conversation_id)
+                metadata = dict(conversation.metadata) if conversation else {}
+                metadata["prior_response_id"] = metadata.get("previous_response_id") if shift else None
+                metadata["previous_response_id"] = response_id
+                metadata["previous_response_message_id"] = message_id
+                metadata["previous_response_message_index"] = message_index
+
+                self._conversations[conversation_id] = ConversationMemory(
+                    conversation_id=conversation_id,
+                    user_id=user_id if conversation is None else conversation.user_id,
+                    messages=conversation.messages if conversation else [],
+                    metadata=metadata,
+                )
+                self._conversations.move_to_end(conversation_id)
+                await self._enforce_memory_limits()
+                return Success(None)
+            except Exception as e:
+                return Failure(
+                    MemoryStorageError(
+                        message=f"Failed to set previous_response_id: {e}",
+                        provider="InMemory",
+                        operation="set_previous_response_id",
+                        cause=e,
+                    )
+                )
+
 
     async def close(self) -> Result[None, MemoryConnectionError]:
         """Close/cleanup the provider."""

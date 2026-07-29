@@ -607,6 +607,8 @@ class RunState(Generic[Ctx]):
     context: Ctx
     turn_count: int
     approvals: Dict[str, ApprovalValue] = field(default_factory=dict)
+    response_id: Optional[str] = None
+    response_id_index: Optional[int] = None
 
 
 # Error types using dataclasses for immutability

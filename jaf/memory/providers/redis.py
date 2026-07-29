@@ -64,12 +64,17 @@ class RedisProvider(MemoryProvider):
     ) -> Result[None, MemoryStorageError]:
         try:
             now = datetime.now()
+            existing_result = await self.get_conversation(conversation_id)
+            existing = existing_result.data if isinstance(existing_result, Success) else None
+
             conversation = ConversationMemory(
                 conversation_id=conversation_id,
-                user_id=metadata.get("user_id") if metadata else None,
+                user_id=(metadata.get("user_id") if metadata else None)
+                or (existing.user_id if existing else None),
                 messages=messages,
                 metadata={
-                    "created_at": now,
+                    **(existing.metadata if existing else {}),
+                    "created_at": (existing.metadata.get("created_at") if existing else None) or now,
                     "updated_at": now,
                     "total_messages": len(messages),
                     "last_activity": now,
@@ -440,6 +445,95 @@ class RedisProvider(MemoryProvider):
                     cause=e,
                 )
             )
+
+    async def get_previous_response_id(
+        self, conversation_id: str
+    ) -> Result[Optional[str], MemoryStorageError]:
+        conv_result = await self.get_conversation(conversation_id)
+        if isinstance(conv_result, Failure):
+            return conv_result
+        conversation = conv_result.data
+        return Success(conversation.metadata.get("previous_response_id") if conversation else None)
+
+    async def get_previous_response_message_id(
+        self, conversation_id: str
+    ) -> Result[Optional[str], MemoryStorageError]:
+        conv_result = await self.get_conversation(conversation_id)
+        if isinstance(conv_result, Failure):
+            return conv_result
+        conversation = conv_result.data
+        return Success(
+            conversation.metadata.get("previous_response_message_id") if conversation else None
+        )
+
+    async def get_prior_response_id(
+        self, conversation_id: str
+    ) -> Result[Optional[str], MemoryStorageError]:
+        conv_result = await self.get_conversation(conversation_id)
+        if isinstance(conv_result, Failure):
+            return conv_result
+        conversation = conv_result.data
+        return Success(conversation.metadata.get("prior_response_id") if conversation else None)
+
+    async def get_previous_response_message_index(
+        self, conversation_id: str
+    ) -> Result[Optional[int], MemoryStorageError]:
+        conv_result = await self.get_conversation(conversation_id)
+        if isinstance(conv_result, Failure):
+            return conv_result
+        conversation = conv_result.data
+        return Success(
+            conversation.metadata.get("previous_response_message_index") if conversation else None
+        )
+
+    async def set_previous_response_id(
+        self,
+        conversation_id: str,
+        response_id: str,
+        message_id: Optional[str] = None,
+        message_index: Optional[int] = None,
+        user_id: Optional[str] = None,
+        shift: bool = True,
+    ) -> Result[None, MemoryStorageError]:
+        try:
+            conv_result = await self.get_conversation(conversation_id)
+            if isinstance(conv_result, Failure):
+                return conv_result
+            conversation = conv_result.data
+
+            prior_response_id = (
+                (conversation.metadata if conversation else {}).get("previous_response_id")
+                if shift
+                else None
+            )
+            updated_conversation = ConversationMemory(
+                conversation_id=conversation_id,
+                user_id=user_id if conversation is None else conversation.user_id,
+                messages=conversation.messages if conversation else [],
+                metadata={
+                    **(conversation.metadata if conversation else {}),
+                    "prior_response_id": prior_response_id,
+                    "previous_response_id": response_id,
+                    "previous_response_message_id": message_id,
+                    "previous_response_message_index": message_index,
+                },
+            )
+
+            key = self._get_key(conversation_id)
+            await self.redis_client.set(
+                key, self._serialize(updated_conversation), ex=self.config.ttl
+            )
+            return Success(None)
+        except Exception as e:
+            return Failure(
+                MemoryStorageError(
+                    message=f"Failed to set previous_response_id: {e}",
+                    provider="Redis",
+                    operation="set_previous_response_id",
+                    cause=e,
+                )
+            )
+
 
     async def close(self) -> Result[None, MemoryConnectionError]:
         try:
