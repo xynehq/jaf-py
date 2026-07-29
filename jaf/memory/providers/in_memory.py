@@ -538,11 +538,20 @@ class InMemoryProvider(MemoryProvider):
         conversation = self._conversations.get(conversation_id)
         return Success(conversation.metadata.get("prior_response_id") if conversation else None)
 
+    async def get_previous_response_message_index(
+        self, conversation_id: str
+    ) -> Result[Optional[int], MemoryStorageError]:
+        conversation = self._conversations.get(conversation_id)
+        return Success(
+            conversation.metadata.get("previous_response_message_index") if conversation else None
+        )
+
     async def set_previous_response_id(
         self,
         conversation_id: str,
         response_id: str,
         message_id: Optional[str] = None,
+        message_index: Optional[int] = None,
         user_id: Optional[str] = None,
         shift: bool = True,
     ) -> Result[None, MemoryStorageError]:
@@ -553,6 +562,7 @@ class InMemoryProvider(MemoryProvider):
                 metadata["prior_response_id"] = metadata.get("previous_response_id") if shift else None
                 metadata["previous_response_id"] = response_id
                 metadata["previous_response_message_id"] = message_id
+                metadata["previous_response_message_index"] = message_index
 
                 self._conversations[conversation_id] = ConversationMemory(
                     conversation_id=conversation_id,

@@ -183,18 +183,28 @@ class MemoryProvider(Protocol):
         forks from to redo the latest turn."""
         ...
 
+    async def get_previous_response_message_index(
+        self, conversation_id: str
+    ) -> Result[Optional[int], "MemoryStorageError"]:
+        """Get the message-count boundary for the last response_id -- how many
+        stored messages the server already knows about, so only messages after
+        it need to be sent on the next call."""
+        ...
+
     async def set_previous_response_id(
         self,
         conversation_id: str,
         response_id: str,
         message_id: Optional[str] = None,
+        message_index: Optional[int] = None,
         user_id: Optional[str] = None,
         shift: bool = True,
     ) -> Result[None, "MemoryStorageError"]:
-        """Store the last Responses API response_id (and the message_id it
-        corresponds to) for a conversation. shift=True (normal turns) moves the
-        old previous_response_id into prior_response_id first; shift=False
-        (rewinding to an earlier point) overwrites both directly instead."""
+        """Store the last Responses API response_id (the message_id and
+        message-count boundary it corresponds to) for a conversation. shift=True
+        (normal turns) moves the old previous_response_id into prior_response_id
+        first; shift=False (rewinding to an earlier point) overwrites both
+        directly instead."""
         ...
 
 

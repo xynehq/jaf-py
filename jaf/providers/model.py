@@ -738,6 +738,12 @@ def _requires_responses_api(error: Exception) -> bool:
     return any(marker in message for marker in _RESPONSES_API_REQUIRED_MARKERS)
 
 
+def _is_previous_response_not_found(error: Exception) -> bool:
+    """Detect Azure/OpenAI's error for a previous_response_id that's expired
+    (30-day retention) or was never stored (store=false, evicted WS cache)."""
+    return "previous_response_not_found" in str(error).lower()
+
+
 def _chat_messages_to_responses_input(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
     Convert a Chat-Completions-style `messages` list into the Responses API's
@@ -911,6 +917,49 @@ def _responses_params_to_ws_payload(responses_params: Dict[str, Any]) -> Dict[st
     return payload
 
 
+def _trim_messages_for_continuation(
+    messages: List[Dict[str, Any]], response_id_index: Optional[int], server_history: bool
+) -> List[Dict[str, Any]]:
+    """messages[0] is the system message; messages[1:] maps 1:1 to state.messages.
+    When server_history is on and a boundary is known, keep the system message
+    plus only items new since it -- Azure reconstructs the rest via
+    previous_response_id. Falls back to the full list otherwise."""
+    if not server_history or response_id_index is None:
+        return messages
+    return [messages[0]] + messages[1 + response_id_index :]
+
+
+def _dict_to_namespace(value: Any) -> Any:
+    """Recursively turn dicts/lists into attribute-accessible objects. Used when
+    strict pydantic validation of a raw WS payload fails -- getattr-based access
+    (what the rest of this module expects) doesn't work on a plain dict."""
+    if isinstance(value, dict):
+        import types
+
+        ns = types.SimpleNamespace()
+        for k, v in value.items():
+            setattr(ns, k, _dict_to_namespace(v))
+        return ns
+    if isinstance(value, list):
+        return [_dict_to_namespace(v) for v in value]
+    return value
+
+
+def _patch_azure_response_for_validation(value: Dict[str, Any]) -> Dict[str, Any]:
+    """Azure's Responses API omits a couple of fields the OpenAI SDK's Response
+    model requires (schema drift, not an error on Azure's part) -- fill in
+    harmless defaults so validation succeeds instead of always falling back."""
+    patched = dict(value)
+    usage = patched.get("usage")
+    if isinstance(usage, dict):
+        input_details = usage.get("input_tokens_details")
+        if isinstance(input_details, dict) and "cache_write_tokens" not in input_details:
+            usage = dict(usage)
+            usage["input_tokens_details"] = {**input_details, "cache_write_tokens": 0}
+            patched["usage"] = usage
+    return patched
+
+
 class _WSEventProxy(dict):
     """Dict -> attribute access, so raw WS events reuse the existing (litellm
     object-shaped) event translation code unchanged."""
@@ -921,9 +970,9 @@ class _WSEventProxy(dict):
             from openai.types.responses import Response as _OpenAIResponse
 
             try:
-                return _OpenAIResponse.model_validate(value)
+                return _OpenAIResponse.model_validate(_patch_azure_response_for_validation(value))
             except Exception:
-                return value
+                return _dict_to_namespace(value)
         return value
 
 
@@ -1049,6 +1098,7 @@ def make_litellm_sdk_provider(
     default_timeout: Optional[float] = None,
     api_type: str = "auto",
     websocket: bool = False,
+    server_history: bool = True,
     **litellm_kwargs: Any,
 ) -> ModelProvider[Ctx]:
     """
@@ -1087,6 +1137,13 @@ def make_litellm_sdk_provider(
                   reused across calls -- reuse the same provider across a
                   session's turns to get the benefit. Default False, no effect
                   on existing callers.
+        server_history: Only meaningful with the Responses API. True (default):
+                  once a response_id is available, only send messages new since
+                  it plus previous_response_id -- Azure reconstructs the rest
+                  server-side. False: always send the full conversation as
+                  `input`, never reference a previous response, even if one is
+                  available -- for callers that don't want Azure holding any
+                  server-side state. Chat Completions is unaffected either way.
         **litellm_kwargs: Additional arguments passed to litellm.completion()
                          Common examples:
                          - vertex_project: "your-project" (for Google models)
@@ -1145,6 +1202,7 @@ def make_litellm_sdk_provider(
             self.litellm_kwargs = litellm_kwargs
             self.api_type = api_type
             self.websocket = websocket
+            self.server_history = server_history
             self._responses_only_models: set = set()
             self._ws_connection: Optional[_AzureResponsesWebSocketConnection] = None
 
@@ -1175,7 +1233,12 @@ def make_litellm_sdk_provider(
 
             if final_response is None:
                 raise RuntimeError("Responses WebSocket stream ended without response.completed")
-            return _OpenAIResponse.model_validate(final_response)
+            try:
+                return _OpenAIResponse.model_validate(
+                    _patch_azure_response_for_validation(final_response)
+                )
+            except Exception:
+                return _dict_to_namespace(final_response)
 
         async def _call_responses_api(
             self,
@@ -1223,6 +1286,32 @@ def make_litellm_sdk_provider(
                 "usage": usage_data,
                 "prompt": messages,
             }
+
+        async def _call_responses_api_checked(
+            self,
+            model_name: str,
+            full_messages: List[Dict[str, Any]],
+            responses_messages: List[Dict[str, Any]],
+            tools: Optional[List[Dict[str, Any]]],
+            request_params: Dict[str, Any],
+            state: RunState[Ctx],
+            config: RunConfig[Ctx],
+        ) -> Dict[str, Any]:
+            """Call the Responses API; if previous_response_id has expired or
+            was never stored, retry once with full history and no reference."""
+            try:
+                return await self._call_responses_api(
+                    model_name, responses_messages, tools, dict(request_params), state, config
+                )
+            except Exception as e:
+                if "previous_response_id" in request_params and _is_previous_response_not_found(e):
+                    fallback_params = {
+                        k: v for k, v in request_params.items() if k != "previous_response_id"
+                    }
+                    return await self._call_responses_api(
+                        model_name, full_messages, tools, fallback_params, state, config
+                    )
+                raise
 
         async def get_completion(
             self, state: RunState[Ctx], agent: Agent[Ctx, Any], config: RunConfig[Ctx]
@@ -1299,10 +1388,14 @@ def make_litellm_sdk_provider(
                 request_params["api_base"] = self.base_url
 
             if self._wants_responses_api(model_name):
-                if state.response_id:
+                responses_messages = messages
+                if self.server_history and state.response_id:
                     request_params["previous_response_id"] = state.response_id
-                return await self._call_responses_api(
-                    model_name, messages, tools, dict(request_params), state, config
+                    responses_messages = _trim_messages_for_continuation(
+                        messages, state.response_id_index, self.server_history
+                    )
+                return await self._call_responses_api_checked(
+                    model_name, messages, responses_messages, tools, dict(request_params), state, config
                 )
 
             # Make the API call using litellm with retry handling
@@ -1322,10 +1415,14 @@ def make_litellm_sdk_provider(
             except Exception as e:
                 if self.api_type == "auto" and _requires_responses_api(e):
                     self._responses_only_models.add(model_name)
-                    if state.response_id:
+                    responses_messages = messages
+                    if self.server_history and state.response_id:
                         request_params["previous_response_id"] = state.response_id
-                    return await self._call_responses_api(
-                        model_name, messages, tools, dict(request_params), state, config
+                        responses_messages = _trim_messages_for_continuation(
+                            messages, state.response_id_index, self.server_history
+                        )
+                    return await self._call_responses_api_checked(
+                        model_name, messages, responses_messages, tools, dict(request_params), state, config
                     )
                 raise
 
@@ -1512,6 +1609,7 @@ def make_litellm_sdk_provider(
                             raw_obj = {
                                 "usage": usage_data,
                                 "model": getattr(response, "model", model_name),
+                                "id": getattr(response, "id", None),
                             }
                         yield CompletionStreamChunk(
                             is_done=True, finish_reason=finish_reason, raw=raw_obj
@@ -1524,6 +1622,36 @@ def make_litellm_sdk_provider(
                     raise
                 except Exception:
                     continue
+
+        async def _stream_via_responses_api_checked(
+            self,
+            model_name: str,
+            full_messages: List[Dict[str, Any]],
+            responses_messages: List[Dict[str, Any]],
+            tools: Optional[List[Dict[str, Any]]],
+            request_params: Dict[str, Any],
+        ) -> AsyncIterator[CompletionStreamChunk]:
+            """Stream via the Responses API; if previous_response_id has expired
+            or was never stored, retry once with full history and no reference.
+            Only safe to retry before any chunk has been yielded -- in practice
+            this error is a request-level rejection returned before any output,
+            so that's the case this handles."""
+            try:
+                async for chunk in self._stream_via_responses_api(
+                    model_name, responses_messages, tools, dict(request_params)
+                ):
+                    yield chunk
+            except Exception as e:
+                if "previous_response_id" in request_params and _is_previous_response_not_found(e):
+                    fallback_params = {
+                        k: v for k, v in request_params.items() if k != "previous_response_id"
+                    }
+                    async for chunk in self._stream_via_responses_api(
+                        model_name, full_messages, tools, fallback_params
+                    ):
+                        yield chunk
+                    return
+                raise
 
         async def get_completion_stream(
             self, state: RunState[Ctx], agent: Agent[Ctx, Any], config: RunConfig[Ctx]
@@ -1607,10 +1735,14 @@ def make_litellm_sdk_provider(
                 request_params["api_base"] = self.base_url
 
             if self._wants_responses_api(model_name):
-                if state.response_id:
+                responses_messages = messages
+                if self.server_history and state.response_id:
                     request_params["previous_response_id"] = state.response_id
-                async for chunk in self._stream_via_responses_api(
-                    model_name, messages, tools, dict(request_params)
+                    responses_messages = _trim_messages_for_continuation(
+                        messages, state.response_id_index, self.server_history
+                    )
+                async for chunk in self._stream_via_responses_api_checked(
+                    model_name, messages, responses_messages, tools, dict(request_params)
                 ):
                     yield chunk
                 return
@@ -1621,10 +1753,14 @@ def make_litellm_sdk_provider(
             except Exception as e:
                 if self.api_type == "auto" and _requires_responses_api(e):
                     self._responses_only_models.add(model_name)
-                    if state.response_id:
+                    responses_messages = messages
+                    if self.server_history and state.response_id:
                         request_params["previous_response_id"] = state.response_id
-                    async for chunk in self._stream_via_responses_api(
-                        model_name, messages, tools, dict(request_params)
+                        responses_messages = _trim_messages_for_continuation(
+                            messages, state.response_id_index, self.server_history
+                        )
+                    async for chunk in self._stream_via_responses_api_checked(
+                        model_name, messages, responses_messages, tools, dict(request_params)
                     ):
                         yield chunk
                     return

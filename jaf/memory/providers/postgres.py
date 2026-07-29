@@ -558,11 +558,34 @@ class PostgresProvider(MemoryProvider):
                 )
             )
 
+    async def get_previous_response_message_index(
+        self, conversation_id: str
+    ) -> Result[Optional[int], MemoryStorageError]:
+        """Point lookup on metadata only -- doesn't fetch the messages column."""
+        try:
+            row = await self._db_fetchrow(
+                f"SELECT metadata->>'previous_response_message_index' AS idx "
+                f"FROM {self.config.table_name} WHERE conversation_id = $1",
+                conversation_id,
+            )
+            idx = row["idx"] if row else None
+            return Success(int(idx) if idx is not None else None)
+        except Exception as e:
+            return Failure(
+                MemoryStorageError(
+                    operation="get_previous_response_message_index",
+                    provider="Postgres",
+                    message=str(e),
+                    cause=e,
+                )
+            )
+
     async def set_previous_response_id(
         self,
         conversation_id: str,
         response_id: str,
         message_id: Optional[str] = None,
+        message_index: Optional[int] = None,
         user_id: Optional[str] = None,
         shift: bool = True,
     ) -> Result[None, MemoryStorageError]:
@@ -573,6 +596,7 @@ class PostgresProvider(MemoryProvider):
             metadata = {
                 "previous_response_id": response_id,
                 "previous_response_message_id": message_id,
+                "previous_response_message_index": message_index,
             }
             if shift:
                 query = f"""

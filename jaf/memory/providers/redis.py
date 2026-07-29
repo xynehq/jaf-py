@@ -475,11 +475,23 @@ class RedisProvider(MemoryProvider):
         conversation = conv_result.data
         return Success(conversation.metadata.get("prior_response_id") if conversation else None)
 
+    async def get_previous_response_message_index(
+        self, conversation_id: str
+    ) -> Result[Optional[int], MemoryStorageError]:
+        conv_result = await self.get_conversation(conversation_id)
+        if isinstance(conv_result, Failure):
+            return conv_result
+        conversation = conv_result.data
+        return Success(
+            conversation.metadata.get("previous_response_message_index") if conversation else None
+        )
+
     async def set_previous_response_id(
         self,
         conversation_id: str,
         response_id: str,
         message_id: Optional[str] = None,
+        message_index: Optional[int] = None,
         user_id: Optional[str] = None,
         shift: bool = True,
     ) -> Result[None, MemoryStorageError]:
@@ -503,6 +515,7 @@ class RedisProvider(MemoryProvider):
                     "prior_response_id": prior_response_id,
                     "previous_response_id": response_id,
                     "previous_response_message_id": message_id,
+                    "previous_response_message_index": message_index,
                 },
             )
 
