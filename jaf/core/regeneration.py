@@ -77,11 +77,18 @@ async def _fork_regenerate(
         )
 
     prior_response_id = (await provider.get_prior_response_id(conversation_id)).data
+    replacement_attachments = (regeneration_request.context or {}).get("replace_user_attachments")
 
     initial_state = RunState(
         run_id=generate_run_id(),
         trace_id=generate_trace_id(),
-        messages=[Message(role=ContentRole.USER, content=replacement_input)],
+        messages=[
+            Message(
+                role=ContentRole.USER,
+                content=replacement_input,
+                attachments=replacement_attachments or None,
+            )
+        ],
         current_agent_name=agent_name,
         context=context,
         turn_count=0,
