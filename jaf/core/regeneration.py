@@ -273,13 +273,22 @@ async def regenerate_conversation(
         ):
             from .types import ContentRole, Message
 
+            replacement_attachments = (regeneration_request.context or {}).get(
+                "replace_user_attachments"
+            )
             replacement_user_message = Message(
                 role=ContentRole.USER,
                 content=regeneration_request.context.get("replace_user_message"),
+                attachments=replacement_attachments or None,
             )
             truncated_messages.append(replacement_user_message)
             print(
                 f"[JAF:REGENERATION] Edit regeneration: replaced user query with: {regeneration_request.context.get('replace_user_message')}"
+                + (
+                    f" ({len(replacement_attachments)} attachment(s))"
+                    if replacement_attachments
+                    else ""
+                )
             )
 
     print(f"[JAF:REGENERATION] Truncated conversation to {len(truncated_messages)} messages")
