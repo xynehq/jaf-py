@@ -744,6 +744,51 @@ def _is_previous_response_not_found(error: Exception) -> bool:
     return "previous_response_not_found" in str(error).lower()
 
 
+def _chat_content_part_to_responses_part(part: Dict[str, Any]) -> Dict[str, Any]:
+    """Translate one Chat-Completions content part (`text` / `image_url` /
+    `file`) into the Responses API's `input_text` / `input_image` /
+    `input_file` shape. Parts already in Responses shape (or of an unknown
+    type) pass through unchanged so callers don't need to know which shape
+    upstream code produced."""
+    part_type = part.get("type")
+
+    if part_type == "text":
+        return {"type": "input_text", "text": part.get("text", "")}
+
+    if part_type == "image_url":
+        image_url = part.get("image_url")
+        url = image_url.get("url") if isinstance(image_url, dict) else image_url
+        detail = image_url.get("detail") if isinstance(image_url, dict) else None
+        responses_part: Dict[str, Any] = {"type": "input_image", "image_url": url}
+        responses_part["detail"] = detail or "auto"
+        return responses_part
+
+    if part_type == "file":
+        file_obj = part.get("file") or {}
+        responses_part = {"type": "input_file"}
+        if file_obj.get("file_data"):
+            responses_part["file_data"] = file_obj["file_data"]
+        if file_obj.get("file_id"):
+            responses_part["file_id"] = file_obj["file_id"]
+        if file_obj.get("file_url"):
+            responses_part["file_url"] = file_obj["file_url"]
+        if file_obj.get("filename"):
+            responses_part["filename"] = file_obj["filename"]
+        return responses_part
+
+    # Already Responses-shaped (input_text/input_image/input_file/...) or
+    # unrecognized - pass through rather than dropping content silently.
+    return part
+
+
+def _chat_content_to_responses_content(content: Any) -> Any:
+    """Chat Completions content is either a plain string or a list of
+    content parts; only the list form needs type translation for Responses."""
+    if not isinstance(content, list):
+        return content
+    return [_chat_content_part_to_responses_part(part) for part in content]
+
+
 def _chat_messages_to_responses_input(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
     Convert a Chat-Completions-style `messages` list into the Responses API's
@@ -752,6 +797,9 @@ def _chat_messages_to_responses_input(messages: List[Dict[str, Any]]) -> List[Di
     Chat Completions folds tool calls into the assistant message and matches
     tool results by role="tool" + tool_call_id; Responses represents both as
     standalone items keyed by call_id, so those need explicit expansion.
+    Multi-part content (attachments) also uses different part `type` values
+    between the two APIs (`text`/`image_url`/`file` vs `input_text`/
+    `input_image`/`input_file`), so it's translated here too.
     """
     input_items: List[Dict[str, Any]] = []
 
@@ -773,7 +821,9 @@ def _chat_messages_to_responses_input(messages: List[Dict[str, Any]]) -> List[Di
             tool_calls = msg.get("tool_calls") or []
 
             if content:
-                input_items.append({"role": "assistant", "content": content})
+                input_items.append(
+                    {"role": "assistant", "content": _chat_content_to_responses_content(content)}
+                )
 
             for tc in tool_calls:
                 function = tc.get("function") or {}
@@ -787,9 +837,11 @@ def _chat_messages_to_responses_input(messages: List[Dict[str, Any]]) -> List[Di
                 )
             continue
 
-        # system / user messages map through unchanged - Responses accepts
-        # both plain string content and structured content-part lists.
-        input_items.append({"role": role, "content": msg.get("content")})
+        # system / user messages: plain string content maps through
+        # unchanged; structured content-part lists need type translation.
+        input_items.append(
+            {"role": role, "content": _chat_content_to_responses_content(msg.get("content"))}
+        )
 
     return input_items
 
