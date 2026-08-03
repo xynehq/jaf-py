@@ -6,11 +6,72 @@ operations used across different memory provider implementations.
 """
 
 import json
+from dataclasses import asdict
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
-from ..core.types import Message, ToolCall, ToolCallFunction, get_text_content
+from ..core.types import (
+    Attachment,
+    Message,
+    MessageContentPart,
+    ToolCall,
+    ToolCallFunction,
+    get_text_content,
+)
 from .types import ConversationMemory
+
+
+def _serialize_content(
+    content: Union[str, List[MessageContentPart]],
+) -> Union[str, List[dict]]:
+    """Serialize Message.content, which may be plain text or multi-part content
+    (e.g. text + image_url parts produced by multimodal tool results)."""
+    if isinstance(content, list):
+        return [asdict(part) for part in content]
+    return content
+
+
+def _deserialize_content(
+    content: Union[str, List[dict]],
+) -> Union[str, List[MessageContentPart]]:
+    if isinstance(content, list):
+        return [
+            MessageContentPart(
+                type=part["type"],
+                text=part.get("text"),
+                image_url=part.get("image_url"),
+                file=part.get("file"),
+            )
+            for part in content
+        ]
+    return content
+
+
+def _serialize_attachments(
+    attachments: Optional[List[Attachment]],
+) -> Optional[List[dict]]:
+    if not attachments:
+        return None
+    return [asdict(att) for att in attachments]
+
+
+def _deserialize_attachments(
+    attachments_data: Optional[List[dict]],
+) -> Optional[List[Attachment]]:
+    if not attachments_data:
+        return None
+    return [
+        Attachment(
+            kind=att["kind"],
+            mime_type=att.get("mime_type"),
+            name=att.get("name"),
+            url=att.get("url"),
+            data=att.get("data"),
+            format=att.get("format"),
+            use_litellm_format=att.get("use_litellm_format"),
+        )
+        for att in attachments_data
+    ]
 
 
 def serialize_message(msg: Message) -> dict:
@@ -18,10 +79,16 @@ def serialize_message(msg: Message) -> dict:
     Convert Message dataclass to dict for storage.
 
     This provides a consistent serialization format across all memory providers.
+
+    Includes `attachments` (images/documents/files carried by a message) and
+    handles list-based multi-part `content` -- both are otherwise silently
+    dropped or fail to JSON-serialize, which loses attachment data on any
+    round trip through a persisted memory provider (Postgres, Redis, etc.),
+    breaking flows like regenerate/retry that reload messages from storage.
     """
     return {
         "role": msg.role,
-        "content": msg.content,
+        "content": _serialize_content(msg.content),
         "message_id": msg.message_id,
         "tool_call_id": msg.tool_call_id,
         "tool_calls": [
@@ -34,6 +101,7 @@ def serialize_message(msg: Message) -> dict:
         ]
         if msg.tool_calls
         else None,
+        "attachments": _serialize_attachments(msg.attachments),
     }
 
 
@@ -58,10 +126,11 @@ def deserialize_message(msg_data: dict) -> Message:
 
     return Message(
         role=msg_data["role"],
-        content=msg_data["content"],
+        content=_deserialize_content(msg_data["content"]),
         message_id=msg_data.get("message_id"),
         tool_call_id=msg_data.get("tool_call_id"),
         tool_calls=tool_calls,
+        attachments=_deserialize_attachments(msg_data.get("attachments")),
     )
 
 

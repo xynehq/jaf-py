@@ -77,11 +77,18 @@ async def _fork_regenerate(
         )
 
     prior_response_id = (await provider.get_prior_response_id(conversation_id)).data
+    replacement_attachments = (regeneration_request.context or {}).get("replace_user_attachments")
 
     initial_state = RunState(
         run_id=generate_run_id(),
         trace_id=generate_trace_id(),
-        messages=[Message(role=ContentRole.USER, content=replacement_input)],
+        messages=[
+            Message(
+                role=ContentRole.USER,
+                content=replacement_input,
+                attachments=replacement_attachments or None,
+            )
+        ],
         current_agent_name=agent_name,
         context=context,
         turn_count=0,
@@ -273,13 +280,22 @@ async def regenerate_conversation(
         ):
             from .types import ContentRole, Message
 
+            replacement_attachments = (regeneration_request.context or {}).get(
+                "replace_user_attachments"
+            )
             replacement_user_message = Message(
                 role=ContentRole.USER,
                 content=regeneration_request.context.get("replace_user_message"),
+                attachments=replacement_attachments or None,
             )
             truncated_messages.append(replacement_user_message)
             print(
                 f"[JAF:REGENERATION] Edit regeneration: replaced user query with: {regeneration_request.context.get('replace_user_message')}"
+                + (
+                    f" ({len(replacement_attachments)} attachment(s))"
+                    if replacement_attachments
+                    else ""
+                )
             )
 
     print(f"[JAF:REGENERATION] Truncated conversation to {len(truncated_messages)} messages")
