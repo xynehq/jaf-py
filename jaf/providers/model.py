@@ -1039,12 +1039,14 @@ class _AzureResponsesWebSocketConnection:
         self._default_timeout = default_timeout
         self._ws: Optional[Any] = None
         self._connected_at: Optional[float] = None
+        self._dirty = False
         self._lock = asyncio.Lock()
 
     async def _ensure_connected(self) -> None:
         stale = (
             self._ws is None
             or self._connected_at is None
+            or self._dirty
             or (time.monotonic() - self._connected_at) > _WS_CONNECTION_LIFETIME_SECONDS
         )
         if not stale:
@@ -1058,6 +1060,7 @@ class _AzureResponsesWebSocketConnection:
             open_timeout=self._default_timeout,
         )
         self._connected_at = time.monotonic()
+        self._dirty = False
 
     async def _close(self) -> None:
         if self._ws is not None:
@@ -1077,14 +1080,16 @@ class _AzureResponsesWebSocketConnection:
             body = {"type": "response.create", **payload}
 
             try:
+                self._dirty = True
                 await self._ws.send(json.dumps(body))
 
                 while True:
                     raw = await self._ws.recv()
                     event = json.loads(raw)
+                    event_type = event.get("type")
+                    self._dirty = event_type != "response.completed"
                     yield event
 
-                    event_type = event.get("type")
                     if event_type == "response.completed":
                         return
                     if event_type in ("response.failed", "error"):
@@ -1262,6 +1267,11 @@ def make_litellm_sdk_provider(
             return self.api_type == "responses" or (
                 self.api_type == "auto" and model_name in self._responses_only_models
             )
+
+        async def aclose(self) -> None:
+            if self._ws_connection is not None:
+                await self._ws_connection._close()
+                self._ws_connection = None
 
         def _get_ws_connection(self) -> _AzureResponsesWebSocketConnection:
             if self._ws_connection is None:
