@@ -1071,6 +1071,10 @@ class _AzureResponsesWebSocketConnection:
         self._ws = None
         self._connected_at = None
 
+    async def aclose(self) -> None:
+        """Close the socket. For owners of a pooled connection."""
+        await self._close()
+
     async def create_response(self, payload: Dict[str, Any]) -> AsyncIterator[Dict[str, Any]]:
         """Send one response.create, yield raw events until completed/failed.
         Reconnects lazily next call if stale/closed/errored; payload already
@@ -1101,6 +1105,9 @@ class _AzureResponsesWebSocketConnection:
             except ConnectionClosed:
                 await self._close()
                 raise
+
+
+AzureResponsesWebSocketConnection = _AzureResponsesWebSocketConnection
 
 
 def _extract_reasoning_for_responses(request_params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -1155,6 +1162,7 @@ def make_litellm_sdk_provider(
     default_timeout: Optional[float] = None,
     api_type: str = "auto",
     websocket: bool = False,
+    ws_connection: Optional[Any] = None,
     server_history: bool = True,
     **litellm_kwargs: Any,
 ) -> ModelProvider[Ctx]:
@@ -1191,7 +1199,8 @@ def make_litellm_sdk_provider(
         websocket: Use a persistent WebSocket to Azure's Responses API instead
                   of per-call HTTPS. Requires api_type="responses" (or "auto"
                   once it falls through). One connection per provider instance,
-                  reused across calls -- reuse the same provider across a
+                  reused across calls (or supply ws_connection to share one
+                  from a pool) -- reuse the same provider across a
                   session's turns to get the benefit. Default False, no effect
                   on existing callers.
         server_history: Only meaningful with the Responses API. True (default):
@@ -1261,7 +1270,8 @@ def make_litellm_sdk_provider(
             self.websocket = websocket
             self.server_history = server_history
             self._responses_only_models: set = set()
-            self._ws_connection: Optional[_AzureResponsesWebSocketConnection] = None
+            self._ws_connection: Optional[_AzureResponsesWebSocketConnection] = ws_connection
+            self._owns_ws_connection = ws_connection is None
 
         def _wants_responses_api(self, model_name: str) -> bool:
             return self.api_type == "responses" or (
@@ -1269,9 +1279,9 @@ def make_litellm_sdk_provider(
             )
 
         async def aclose(self) -> None:
-            if self._ws_connection is not None:
+            if self._ws_connection is not None and self._owns_ws_connection:
                 await self._ws_connection._close()
-                self._ws_connection = None
+            self._ws_connection = None
 
         def _get_ws_connection(self) -> _AzureResponsesWebSocketConnection:
             if self._ws_connection is None:
