@@ -741,7 +741,7 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
                     # Tool call deltas
                     tcd = getattr(chunk, "tool_call_delta", None)
                     if tcd is not None:
-                        idx = getattr(tcd, "index", 0) or 0
+                        idx = int(getattr(tcd, "index", 0) or 0)
                         # Ensure slot exists
                         while len(partial_tool_calls) <= idx:
                             partial_tool_calls.append(
