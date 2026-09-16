@@ -12,6 +12,7 @@ import os
 import base64
 import asyncio
 import json
+import logging
 from urllib.parse import urlsplit, urlunsplit
 
 from openai import AsyncOpenAI
@@ -19,6 +20,7 @@ from pydantic import BaseModel
 import litellm
 import websockets
 from websockets.exceptions import ConnectionClosed
+from websockets.protocol import State
 
 from ..core.types import (
     Agent,
@@ -46,6 +48,7 @@ from ..utils.document_processor import (
 )
 
 Ctx = TypeVar("Ctx")
+logger = logging.getLogger(__name__)
 
 # Vision model caching
 VISION_MODEL_CACHE_TTL = 5 * 60  # 5 minutes
@@ -1033,10 +1036,19 @@ class _AzureResponsesWebSocketConnection:
     reuse the provider across a session's turns for this to help. Azure allows
     one response.create in flight per connection, so calls are serialized."""
 
-    def __init__(self, api_base: str, api_key: Optional[str], default_timeout: Optional[float]):
+    def __init__(
+        self,
+        api_base: str,
+        api_key: Optional[str],
+        default_timeout: Optional[float],
+        ping_interval: Optional[float] = 20,
+        ping_timeout: Optional[float] = 60,
+    ):
         self._url = _azure_responses_ws_url(api_base)
         self._api_key = api_key
         self._default_timeout = default_timeout
+        self._ping_interval = ping_interval
+        self._ping_timeout = ping_timeout
         self._ws: Optional[Any] = None
         self._connected_at: Optional[float] = None
         self._dirty = False
@@ -1045,6 +1057,7 @@ class _AzureResponsesWebSocketConnection:
     async def _ensure_connected(self) -> None:
         stale = (
             self._ws is None
+            or self._ws.state != State.OPEN
             or self._connected_at is None
             or self._dirty
             or (time.monotonic() - self._connected_at) > _WS_CONNECTION_LIFETIME_SECONDS
@@ -1058,6 +1071,8 @@ class _AzureResponsesWebSocketConnection:
             self._url,
             additional_headers=headers,
             open_timeout=self._default_timeout,
+            ping_interval=self._ping_interval,
+            ping_timeout=self._ping_timeout,
         )
         self._connected_at = time.monotonic()
         self._dirty = False
@@ -1077,34 +1092,45 @@ class _AzureResponsesWebSocketConnection:
 
     async def create_response(self, payload: Dict[str, Any]) -> AsyncIterator[Dict[str, Any]]:
         """Send one response.create, yield raw events until completed/failed.
-        Reconnects lazily next call if stale/closed/errored; payload already
-        carries previous_response_id so a fresh socket resumes the chain."""
+        Retry once on disconnect before the first event. Replay is best-effort:
+        Azure may have processed the request already, duplicating work and usage.
+        """
+        body = {"type": "response.create", **payload}
+
         async with self._lock:
-            await self._ensure_connected()
-            body = {"type": "response.create", **payload}
+            for attempt in (0, 1):
+                yielded = False
+                try:
+                    await self._ensure_connected()
+                    self._dirty = True
+                    await self._ws.send(json.dumps(body))
 
-            try:
-                self._dirty = True
-                await self._ws.send(json.dumps(body))
+                    while True:
+                        raw = await self._ws.recv()
+                        event = json.loads(raw)
+                        event_type = event.get("type")
+                        self._dirty = event_type != "response.completed"
+                        yielded = True
+                        yield event
 
-                while True:
-                    raw = await self._ws.recv()
-                    event = json.loads(raw)
-                    event_type = event.get("type")
-                    self._dirty = event_type != "response.completed"
-                    yield event
-
-                    if event_type == "response.completed":
-                        return
-                    if event_type in ("response.failed", "error"):
-                        error = event.get("error") or (event.get("response") or {}).get("error")
-                        code = (error or {}).get("code")
-                        if code == "websocket_connection_limit_reached":
-                            await self._close()
-                        raise RuntimeError(f"Azure Responses WebSocket error: {error}")
-            except ConnectionClosed:
-                await self._close()
-                raise
+                        if event_type == "response.completed":
+                            return
+                        if event_type in ("response.failed", "error"):
+                            error = event.get("error") or (event.get("response") or {}).get("error")
+                            code = (error or {}).get("code")
+                            if code == "websocket_connection_limit_reached":
+                                await self._close()
+                            raise RuntimeError(f"Azure Responses WebSocket error: {error}")
+                except ConnectionClosed as exc:
+                    await self._close()
+                    if yielded or attempt:
+                        raise
+                    logger.warning(
+                        "Azure Responses WebSocket closed before first event; "
+                        "retrying once (received_close_code=%s, sent_close_code=%s)",
+                        exc.rcvd.code if exc.rcvd else None,
+                        exc.sent.code if exc.sent else None,
+                    )
 
 
 AzureResponsesWebSocketConnection = _AzureResponsesWebSocketConnection
