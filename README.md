@@ -1,3 +1,5 @@
+[![MSeeP.ai Security Assessment Badge](https://mseep.net/pr/xynehq-jaf-py-badge.png)](https://mseep.ai/app/xynehq-jaf-py)
+
 # JAF (Juspay Agent Framework) - Python Implementation
 
 <!-- ![JAF Banner](docs/cover.png) -->
