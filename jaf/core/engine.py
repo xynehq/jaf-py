@@ -1358,7 +1358,7 @@ def _build_multimodal_tool_messages(
         "result": tool_result.text,
         "tool_name": tool_call.function.name,
         "message": "Tool executed successfully. Image attached in the following user message.",
-    })
+    }, ensure_ascii=False)
     tool_message = Message(
         role=ContentRole.TOOL,
         content=envelope,
@@ -1433,7 +1433,8 @@ async def _execute_tool_calls(
                         "hitl_status": "tool_not_found",  # HITL workflow status
                         "message": f"Tool {tool_call.function.name} not found",
                         "tool_name": tool_call.function.name,
-                    }
+                    },
+                    ensure_ascii=False,
                 )
 
                 if config.on_event:
@@ -1474,7 +1475,8 @@ async def _execute_tool_calls(
                         "message": f"Invalid arguments for {tool_call.function.name}: {e!s}",
                         "tool_name": tool_call.function.name,
                         "validation_errors": e.errors(),
-                    }
+                    },
+                    ensure_ascii=False,
                 )
 
                 if config.on_event:
@@ -1556,7 +1558,8 @@ async def _execute_tool_calls(
                     {
                         "hitl_status": "pending_approval",  # HITL workflow status: waiting for approval
                         "message": f"Tool {tool_call.function.name} requires approval.",
-                    }
+                    },
+                    ensure_ascii=False,
                 )
 
                 return {
@@ -1584,7 +1587,8 @@ async def _execute_tool_calls(
                         "additional_context": approval_status.additional_context
                         if approval_status
                         else None,
-                    }
+                    },
+                    ensure_ascii=False,
                 )
 
                 return {
@@ -1656,7 +1660,8 @@ async def _execute_tool_calls(
                         "message": f"Tool {tool_call.function.name} timed out after {timeout} seconds",
                         "tool_name": tool_call.function.name,
                         "timeout_seconds": timeout,
-                    }
+                    },
+                    ensure_ascii=False,
                 )
 
                 if config.on_event:
@@ -1733,7 +1738,8 @@ async def _execute_tool_calls(
                         "tool_name": tool_call.function.name,
                         "approval_context": approval_status.additional_context,
                         "message": "Tool was approved and executed successfully with additional context.",
-                    }
+                    },
+                    ensure_ascii=False,
                 )
             elif needs_approval:
                 final_content = json.dumps(
@@ -1742,7 +1748,8 @@ async def _execute_tool_calls(
                         "result": result_string,
                         "tool_name": tool_call.function.name,
                         "message": "Tool was approved and executed successfully.",
-                    }
+                    },
+                    ensure_ascii=False,
                 )
             else:
                 final_content = json.dumps(
@@ -1751,7 +1758,8 @@ async def _execute_tool_calls(
                         "result": result_string,
                         "tool_name": tool_call.function.name,
                         "message": "Tool executed successfully.",
-                    }
+                    },
+                    ensure_ascii=False,
                 )
 
             if config.on_event:
@@ -1794,7 +1802,8 @@ async def _execute_tool_calls(
                     "hitl_status": "execution_error",  # HITL workflow status
                     "message": str(error),
                     "tool_name": tool_call.function.name,
-                }
+                },
+                ensure_ascii=False,
             )
 
             if config.on_event:

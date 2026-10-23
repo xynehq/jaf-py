@@ -327,12 +327,12 @@ def tool_result_to_string(result: ToolResult[Any]) -> str:
                 "data": result.data,
                 "metadata": result.metadata.to_dict(),
             }
-            return json.dumps(success_obj, default=str)
+            return json.dumps(success_obj, default=str, ensure_ascii=False)
 
         # If no metadata, return just the data for backward compatibility
         if isinstance(result.data, str):
             return result.data
-        return json.dumps(result.data, default=str)
+        return json.dumps(result.data, default=str, ensure_ascii=False)
 
     # For errors, return a structured error message
     error_obj = {
@@ -347,4 +347,4 @@ def tool_result_to_string(result: ToolResult[Any]) -> str:
     if result.metadata:
         error_obj["metadata"] = result.metadata.to_dict()
 
-    return json.dumps(error_obj, indent=2, default=str)
+    return json.dumps(error_obj, indent=2, default=str, ensure_ascii=False)
