@@ -200,6 +200,47 @@ async def test_tool_call_execution():
 
 
 @pytest.mark.asyncio
+async def test_tool_result_preserves_non_ascii():
+    """Tool messages must carry raw Unicode, not \\uXXXX escapes, so the LLM reads values verbatim."""
+    tool = SimpleTool("test_tool", "routing shifted 479 orders (₹61.91L) → healthier gateways")
+    agent = create_test_agent(tools=[tool])
+
+    model_provider = MockModelProvider(
+        [
+            {
+                "message": {
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": "call_123",
+                            "type": "function",
+                            "function": {
+                                "name": "test_tool",
+                                "arguments": '{"message": "PAYU ₹84.43L"}',
+                            },
+                        }
+                    ],
+                }
+            },
+            {"message": {"content": "done", "tool_calls": None}},
+        ]
+    )
+
+    state = create_test_run_state()
+    config = RunConfig(
+        agent_registry={"test_agent": agent}, model_provider=model_provider, max_turns=10
+    )
+
+    result = await run(state, config)
+
+    tool_message = next(m for m in result.final_state.messages if m.role == ContentRole.TOOL)
+    assert "₹61.91L" in tool_message.content
+    assert "₹84.43L" in tool_message.content
+    assert "→" in tool_message.content
+    assert "\\u20b9" not in tool_message.content
+
+
+@pytest.mark.asyncio
 async def test_agent_handoff():
     """Test agent handoff functionality."""
     # Setup

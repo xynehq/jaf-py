@@ -148,7 +148,8 @@ def create_agent_tool(
                 {
                     "error": "tool_disabled",
                     "message": f"Tool {final_tool_name} is currently disabled",
-                }
+                },
+                ensure_ascii=False,
             )
 
         # Extract input from args
@@ -179,7 +180,8 @@ def create_agent_tool(
                 {
                     "error": "no_parent_config",
                     "message": f"Agent tool {final_tool_name} requires a parent RunConfig to execute. Please ensure the agent tool is called from within a JAF run context.",
-                }
+                },
+                ensure_ascii=False,
             )
 
         # Create a sub-config that inherits from parent but uses this agent
@@ -326,14 +328,16 @@ def create_agent_tool(
                     {
                         "error": "agent_execution_failed",
                         "message": f"Agent {agent.name} failed: {error_detail}",
-                    }
+                    },
+                    ensure_ascii=False,
                 )
         except Exception as e:
             return json.dumps(
                 {
                     "error": "agent_tool_error",
                     "message": f"Error executing agent {agent.name}: {str(e)}",
-                }
+                },
+                ensure_ascii=False,
             )
 
     # Create the tool wrapper
@@ -368,7 +372,7 @@ def create_default_output_extractor(extract_json: bool = False) -> Callable[[Run
                 try:
                     # Try to parse as JSON and re-serialize for consistency
                     parsed = json.loads(output)
-                    return json.dumps(parsed)
+                    return json.dumps(parsed, ensure_ascii=False)
                 except (json.JSONDecodeError, TypeError):
                     # If parsing fails, return the original output
                     pass
@@ -378,7 +382,7 @@ def create_default_output_extractor(extract_json: bool = False) -> Callable[[Run
             error_detail = getattr(
                 run_result.outcome.error, "detail", str(run_result.outcome.error)
             )
-            return json.dumps({"error": True, "message": error_detail})
+            return json.dumps({"error": True, "message": error_detail}, ensure_ascii=False)
 
     return extractor
 
