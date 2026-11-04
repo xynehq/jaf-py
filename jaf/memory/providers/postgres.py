@@ -6,6 +6,8 @@ Best for production environments requiring complex queries and full persistence.
 """
 
 import json
+import logging
+import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
@@ -24,6 +26,8 @@ from ..types import (
 )
 from ..utils import prepare_message_list_for_db
 
+logger = logging.getLogger(__name__)
+
 try:
     import asyncpg
 
@@ -32,12 +36,23 @@ except ImportError:
     PostgresClient = Any
 
 
+_IDENTIFIER_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]{0,62}")
+
+
+def _validate_identifier(value: str, kind: str) -> str:
+    """Reject identifiers that could break out of SQL (they cannot be bound as parameters)."""
+    if not isinstance(value, str) or not _IDENTIFIER_RE.fullmatch(value):
+        raise ValueError(f"Invalid PostgreSQL {kind}: {value!r}")
+    return value
+
+
 class PostgresProvider(MemoryProvider):
     """
     PostgreSQL implementation of MemoryProvider.
     """
 
     def __init__(self, config: PostgresConfig, client: PostgresClient):
+        _validate_identifier(config.table_name, "table name")
         self.config = config
         self.client = client
 
@@ -194,7 +209,29 @@ class PostgresProvider(MemoryProvider):
         self, query: MemoryQuery
     ) -> Result[List[ConversationMemory], MemoryStorageError]:
         try:
-            rows = await self._db_fetch(f"SELECT * FROM {self.config.table_name}")
+            conditions: List[str] = []
+            params: List[Any] = []
+            if query.conversation_id:
+                params.append(query.conversation_id)
+                conditions.append(f"conversation_id = ${len(params)}")
+            if query.user_id:
+                params.append(query.user_id)
+                conditions.append(f"user_id = ${len(params)}")
+            if query.trace_id:
+                params.append(str(query.trace_id))
+                conditions.append(f"metadata->>'trace_id' = ${len(params)}")
+
+            sql = f"SELECT * FROM {self.config.table_name}"
+            if conditions:
+                sql += " WHERE " + " AND ".join(conditions)
+            if query.limit:
+                params.append(int(query.limit))
+                sql += f" LIMIT ${len(params)}"
+            if query.offset:
+                params.append(int(query.offset))
+                sql += f" OFFSET ${len(params)}"
+
+            rows = await self._db_fetch(sql, *params)
             return Success([self._row_to_conversation(row) for row in rows])
         except Exception as e:
             return Failure(
@@ -255,7 +292,15 @@ class PostgresProvider(MemoryProvider):
         self, user_id: Optional[str] = None
     ) -> Result[Dict[str, Any], MemoryStorageError]:
         try:
-            row = await self._db_fetchrow(f"SELECT COUNT(*) as count FROM {self.config.table_name}")
+            if user_id:
+                row = await self._db_fetchrow(
+                    f"SELECT COUNT(*) as count FROM {self.config.table_name} WHERE user_id = $1",
+                    user_id,
+                )
+            else:
+                row = await self._db_fetchrow(
+                    f"SELECT COUNT(*) as count FROM {self.config.table_name}"
+                )
             return Success({"total_conversations": row["count"]})
         except Exception as e:
             return Failure(
@@ -347,13 +392,11 @@ class PostgresProvider(MemoryProvider):
                 conversation_id,
             )
 
-            print(
-                f"[MEMORY:Postgres] Truncated conversation {conversation_id}: removed {removed_count} messages after message {message_id}"
-            )
+            logger.debug(f"[MEMORY:Postgres] Truncated conversation {conversation_id}: removed {removed_count} messages after message {message_id}")
             return Success(removed_count)
 
         except Exception as e:
-            print(f"[MEMORY:Postgres] DEBUG: Exception in truncate_conversation_after: {e}")
+            logger.debug(f"[MEMORY:Postgres] DEBUG: Exception in truncate_conversation_after: {e}")
             import traceback
 
             traceback.print_exc()
@@ -388,9 +431,7 @@ class PostgresProvider(MemoryProvider):
 
             if until_index is None:
                 # Message not found, return None as lightweight indicator
-                print(
-                    f"[MEMORY:Postgres] Message {message_id} not found in conversation {conversation_id}"
-                )
+                logger.debug(f"[MEMORY:Postgres] Message {message_id} not found in conversation {conversation_id}")
                 return Success(None)
 
             # Return conversation up to (but not including) the specified message
@@ -410,9 +451,7 @@ class PostgresProvider(MemoryProvider):
                 },
             )
 
-            print(
-                f"[MEMORY:Postgres] Retrieved conversation {conversation_id} until message {message_id}: {len(truncated_messages)} messages"
-            )
+            logger.debug(f"[MEMORY:Postgres] Retrieved conversation {conversation_id} until message {message_id}: {len(truncated_messages)} messages")
             return Success(truncated_conversation)
 
         except Exception as e:
@@ -486,9 +525,7 @@ class PostgresProvider(MemoryProvider):
                 conversation_id,
             )
 
-            print(
-                f"[MEMORY:Postgres] Marked regeneration point for conversation {conversation_id} at message {message_id}"
-            )
+            logger.debug(f"[MEMORY:Postgres] Marked regeneration point for conversation {conversation_id} at message {message_id}")
             return Success(None)
 
         except Exception as e:
@@ -644,6 +681,9 @@ async def create_postgres_provider(
     config: PostgresConfig,
 ) -> Result[PostgresProvider, MemoryConnectionError]:
     try:
+        _validate_identifier(config.database, "database name")
+        _validate_identifier(config.table_name or "conversations", "table name")
+
         # Connect to the default 'postgres' database to check if the target database exists
         try:
             conn = await asyncpg.connect(
@@ -652,6 +692,7 @@ async def create_postgres_provider(
                 host=config.host,
                 port=config.port,
                 database="postgres",
+                ssl=config.ssl or None,
             )
             db_exists = await conn.fetchval(
                 "SELECT 1 FROM pg_database WHERE datname = $1", config.database
@@ -662,7 +703,7 @@ async def create_postgres_provider(
         except Exception as e:
             # This might fail if the user doesn't have permission to create databases,
             # but we can continue and hope the database already exists.
-            print(f"Could not ensure database exists: {e}")
+            logger.debug(f"Could not ensure database exists: {e}")
 
         # Now connect to the target database using connection pool with max_connections
         if config.connection_string:
@@ -678,6 +719,7 @@ async def create_postgres_provider(
                 database=config.database,
                 min_size=1,
                 max_size=config.max_connections,
+                ssl=config.ssl or None,
             )
 
         table_name = config.table_name or "conversations"

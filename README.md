@@ -551,6 +551,7 @@ ping_agent = create_a2a_agent("PingBot", "Responds to pings", "You are a ping bo
 server_config = {
     "agents": {"EchoBot": echo_agent, "PingBot": ping_agent},
     "agentCard": {"name": "Test Server"},
+    "allowUnauthenticated": True,  # local dev only; set "authenticate": async_fn in production
     "port": 8080,
 }
 server = create_a2a_server(server_config)

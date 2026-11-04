@@ -5,6 +5,7 @@ This module provides common functions for serialization, validation, and other
 operations used across different memory provider implementations.
 """
 
+import re
 import json
 from dataclasses import asdict
 from datetime import datetime
@@ -226,6 +227,8 @@ def sanitize_conversation_id(conversation_id: str) -> str:
     """
     # Remove potentially problematic characters and limit length
     sanitized = "".join(c for c in conversation_id if c.isalnum() or c in "-_.")
+    # Collapse runs of dots so the ID can never act as a ".." path segment
+    sanitized = re.sub(r"\.{2,}", ".", sanitized)
     return sanitized[:100]  # Limit length for database compatibility
 
 

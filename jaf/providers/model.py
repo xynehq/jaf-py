@@ -7,7 +7,9 @@ starting with LiteLLM for multi-provider support.
 
 from typing import Any, Dict, List, Optional, TypeVar, AsyncIterator
 import httpx
+import re
 import time
+from ..utils.redact import redact_error_text
 import os
 import base64
 import asyncio
@@ -50,76 +52,10 @@ from ..utils.document_processor import (
 Ctx = TypeVar("Ctx")
 logger = logging.getLogger(__name__)
 
-# Vision model caching
-VISION_MODEL_CACHE_TTL = 5 * 60  # 5 minutes
-VISION_API_TIMEOUT = 3.0  # 3 seconds
-_vision_model_cache: Dict[str, Dict[str, Any]] = {}
+_redact_error_text = redact_error_text
+
+
 MAX_IMAGE_BYTES = int(os.environ.get("JAF_MAX_IMAGE_BYTES", 8 * 1024 * 1024))
-
-
-async def _is_vision_model(model: str, base_url: str) -> bool:
-    """
-    Check if a model supports vision capabilities.
-
-    Args:
-        model: Model name to check
-        base_url: Base URL of the LiteLLM server
-
-    Returns:
-        True if model supports vision, False otherwise
-    """
-    cache_key = f"{base_url}:{model}"
-    cached = _vision_model_cache.get(cache_key)
-
-    if cached and time.time() - cached["timestamp"] < VISION_MODEL_CACHE_TTL:
-        return cached["supports"]
-
-    try:
-        async with httpx.AsyncClient(timeout=VISION_API_TIMEOUT) as client:
-            response = await client.get(
-                f"{base_url}/model_group/info", headers={"accept": "application/json"}
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                model_info = None
-
-                if "data" in data and isinstance(data["data"], list):
-                    for m in data["data"]:
-                        if m.get("model_group") == model or model in str(m.get("model_group", "")):
-                            model_info = m
-                            break
-
-                if model_info and "supports_vision" in model_info:
-                    result = model_info["supports_vision"]
-                    _vision_model_cache[cache_key] = {"supports": result, "timestamp": time.time()}
-                    return result
-            else:
-                print(
-                    f"Warning: Vision API returned status {response.status_code} for model {model}"
-                )
-
-    except Exception as e:
-        print(f"Warning: Vision API error for model {model}: {e}")
-
-    # Fallback to known vision models
-    known_vision_models = [
-        "gpt-4-vision-preview",
-        "gpt-4o",
-        "gpt-4o-mini",
-        "claude-sonnet-4",
-        "claude-sonnet-4-20250514",
-        "gemini-2.5-flash",
-        "gemini-2.5-pro",
-    ]
-
-    is_known_vision_model = any(
-        vision_model.lower() in model.lower() for vision_model in known_vision_models
-    )
-
-    _vision_model_cache[cache_key] = {"supports": is_known_vision_model, "timestamp": time.time()}
-
-    return is_known_vision_model
 
 
 def _classify_error_for_fallback(e: Exception) -> tuple[str, str]:
@@ -207,7 +143,7 @@ async def _retry_with_events(
             # Check if this is a retryable HTTP error
             is_retryable = False
             reason = str(e)
-            error_details = {"error_type": type(e).__name__, "error_message": str(e)}
+            error_details = {"error_type": type(e).__name__, "error_message": _redact_error_text(str(e))}
 
             # Check for HTTP errors (common in OpenAI/LiteLLM)
             if hasattr(e, "status_code"):
@@ -255,9 +191,7 @@ async def _retry_with_events(
                     )
                     config.on_event(retry_event)
 
-                print(
-                    f"[JAF:RETRY] Attempt {attempt + 1}/{max_retries} failed: {reason}. Retrying in {delay}s..."
-                )
+                logger.warning(f"[JAF:RETRY] Attempt {attempt + 1}/{max_retries} failed: {reason}. Retrying in {delay}s...")
                 await asyncio.sleep(delay)
             else:
                 # Not retryable or last attempt, re-raise
@@ -269,7 +203,7 @@ async def _retry_with_events(
 
 def make_litellm_provider(
     base_url: str,
-    api_key: str = "anything",
+    api_key: Optional[str] = None,
     default_timeout: Optional[float] = None,
     proxy_config: Optional[ProxyConfig] = None,
 ) -> ModelProvider[Ctx]:
@@ -278,7 +212,7 @@ def make_litellm_provider(
 
     Args:
         base_url: Base URL for the LiteLLM server
-        api_key: API key (defaults to "anything" for local servers)
+        api_key: API key (defaults to the LITELLM_API_KEY env var, then a placeholder for local servers)
         default_timeout: Default timeout for model API calls in seconds
         proxy_config: Optional proxy configuration
 
@@ -288,8 +222,10 @@ def make_litellm_provider(
 
     class LiteLLMProvider:
         def __init__(self):
-            # Default to "anything" if api_key is not provided, for local servers
-            effective_api_key = api_key if api_key is not None else "anything"
+            # Local LiteLLM servers ignore the key, but the client requires a non-empty value
+            effective_api_key = (
+                api_key if api_key is not None else os.getenv("LITELLM_API_KEY") or "not-set"
+            )
 
             # Configure HTTP client with proxy support
             client_kwargs = {
@@ -308,7 +244,7 @@ def make_litellm_provider(
                             http_client = httpx.AsyncClient(proxy=proxy_url)
                             client_kwargs["http_client"] = http_client
                     except Exception as e:
-                        print(f"Warning: Could not configure proxy: {e}")
+                        logger.warning(f"Warning: Could not configure proxy: {e}")
                         # Fall back to environment variables for proxy
 
             self.client = AsyncOpenAI(**client_kwargs)
@@ -324,23 +260,8 @@ def make_litellm_provider(
                 agent.model_config.name if agent.model_config else "gpt-4o"
             )
 
-            # Check if any message contains image content or image attachments
-            has_image_content = any(
-                (
-                    isinstance(msg.content, list)
-                    and any(part.type == "image_url" for part in msg.content)
-                )
-                or (msg.attachments and any(att.kind == "image" for att in msg.attachments))
-                for msg in state.messages
-            )
-
-            if has_image_content:
-                supports_vision = await _is_vision_model(primary_model, base_url)
-                if not supports_vision:
-                    raise ValueError(
-                        f"Model {primary_model} does not support vision capabilities. "
-                        f"Please use a vision-capable model like gpt-4o, claude-3-5-sonnet, or gemini-1.5-pro."
-                    )
+            # Images are sent as-is: the provider decides whether the model can read them and
+            # returns its own error otherwise (no hardcoded list of vision models to go stale).
 
             # Create system message
             system_message = {"role": "system", "content": agent.instructions(state)}
@@ -448,10 +369,8 @@ def make_litellm_provider(
 
                 # Try fallback models
                 if fallback_models:
-                    print(
-                        f"[JAF:FALLBACK] Primary model '{current_model}' failed with {reason}. "
-                        f"Trying {len(fallback_models)} fallback model(s)..."
-                    )
+                    logger.warning(f"[JAF:FALLBACK] Primary model '{current_model}' failed with {reason}. "
+                        f"Trying {len(fallback_models)} fallback model(s)...")
 
                     for i, fallback_model in enumerate(fallback_models, 1):
                         try:
@@ -468,35 +387,27 @@ def make_litellm_provider(
                                         run_id=state.run_id,
                                         error_details={
                                             "error_type": type(last_exception).__name__,
-                                            "error_message": str(last_exception),
+                                            "error_message": _redact_error_text(str(last_exception)),
                                         },
                                     )
                                 )
                                 config.on_event(fallback_event)
 
-                            print(
-                                f"[JAF:FALLBACK] Attempting fallback {i}/{len(fallback_models)}: {fallback_model}"
-                            )
+                            logger.debug(f"[JAF:FALLBACK] Attempting fallback {i}/{len(fallback_models)}: {fallback_model}")
 
                             # Try the fallback model
                             response = await _make_completion_call(fallback_model)
                             current_model = fallback_model
-                            print(
-                                f"[JAF:FALLBACK] Successfully used fallback model: {fallback_model}"
-                            )
+                            logger.debug(f"[JAF:FALLBACK] Successfully used fallback model: {fallback_model}")
                             break  # Success - exit the fallback loop
 
                         except Exception as fallback_error:
                             last_exception = fallback_error
-                            print(
-                                f"[JAF:FALLBACK] Fallback model '{fallback_model}' also failed: {fallback_error}"
-                            )
+                            logger.error(f"[JAF:FALLBACK] Fallback model '{fallback_model}' also failed: {fallback_error}")
 
                             # If this was the last fallback, re-raise
                             if i == len(fallback_models):
-                                print(
-                                    f"[JAF:FALLBACK] All fallback models exhausted. Raising last exception."
-                                )
+                                logger.debug(f"[JAF:FALLBACK] All fallback models exhausted. Raising last exception.")
                                 raise
                 else:
                     # No fallbacks configured, re-raise original exception
@@ -946,6 +857,10 @@ _WS_PAYLOAD_EXCLUDED_KEYS = {
     "timeout",
     "litellm_session_id",
     "stream",
+    # Connection-level settings: they belong in the handshake headers, not in the message body
+    "azure_ad_token",
+    "azure_ad_token_provider",
+    "extra_headers",
 }
 
 
@@ -956,6 +871,9 @@ def _azure_responses_ws_url(api_base: str) -> str:
     if not parsed.netloc:
         raise ValueError(f"websocket=True needs a full api_base URL, got: {api_base!r}")
     scheme = "wss" if parsed.scheme in ("https", "wss", "") else "ws"
+    # Never send the API key over cleartext ws:// except to a local test endpoint
+    if scheme == "ws" and parsed.hostname not in ("localhost", "127.0.0.1", "::1"):
+        raise ValueError(f"Refusing cleartext WebSocket to {parsed.hostname!r}; use https/wss")
     return urlunsplit((scheme, parsed.netloc, "/openai/v1/responses", "", ""))
 
 
@@ -1043,9 +961,13 @@ class _AzureResponsesWebSocketConnection:
         default_timeout: Optional[float],
         ping_interval: Optional[float] = 20,
         ping_timeout: Optional[float] = 60,
+        extra_headers: Optional[Dict[str, Any]] = None,
+        azure_ad_token: Optional[str] = None,
     ):
         self._url = _azure_responses_ws_url(api_base)
         self._api_key = api_key
+        self._extra_headers = extra_headers
+        self._azure_ad_token = azure_ad_token
         self._default_timeout = default_timeout
         self._ping_interval = ping_interval
         self._ping_timeout = ping_timeout
@@ -1066,7 +988,7 @@ class _AzureResponsesWebSocketConnection:
             return
 
         await self._close()
-        headers = {"Authorization": f"Bearer {self._api_key}"} if self._api_key else {}
+        headers = self._handshake_headers()
         self._ws = await websockets.connect(
             self._url,
             additional_headers=headers,
@@ -1076,6 +998,28 @@ class _AzureResponsesWebSocketConnection:
         )
         self._connected_at = time.monotonic()
         self._dirty = False
+
+    def _handshake_headers(self) -> Dict[str, str]:
+        """Headers for the WebSocket handshake.
+
+        The api_key Bearer header is unchanged. An Azure AD token is used only when there is
+        no api_key. Extra headers (the same ``extra_headers`` litellm sends on HTTP calls) are
+        added but can never replace an existing Authorization header.
+        """
+        if self._api_key:
+            headers = {"Authorization": f"Bearer {self._api_key}"}
+        elif self._azure_ad_token:
+            headers = {"Authorization": f"Bearer {self._azure_ad_token}"}
+        else:
+            headers = {}
+
+        if isinstance(self._extra_headers, dict):
+            existing = {name.lower() for name in headers}
+            for name, value in self._extra_headers.items():
+                if not isinstance(name, str) or value is None or name.lower() in existing:
+                    continue
+                headers[name] = str(value)
+        return headers
 
     async def _close(self) -> None:
         if self._ws is not None:
@@ -1127,7 +1071,8 @@ class _AzureResponsesWebSocketConnection:
                         raise
                     logger.warning(
                         "Azure Responses WebSocket closed before first event; "
-                        "retrying once (received_close_code=%s, sent_close_code=%s)",
+                        "retrying once, the request may be processed twice "
+                        "(received_close_code=%s, sent_close_code=%s)",
                         exc.rcvd.code if exc.rcvd else None,
                         exc.sent.code if exc.sent else None,
                     )
@@ -1313,7 +1258,11 @@ def make_litellm_sdk_provider(
             if self._ws_connection is None:
                 api_base = self.litellm_kwargs.get("api_base") or self.base_url
                 self._ws_connection = _AzureResponsesWebSocketConnection(
-                    api_base=api_base, api_key=self.api_key, default_timeout=self.default_timeout
+                    api_base=api_base,
+                    api_key=self.api_key,
+                    default_timeout=self.default_timeout,
+                    extra_headers=self.litellm_kwargs.get("extra_headers"),
+                    azure_ad_token=self.litellm_kwargs.get("azure_ad_token"),
                 )
             return self._ws_connection
 
@@ -1335,7 +1284,11 @@ def make_litellm_sdk_provider(
                 return _OpenAIResponse.model_validate(
                     _patch_azure_response_for_validation(final_response)
                 )
-            except Exception:
+            except Exception as exc:
+                # Lenient parse on schema drift, but never silently
+                logger.warning(
+                    "Responses payload failed validation (%s); using unvalidated response", type(exc).__name__
+                )
                 return _dict_to_namespace(final_response)
 
         async def _call_responses_api(
@@ -2092,10 +2045,8 @@ async def _build_chat_message_with_attachments(role: str, msg: Message) -> Dict[
                     estimated_size = len(att.data) * 3 // 4
 
                     if estimated_size > MAX_IMAGE_BYTES:
-                        print(
-                            f"Warning: Skipping oversized image ({estimated_size} bytes > {MAX_IMAGE_BYTES}). "
-                            f"Set JAF_MAX_IMAGE_BYTES env var to adjust limit."
-                        )
+                        logger.warning(f"Warning: Skipping oversized image ({estimated_size} bytes > {MAX_IMAGE_BYTES}). "
+                            f"Set JAF_MAX_IMAGE_BYTES env var to adjust limit.")
                         parts.append(
                             {
                                 "type": "text",
@@ -2108,7 +2059,7 @@ async def _build_chat_message_with_attachments(role: str, msg: Message) -> Dict[
                     # Create data URL for valid-sized images
                     url = f"data:{att.mime_type};base64,{att.data}"
                 except Exception as e:
-                    print(f"Error processing image data: {e}")
+                    logger.error(f"Error processing image data: {e}")
                     parts.append(
                         {
                             "type": "text",
@@ -2127,9 +2078,7 @@ async def _build_chat_message_with_attachments(role: str, msg: Message) -> Dict[
             if use_litellm_format and (att.url or att.data):
                 # For now, fall back to content extraction since most providers don't support native file format
                 # TODO: Add provider-specific file format support
-                print(
-                    f"Info: LiteLLM format requested for {att.name}, falling back to content extraction"
-                )
+                logger.debug(f"Info: LiteLLM format requested for {att.name}, falling back to content extraction")
                 use_litellm_format = False
 
             if not use_litellm_format:

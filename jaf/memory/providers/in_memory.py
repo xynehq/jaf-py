@@ -7,6 +7,7 @@ across restarts is not required.
 """
 
 import asyncio
+import logging
 from collections import OrderedDict
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
@@ -25,6 +26,8 @@ from ..types import (
     Success,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class InMemoryProvider(MemoryProvider):
     """
@@ -39,15 +42,13 @@ class InMemoryProvider(MemoryProvider):
         self._conversations: OrderedDict[str, ConversationMemory] = OrderedDict()
         self._lock = asyncio.Lock()
 
-        print(
-            f"[MEMORY:InMemory] Initialized with max {config.max_conversations} conversations, {config.max_messages_per_conversation} messages each"
-        )
+        logger.debug(f"[MEMORY:InMemory] Initialized with max {config.max_conversations} conversations, {config.max_messages_per_conversation} messages each")
 
     async def _enforce_memory_limits(self) -> None:
         """Enforce conversation and message limits through LRU eviction."""
         while len(self._conversations) > self.config.max_conversations:
             oldest_id, _ = self._conversations.popitem(last=False)
-            print(f"[MEMORY:InMemory] Evicted oldest conversation {oldest_id}")
+            logger.debug(f"[MEMORY:InMemory] Evicted oldest conversation {oldest_id}")
 
     async def store_messages(
         self,
@@ -63,19 +64,21 @@ class InMemoryProvider(MemoryProvider):
                 limited_messages = messages[-self.config.max_messages_per_conversation :]
                 existing = self._conversations.get(conversation_id)
 
+                # Bookkeeping fields come last so caller-supplied metadata cannot overwrite them
                 conversation_metadata = {
                     **(existing.metadata if existing else {}),
+                    **(metadata or {}),
                     "created_at": (existing.metadata.get("created_at") if existing else None) or now,
                     "updated_at": now,
                     "total_messages": len(limited_messages),
                     "last_activity": now,
-                    **(metadata or {}),
                 }
 
                 conversation = ConversationMemory(
                     conversation_id=conversation_id,
-                    user_id=(metadata.get("user_id") if metadata else None)
-                    or (existing.user_id if existing else None),
+                    # The first owner sticks: later writes cannot reassign the conversation
+                    user_id=(existing.user_id if existing else None)
+                    or (metadata.get("user_id") if metadata else None),
                     messages=limited_messages,
                     metadata=conversation_metadata,
                 )
@@ -84,9 +87,7 @@ class InMemoryProvider(MemoryProvider):
                 self._conversations.move_to_end(conversation_id)
                 await self._enforce_memory_limits()
 
-                print(
-                    f"[MEMORY:InMemory] Stored {len(limited_messages)} messages for conversation {conversation_id}"
-                )
+                logger.debug(f"[MEMORY:InMemory] Stored {len(limited_messages)} messages for conversation {conversation_id}")
                 return Success(None)
 
             except Exception as e:
@@ -112,7 +113,7 @@ class InMemoryProvider(MemoryProvider):
                 self._conversations.move_to_end(conversation_id)
                 conversation.metadata["last_activity"] = datetime.now()
 
-                print(f"[MEMORY:InMemory] Retrieved conversation {conversation_id}")
+                logger.debug(f"[MEMORY:InMemory] Retrieved conversation {conversation_id}")
                 return Success(conversation)
 
             except Exception as e:
@@ -167,9 +168,7 @@ class InMemoryProvider(MemoryProvider):
                 self._conversations[conversation_id] = updated_conversation
                 self._conversations.move_to_end(conversation_id)
 
-                print(
-                    f"[MEMORY:InMemory] Appended {len(messages)} messages to conversation {conversation_id}"
-                )
+                logger.debug(f"[MEMORY:InMemory] Appended {len(messages)} messages to conversation {conversation_id}")
                 return Success(None)
 
             except Exception as e:
@@ -387,9 +386,7 @@ class InMemoryProvider(MemoryProvider):
                 self._conversations[conversation_id] = updated_conversation
                 self._conversations.move_to_end(conversation_id)
 
-                print(
-                    f"[MEMORY:InMemory] Truncated conversation {conversation_id}: removed {removed_count} messages after message {message_id}"
-                )
+                logger.debug(f"[MEMORY:InMemory] Truncated conversation {conversation_id}: removed {removed_count} messages after message {message_id}")
                 return Success(removed_count)
 
             except Exception as e:
@@ -420,9 +417,7 @@ class InMemoryProvider(MemoryProvider):
 
                 if until_index is None:
                     # Message not found, return None as lightweight indicator
-                    print(
-                        f"[MEMORY:InMemory] Message {message_id} not found in conversation {conversation_id}"
-                    )
+                    logger.debug(f"[MEMORY:InMemory] Message {message_id} not found in conversation {conversation_id}")
                     return Success(None)
 
                 # Return conversation up to (but not including) the specified message
@@ -442,9 +437,7 @@ class InMemoryProvider(MemoryProvider):
                     },
                 )
 
-                print(
-                    f"[MEMORY:InMemory] Retrieved conversation {conversation_id} until message {message_id}: {len(truncated_messages)} messages (found at index {until_index})"
-                )
+                logger.debug(f"[MEMORY:InMemory] Retrieved conversation {conversation_id} until message {message_id}: {len(truncated_messages)} messages (found at index {until_index})")
                 return Success(truncated_conversation)
 
             except Exception as e:
@@ -503,9 +496,7 @@ class InMemoryProvider(MemoryProvider):
                 self._conversations[conversation_id] = updated_conversation
                 self._conversations.move_to_end(conversation_id)
 
-                print(
-                    f"[MEMORY:InMemory] Marked regeneration point for conversation {conversation_id} at message {message_id}"
-                )
+                logger.debug(f"[MEMORY:InMemory] Marked regeneration point for conversation {conversation_id} at message {message_id}")
                 return Success(None)
 
             except Exception as e:
@@ -521,13 +512,15 @@ class InMemoryProvider(MemoryProvider):
     async def get_previous_response_id(
         self, conversation_id: str
     ) -> Result[Optional[str], MemoryStorageError]:
-        conversation = self._conversations.get(conversation_id)
+        async with self._lock:
+            conversation = self._conversations.get(conversation_id)
         return Success(conversation.metadata.get("previous_response_id") if conversation else None)
 
     async def get_previous_response_message_id(
         self, conversation_id: str
     ) -> Result[Optional[str], MemoryStorageError]:
-        conversation = self._conversations.get(conversation_id)
+        async with self._lock:
+            conversation = self._conversations.get(conversation_id)
         return Success(
             conversation.metadata.get("previous_response_message_id") if conversation else None
         )
@@ -535,13 +528,15 @@ class InMemoryProvider(MemoryProvider):
     async def get_prior_response_id(
         self, conversation_id: str
     ) -> Result[Optional[str], MemoryStorageError]:
-        conversation = self._conversations.get(conversation_id)
+        async with self._lock:
+            conversation = self._conversations.get(conversation_id)
         return Success(conversation.metadata.get("prior_response_id") if conversation else None)
 
     async def get_previous_response_message_index(
         self, conversation_id: str
     ) -> Result[Optional[int], MemoryStorageError]:
-        conversation = self._conversations.get(conversation_id)
+        async with self._lock:
+            conversation = self._conversations.get(conversation_id)
         return Success(
             conversation.metadata.get("previous_response_message_index") if conversation else None
         )
@@ -588,7 +583,7 @@ class InMemoryProvider(MemoryProvider):
         """Close/cleanup the provider."""
         async with self._lock:
             self._conversations.clear()
-            print("[MEMORY:InMemory] Closed provider, cleared all conversations")
+            logger.debug("[MEMORY:InMemory] Closed provider, cleared all conversations")
             return Success(None)
 
 

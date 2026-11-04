@@ -7,6 +7,7 @@ tool calling, and state management while maintaining functional purity.
 
 import asyncio
 import json
+import logging
 import os
 import time
 from dataclasses import replace, asdict, is_dataclass
@@ -15,6 +16,7 @@ from typing import Any, Dict, List, Optional, TypeVar
 from pydantic import ValidationError, BaseModel
 
 from ..memory.types import Failure
+from ..utils.redact import redact_error_text
 from .tool_results import tool_result_to_string
 from .types import (
     Agent,
@@ -75,6 +77,8 @@ from .guardrails import (
     execute_input_guardrails_parallel,
     execute_output_guardrails,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def to_event_data(value: Any) -> Any:
@@ -208,7 +212,7 @@ async def run(initial_state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResult
 
         # Load approvals from storage if configured
         if config.approval_storage:
-            print(f"[JAF:ENGINE] Loading approvals for runId {state_with_memory.run_id}")
+            logger.debug(f"[JAF:ENGINE] Loading approvals for runId {state_with_memory.run_id}")
             from .state import load_approvals_into_state
 
             state_with_memory = await load_approvals_into_state(state_with_memory, config)
@@ -225,16 +229,12 @@ async def run(initial_state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResult
             and result.outcome.status == "completed"
             and getattr(config.memory, "store_on_completion", True)
         ):
-            print(f"[JAF:ENGINE] Storing final completed conversation for {config.conversation_id}")
+            logger.debug(f"[JAF:ENGINE] Storing final completed conversation for {config.conversation_id}")
             await _store_conversation_history(result.final_state, config)
         elif result.outcome.status == "interrupted":
-            print(
-                "[JAF:ENGINE] Conversation interrupted - storage already handled during interruption"
-            )
+            logger.debug("[JAF:ENGINE] Conversation interrupted - storage already handled during interruption")
         else:
-            print(
-                f"[JAF:ENGINE] Skipping memory store - status: {result.outcome.status}, store_on_completion: {getattr(config.memory, 'store_on_completion', True) if config.memory else 'N/A'}"
-            )
+            logger.debug(f"[JAF:ENGINE] Skipping memory store - status: {result.outcome.status}, store_on_completion: {getattr(config.memory, 'store_on_completion', True) if config.memory else 'N/A'}")
 
         if config.on_event:
             config.on_event(
@@ -286,7 +286,7 @@ async def _load_conversation_history(state: RunState[Ctx], config: RunConfig[Ctx
 
     result = await config.memory.provider.get_conversation(config.conversation_id)
     if isinstance(result, Failure):
-        print(f"[JAF:ENGINE] Warning: Failed to load conversation: {result.error}")
+        logger.error(f"[JAF:ENGINE] Warning: Failed to load conversation: {result.error}")
         if config.on_event:
             config.on_event(
                 MemoryEvent(
@@ -365,11 +365,9 @@ async def _load_conversation_history(state: RunState[Ctx], config: RunConfig[Ctx
             )
 
         if filtered_count > 0:
-            print(
-                f"[JAF:MEMORY] Loaded {len(all_memory_messages)} messages from memory, filtered to {len(memory_messages)} for LLM context (removed {filtered_count} halted messages)"
-            )
+            logger.debug(f"[JAF:MEMORY] Loaded {len(all_memory_messages)} messages from memory, filtered to {len(memory_messages)} for LLM context (removed {filtered_count} halted messages)")
         else:
-            print(f"[JAF:MEMORY] Loaded {len(all_memory_messages)} messages from memory")
+            logger.debug(f"[JAF:MEMORY] Loaded {len(all_memory_messages)} messages from memory")
 
         loaded_response_id_index = conversation_data.metadata.get("previous_response_message_index")
         return replace(
@@ -441,7 +439,11 @@ async def _store_conversation_history(state: RunState[Ctx], config: RunConfig[Ct
         }
 
     metadata = {
-        "user_id": getattr(state.context, "user_id", None),
+        "user_id": (
+            state.context.get("user_id")
+            if isinstance(state.context, dict)
+            else getattr(state.context, "user_id", None)
+        ),
         "trace_id": str(state.trace_id),
         "run_id": str(state.run_id),
         "agent_name": state.current_agent_name,
@@ -464,7 +466,7 @@ async def _store_conversation_history(state: RunState[Ctx], config: RunConfig[Ct
         )
 
     if isinstance(result, Failure):
-        print(f"[JAF:ENGINE] Warning: Failed to store conversation: {result.error}")
+        logger.error(f"[JAF:ENGINE] Warning: Failed to store conversation: {result.error}")
         if config.on_event:
             config.on_event(
                 MemoryEvent(
@@ -477,9 +479,7 @@ async def _store_conversation_history(state: RunState[Ctx], config: RunConfig[Ct
                 )
             )
     else:
-        print(
-            f"[JAF:ENGINE] Stored {len(messages_to_store)} messages for conversation {config.conversation_id}"
-        )
+        logger.debug(f"[JAF:ENGINE] Stored {len(messages_to_store)} messages for conversation {config.conversation_id}")
         if config.on_event:
             config.on_event(
                 MemoryEvent(
@@ -528,16 +528,13 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
         )
     )
 
-    print(
-        "[JAF:ENGINE] Debug guardrails setup:",
-        {
+    logger.debug('[JAF:ENGINE] Debug guardrails setup: %s', {
             "agent_name": current_agent.name,
             "has_advanced_config": bool(current_agent.advanced_config),
             "has_advanced_guardrails": has_advanced_guardrails,
             "initial_input_guardrails": len(config.initial_input_guardrails or []),
             "final_output_guardrails": len(config.final_output_guardrails or []),
-        },
-    )
+        })
 
     # Build effective guardrails
     effective_input_guardrails: List[Guardrail] = []
@@ -550,36 +547,43 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
         effective_input_guardrails = list(config.initial_input_guardrails or [])
         effective_output_guardrails = list(config.final_output_guardrails or [])
 
-    # Execute input guardrails on first turn
+    # Execute input guardrails on new user input. A run that brings new input ends with a
+    # user message; later turns in the same run end with assistant or tool messages. Keying
+    # on turn_count instead would skip every request whose history was loaded from memory
+    # or supplied by the caller, and would check the oldest user message, not the newest.
+    latest_user_message = (
+        state.messages[-1]
+        if state.messages and state.messages[-1].role in (ContentRole.USER, "user")
+        else None
+    )
     input_guardrails_to_run = (
-        effective_input_guardrails if state.turn_count == 0 and effective_input_guardrails else []
+        effective_input_guardrails if latest_user_message and effective_input_guardrails else []
     )
 
-    print(
-        "[JAF:ENGINE] Input guardrails to run:",
-        {
+    logger.debug('[JAF:ENGINE] Input guardrails to run: %s', {
             "turn_count": state.turn_count,
             "effective_input_length": len(effective_input_guardrails),
             "input_guardrails_to_run_length": len(input_guardrails_to_run),
             "has_advanced_guardrails": has_advanced_guardrails,
-        },
-    )
+        })
 
-    if input_guardrails_to_run and state.turn_count == 0:
-        first_user_message = next(
-            (m for m in state.messages if m.role == ContentRole.USER or m.role == "user"), None
-        )
-        if first_user_message:
+    if input_guardrails_to_run:
+        if latest_user_message:
             if has_advanced_guardrails:
                 execution_mode = (
                     current_agent.advanced_config.guardrails.execution_mode
                     if current_agent.advanced_config and current_agent.advanced_config.guardrails
                     else "parallel"
                 )
+                fail_safe = (
+                    current_agent.advanced_config.guardrails.fail_safe
+                    if current_agent.advanced_config and current_agent.advanced_config.guardrails
+                    else "block"
+                )
 
                 if execution_mode == "sequential":
                     guardrail_result = await execute_input_guardrails_sequential(
-                        input_guardrails_to_run, first_user_message, config
+                        input_guardrails_to_run, latest_user_message, config, fail_safe=fail_safe
                     )
                     if not guardrail_result.is_valid:
                         return RunResult(
@@ -597,12 +601,10 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
                 else:
                     # Parallel execution with LLM call overlap
                     guardrail_result = await execute_input_guardrails_parallel(
-                        input_guardrails_to_run, first_user_message, config
+                        input_guardrails_to_run, latest_user_message, config, fail_safe=fail_safe
                     )
                     if not guardrail_result.is_valid:
-                        print(
-                            f"🚨 Input guardrail violation: {getattr(guardrail_result, 'error_message', 'Unknown violation')}"
-                        )
+                        logger.warning("🚨 Input guardrail violation")
                         return RunResult(
                             final_state=state,
                             outcome=ErrorOutcome(
@@ -617,11 +619,7 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
                         )
             else:
                 # Legacy guardrails path
-                print(
-                    "[JAF:ENGINE] Using LEGACY guardrails path with",
-                    len(input_guardrails_to_run),
-                    "guardrails",
-                )
+                logger.debug('[JAF:ENGINE] Using LEGACY guardrails path with %s %s', len(input_guardrails_to_run), "guardrails")
                 for guardrail in input_guardrails_to_run:
                     if config.on_event:
                         config.on_event(
@@ -630,14 +628,14 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
                                     guardrail_name=getattr(
                                         guardrail, "__name__", "unknown_guardrail"
                                     ),
-                                    content=get_text_content(first_user_message.content),
+                                    content=get_text_content(latest_user_message.content),
                                 )
                             )
                         )
                     if asyncio.iscoroutinefunction(guardrail):
-                        result = await guardrail(get_text_content(first_user_message.content))
+                        result = await guardrail(get_text_content(latest_user_message.content))
                     else:
-                        result = guardrail(get_text_content(first_user_message.content))
+                        result = guardrail(get_text_content(latest_user_message.content))
 
                     if not result.is_valid:
                         if config.on_event:
@@ -872,26 +870,16 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
         if retry_attempt < config.max_empty_response_retries:
             delay = config.empty_response_retry_delay * (2**retry_attempt)
             if config.log_empty_responses:
-                print(
-                    f"[JAF:ENGINE] Empty LLM response on attempt {retry_attempt + 1}/{config.max_empty_response_retries + 1}, retrying in {delay:.1f}s..."
-                )
-                print(
-                    f"[JAF:ENGINE] Response had message: {bool(llm_response.get('message'))}, content: {bool(has_content)}, tool_calls: {bool(has_tool_calls)}"
-                )
+                logger.debug(f"[JAF:ENGINE] Empty LLM response on attempt {retry_attempt + 1}/{config.max_empty_response_retries + 1}, retrying in {delay:.1f}s...")
+                logger.debug(f"[JAF:ENGINE] Response had message: {bool(llm_response.get('message'))}, content: {bool(has_content)}, tool_calls: {bool(has_tool_calls)}")
             await asyncio.sleep(delay)
         else:
             # Last attempt failed, log detailed diagnostic info
             if config.log_empty_responses:
-                print(
-                    f"[JAF:ENGINE] Empty LLM response after {config.max_empty_response_retries + 1} attempts"
-                )
-                print(f"[JAF:ENGINE] Agent: {current_agent.name}, Model: {model}")
-                print(
-                    f"[JAF:ENGINE] Message count: {len(state.messages)}, Turn: {state.turn_count}"
-                )
-                print(
-                    f"[JAF:ENGINE] Response structure: {json.dumps(llm_response, indent=2)[:1000]}"
-                )
+                logger.debug(f"[JAF:ENGINE] Empty LLM response after {config.max_empty_response_retries + 1} attempts")
+                logger.debug(f"[JAF:ENGINE] Agent: {current_agent.name}, Model: {model}")
+                logger.debug(f"[JAF:ENGINE] Message count: {len(state.messages)}, Turn: {state.turn_count}")
+                logger.debug(f"[JAF:ENGINE] Response keys: {list(llm_response.keys())}")
 
     # Apply after_llm_call callback if provided
     if config.after_llm_call:
@@ -922,8 +910,8 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
     # Check if response has message
     if not llm_response.get("message"):
         if config.log_empty_responses:
-            print(f"[JAF:ENGINE] ERROR: No message in LLM response")
-            print(f"[JAF:ENGINE] Response structure: {json.dumps(llm_response, indent=2)[:500]}")
+            logger.error(f"[JAF:ENGINE] ERROR: No message in LLM response")
+            logger.debug(f"[JAF:ENGINE] Response keys: {list(llm_response.keys())}")
         return RunResult(
             final_state=state,
             outcome=ErrorOutcome(error=ModelBehaviorError(detail="No message in model response")),
@@ -982,9 +970,7 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
 
             # Store conversation state with ALL messages including approval-required (for database records)
             if config.memory and config.memory.auto_store and config.conversation_id:
-                print(
-                    f"[JAF:ENGINE] Storing conversation state due to interruption for {config.conversation_id}"
-                )
+                logger.debug(f"[JAF:ENGINE] Storing conversation state due to interruption for {config.conversation_id}")
                 state_for_storage = replace(
                     interrupted_state,
                     messages=interrupted_state.messages
@@ -1154,35 +1140,35 @@ async def _run_internal(state: RunState[Ctx], config: RunConfig[Ctx]) -> RunResu
                                         )
                                     )
                                 )
-                        if asyncio.iscoroutinefunction(guardrail):
-                            result = await guardrail(output_data)
-                        else:
-                            result = guardrail(output_data)
+                            if asyncio.iscoroutinefunction(guardrail):
+                                result = await guardrail(output_data)
+                            else:
+                                result = guardrail(output_data)
 
-                        if not result.is_valid:
-                            if config.on_event:
-                                config.on_event(
-                                    GuardrailViolationEvent(
-                                        data=GuardrailViolationEventData(
-                                            stage="output",
+                            if not result.is_valid:
+                                if config.on_event:
+                                    config.on_event(
+                                        GuardrailViolationEvent(
+                                            data=GuardrailViolationEventData(
+                                                stage="output",
+                                                reason=getattr(
+                                                    result, "error_message", "Output guardrail failed"
+                                                ),
+                                            )
+                                        )
+                                    )
+                                return RunResult(
+                                    final_state=replace(
+                                        state, messages=new_messages, approvals=state.approvals
+                                    ),
+                                    outcome=ErrorOutcome(
+                                        error=OutputGuardrailTripwire(
                                             reason=getattr(
                                                 result, "error_message", "Output guardrail failed"
-                                            ),
+                                            )
                                         )
-                                    )
+                                    ),
                                 )
-                            return RunResult(
-                                final_state=replace(
-                                    state, messages=new_messages, approvals=state.approvals
-                                ),
-                                outcome=ErrorOutcome(
-                                    error=OutputGuardrailTripwire(
-                                        reason=getattr(
-                                            result, "error_message", "Output guardrail failed"
-                                        )
-                                    )
-                                ),
-                            )
 
                 return RunResult(
                     final_state=replace(
@@ -1402,7 +1388,7 @@ async def _execute_tool_calls(
     """Execute tool calls and return results."""
 
     async def execute_single_tool_call(tool_call: ToolCall) -> Dict[str, Any]:
-        print(f"[JAF:TOOL-EXEC] Starting execute_single_tool_call for {tool_call.function.name}")
+        logger.debug(f"[JAF:TOOL-EXEC] Starting execute_single_tool_call for {tool_call.function.name}")
         if config.on_event:
             config.on_event(
                 ToolCallStartEvent(
@@ -1517,13 +1503,22 @@ async def _execute_tool_calls(
             approval_status = state.approvals.get(tool_call.id)
             if not approval_status:
                 signature = f"{tool_call.function.name}:{tool_call.function.arguments}"
+                ttl = config.approval_signature_ttl_seconds
                 for _, approval in state.approvals.items():
-                    if (
+                    if not (
                         approval.additional_context
                         and approval.additional_context.get("signature") == signature
                     ):
-                        approval_status = approval
-                        break
+                        continue
+                    # Expired (or untimed) approvals must not be replayed by an identical call
+                    approved_at = approval.additional_context.get("approved_at")
+                    if ttl is not None and not (
+                        isinstance(approved_at, (int, float))
+                        and time.time() - approved_at <= ttl
+                    ):
+                        continue
+                    approval_status = approval
+                    break
 
             derived_status = None
             if approval_status:
@@ -1615,9 +1610,11 @@ async def _execute_tool_calls(
             context_with_additional = state.context
             if additional_context:
                 # Create a copy of context with additional fields from approval
+                # The run context always wins: an approver may add new keys but can never
+                # override existing ones (e.g. user_id, tenant, permissions)
                 if hasattr(state.context, "__dict__"):
                     # For dataclass contexts, add additional context as attributes
-                    context_dict = {**state.context.__dict__, **additional_context}
+                    context_dict = {**additional_context, **state.context.__dict__}
                     context_with_additional = type(state.context)(
                         **{k: v for k, v in context_dict.items() if k in state.context.__dict__}
                     )
@@ -1627,11 +1624,14 @@ async def _execute_tool_calls(
                             setattr(context_with_additional, key, value)
                 else:
                     # For dict contexts, merge normally
-                    context_with_additional = {**state.context, **additional_context}
+                    context_with_additional = {**additional_context, **state.context}
 
-            print(f"[JAF:ENGINE] About to execute tool: {tool_call.function.name}")
-            print(f"[JAF:ENGINE] Tool args:", validated_args)
-            print(f"[JAF:ENGINE] Tool context:", state.context)
+            # Never log args, context or results: they carry PII and credentials.
+            logger.debug(
+                "[JAF:ENGINE] Executing tool %s (call_id=%s)",
+                tool_call.function.name,
+                tool_call.id,
+            )
 
             if config.on_tool_selected:
                 try:
@@ -1644,9 +1644,9 @@ async def _execute_tool_calls(
                             setattr(context_with_additional, "_tool_instructions", detailed_instructions)
                         elif isinstance(context_with_additional, dict):
                             context_with_additional["_tool_instructions"] = detailed_instructions
-                        print(f"[JAF:ENGINE] Injected tool instructions for {tool_call.function.name}")
+                        logger.debug(f"[JAF:ENGINE] Injected tool instructions for {tool_call.function.name}")
                 except Exception as hook_error:
-                    print(f"[JAF:ENGINE] Warning: on_tool_selected hook failed: {hook_error}")
+                    logger.error(f"[JAF:ENGINE] Warning: on_tool_selected hook failed: {hook_error}")
 
             # Execute the tool with timeout
             try:
@@ -1718,16 +1718,15 @@ async def _execute_tool_calls(
             # Handle both string and ToolResult formats
             if isinstance(tool_result, str):
                 result_string = tool_result
-                print(
-                    f"[JAF:ENGINE] Tool {tool_call.function.name} returned string:", result_string
-                )
             else:
                 # It's a ToolResult object
                 result_string = tool_result_to_string(tool_result)
-                print(
-                    f"[JAF:ENGINE] Tool {tool_call.function.name} returned ToolResult:", tool_result
-                )
-                print(f"[JAF:ENGINE] Converted to string:", result_string)
+            logger.debug(
+                "[JAF:ENGINE] Tool %s (call_id=%s) returned %d chars",
+                tool_call.function.name,
+                tool_call.id,
+                len(result_string),
+            )
 
             # Wrap tool result with status information for approval context
             if approval_status and approval_status.additional_context:
@@ -1800,7 +1799,7 @@ async def _execute_tool_calls(
             error_result = json.dumps(
                 {
                     "hitl_status": "execution_error",  # HITL workflow status
-                    "message": str(error),
+                    "message": redact_error_text(str(error)),
                     "tool_name": tool_call.function.name,
                 },
                 ensure_ascii=False,
@@ -1816,7 +1815,7 @@ async def _execute_tool_calls(
                                 trace_id=state.trace_id,
                                 run_id=state.run_id,
                                 execution_status="error",  # Tool execution failed with exception
-                                tool_result={"error": "execution_error", "detail": str(error)},
+                                tool_result={"error": "execution_error", "detail": redact_error_text(str(error))},
                                 call_id=tool_call.id,
                             )
                         )

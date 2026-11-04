@@ -8,6 +8,7 @@ for maintaining optimal storage performance.
 
 import asyncio
 import dataclasses
+import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -24,6 +25,8 @@ from .types import (
     create_a2a_success,
     create_a2a_task_storage_error,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -134,7 +137,8 @@ async def perform_task_cleanup(
                 errors.append(f"Failed to query old tasks: {all_old_tasks_result.error.message}")
 
         except Exception as e:
-            errors.append(f"Error during age-based cleanup query: {e!s}")
+            logger.error(f"Error during age-based cleanup query: {e}", exc_info=True)
+            errors.append("Error during age-based cleanup query")
 
     expired_cleaned = len(tasks_to_delete)
 
@@ -165,7 +169,8 @@ async def perform_task_cleanup(
                     f"Failed to query completed tasks: {completed_tasks_result.error.message}"
                 )
         except Exception as e:
-            errors.append(f"Error during completed task count cleanup: {e!s}")
+            logger.error(f"Error during completed task count cleanup: {e}", exc_info=True)
+            errors.append("Error during completed task count cleanup")
 
     # 3. Count-based cleanup for failed tasks
     excess_failed_cleaned = 0
@@ -192,7 +197,8 @@ async def perform_task_cleanup(
             elif failed_tasks_result.error:
                 errors.append(f"Failed to query failed tasks: {failed_tasks_result.error.message}")
         except Exception as e:
-            errors.append(f"Error during failed task count cleanup: {e!s}")
+            logger.error(f"Error during failed task count cleanup: {e}", exc_info=True)
+            errors.append("Error during failed task count cleanup")
 
     if config.dry_run:
         return create_a2a_success(
@@ -209,15 +215,19 @@ async def perform_task_cleanup(
     # 4. Perform deletion
     total_cleaned = 0
     if tasks_to_delete:
-        delete_tasks = [task_provider.delete_task(task_id) for task_id in tasks_to_delete]
-        results = await asyncio.gather(*delete_tasks, return_exceptions=True)
-        for i, res in enumerate(results):
-            if isinstance(res, Success) and res.data:
-                total_cleaned += 1
-            else:
-                task_id = list(tasks_to_delete)[i]
-                error_msg = res.error.message if hasattr(res, "error") and res.error else str(res)
-                errors.append(f"Failed to delete task {task_id}: {error_msg}")
+        task_ids = list(tasks_to_delete)
+        batch_size = max(1, config.batch_size)  # bounds how many deletes run at once
+        for start in range(0, len(task_ids), batch_size):
+            batch = task_ids[start : start + batch_size]
+            results = await asyncio.gather(
+                *(task_provider.delete_task(task_id) for task_id in batch), return_exceptions=True
+            )
+            for task_id, res in zip(batch, results):
+                if isinstance(res, Success) and res.data:
+                    total_cleaned += 1
+                else:
+                    logger.warning(f"Failed to delete task {task_id}: {res}")
+                    errors.append(f"Failed to delete task {task_id}")
 
     # Recalculate counts based on actual deletions
     # This is complex as we don't know which category succeeded.
@@ -291,7 +301,7 @@ class TaskCleanupScheduler:
             except asyncio.CancelledError:
                 break
             except Exception as error:
-                print(f"A2A task cleanup scheduler error: {error!s}")
+                logger.error(f"A2A task cleanup scheduler error: {error!s}")
                 # Avoid rapid failure loops
                 await asyncio.sleep(self.config.interval)
 
@@ -303,16 +313,14 @@ class TaskCleanupScheduler:
             if result.data:
                 cleanup_result = result.data
                 if cleanup_result.total_cleaned > 0 or cleanup_result.errors:
-                    print(
-                        f"A2A task cleanup completed: {cleanup_result.total_cleaned} tasks cleaned"
-                    )
+                    logger.debug(f"A2A task cleanup completed: {cleanup_result.total_cleaned} tasks cleaned")
                     if cleanup_result.errors:
-                        print(f"A2A task cleanup errors: {', '.join(cleanup_result.errors)}")
+                        logger.error(f"A2A task cleanup errors: {', '.join(cleanup_result.errors)}")
             elif result.error:
-                print(f"A2A task cleanup failed: {result.error.message}")
+                logger.error(f"A2A task cleanup failed: {result.error.message}")
 
         except Exception as error:
-            print(f"A2A task cleanup error: {error!s}")
+            logger.error(f"A2A task cleanup error: {error!s}")
 
 
 def create_task_cleanup_scheduler(
@@ -332,13 +340,34 @@ def create_cleanup_config_from_env() -> A2ATaskCleanupConfig:
     retain_states_str = os.getenv("JAF_A2A_CLEANUP_RETAIN_STATES", "working,submitted")
     retain_states = [s.strip() for s in retain_states_str.split(",") if s.strip()]
 
+    valid_states = {"submitted", "working", "input-required", "completed", "canceled", "failed", "rejected", "auth-required", "unknown"}
+    unknown = [state for state in retain_states if state not in valid_states]
+    if unknown:
+        logger.warning(f"Ignoring unknown JAF_A2A_CLEANUP_RETAIN_STATES values: {unknown}")
+        retain_states = [state for state in retain_states if state in valid_states]
+
+    def _int_env(name: str, default: int, minimum: int) -> int:
+        """Read an integer setting; a malformed or out-of-range value falls back to the default."""
+        raw = os.getenv(name)
+        if raw is None:
+            return default
+        try:
+            value = int(raw)
+        except ValueError:
+            logger.warning(f"Invalid {name}={raw!r}; using default {default}")
+            return default
+        if value < minimum:
+            logger.warning(f"{name}={value} is below the minimum {minimum}; using default {default}")
+            return default
+        return value
+
     return A2ATaskCleanupConfig(
         enabled=os.getenv("JAF_A2A_CLEANUP_ENABLED", "true").lower() == "true",
-        interval=int(os.getenv("JAF_A2A_CLEANUP_INTERVAL", "3600")),
-        max_age=int(os.getenv("JAF_A2A_CLEANUP_MAX_AGE", str(7 * 24 * 60 * 60))),
-        max_completed_tasks=int(os.getenv("JAF_A2A_CLEANUP_MAX_COMPLETED", "1000")),
-        max_failed_tasks=int(os.getenv("JAF_A2A_CLEANUP_MAX_FAILED", "500")),
+        interval=_int_env("JAF_A2A_CLEANUP_INTERVAL", 3600, 1),
+        max_age=_int_env("JAF_A2A_CLEANUP_MAX_AGE", 7 * 24 * 60 * 60, 1),
+        max_completed_tasks=_int_env("JAF_A2A_CLEANUP_MAX_COMPLETED", 1000, 0),
+        max_failed_tasks=_int_env("JAF_A2A_CLEANUP_MAX_FAILED", 500, 0),
         retain_states=retain_states,
-        batch_size=int(os.getenv("JAF_A2A_CLEANUP_BATCH_SIZE", "100")),
+        batch_size=_int_env("JAF_A2A_CLEANUP_BATCH_SIZE", 100, 1),
         dry_run=os.getenv("JAF_A2A_CLEANUP_DRY_RUN", "false").lower() == "true",
     )

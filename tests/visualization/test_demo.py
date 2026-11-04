@@ -13,6 +13,7 @@ from typing import Any
 import pytest
 
 from jaf.core.types import Agent, ModelConfig, RunState, ToolSchema
+from jaf.utils.safe_math import safe_eval_arithmetic
 from jaf.visualization.graphviz import generate_agent_graph, generate_tool_graph
 from jaf.visualization.types import GraphOptions
 
@@ -33,7 +34,7 @@ class CalculatorTool:
 
     async def execute(self, args: CalculatorArgs, context: Any) -> str:
         try:
-            result = eval(args.expression)
+            result = safe_eval_arithmetic(args.expression)
             return f"Result: {result}"
         except Exception as e:
             return f"Error: {e!s}"

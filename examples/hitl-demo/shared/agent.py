@@ -25,7 +25,7 @@ load_dotenv()
 LITELLM_BASE_URL = os.getenv("LITELLM_BASE_URL") or os.getenv(
     "LITELLM_URL", "http://localhost:4000"
 )
-LITELLM_API_KEY = os.getenv("LITELLM_API_KEY", "sk-demo")
+LITELLM_API_KEY = os.getenv("LITELLM_API_KEY")
 LITELLM_MODEL = os.getenv("LITELLM_MODEL", "gpt-4o-mini")
 
 # Fallback: Direct OpenAI configuration

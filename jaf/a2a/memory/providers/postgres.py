@@ -7,6 +7,7 @@ querying capabilities, full-text search, and robust data integrity.
 """
 
 import json
+import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -116,6 +117,8 @@ async def create_a2a_postgres_task_provider(
     """
     try:
         table_name = config.table_name or "a2a_tasks"
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,62}", table_name):
+            raise ValueError(f"Invalid PostgreSQL table name: {table_name!r}")
 
         # Initialize database schema
         create_table_sql = SQL_QUERIES["CREATE_TABLE"].format(table_name=table_name)
@@ -264,13 +267,13 @@ async def create_a2a_postgres_task_provider(
                 try:
                     # Check if task exists
                     existing_result = await self.get_task(task.id)
-                    if not isinstance(existing_result.data, A2ATask):
-                        return existing_result
-
-                    if not existing_result.data:
+                    if existing_result.data is None and not getattr(existing_result, "error", None):
+                        # get_task reports a missing task as success(None); updating it must fail
                         return create_a2a_failure(
                             create_a2a_task_not_found_error(task.id, "postgres")
                         )
+                    if not isinstance(existing_result.data, A2ATask):
+                        return existing_result
 
                     # Validate and sanitize task
                     sanitize_result = sanitize_task(task)
@@ -381,10 +384,13 @@ async def create_a2a_postgres_task_provider(
                     """
 
                     # Add pagination
+                    params = list(params)
                     if query.limit:
-                        sql += f" LIMIT {query.limit}"
+                        params.append(int(query.limit))
+                        sql += f" LIMIT ${len(params)}"
                     if query.offset:
-                        sql += f" OFFSET {query.offset}"
+                        params.append(int(query.offset))
+                        sql += f" OFFSET ${len(params)}"
 
                     rows = await postgres_client.fetch(sql, *params)
                     tasks: List[A2ATask] = []
@@ -517,7 +523,7 @@ async def create_a2a_postgres_task_provider(
                     )
 
                 except Exception as error:
-                    return create_a2a_success({"healthy": False, "error": str(error)})
+                    return create_a2a_success({"healthy": False, "error": type(error).__name__})
 
             async def close(self) -> A2AResult[None]:
                 """Close/cleanup the provider"""

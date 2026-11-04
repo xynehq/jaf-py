@@ -9,6 +9,7 @@ from fastapi import FastAPI, HTTPException
 import httpx
 
 from jaf import Agent, create_function_tool, make_litellm_provider
+from jaf.utils.safe_math import safe_eval_arithmetic
 from jaf.core.types import RunState, RunConfig, Message, generate_run_id, generate_trace_id
 from jaf.core.engine import run
 
@@ -26,7 +27,7 @@ async def calculate(args: CalculateArgs, context: Any) -> str:
         return "Error: Invalid characters in expression"
 
     try:
-        result = eval(args.expression)
+        result = safe_eval_arithmetic(args.expression)
         return f"{args.expression} = {result}"
     except Exception:
         return "Error: Invalid expression"

@@ -7,7 +7,7 @@ high-level ADK concepts and the underlying JAF Core implementation.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import (
     Any,
@@ -108,7 +108,7 @@ class AdkMessage:
             content=msg.content,
             tool_calls=msg.tool_calls,
             tool_call_id=msg.tool_call_id,
-            timestamp=datetime.now(),
+            timestamp=datetime.now(timezone.utc),
         )
 
 
@@ -207,7 +207,7 @@ class AdkSession:
     def add_message(self, message: AdkMessage) -> None:
         """Add a message to the session."""
         self.messages.append(message)
-        self.updated_at = datetime.now()
+        self.updated_at = datetime.now(timezone.utc)
 
     def get_recent_messages(self, limit: int = 10) -> List[AdkMessage]:
         """Get recent messages from the session."""
@@ -276,7 +276,7 @@ class AdkConfiguration:
 
 def create_adk_message(role: str, content: str, **kwargs) -> AdkMessage:
     """Create an ADK message with timestamp."""
-    return AdkMessage(role=role, content=content, timestamp=datetime.now(), **kwargs)
+    return AdkMessage(role=role, content=content, timestamp=datetime.now(timezone.utc), **kwargs)
 
 
 def create_user_message(content: str, **kwargs) -> AdkMessage:
@@ -339,7 +339,7 @@ class ImmutableAdkSession:
             app_name=self.app_name,
             messages=self.messages + (message,),  # Create new tuple
             created_at=self.created_at,
-            updated_at=datetime.now(),
+            updated_at=datetime.now(timezone.utc),
             metadata=self.metadata,
         )
 
@@ -363,7 +363,7 @@ class ImmutableAdkSession:
             app_name=self.app_name,
             messages=self.messages,
             created_at=self.created_at,
-            updated_at=datetime.now(),
+            updated_at=datetime.now(timezone.utc),
             metadata=current_metadata,
         )
 
@@ -405,7 +405,7 @@ def create_immutable_session(
     Returns:
         New ImmutableAdkSession instance
     """
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     messages = tuple(initial_messages) if initial_messages else ()
 
     return ImmutableAdkSession(

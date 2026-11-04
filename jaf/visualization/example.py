@@ -7,13 +7,17 @@ to showcase the capabilities of the visualization system.
 """
 
 import asyncio
+import logging
 import os
 from dataclasses import dataclass
 from typing import Any
 
+from ..utils.safe_math import safe_eval_arithmetic
 from ..core.types import Agent, ModelConfig, RunState, ToolSchema
 from .graphviz import generate_agent_graph, generate_runner_graph, generate_tool_graph
 from .types import GraphOptions
+
+logger = logging.getLogger(__name__)
 
 # ========== Example Tool Implementations ==========
 
@@ -40,8 +44,7 @@ class ExampleCalculatorTool:
     async def execute(self, args: CalculateArgs, context: Any) -> str:
         """Execute the calculator tool."""
         try:
-            # Simple calculator (in real implementation, use safer evaluation)
-            result = eval(args.expression)
+            result = safe_eval_arithmetic(args.expression)
             return f"Result: {result}"
         except Exception as e:
             return f"Error: Invalid mathematical expression - {e!s}"
@@ -168,7 +171,7 @@ def create_search_specialist() -> Agent:
 
 async def run_visualization_examples() -> None:
     """Run comprehensive visualization examples."""
-    print("🎨 Running JAF Visualization Examples...\n")
+    logger.info("🎨 Running JAF Visualization Examples...\n")
 
     # Ensure output directory exists
     os.makedirs("./examples", exist_ok=True)
@@ -183,7 +186,7 @@ async def run_visualization_examples() -> None:
         agents = [example_agent, math_specialist, weather_bot, search_specialist]
 
         # 1. Generate Agent Graph
-        print("📊 Generating agent visualization...")
+        logger.info("📊 Generating agent visualization...")
         agent_result = await generate_agent_graph(
             agents,
             GraphOptions(
@@ -197,12 +200,12 @@ async def run_visualization_examples() -> None:
         )
 
         if agent_result.success:
-            print(f"✅ Agent graph generated: {agent_result.output_path}")
+            logger.info(f"✅ Agent graph generated: {agent_result.output_path}")
         else:
-            print(f"❌ Agent graph failed: {agent_result.error}")
+            logger.error(f"❌ Agent graph failed: {agent_result.error}")
 
         # 2. Generate Tool Graph
-        print("\n🔧 Generating tool visualization...")
+        logger.info("\n🔧 Generating tool visualization...")
         all_tools = [ExampleCalculatorTool(), ExampleWeatherTool(), ExampleSearchTool()]
 
         tool_result = await generate_tool_graph(
@@ -217,12 +220,12 @@ async def run_visualization_examples() -> None:
         )
 
         if tool_result.success:
-            print(f"✅ Tool graph generated: {tool_result.output_path}")
+            logger.info(f"✅ Tool graph generated: {tool_result.output_path}")
         else:
-            print(f"❌ Tool graph failed: {tool_result.error}")
+            logger.error(f"❌ Tool graph failed: {tool_result.error}")
 
         # 3. Generate Runner Visualization
-        print("\n🏃 Generating runner visualization...")
+        logger.info("\n🏃 Generating runner visualization...")
         agent_registry = {agent.name: agent for agent in agents}
 
         runner_result = await generate_runner_graph(
@@ -236,12 +239,12 @@ async def run_visualization_examples() -> None:
         )
 
         if runner_result.success:
-            print(f"✅ Runner graph generated: {runner_result.output_path}")
+            logger.info(f"✅ Runner graph generated: {runner_result.output_path}")
         else:
-            print(f"❌ Runner graph failed: {runner_result.error}")
+            logger.error(f"❌ Runner graph failed: {runner_result.error}")
 
         # 4. Generate different color schemes
-        print("\n🎨 Generating alternative color schemes...")
+        logger.info("\n🎨 Generating alternative color schemes...")
 
         for scheme in ["default", "modern", "minimal"]:
             scheme_result = await generate_agent_graph(
@@ -256,12 +259,12 @@ async def run_visualization_examples() -> None:
             )
 
             if scheme_result.success:
-                print(f"✅ {scheme} theme generated: {scheme_result.output_path}")
+                logger.info(f"✅ {scheme} theme generated: {scheme_result.output_path}")
             else:
-                print(f"❌ {scheme} theme failed: {scheme_result.error}")
+                logger.error(f"❌ {scheme} theme failed: {scheme_result.error}")
 
         # 5. Generate different formats
-        print("\n📄 Generating different output formats...")
+        logger.info("\n📄 Generating different output formats...")
 
         for fmt in ["png", "svg", "pdf"]:
             format_result = await generate_agent_graph(
@@ -275,24 +278,24 @@ async def run_visualization_examples() -> None:
             )
 
             if format_result.success:
-                print(f"✅ {fmt.upper()} format generated: {format_result.output_path}")
+                logger.info(f"✅ {fmt.upper()} format generated: {format_result.output_path}")
             else:
-                print(f"❌ {fmt.upper()} format failed: {format_result.error}")
+                logger.error(f"❌ {fmt.upper()} format failed: {format_result.error}")
 
-        print("\n🎉 All visualization examples completed!")
-        print("\n📁 Generated files:")
-        print("   - ./examples/agent-graph.png")
-        print("   - ./examples/tool-graph.png")
-        print("   - ./examples/runner-architecture.png")
-        print("   - ./examples/agent-default.png")
-        print("   - ./examples/agent-modern.png")
-        print("   - ./examples/agent-minimal.png")
-        print("   - ./examples/multi-format.png")
-        print("   - ./examples/multi-format.svg")
-        print("   - ./examples/multi-format.pdf")
+        logger.info("\n🎉 All visualization examples completed!")
+        logger.info("\n📁 Generated files:")
+        logger.info("   - ./examples/agent-graph.png")
+        logger.info("   - ./examples/tool-graph.png")
+        logger.info("   - ./examples/runner-architecture.png")
+        logger.info("   - ./examples/agent-default.png")
+        logger.info("   - ./examples/agent-modern.png")
+        logger.info("   - ./examples/agent-minimal.png")
+        logger.info("   - ./examples/multi-format.png")
+        logger.info("   - ./examples/multi-format.svg")
+        logger.info("   - ./examples/multi-format.pdf")
 
     except Exception as error:
-        print(f"❌ Error running visualization examples: {error}")
+        logger.error(f"❌ Error running visualization examples: {error}")
 
 
 async def quick_start_visualization(agent: Agent, output_path: str = None) -> None:
@@ -303,7 +306,7 @@ async def quick_start_visualization(agent: Agent, output_path: str = None) -> No
         agent: Agent to visualize
         output_path: Optional custom output path
     """
-    print(f"🚀 Quick visualization for agent: {agent.name}")
+    logger.info(f"🚀 Quick visualization for agent: {agent.name}")
 
     result = await generate_agent_graph(
         [agent],
@@ -317,14 +320,14 @@ async def quick_start_visualization(agent: Agent, output_path: str = None) -> No
     )
 
     if result.success:
-        print(f"✅ Visualization saved to: {result.output_path}")
+        logger.info(f"✅ Visualization saved to: {result.output_path}")
     else:
-        print(f"❌ Visualization failed: {result.error}")
+        logger.error(f"❌ Visualization failed: {result.error}")
 
 
 async def demo_basic_usage() -> None:
     """Demonstrate basic usage patterns."""
-    print("📚 JAF Visualization - Basic Usage Demo\n")
+    logger.info("📚 JAF Visualization - Basic Usage Demo\n")
 
     # Create a simple agent
     calculator_tool = ExampleCalculatorTool()
@@ -346,11 +349,11 @@ async def demo_basic_usage() -> None:
     )
 
     if result.success:
-        print(f"✅ Basic visualization created: {result.output_path}")
-        print("📄 DOT source preview:")
-        print(result.graph_dot[:200] + "..." if result.graph_dot else "No DOT source available")
+        logger.info(f"✅ Basic visualization created: {result.output_path}")
+        logger.info("📄 DOT source preview:")
+        logger.info("%s", result.graph_dot[:200] + "..." if result.graph_dot else "No DOT source available")
     else:
-        print(f"❌ Basic visualization failed: {result.error}")
+        logger.error(f"❌ Basic visualization failed: {result.error}")
 
 
 # ========== CLI Integration ==========
@@ -358,17 +361,17 @@ async def demo_basic_usage() -> None:
 
 async def main() -> None:
     """Main function for CLI execution."""
-    print("🎨 JAF Visualization Examples\n")
+    logger.info("🎨 JAF Visualization Examples\n")
 
     # Check if graphviz is available
     try:
         from graphviz import Digraph
 
         test_graph = Digraph()
-        print("✅ Graphviz Python package available")
+        logger.info("✅ Graphviz Python package available")
     except ImportError:
-        print("❌ Graphviz Python package not installed")
-        print('   Install with: pip install "jaf-py[visualization]"')
+        logger.error("❌ Graphviz Python package not installed")
+        logger.info('   Install with: pip install "jaf-py[visualization]"')
         return
 
     try:
@@ -376,17 +379,18 @@ async def main() -> None:
         test_graph = Digraph()
         test_graph.node("test", "Test Node")
         test_graph.source  # This will work if graphviz is available
-        print("✅ Graphviz system dependency available")
+        logger.info("✅ Graphviz system dependency available")
     except Exception:
-        print("❌ Graphviz system dependency not found")
-        print("   Install with: brew install graphviz (macOS) or apt-get install graphviz (Ubuntu)")
+        logger.error("❌ Graphviz system dependency not found")
+        logger.info("   Install with: brew install graphviz (macOS) or apt-get install graphviz (Ubuntu)")
         return
 
     # Run examples
     await demo_basic_usage()
-    print()
+    logger.info("")
     await run_visualization_examples()
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     asyncio.run(main())

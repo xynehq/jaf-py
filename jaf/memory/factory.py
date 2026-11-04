@@ -47,6 +47,7 @@ async def create_memory_provider_from_env(
             "port": int(os.getenv("JAF_REDIS_PORT", "6379")),
             "db": int(os.getenv("JAF_REDIS_DB", "0")),
             "key_prefix": os.getenv("JAF_REDIS_PREFIX", "jaf:memory:"),
+            "ssl": os.getenv("JAF_REDIS_SSL", "false").lower() == "true",
             "ttl": int(os.getenv("JAF_REDIS_TTL")) if os.getenv("JAF_REDIS_TTL") else None,
         }
         if redis_password:

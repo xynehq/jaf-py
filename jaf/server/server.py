@@ -5,17 +5,19 @@ This module implements a complete HTTP server that exposes JAF agents
 via REST API endpoints with proper error handling and validation.
 """
 
+import logging
 import time
 import uuid
 import asyncio
 import json
 from dataclasses import asdict, replace
-from typing import TypeVar, Dict, Set
+from typing import Any, Dict, Optional, Set, TypeVar
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
+from ..policies.validation import rate_limit_key
 from ..core.engine import run
 from ..core.streaming import run_streaming
 from ..core.regeneration import regenerate_conversation, get_regeneration_points
@@ -73,6 +75,8 @@ from .types import (
     ToolCallInterruption,
     validate_regeneration_request,
 )
+
+logger = logging.getLogger(__name__)
 
 Ctx = TypeVar("Ctx")
 
@@ -276,13 +280,49 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
 
     # Setup middleware
     if config.cors is not False:
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=["*"],
-            allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
+        cors_options: Dict[str, Any] = {
+            "allow_origins": ["*"],
+            "allow_credentials": False,
+            "allow_methods": ["*"],
+            "allow_headers": ["*"],
+        }
+        if isinstance(config.cors, dict):
+            cors_options.update(config.cors)
+        # Credentials must never be combined with a wildcard origin
+        if "*" in cors_options["allow_origins"]:
+            cors_options["allow_credentials"] = False
+        app.add_middleware(CORSMiddleware, **cors_options)
+
+    async def _require_user(request: Request) -> Optional[str]:
+        """Resolve the caller; fail closed unless unauthenticated access is explicitly allowed."""
+        if config.authenticate is None:
+            if config.allow_unauthenticated_memory_access:
+                return None
+            raise HTTPException(status_code=401, detail="Authentication required")
+        caller_id = await config.authenticate(request)
+        if not caller_id:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        return caller_id
+
+    async def _authorize_conversation(
+        request: Request, conversation_id: str, allow_new: bool = False
+    ) -> Optional[str]:
+        """Require an authenticated caller who owns the conversation."""
+        caller_id = await _require_user(request)
+        if caller_id is None or not config.default_memory_provider:
+            return caller_id
+
+        existing = await config.default_memory_provider.get_conversation(conversation_id)
+        if hasattr(existing, "error"):
+            raise HTTPException(status_code=500, detail="Failed to load conversation")
+        if not existing.data:
+            if allow_new:
+                return caller_id
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        # Same response for missing and foreign conversations to avoid ID enumeration
+        if existing.data.user_id != caller_id:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        return caller_id
 
     @app.get("/health", response_model=HealthResponse)
     async def health_check():
@@ -306,11 +346,19 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
             ]
             return AgentListResponse(success=True, data=AgentListData(agents=agents))
         except Exception as e:
-            return AgentListResponse(success=False, error=str(e))
+            logger.exception("[JAF:SERVER] Unexpected error handling request")
+            return AgentListResponse(success=False, error="Internal server error")
 
     @app.post("/chat", response_model=ChatResponse)
-    async def chat_completion(request: ChatRequest):
+    async def chat_completion(request: ChatRequest, http_request: Request):
         request_start_time = time.time()
+
+        # Authentication is opt-in for /chat; when configured it also binds the conversation owner
+        caller_id = None
+        if config.authenticate is not None:
+            caller_id = await _require_user(http_request)
+            if request.conversation_id:
+                await _authorize_conversation(http_request, request.conversation_id, allow_new=True)
 
         try:
             # Validate request (matching TypeScript approach)
@@ -320,10 +368,8 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
 
             # Check if agent exists (matching TypeScript response pattern)
             if validated_request.agent_name not in config.agent_registry:
-                return ChatResponse(
-                    success=False,
-                    error=f"Agent '{validated_request.agent_name}' not found. Available agents: {', '.join(config.agent_registry.keys())}",
-                )
+                logger.warning(f"[JAF:SERVER] Unknown agent requested: {validated_request.agent_name!r}")
+                return ChatResponse(success=False, error="Invalid agent specified")
 
             # Convert HTTP messages to JAF messages (matching TypeScript)
             jaf_messages = [
@@ -337,6 +383,11 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
 
             # Generate conversationId if not provided (matching TypeScript)
             conversation_id = validated_request.conversation_id or f"conv-{uuid.uuid4()}"
+
+            # Never trust a client-supplied identity when the server authenticates callers
+            if caller_id is not None and isinstance(validated_request.context, dict):
+                validated_request.context["user_id"] = caller_id
+                rate_limit_key.set(caller_id)  # per-user quotas for rate-limit guardrails
         except Exception as e:
             return ChatResponse(success=False, error=f"Invalid request: {str(e)}")
 
@@ -351,15 +402,20 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
                     conversation_data = conversation_result.data
                     if conversation_data.metadata and "turn_count" in conversation_data.metadata:
                         initial_turn_count = conversation_data.metadata["turn_count"]
-                        print(f"[JAF:SERVER] Loaded initial turn_count: {initial_turn_count}")
+                        logger.debug(f"[JAF:SERVER] Loaded initial turn_count: {initial_turn_count}")
             except Exception as e:
-                print(f"[JAF:SERVER] Warning: Failed to load conversation history: {e}")
+                logger.warning(f"[JAF:SERVER] Warning: Failed to load conversation history: {e}")
 
         # Handle approval message(s) if present (matching TypeScript approach)
         initial_approvals = {}  # Will act like TypeScript's Map
         initial_state_messages = jaf_messages
 
         approvals_list = validated_request.approvals or []
+
+        def _log_if_failed(result: Any, action: str) -> None:
+            error = getattr(result, "error", None)
+            if error is not None and not hasattr(result, "data"):
+                logger.warning(f"[JAF:SERVER] Failed to {action}: {error}")
 
         async def persist_approval(conv_id: str, appr: ApprovalMessage):
             """Persist approval to memory provider with metadata (matching TypeScript)."""
@@ -379,10 +435,11 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
 
             try:
                 existing = await provider.get_conversation(conv_id)
-                if existing.success and existing.data:
+                existing_data = getattr(existing, "data", None)
+                if existing_data:
                     # Try to enrich entry with tool name and signature for robust matching (exactly matching TypeScript)
                     try:
-                        msgs = existing.data.messages
+                        msgs = existing_data.messages
                         for i in range(len(msgs) - 1, -1, -1):
                             m = msgs[i]
                             if m.role == "assistant" and hasattr(m, "tool_calls") and m.tool_calls:
@@ -397,8 +454,8 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
                         pass  # best-effort
 
                     existing_approvals = (
-                        existing.data.metadata.get("toolApprovals")
-                        if existing.data.metadata
+                        existing_data.metadata.get("toolApprovals")
+                        if existing_data.metadata
                         else {}
                     ) or {}
                     prev = existing_approvals.get(approval_key)
@@ -424,6 +481,8 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
                             )
                             else time.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
                         ),
+                        # Epoch seconds; the engine uses it to expire signature-matched approvals
+                        "approvedAt": time.time(),
                     }
 
                     # Check if there's actually a change (exactly matching TypeScript)
@@ -437,20 +496,26 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
 
                     if not no_change:
                         merged_approvals = {**existing_approvals, approval_key: next_entry}
-                        await provider.appendMessages(
+                        saved = await provider.append_messages(
                             conv_id, [], {"toolApprovals": merged_approvals, "traceId": trace_id}
                         )
+                        _log_if_failed(saved, "save approval")
 
-                elif existing.success and not existing.data:
+                elif existing is not None and not existing_data and hasattr(existing, "data"):
                     # Create conversation shell with just metadata if not present (exactly matching TypeScript)
-                    entry = {**base_entry, "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S.%fZ")}
-                    await provider.storeMessages(
+                    entry = {
+                        **base_entry,
+                        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                        "approvedAt": time.time(),
+                    }
+                    saved = await provider.store_messages(
                         conv_id, [], {"toolApprovals": {approval_key: entry}, "traceId": trace_id}
                     )
+                    _log_if_failed(saved, "create conversation for approval")
                 # If provider call failed, we intentionally do not throw; run will proceed
-            except Exception:
-                # Ignore persistence errors here to avoid breaking the request path (exactly matching TypeScript)
-                pass
+            except Exception as e:
+                # Do not fail the request, but make the failure visible instead of hiding it
+                logger.warning(f"[JAF:SERVER] Failed to persist approval: {e}")
 
             # Broadcast decision to approvals SSE (exactly matching TypeScript)
             try:
@@ -483,10 +548,10 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
                 if hasattr(conv_result, "data") and conv_result.data:
                     conversation_data = conv_result.data
                     tool_approvals = (
-                        getattr(conversation_data.metadata, "tool_approvals", {})
-                        if conversation_data.metadata
-                        else {}
-                    )
+                        conversation_data.metadata.get("toolApprovals")
+                        if isinstance(conversation_data.metadata, dict)
+                        else None
+                    ) or {}
 
                     if tool_approvals:
                         # Find latest assistant message with tool calls for matching
@@ -513,7 +578,9 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
                                 if not isinstance(approval_entry, dict):
                                     continue
 
-                                persisted_tool_call_id = approval_entry.get("tool_call_id")
+                                persisted_tool_call_id = approval_entry.get(
+                                    "toolCallId"
+                                ) or approval_entry.get("tool_call_id")
                                 persisted_signature = approval_entry.get("signature")
 
                                 # Try direct ID match first
@@ -537,19 +604,34 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
                                     elif approval_entry.get("approved") is False:
                                         status = "rejected"
 
+                                    context_data = dict(
+                                        approval_entry.get("additionalContext")
+                                        or approval_entry.get("additional_context")
+                                        or {}
+                                    )
+                                    if isinstance(approval_entry.get("approvedAt"), (int, float)):
+                                        context_data["approved_at"] = approval_entry["approvedAt"]
+
                                     initial_approvals[target_id] = ApprovalValue(
                                         status=status,
                                         approved=approval_entry.get("approved", False),
-                                        additional_context=approval_entry.get("additional_context"),
+                                        additional_context=context_data or None,
                                     )
 
             except Exception as e:
-                print(f"[JAF:SERVER] Warning: Failed to seed approvals from metadata: {e}")
+                logger.warning(f"[JAF:SERVER] Warning: Failed to seed approvals from metadata: {e}")
 
         initial_state = RunState(
             run_id=create_run_id(str(uuid.uuid4())),
             trace_id=create_trace_id(str(uuid.uuid4())),
-            messages=[_convert_http_message_to_core(msg) for msg in request.messages],
+            messages=[
+                _convert_http_message_to_core(
+                    msg.model_copy(update={"role": "user"})
+                    if msg.role == "system" and not config.allow_client_system_messages
+                    else msg
+                )
+                for msg in request.messages
+            ],
             current_agent_name=request.agent_name,
             context=request.context or {},
             turn_count=initial_turn_count,  # Use loaded turn count instead of always 0
@@ -636,8 +718,6 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
                     "Cache-Control": "no-cache, no-transform",
                     "Connection": "keep-alive",
                     "X-Accel-Buffering": "no",
-                    "Access-Control-Allow-Origin": "*",
-                    "Access-Control-Allow-Headers": "*",
                 },
             )
 
@@ -710,12 +790,14 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
     if config.default_memory_provider:
 
         @app.get("/conversations/{conversation_id}", response_model=ConversationResponse)
-        async def get_conversation(conversation_id: str):
+        async def get_conversation(conversation_id: str, request: Request):
+            await _authorize_conversation(request, conversation_id)
             result = await config.default_memory_provider.get_conversation(conversation_id)
 
             # Handle Result type properly
             if hasattr(result, "error"):  # Failure case
-                raise HTTPException(status_code=500, detail=str(result.error.message))
+                logger.error(f"[JAF:SERVER] Memory provider error: {result.error.message}")
+                raise HTTPException(status_code=500, detail="Memory provider error")
 
             conversation = result.data
             if not conversation:
@@ -732,12 +814,14 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
             return ConversationResponse(success=True, data=conversation_data)
 
         @app.delete("/conversations/{conversation_id}", response_model=DeleteConversationResponse)
-        async def delete_conversation(conversation_id: str):
+        async def delete_conversation(conversation_id: str, request: Request):
+            await _authorize_conversation(request, conversation_id)
             result = await config.default_memory_provider.delete_conversation(conversation_id)
 
             # Handle Result type properly
             if hasattr(result, "error"):  # Failure case
-                raise HTTPException(status_code=500, detail=str(result.error.message))
+                logger.error(f"[JAF:SERVER] Memory provider error: {result.error.message}")
+                raise HTTPException(status_code=500, detail="Memory provider error")
 
             return DeleteConversationResponse(
                 success=True,
@@ -750,17 +834,19 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
 
             # Handle Result type properly
             if hasattr(result, "error"):  # Failure case
-                raise HTTPException(status_code=500, detail=str(result.error.message))
+                logger.error(f"[JAF:SERVER] Memory provider error: {result.error.message}")
+                raise HTTPException(status_code=500, detail="Memory provider error")
 
             return MemoryHealthResponse(success=True, data=result.data)
 
     # Approval endpoints for HITL functionality
     @app.get("/approvals/pending", response_model=PendingApprovalsResponse)
-    async def get_pending_approvals(conversation_id: str = None):
+    async def get_pending_approvals(request: Request, conversation_id: str = None):
         """Get pending approvals for a conversation."""
         try:
             if not conversation_id:
                 raise HTTPException(status_code=400, detail="conversation_id is required")
+            await _authorize_conversation(request, conversation_id)
 
             if not config.default_memory_provider:
                 return PendingApprovalsResponse(
@@ -770,7 +856,8 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
             # Get conversation to analyze pending approvals
             conv_result = await config.default_memory_provider.get_conversation(conversation_id)
             if hasattr(conv_result, "error"):
-                return PendingApprovalsResponse(success=False, error=str(conv_result.error.message))
+                logger.error(f"[JAF:SERVER] Memory provider error: {conv_result.error.message}")
+                return PendingApprovalsResponse(success=False, error="Memory provider error")
 
             if not conv_result.data:
                 return PendingApprovalsResponse(success=True, data=PendingApprovalsData(pending=[]))
@@ -847,12 +934,17 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
                 success=True, data=PendingApprovalsData(pending=pending_approvals)
             )
 
+        except HTTPException:
+            raise
         except Exception as e:
-            return PendingApprovalsResponse(success=False, error=str(e))
+            logger.exception("[JAF:SERVER] Unexpected error handling request")
+            return PendingApprovalsResponse(success=False, error="Internal server error")
 
     # Agent-specific chat endpoint (convenience - matching TypeScript)
     @app.post("/agents/{agent_name}/chat", response_model=ChatResponse)
-    async def agent_chat_completion(agent_name: str, request_body: ChatRequest):
+    async def agent_chat_completion(
+        agent_name: str, request_body: ChatRequest, http_request: Request
+    ):
         """Agent-specific chat endpoint for convenience."""
         # Create modified request with agent name
         modified_request = ChatRequest(
@@ -867,12 +959,15 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
         )
 
         # Delegate to main chat endpoint logic
-        return await chat_completion(modified_request)
+        return await chat_completion(modified_request, http_request)
 
     # Approvals SSE stream endpoint (matching TypeScript placement inside start function)
     @app.get("/approvals/stream")
     async def stream_approval_updates(request: Request, conversation_id: str = None):
         """Stream real-time approval updates via Server-Sent Events."""
+        if not conversation_id:
+            raise HTTPException(status_code=400, detail="conversation_id is required")
+        await _authorize_conversation(request, conversation_id)
 
         async def event_stream():
             # Simple client structure matching TypeScript
@@ -914,8 +1009,6 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
                 "Cache-Control": "no-cache, no-transform",
                 "Connection": "keep-alive",
                 "X-Accel-Buffering": "no",
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Headers": "*",
             },
         )
 
@@ -926,18 +1019,17 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
             "/conversations/{conversation_id}/regenerate", response_model=RegenerationResponse
         )
         async def regenerate_conversation_endpoint(
-            conversation_id: str, request: RegenerationHttpRequest
+            conversation_id: str, request: RegenerationHttpRequest, http_request: Request
         ):
             """Regenerate conversation from a specific message."""
+            await _authorize_conversation(http_request, conversation_id)
             request_start_time = time.time()
 
             try:
                 # Validate agent exists
                 if request.agent_name not in config.agent_registry:
-                    return RegenerationResponse(
-                        success=False,
-                        error=f"Agent '{request.agent_name}' not found. Available agents: {', '.join(config.agent_registry.keys())}",
-                    )
+                    logger.warning(f"[JAF:SERVER] Unknown agent requested: {request.agent_name!r}")
+                    return RegenerationResponse(success=False, error="Invalid agent specified")
 
                 # Create regeneration request
                 regen_request = RegenerationRequest(
@@ -1044,14 +1136,16 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
                 )
 
             except Exception as e:
-                return RegenerationResponse(success=False, error=str(e))
+                logger.exception("[JAF:SERVER] Unexpected error handling request")
+                return RegenerationResponse(success=False, error="Internal server error")
 
         @app.get(
             "/conversations/{conversation_id}/regeneration-history",
             response_model=RegenerationHistoryResponse,
         )
-        async def get_regeneration_history(conversation_id: str):
+        async def get_regeneration_history(conversation_id: str, http_request: Request):
             """Get regeneration history for a conversation."""
+            await _authorize_conversation(http_request, conversation_id)
             try:
                 regeneration_points = await get_regeneration_points(
                     conversation_id, config.run_config
@@ -1083,14 +1177,16 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
                 )
 
             except Exception as e:
-                return RegenerationHistoryResponse(success=False, error=str(e))
+                logger.exception("[JAF:SERVER] Unexpected error handling request")
+                return RegenerationHistoryResponse(success=False, error="Internal server error")
 
         # Checkpoint endpoints
         @app.post("/conversations/{conversation_id}/checkpoint", response_model=CheckpointResponse)
         async def checkpoint_conversation_endpoint(
-            conversation_id: str, request: CheckpointHttpRequest
+            conversation_id: str, request: CheckpointHttpRequest, http_request: Request
         ):
             """Checkpoint conversation after a specific message."""
+            await _authorize_conversation(http_request, conversation_id)
             request_start_time = time.time()
 
             try:
@@ -1132,14 +1228,16 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
                 )
 
             except Exception as e:
-                return CheckpointResponse(success=False, error=str(e))
+                logger.exception("[JAF:SERVER] Unexpected error handling request")
+                return CheckpointResponse(success=False, error="Internal server error")
 
         @app.get(
             "/conversations/{conversation_id}/checkpoint-history",
             response_model=CheckpointHistoryResponse,
         )
-        async def get_checkpoint_history_endpoint(conversation_id: str):
+        async def get_checkpoint_history_endpoint(conversation_id: str, http_request: Request):
             """Get checkpoint history for a conversation."""
+            await _authorize_conversation(http_request, conversation_id)
             try:
                 checkpoint_points = await get_checkpoint_history(conversation_id, config.run_config)
 
@@ -1170,6 +1268,7 @@ def create_jaf_server(config: ServerConfig[Ctx]) -> FastAPI:
                 )
 
             except Exception as e:
-                return CheckpointHistoryResponse(success=False, error=str(e))
+                logger.exception("[JAF:SERVER] Unexpected error handling request")
+                return CheckpointHistoryResponse(success=False, error="Internal server error")
 
     return app

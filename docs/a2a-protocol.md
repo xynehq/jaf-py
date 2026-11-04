@@ -155,6 +155,7 @@ async def main():
     
     # Create server configuration
     server_config = create_server_config(
+        allow_unauthenticated=True,  # local dev only; use authenticate=... in production
         agents=agents,
         name="Multi-Agent Server",
         description="A server with multiple specialized agents",

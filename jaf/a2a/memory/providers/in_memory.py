@@ -224,8 +224,9 @@ def create_a2a_in_memory_task_provider(config: A2AInMemoryTaskConfig) -> A2ATask
 
             # Update indices if state changed
             if existing.state != task.status.state:
-                _remove_from_indices(task.id, task.context_id, existing.state)
-                _add_to_indices(task.id, task.context_id, task.status.state)
+                # Storage keeps the original context_id, so the indices must use it too
+                _remove_from_indices(task.id, existing.context_id, existing.state)
+                _add_to_indices(task.id, existing.context_id, task.status.state)
 
             # Update storage
             state.tasks[task.id] = updated_storage
@@ -509,7 +510,7 @@ def create_a2a_in_memory_task_provider(config: A2AInMemoryTaskConfig) -> A2ATask
             )
 
         except Exception as error:
-            return create_a2a_success({"healthy": False, "error": str(error)})
+            return create_a2a_success({"healthy": False, "error": type(error).__name__})
 
     async def close() -> A2AResult[None]:
         """Close/cleanup the provider"""

@@ -3,6 +3,9 @@ Pure functional JSON-RPC protocol handlers for A2A
 All handlers are pure functions with no side effects
 """
 
+import logging
+import uuid
+from datetime import datetime
 from collections.abc import AsyncGenerator
 from typing import Any, Callable, Dict, Optional, Union
 
@@ -34,9 +37,10 @@ def create_jsonrpc_error_response_dict(
 def map_error_to_a2a_error(error: Exception) -> Dict[str, Any]:
     """Pure function to map Python exceptions to A2A errors"""
     if isinstance(error, Exception):
+        logging.getLogger(__name__).error(f"[JAF:A2A] Request failed: {error}")
         return {
             "code": A2AErrorCodes.INTERNAL_ERROR.value,
-            "message": str(error),
+            "message": "Internal error",
             "data": {"type": type(error).__name__},
         }
 
@@ -225,11 +229,24 @@ def validate_send_message_request(request: Dict[str, Any]) -> Dict[str, Any]:
         }
 
 
+def _task_visible_to(task: Dict[str, Any], caller_id: Optional[str]) -> bool:
+    """A task stored with an owner is visible only to that owner; unowned tasks stay open."""
+    owner = task.get("_owner")
+    return owner is None or owner == caller_id
+
+
+def _public_task(task: Dict[str, Any]) -> Dict[str, Any]:
+    """Task as returned to clients, without server-side bookkeeping."""
+    return {key: value for key, value in task.items() if key != "_owner"}
+
+
 async def handle_message_send(
     request: Dict[str, Any],
     agent: "A2AAgent",  # Forward reference to avoid circular imports
     model_provider: Any,
     executor_func: Callable,
+    task_storage: Optional[Dict[str, Dict[str, Any]]] = None,
+    caller_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Pure function to handle message/send method"""
     try:
@@ -238,7 +255,7 @@ async def handle_message_send(
 
         context = {
             "message": message,
-            "session_id": message.get("contextId", f"session_{id(request)}"),
+            "session_id": message.get("contextId", f"session_{uuid.uuid4().hex}"),
             "metadata": params.get("metadata"),
         }
 
@@ -250,8 +267,18 @@ async def handle_message_send(
                 {"code": A2AErrorCodes.INTERNAL_ERROR.value, "message": result["error"]},
             )
 
+        final_task = result.get("final_task")
+
+        # Remember the task so tasks/get and tasks/cancel can find it, bound to its creator
+        if task_storage is not None and isinstance(final_task, dict) and final_task.get("id"):
+            existing = task_storage.get(final_task["id"])
+            if existing is None or _task_visible_to(existing, caller_id):
+                task_storage[final_task["id"]] = (
+                    {**final_task, "_owner": caller_id} if caller_id else dict(final_task)
+                )
+
         return create_jsonrpc_success_response_dict(
-            request.get("id"), result.get("final_task", {"message": "No result available"})
+            request.get("id"), final_task if final_task else {"message": "No result available"}
         )
 
     except Exception as error:
@@ -271,7 +298,7 @@ async def handle_message_stream(
 
         context = {
             "message": message,
-            "session_id": message.get("contextId", f"session_{id(request)}"),
+            "session_id": message.get("contextId", f"session_{uuid.uuid4().hex}"),
             "metadata": params.get("metadata"),
         }
 
@@ -283,7 +310,9 @@ async def handle_message_stream(
 
 
 async def handle_tasks_get(
-    request: Dict[str, Any], task_storage: Dict[str, Dict[str, Any]]
+    request: Dict[str, Any],
+    task_storage: Dict[str, Dict[str, Any]],
+    caller_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Pure function to handle tasks/get method"""
     try:
@@ -298,7 +327,8 @@ async def handle_tasks_get(
 
         task = task_storage.get(task_id)
 
-        if not task:
+        # Someone else's task looks exactly like a missing one, so IDs cannot be probed
+        if not task or not _task_visible_to(task, caller_id):
             return create_jsonrpc_error_response_dict(
                 request.get("id"),
                 {
@@ -308,10 +338,26 @@ async def handle_tasks_get(
             )
 
         # Apply history length limit if specified
-        result_task = task.copy()
+        result_task = _public_task(task)
         history_length = params.get("historyLength")
-        if history_length and "history" in task and task["history"]:
+        # Only a positive integer is meaningful; a string or negative number must not reach the slice
+        if (
+            isinstance(history_length, int)
+            and not isinstance(history_length, bool)
+            and history_length > 0
+            and task.get("history")
+        ):
             result_task["history"] = task["history"][-history_length:]
+        elif history_length is not None and not (
+            isinstance(history_length, int) and not isinstance(history_length, bool) and history_length >= 0
+        ):
+            return create_jsonrpc_error_response_dict(
+                request.get("id"),
+                {
+                    "code": A2AErrorCodes.INVALID_PARAMS.value,
+                    "message": "historyLength must be a non-negative integer",
+                },
+            )
 
         return create_jsonrpc_success_response_dict(request.get("id"), result_task)
 
@@ -320,7 +366,9 @@ async def handle_tasks_get(
 
 
 async def handle_tasks_cancel(
-    request: Dict[str, Any], task_storage: Dict[str, Dict[str, Any]]
+    request: Dict[str, Any],
+    task_storage: Dict[str, Dict[str, Any]],
+    caller_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Pure function to handle tasks/cancel method"""
     try:
@@ -335,7 +383,7 @@ async def handle_tasks_cancel(
 
         task = task_storage.get(task_id)
 
-        if not task:
+        if not task or not _task_visible_to(task, caller_id):
             return create_jsonrpc_error_response_dict(
                 request.get("id"),
                 {
@@ -359,10 +407,13 @@ async def handle_tasks_cancel(
         canceled_task = task.copy()
         canceled_task["status"] = {
             "state": "canceled",
-            "timestamp": None,  # Would be set by the system
+            "timestamp": datetime.now().isoformat(),
         }
 
-        return create_jsonrpc_success_response_dict(request.get("id"), canceled_task)
+        # Persist the cancellation, otherwise a later tasks/get would still report the old state
+        task_storage[task_id] = canceled_task
+
+        return create_jsonrpc_success_response_dict(request.get("id"), _public_task(canceled_task))
 
     except Exception as error:
         return create_jsonrpc_error_response_dict(request.get("id"), map_error_to_a2a_error(error))
@@ -389,8 +440,12 @@ def route_a2a_request(
     agent_card: Dict[str, Any],
     executor_func: Callable,
     streaming_executor_func: Callable,
+    caller_id: Optional[str] = None,
 ) -> Union[Dict[str, Any], AsyncGenerator[Dict[str, Any], None]]:
-    """Pure function to route A2A requests"""
+    """Pure function to route A2A requests.
+
+    ``caller_id`` is the authenticated caller; tasks are only visible to the caller who created them.
+    """
 
     async def _route_async():
         if not validate_jsonrpc_request(request):
@@ -408,7 +463,9 @@ def route_a2a_request(
             validation = validate_send_message_request(request)
             if not validation["is_valid"]:
                 return create_jsonrpc_error_response_dict(request.get("id"), validation["error"])
-            return await handle_message_send(request, agent, model_provider, executor_func)
+            return await handle_message_send(
+                request, agent, model_provider, executor_func, task_storage, caller_id
+            )
 
         elif method == "message/stream":
             validation = validate_send_message_request(request)
@@ -422,10 +479,10 @@ def route_a2a_request(
             return handle_message_stream(request, agent, model_provider, streaming_executor_func)
 
         elif method == "tasks/get":
-            return await handle_tasks_get(request, task_storage)
+            return await handle_tasks_get(request, task_storage, caller_id)
 
         elif method == "tasks/cancel":
-            return await handle_tasks_cancel(request, task_storage)
+            return await handle_tasks_cancel(request, task_storage, caller_id)
 
         elif method == "agent/getAuthenticatedExtendedCard":
             return await handle_get_authenticated_extended_card(request, agent_card)

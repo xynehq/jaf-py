@@ -196,9 +196,8 @@ def create_adk_quota_error(**kwargs) -> AdkLLMError:
 
 def create_adk_content_filter_error(content: str = "", **kwargs) -> AdkLLMError:
     """Create a content filter error."""
+    # The filtered content is deliberately not echoed: it may contain PII or secrets
     message = "Content filtered by provider"
-    if content:
-        message += f": {content[:100]}..."
 
     return AdkLLMError(
         message,

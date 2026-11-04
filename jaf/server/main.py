@@ -5,14 +5,17 @@ This module provides convenience functions for starting JAF servers
 with minimal configuration.
 """
 
-from typing import Dict, List, Optional, TypeVar, Union
+from typing import Dict, List, Optional, TypeVar, Union, Any, Awaitable, Callable
 
+import logging
 import uvicorn
 
 from ..core.types import Agent, RunConfig
 from ..memory.types import MemoryProvider
 from .server import create_jaf_server
 from .types import ServerConfig
+
+logger = logging.getLogger(__name__)
 
 Ctx = TypeVar("Ctx")
 
@@ -24,6 +27,9 @@ async def run_server(
     port: int = 3000,
     cors: bool = True,
     default_memory_provider: Optional[MemoryProvider] = None,
+    authenticate: Optional[Callable[[Any], Awaitable[Optional[str]]]] = None,
+    allow_unauthenticated_memory_access: bool = False,
+    allow_client_system_messages: bool = False,
 ) -> None:
     """
     Create and start a JAF server with the given configuration.
@@ -35,6 +41,10 @@ async def run_server(
         port: Server port.
         cors: Enable/disable CORS.
         default_memory_provider: Optional default memory provider for the server.
+        authenticate: Async callable(request) -> user id (None rejects). Required for the
+            conversation/approval endpoints unless allow_unauthenticated_memory_access is set.
+        allow_unauthenticated_memory_access: Local-development opt-out for the auth requirement.
+        allow_client_system_messages: Keep client-sent "system" messages instead of downgrading.
     """
     if isinstance(agents, list):
         agent_registry = {agent.name: agent for agent in agents}
@@ -52,7 +62,17 @@ async def run_server(
         port=port,
         cors=cors,
         default_memory_provider=default_memory_provider,
+        authenticate=authenticate,
+        allow_unauthenticated_memory_access=allow_unauthenticated_memory_access,
+        allow_client_system_messages=allow_client_system_messages,
     )
+
+    if authenticate is None and host not in ("127.0.0.1", "localhost", "::1"):
+        logger.warning(
+            "⚠️  Server is exposed on %s without an 'authenticate' callable: "
+            "conversation and approval endpoints will return 401",
+            host,
+        )
 
     app = create_jaf_server(server_config)
 
@@ -61,12 +81,12 @@ async def run_server(
 
     server = uvicorn.Server(uv_config)
 
-    print(f"🚀 JAF Server running on http://{host}:{port}")
-    print(f"📋 Available agents: {', '.join(agent_registry.keys())}")
-    print(f"📖 API docs: http://{host}:{port}/docs")
+    logger.info(f"🚀 JAF Server running on http://{host}:{port}")
+    logger.info(f"📋 Available agents: {', '.join(agent_registry.keys())}")
+    logger.info(f"📖 API docs: http://{host}:{port}/docs")
     if default_memory_provider:
-        print(f"🧠 Memory provider: {type(default_memory_provider).__name__}")
+        logger.info(f"🧠 Memory provider: {type(default_memory_provider).__name__}")
     else:
-        print("⚠️  Memory: Not configured (conversations will not persist)")
+        logger.warning("⚠️  Memory: Not configured (conversations will not persist)")
 
     await server.serve()

@@ -1,15 +1,17 @@
+# Secrets are required from the environment (or a local .env file, never committed):
+#   POSTGRES_PASSWORD, NEXTAUTH_SECRET, SALT   e.g. generate each with: openssl rand -hex 32
 version: "3.9"
 services:
   langfuse-server:
     image: langfuse/langfuse:2
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/postgres
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/postgres
       - NEXTAUTH_URL=http://localhost:3000
-      - NEXTAUTH_SECRET=mysecret
-      - SALT=mysecretsalt
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:?set NEXTAUTH_SECRET}
+      - SALT=${SALT:?set SALT}
     depends_on:
       db:
         condition: service_healthy
@@ -18,7 +20,7 @@ services:
     restart: always
     environment:
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
       - POSTGRES_DB=postgres
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
@@ -26,7 +28,7 @@ services:
       timeout: 5s
       retries: 5
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
 volumes:

@@ -278,7 +278,9 @@ class TestMessageHandlers:
         assert result["jsonrpc"] == "2.0"
         assert result["id"] == "req_123"
         assert "error" in result
-        assert "Test exception" in result["error"]["message"]
+        # Internal error text is logged, never returned to the client
+        assert result["error"]["message"] == "Internal error"
+        assert "Test exception" not in str(result["error"])
 
     @pytest.mark.asyncio
     async def test_handle_message_stream_success(self):
@@ -350,7 +352,8 @@ class TestMessageHandlers:
         assert len(events) == 2
         assert events[0]["result"]["status"] == "working"
         assert "error" in events[1]
-        assert "Stream error" in events[1]["error"]["message"]
+        assert events[1]["error"]["message"] == "Internal error"
+        assert "Stream error" not in str(events[1]["error"])
 
 
 class TestTaskHandlers:
@@ -620,7 +623,8 @@ class TestUtilityFunctions:
         error_dict = map_error_to_a2a_error(value_error)
 
         assert error_dict["code"] == A2AErrorCodes.INTERNAL_ERROR.value
-        assert error_dict["message"] == "Invalid value"
+        assert error_dict["message"] == "Internal error"
+        assert error_dict["data"]["type"] == "ValueError"
         assert error_dict["data"]["type"] == "ValueError"
 
         # Test with generic exception
@@ -628,7 +632,7 @@ class TestUtilityFunctions:
         error_dict2 = map_error_to_a2a_error(runtime_error)
 
         assert error_dict2["code"] == A2AErrorCodes.INTERNAL_ERROR.value
-        assert error_dict2["message"] == "Something went wrong"
+        assert error_dict2["message"] == "Internal error"  # raw text stays in the logs
         assert error_dict2["data"]["type"] == "RuntimeError"
 
     def test_create_protocol_handler_config(self):

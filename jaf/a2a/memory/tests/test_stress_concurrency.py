@@ -14,6 +14,7 @@ These tests push the system to its limits to find subtle bugs and performance is
 
 import asyncio
 import gc
+import logging
 import time
 import weakref
 from datetime import datetime, timedelta, timezone
@@ -36,6 +37,8 @@ from jaf.a2a.types import (
     A2ATextPart,
     TaskState,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class StressTestBase:
@@ -185,9 +188,7 @@ class TestConcurrencyTorture(StressTestBase):
         avg_time_per_op = total_time / concurrent_tasks
         assert total_time < 30.0, f"Concurrent writes took too long: {total_time:.2f}s"
 
-        print(
-            f"Concurrent writes: {concurrent_tasks} tasks in {total_time:.2f}s ({avg_time_per_op * 1000:.2f}ms avg)"
-        )
+        logger.info(f"Concurrent writes: {concurrent_tasks} tasks in {total_time:.2f}s ({avg_time_per_op * 1000:.2f}ms avg)")
 
         # Verify data integrity
         for task in tasks[:10]:  # Sample check
@@ -258,7 +259,7 @@ class TestConcurrencyTorture(StressTestBase):
         assert successful_updates == len(update_operations), "All updates should succeed"
 
         total_time = end_time - start_time
-        print(f"Mixed operations: {len(all_operations)} ops in {total_time:.2f}s")
+        logger.info(f"Mixed operations: {len(all_operations)} ops in {total_time:.2f}s")
 
     async def test_race_condition_detection(self, stress_provider):
         """Test for race conditions in concurrent updates"""
@@ -411,7 +412,7 @@ class TestLargeScaleOperations(StressTestBase):
                 {"count": count, "time": total_time, "ops_per_second": ops_per_second}
             )
 
-            print(f"Bulk storage: {count} tasks in {total_time:.2f}s ({ops_per_second:.2f} ops/s)")
+            logger.info(f"Bulk storage: {count} tasks in {total_time:.2f}s ({ops_per_second:.2f} ops/s)")
 
             # Performance regression check
             assert ops_per_second > 10, f"Storage performance too slow: {ops_per_second:.2f} ops/s"
@@ -466,7 +467,7 @@ class TestLargeScaleOperations(StressTestBase):
             )
             assert get_time < 5000, f"Get time too slow for size {multiplier}: {get_time:.2f}ms"
 
-            print(f"Large payload {multiplier}x: store={store_time:.2f}ms, get={get_time:.2f}ms")
+            logger.info(f"Large payload {multiplier}x: store={store_time:.2f}ms, get={get_time:.2f}ms")
 
     async def test_deep_pagination_performance(self, stress_provider):
         """Test performance of deep pagination through large datasets"""
@@ -517,7 +518,7 @@ class TestLargeScaleOperations(StressTestBase):
             # Performance check - deep pagination shouldn't be too slow
             assert query_time < 1000, f"Query at offset {offset} too slow: {query_time:.2f}ms"
 
-            print(f"Pagination offset {offset}: {query_time:.2f}ms")
+            logger.info(f"Pagination offset {offset}: {query_time:.2f}ms")
 
     async def test_complex_query_performance(self, stress_provider):
         """Test performance of complex queries across large datasets"""
@@ -579,7 +580,7 @@ class TestLargeScaleOperations(StressTestBase):
             # Performance check
             assert query_time < 2000, f"Complex query {i} too slow: {query_time:.2f}ms"
 
-            print(f"Complex query {i}: {query_time:.2f}ms, {len(result.data)} results")
+            logger.info(f"Complex query {i}: {query_time:.2f}ms, {len(result.data)} results")
 
 
 class TestResourceExhaustion(StressTestBase):
@@ -608,15 +609,15 @@ class TestResourceExhaustion(StressTestBase):
                     stored_count += 1
                 else:
                     # Provider might reject tasks under memory pressure
-                    print(f"Task rejected under memory pressure: {result.error}")
+                    logger.error(f"Task rejected under memory pressure: {result.error}")
                     break
             except Exception as e:
                 # System might throw memory-related exceptions
-                print(f"Memory pressure exception after {stored_count} tasks: {e}")
+                logger.info(f"Memory pressure exception after {stored_count} tasks: {e}")
                 break
 
         assert stored_count > 0, "Should be able to store at least some tasks"
-        print(f"Stored {stored_count}/{max_tasks} large tasks under memory pressure")
+        logger.info(f"Stored {stored_count}/{max_tasks} large tasks under memory pressure")
 
         # Verify provider is still functional
         health_result = await stress_provider.health_check()
@@ -663,7 +664,7 @@ class TestResourceExhaustion(StressTestBase):
             assert stored_count <= 100, f"Should not store more than limit: {stored_count}"
             assert rejected_count > 0, "Should reject tasks when limit is reached"
 
-            print(f"Storage limit test: {stored_count} stored, {rejected_count} rejected")
+            logger.info(f"Storage limit test: {stored_count} stored, {rejected_count} rejected")
 
             # Test per-context limit
             context_tasks = self.create_bulk_tasks(30, "single_limit_ctx", "ctx_limit_task")
@@ -723,7 +724,7 @@ class TestResourceExhaustion(StressTestBase):
         success_count = sum(1 for result in results if not isinstance(result, str))
         error_count = len(results) - success_count
 
-        print(f"Connection exhaustion test: {success_count} succeeded, {error_count} failed")
+        logger.error(f"Connection exhaustion test: {success_count} succeeded, {error_count} failed")
 
         # Should handle at least some operations successfully
         assert success_count > concurrent_ops * 0.1, (
@@ -808,9 +809,7 @@ class TestMemoryLeakDetection(StressTestBase):
         object_growth = final_objects - initial_objects
         growth_per_cycle = object_growth / cycles if cycles > 0 else 0
 
-        print(
-            f"Memory leak test: {object_growth} objects growth over {cycles} cycles ({growth_per_cycle:.2f} per cycle)"
-        )
+        logger.info(f"Memory leak test: {object_growth} objects growth over {cycles} cycles ({growth_per_cycle:.2f} per cycle)")
 
         # Should not have significant memory growth
         # Allow some growth but flag if it's excessive
@@ -847,7 +846,7 @@ class TestMemoryLeakDetection(StressTestBase):
         # Check that weak references are cleared (objects were cleaned up)
         alive_refs = [ref for ref in weak_refs if ref() is not None]
 
-        print(f"Cleanup test: {len(alive_refs)}/{len(weak_refs)} weak references still alive")
+        logger.info(f"Cleanup test: {len(alive_refs)}/{len(weak_refs)} weak references still alive")
 
         # Ideally, all weak references should be cleared
         # But this is implementation-dependent
@@ -891,9 +890,7 @@ class TestMemoryLeakDetection(StressTestBase):
         cleanup_rate = large_dataset_size / cleanup_time
         assert cleanup_rate > 100, f"Cleanup too slow: {cleanup_rate:.2f} tasks/second"
 
-        print(
-            f"Large dataset cleanup: {large_dataset_size} tasks in {cleanup_time:.2f}s ({cleanup_rate:.2f} tasks/s)"
-        )
+        logger.info(f"Large dataset cleanup: {large_dataset_size} tasks in {cleanup_time:.2f}s ({cleanup_rate:.2f} tasks/s)")
 
 
 class TestPerformanceRegression(StressTestBase):
@@ -958,12 +955,12 @@ class TestPerformanceRegression(StressTestBase):
             f"Delete performance regression: {delete_time:.2f}ms > {benchmarks['delete_task']}ms"
         )
 
-        print("Performance benchmark results:")
-        print(f"  Store: {store_time:.2f}ms (limit: {benchmarks['store_task']}ms)")
-        print(f"  Get: {get_time:.2f}ms (limit: {benchmarks['get_task']}ms)")
-        print(f"  Update: {update_time:.2f}ms (limit: {benchmarks['update_task']}ms)")
-        print(f"  Query: {query_time:.2f}ms (limit: {benchmarks['find_tasks']}ms)")
-        print(f"  Delete: {delete_time:.2f}ms (limit: {benchmarks['delete_task']}ms)")
+        logger.info("Performance benchmark results:")
+        logger.info(f"  Store: {store_time:.2f}ms (limit: {benchmarks['store_task']}ms)")
+        logger.info(f"  Get: {get_time:.2f}ms (limit: {benchmarks['get_task']}ms)")
+        logger.info(f"  Update: {update_time:.2f}ms (limit: {benchmarks['update_task']}ms)")
+        logger.info(f"  Query: {query_time:.2f}ms (limit: {benchmarks['find_tasks']}ms)")
+        logger.info(f"  Delete: {delete_time:.2f}ms (limit: {benchmarks['delete_task']}ms)")
 
     async def test_scalability_characteristics(self, stress_provider):
         """Test how performance scales with data size"""
@@ -1000,9 +997,7 @@ class TestPerformanceRegression(StressTestBase):
                 }
             )
 
-            print(
-                f"Scalability {size} tasks: storage={storage_ops_per_sec:.2f} ops/s, query={query_ops_per_sec:.2f} ops/s"
-            )
+            logger.info(f"Scalability {size} tasks: storage={storage_ops_per_sec:.2f} ops/s, query={query_ops_per_sec:.2f} ops/s")
 
         # Analyze scaling characteristics
         if len(scaling_results) >= 2:

@@ -7,6 +7,7 @@ This module provides CLI commands for running and managing JAF servers.
 
 import argparse
 import asyncio
+import os
 import sys
 from pathlib import Path
 
@@ -14,6 +15,13 @@ from .core.types import Agent, RunConfig
 from .providers.model import make_litellm_provider
 from .server import run_server
 from .server.types import ServerConfig
+
+
+def _echo(message: str = "", err: bool = False) -> None:
+    """Write a line of CLI output. print() is banned in the jaf package."""
+    stream = sys.stderr if err else sys.stdout
+    stream.write(f"{message}\n")
+    stream.flush()
 
 
 def create_default_config() -> ServerConfig:
@@ -35,7 +43,7 @@ def create_default_config() -> ServerConfig:
 
     # Create model provider
     model_provider = make_litellm_provider(
-        base_url="https://api.openai.com/v1", api_key="your-api-key-here"
+        base_url="https://api.openai.com/v1", api_key=os.getenv("OPENAI_API_KEY")
     )
 
     # Create run config
@@ -44,13 +52,13 @@ def create_default_config() -> ServerConfig:
     )
 
     return ServerConfig(
-        host="0.0.0.0", port=8000, agent_registry={"echo": echo_agent}, run_config=run_config
+        host="127.0.0.1", port=8000, agent_registry={"echo": echo_agent}, run_config=run_config
     )
 
 
 async def run_server_command(args: argparse.Namespace) -> None:
     """Run the JAF server."""
-    print("🚀 Starting JAF Server...")
+    _echo("🚀 Starting JAF Server...")
 
     # Create server config
     config = create_default_config()
@@ -62,18 +70,18 @@ async def run_server_command(args: argparse.Namespace) -> None:
     if args.port:
         config = config.__class__(**{**config.__dict__, "port": args.port})
 
-    print(f"📍 Server will run on {config.host}:{config.port}")
-    print(
+    _echo(f"📍 Server will run on {config.host}:{config.port}")
+    _echo(
         "💡 This is a default configuration. For production use, provide your own agents and model provider."
     )
-    print("📚 See documentation for how to create custom agents and configurations.")
+    _echo("📚 See documentation for how to create custom agents and configurations.")
 
     try:
         await run_server(config)
     except KeyboardInterrupt:
-        print("\n🛑 Server stopped by user")
+        _echo("\n🛑 Server stopped by user")
     except Exception as e:
-        print(f"❌ Server error: {e}")
+        _echo(f"❌ Server error: {e}", err=True)
         sys.exit(1)
 
 
@@ -88,7 +96,10 @@ def create_parser() -> argparse.ArgumentParser:
     # Server command
     server_parser = subparsers.add_parser("server", help="Run the JAF server")
     server_parser.add_argument(
-        "--host", type=str, default="0.0.0.0", help="Host to bind the server to (default: 0.0.0.0)"
+        "--host",
+        type=str,
+        default="127.0.0.1",
+        help="Host to bind the server to (default: 127.0.0.1; use 0.0.0.0 to expose it)",
     )
     server_parser.add_argument(
         "--port", type=int, default=8000, help="Port to bind the server to (default: 8000)"
@@ -112,9 +123,9 @@ def show_version() -> None:
     try:
         from . import __version__
 
-        print(f"JAF (Juspay Agent Framework) version {__version__}")
+        _echo(f"JAF (Juspay Agent Framework) version {__version__}")
     except ImportError:
-        print("JAF (Juspay Agent Framework) version unknown")
+        _echo("JAF (Juspay Agent Framework) version unknown")
 
 
 def init_project(project_name: str) -> None:
@@ -122,10 +133,10 @@ def init_project(project_name: str) -> None:
     project_path = Path(project_name)
 
     if project_path.exists():
-        print(f"❌ Directory '{project_name}' already exists")
+        _echo(f"❌ Directory '{project_name}' already exists", err=True)
         sys.exit(1)
 
-    print(f"📁 Creating JAF project: {project_name}")
+    _echo(f"📁 Creating JAF project: {project_name}")
 
     # Create project structure
     project_path.mkdir()
@@ -139,6 +150,7 @@ JAF project main entry point.
 """
 
 import asyncio
+import os
 from jaf import run_server, Agent, RunConfig
 from jaf.providers.model import make_litellm_provider
 from jaf.server.types import ServerConfig
@@ -168,7 +180,7 @@ def create_server_config():
     # Configure your model provider
     model_provider = make_litellm_provider(
         base_url="https://api.openai.com/v1",
-        api_key="your-openai-api-key"  # Use environment variables in production
+        api_key=os.getenv("OPENAI_API_KEY")  # Set OPENAI_API_KEY in your .env
     )
     
     run_config = RunConfig(
@@ -178,7 +190,7 @@ def create_server_config():
     )
     
     return ServerConfig(
-        host="0.0.0.0",
+        host="127.0.0.1",
         port=8000,
         agent_registry=agents,
         run_config=run_config
@@ -206,7 +218,7 @@ python-dotenv>=1.0.0
 OPENAI_API_KEY=your_openai_api_key_here
 
 # Server Configuration
-JAF_HOST=0.0.0.0
+JAF_HOST=127.0.0.1
 JAF_PORT=8000
 
 # Model Configuration
@@ -266,13 +278,13 @@ Edit `main.py` to:
 
     (project_path / "README.md").write_text(readme_content)
 
-    print(f"✅ Project '{project_name}' created successfully!")
-    print("\n📋 Next steps:")
-    print(f"  cd {project_name}")
-    print("  pip install -r requirements.txt")
-    print("  cp .env.example .env")
-    print("  # Edit .env with your configuration")
-    print("  python main.py")
+    _echo(f"✅ Project '{project_name}' created successfully!")
+    _echo("\n📋 Next steps:")
+    _echo(f"  cd {project_name}")
+    _echo("  pip install -r requirements.txt")
+    _echo("  cp .env.example .env")
+    _echo("  # Edit .env with your configuration")
+    _echo("  python main.py")
 
 
 async def main() -> None:
@@ -299,9 +311,9 @@ def cli_main() -> None:
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\n👋 Goodbye!")
+        _echo("\n👋 Goodbye!")
     except Exception as e:
-        print(f"❌ Error: {e}")
+        _echo(f"❌ Error: {e}", err=True)
         sys.exit(1)
 
 

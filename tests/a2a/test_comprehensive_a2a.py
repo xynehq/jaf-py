@@ -362,7 +362,7 @@ async def advanced_calculator_tool(args, context) -> str:
         return f"The result of {expression} is {formatted_result}"
 
     except Exception as e:
-        return f"Calculation error: {str(e)}"
+        return f"Calculation error ({type(e).__name__})"
 
 
 async def advanced_weather_tool(args, context) -> str:
@@ -678,6 +678,7 @@ class ComprehensiveA2ATest:
 
             # Create server configuration
             server_config = create_server_config(
+                allow_unauthenticated=True,  # local dev only; use authenticate=... in production
                 agents=agents,
                 name="JAF Comprehensive A2A Test Server",
                 description="Full-featured A2A server for comprehensive testing",

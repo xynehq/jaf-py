@@ -16,6 +16,16 @@ from .types import Message, ContentRole, RunState, TraceEvent, get_text_content
 from .performance import PerformanceMetrics
 
 
+MAX_ANALYTICS_HISTORY = 1000  # newest entries kept per series; older ones are dropped
+
+
+def _append_bounded(series: list, value: Any) -> None:
+    """Append to a history list without letting it grow without limit."""
+    series.append(value)
+    if len(series) > MAX_ANALYTICS_HISTORY:
+        del series[: len(series) - MAX_ANALYTICS_HISTORY]
+
+
 @dataclass(frozen=True)
 class ConversationAnalytics:
     """Analytics for conversation patterns and quality."""
@@ -221,7 +231,7 @@ class AgentPerformanceAnalyzer:
         metrics["invocations"] += 1
         if success:
             metrics["successes"] += 1
-        metrics["response_times"].append(response_time_ms)
+        _append_bounded(metrics["response_times"], response_time_ms)
 
     def record_tool_usage(self, agent_name: str, tool_name: str):
         """Record tool usage by an agent."""
@@ -237,7 +247,7 @@ class AgentPerformanceAnalyzer:
 
     def record_satisfaction(self, agent_name: str, score: float):
         """Record user satisfaction score for an agent."""
-        self.agent_metrics[agent_name]["satisfaction_scores"].append(score)
+        _append_bounded(self.agent_metrics[agent_name]["satisfaction_scores"], score)
 
     def get_agent_analytics(self, agent_name: str) -> Optional[AgentAnalytics]:
         """Get comprehensive analytics for a specific agent."""
@@ -326,12 +336,12 @@ class SystemAnalyzer:
 
     def record_performance_metrics(self, metrics: PerformanceMetrics):
         """Record system performance metrics."""
-        self.performance_history.append(metrics)
+        _append_bounded(self.performance_history, metrics)
 
         # Track resource usage trends
-        self.resource_usage["memory"].append(metrics.memory_usage_mb)
-        self.resource_usage["execution_time"].append(metrics.execution_time_ms)
-        self.resource_usage["token_usage"].append(metrics.token_count)
+        _append_bounded(self.resource_usage["memory"], metrics.memory_usage_mb)
+        _append_bounded(self.resource_usage["execution_time"], metrics.execution_time_ms)
+        _append_bounded(self.resource_usage["token_usage"], metrics.token_count)
 
     def get_system_analytics(self) -> SystemAnalytics:
         """Get comprehensive system analytics."""
@@ -517,7 +527,7 @@ class AnalyticsEngine:
             },
         }
 
-        self.analytics_history.append(analytics_report)
+        _append_bounded(self.analytics_history, analytics_report)
         return analytics_report
 
     def _get_top_performing_agents(

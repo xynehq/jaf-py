@@ -326,6 +326,46 @@ class DatabaseQueryTool:
             return f"Security error: {e}"
 ```
 
+### Transport and storage encryption (your deployment decides)
+
+These are off or plain by default so local development works; turn them on in production:
+
+- **PostgreSQL / Redis connections:** pass `ssl=True` (or an `ssl.SSLContext`) in `PostgresConfig` / `RedisConfig`, and in the ADK `AdkPostgresSessionConfig(ssl=...)`.
+- **ADK Redis sessions:** data is stored as JSON, optionally gzip-compressed. Compression is **not** encryption; use Redis TLS plus encryption at rest for anything sensitive.
+- **LLM base URL:** use `https://` for any non-local host. The ADK config logs a warning for plaintext `http://` to a remote host.
+- **A2A agent card URL:** behind TLS termination, set `publicUrl` (for example `https://agents.example.com`) in the server config so the card does not advertise `http://`.
+- **CORS:** `run_server(cors=True)` allows any origin without credentials. Pass `cors={"allow_origins": [...]}` to `ServerConfig` to restrict it.
+
+### Per-user rate limiting in guardrails
+
+`create_rate_limit_guardrail(max_calls=10)` keeps **one counter for everyone** by default (unchanged), so a noisy user can use up the quota of all users sharing the limiter. To give each user their own quota:
+
+```python
+from jaf.policies.validation import create_rate_limit_guardrail, rate_limit_key
+
+guard = create_rate_limit_guardrail(max_calls=10, window_size=60)   # per-user once a key is set
+
+rate_limit_key.set(user_id)      # in your request handler
+# or: create_rate_limit_guardrail(max_calls=10, key_fn=lambda text: ...)
+```
+
+The JAF server sets `rate_limit_key` to the authenticated user on `/chat` automatically when `authenticate` is configured. Guardrails only receive the message text, which is why the key is passed through a context variable. At most 10,000 keys are tracked.
+
+### Guardrail `fail_safe` (breaking change)
+
+`AdvancedGuardrailsConfig.fail_safe` decides what happens when an LLM guardrail cannot give a verdict (model error, timeout, no model configured, unreadable answer).
+
+- **Now (default):** `fail_safe="block"`. If the guardrail cannot decide, the message is rejected.
+- **Before:** `fail_safe="allow"`. A guardrail outage let every message through, so an attacker who could make the guardrail fail (for example with an oversized input) bypassed it.
+
+If you prefer availability over safety, opt back in explicitly:
+
+```python
+AdvancedGuardrailsConfig(input_prompt="...", fail_safe="allow")
+```
+
+Upgrade note: applications that relied on the old default will now see requests blocked while the guardrail model is unavailable. Make sure `fast_model` / `default_fast_model` is configured and reachable.
+
 ### Content Filtering
 
 Implement content filtering to prevent inappropriate or harmful outputs:

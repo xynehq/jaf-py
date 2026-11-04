@@ -41,25 +41,27 @@ dependencies = [
     "httpx-sse>=0.4.0",
     "google-generativeai>=0.3.0",
     "google-auth>=2.20.0",
-    "python-dotenv>=1.0.0",
+    "python-dotenv>=1.2.2",
     "psutil>=5.9.0",
-    "fastmcp>=0.1.0",
-    "opentelemetry-api>=1.22.0",
-    "opentelemetry-sdk>=1.22.0",
-    "opentelemetry-exporter-otlp>=1.22.0",
+    "fastmcp>=3.2.0",
+    "opentelemetry-api>=1.45.1",
+    "opentelemetry-sdk>=1.45.1",
+    "opentelemetry-exporter-otlp>=1.45.1",
     "langfuse<3.0.0",
-    "litellm>=1.76.3"
+    # Floor clears the known LiteLLM advisories (1.95.1+). 1.107.0 was a malicious release
+    # (Oct 2026) and 1.82.7/1.82.8 were malicious (Mar 2026); exclude them even if a mirror still serves them.
+    "litellm>=1.95.1,!=1.107.0,!=1.82.7,!=1.82.8",
 ]
 
 [project.optional-dependencies]
 tracing = [
-    "opentelemetry-api>=1.22.0",
-    "opentelemetry-sdk>=1.22.0",
-    "opentelemetry-exporter-otlp>=1.22.0",
+    "opentelemetry-api>=1.45.1",
+    "opentelemetry-sdk>=1.45.1",
+    "opentelemetry-exporter-otlp>=1.45.1",
     "langfuse<3.0.0",
 ]
 attachments = [
-    "PyPDF2>=3.0.0",
+    "pypdf>=6.21.0",
     "python-docx>=1.1.0",
     "openpyxl>=3.1.0",
     "pillow>=11.0.0",
@@ -68,7 +70,7 @@ attachments = [
     "aiofiles>=23.0.0",
 ]
 dev = [
-    "pytest>=7.0.0",
+    "pytest>=9.0.3",
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.0.0",
     "respx>=0.20.0",
@@ -209,8 +211,6 @@ ignore = [
     "B008",  # do not perform function calls in argument defaults
     "C901",  # too complex
     "S101",  # assert statements (allow in tests)
-    "T201",  # print statements (allow for debugging/demos)
-    "T203",  # pprint statements
     "COM812", # trailing comma conflicts with formatter
     "ARG001", # unused function argument (common in agent patterns)
     "ARG002", # unused method argument (common in protocols/interfaces)
@@ -218,8 +218,6 @@ ignore = [
     "N818",  # exception naming
     "S603",  # subprocess call (needed for CLI tools)
     "S607",  # subprocess without full path
-    "S307",  # eval() use (documented as unsafe in examples)
-    "S106",  # hardcoded password (test fixtures)
     "F405",  # may be undefined from star imports (__init__.py)
     "F401",  # imported but unused (test availability checks)
     "F841",  # assigned but never used (some test setups)
@@ -231,11 +229,11 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401", "F403", "F405"]  # Allow star imports and unused imports in __init__.py
-"tests/**/*" = ["E501", "S101", "ARG001", "ARG002", "F841", "UP006", "UP035"]  # Allow assert, unused args in tests
+"tests/**/*" = ["T201", "T203", "E501", "S101", "S106", "S307", "ARG001", "ARG002", "F841", "UP006", "UP035"]  # Allow assert, unused args in tests
 "examples/**/*" = ["T201", "T203", "S101", "ARG001", "S307", "UP006", "UP035", "F841", "W291"]  # Allow print statements and asserts in examples
-"jaf/a2a/examples/**/*" = ["T201", "T203", "S101", "ARG001", "UP006", "UP035"]  # Allow print statements in A2A examples
+"jaf/a2a/examples/**/*" = ["S101", "ARG001", "UP006", "UP035"]  # print() is banned everywhere in jaf/; use logging
 "**/demo*.py" = ["T201", "T203", "ARG001", "UP006", "UP035", "W291"]  # Allow print statements in demo files
-"**/test_*.py" = ["S101", "ARG001", "ARG002", "F841", "UP006", "UP035"]  # Allow assert and unused args in test files
+"**/test_*.py" = ["S101", "S106", "S307", "ARG001", "ARG002", "F841", "UP006", "UP035"]  # Allow assert and unused args in test files
 "**/validate*.py" = ["T201", "F401", "RUF001", "UP006", "UP035", "F841", "ARG001", "ARG005", "S603"]  # Allow all patterns in validation scripts
 "jaf/core/tracing.py" = ["ARG001", "ARG002"]  # Allow unused args in tracing callbacks
 "jaf/policies/handoff.py" = ["ARG001", "ARG002"]  # Allow unused args in policy functions

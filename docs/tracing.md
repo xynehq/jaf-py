@@ -465,6 +465,23 @@ finally:
 
 For `create_composite_trace_collector()`, cleanup is handled automatically.
 
+### Memory limits (configurable)
+
+Collectors keep some state in the process. The defaults below can be changed or switched off with `None`:
+
+```python
+# Langfuse: how many runs may be in progress at once before the oldest unfinished run's
+# local handle is dropped (its later events then stop attaching; data already sent to
+# Langfuse is never deleted). Default 1000.
+LangfuseTraceCollector(max_open_traces=5000)
+create_composite_trace_collector(max_open_traces=None)   # no limit
+
+# In-memory / console / file collectors: how many traces (and events per trace) are kept.
+InMemoryTraceCollector(max_traces=5000, max_events_per_trace=None)
+ConsoleTraceCollector(max_traces=200)
+FileTraceCollector("trace.log", max_traces=200)
+```
+
 ### Self-Hosted Langfuse
 
 For self-hosted Langfuse instances:

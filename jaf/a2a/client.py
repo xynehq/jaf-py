@@ -4,10 +4,12 @@ All client operations are pure functions using httpx
 """
 
 import json
+import logging
 import time
 import uuid
 from collections.abc import AsyncGenerator
 from typing import Any, Dict, Optional
+from urllib.parse import quote
 
 import httpx
 
@@ -15,6 +17,10 @@ from .types import (
     A2AClientConfig,
     A2AClientState,
 )
+
+logger = logging.getLogger(__name__)
+
+MAX_SSE_BUFFER_BYTES = 1024 * 1024  # a single unterminated SSE event larger than this is rejected
 
 
 def create_a2a_client(base_url: str, config: Optional[Dict[str, Any]] = None) -> A2AClientState:
@@ -25,8 +31,9 @@ def create_a2a_client(base_url: str, config: Optional[Dict[str, Any]] = None) ->
         config=A2AClientConfig(
             baseUrl=base_url.rstrip("/"),  # Remove trailing slash
             timeout=config.get("timeout", 30000),
+            headers=config.get("headers"),
         ),
-        sessionId=f"client_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}",
+        sessionId=f"client_{int(time.time() * 1000)}_{uuid.uuid4().hex}",
     )
 
 
@@ -72,7 +79,12 @@ def create_streaming_message_request(
     }
 
 
-async def send_http_request(url: str, body: Dict[str, Any], timeout: int = 30000) -> Dict[str, Any]:
+async def send_http_request(
+    url: str,
+    body: Dict[str, Any],
+    timeout: int = 30000,
+    headers: Optional[Dict[str, str]] = None,
+) -> Dict[str, Any]:
     """Pure function to send HTTP request"""
     timeout_seconds = timeout / 1000.0
 
@@ -81,11 +93,17 @@ async def send_http_request(url: str, body: Dict[str, Any], timeout: int = 30000
             response = await client.post(
                 url,
                 json=body,
-                headers={"Content-Type": "application/json", "Accept": "application/json"},
+                headers={
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    **(headers or {}),
+                },
             )
 
             if not response.is_success:
-                raise Exception(f"HTTP {response.status_code}: {response.text}")
+                # The body can hold server internals; keep it in debug logs only
+                logger.debug(f"A2A HTTP error body: {response.text[:500]}")
+                raise Exception(f"HTTP {response.status_code}")
 
             return response.json()
 
@@ -96,7 +114,14 @@ async def send_http_request(url: str, body: Dict[str, Any], timeout: int = 30000
 async def send_a2a_request(client: A2AClientState, request: Dict[str, Any]) -> Dict[str, Any]:
     """Pure function to send A2A request"""
     url = f"{client.config.base_url}/a2a"
-    return await send_http_request(url, request, client.config.timeout)
+    response = await send_http_request(url, request, client.config.timeout, client.config.headers)
+
+    # A reply that is not a JSON-RPC response for *this* request must not be trusted
+    if not isinstance(response, dict) or ("result" not in response and "error" not in response):
+        raise Exception("Invalid JSON-RPC response from server")
+    if "id" in response and response["id"] != request.get("id"):
+        raise Exception("JSON-RPC response id does not match the request")
+    return response
 
 
 async def send_message(
@@ -128,14 +153,22 @@ async def stream_message(
                 "POST",
                 url,
                 json=request,
-                headers={"Content-Type": "application/json", "Accept": "text/event-stream"},
+                headers={
+                    "Content-Type": "application/json",
+                    "Accept": "text/event-stream",
+                    **(client.config.headers or {}),
+                },
             ) as response:
                 if not response.is_success:
-                    raise Exception(f"HTTP {response.status_code}: {response.text}")
+                    await response.aread()
+                    logger.debug(f"A2A HTTP error body: {response.text[:500]}")
+                    raise Exception(f"HTTP {response.status_code}")
 
                 buffer = ""
                 async for chunk in response.aiter_text():
                     buffer += chunk
+                    if len(buffer) > MAX_SSE_BUFFER_BYTES:
+                        raise Exception("Stream event exceeded the maximum allowed size")
                     lines = buffer.split("\n")
                     buffer = lines.pop() or ""
 
@@ -148,7 +181,7 @@ async def stream_message(
                                     if "result" in event:
                                         yield event["result"]
                                 except json.JSONDecodeError:
-                                    print(f"Failed to parse SSE data: {data}")
+                                    logger.warning(f"Failed to parse SSE data ({len(data)} chars)")
                                     continue
 
         except httpx.TimeoutException:
@@ -182,9 +215,11 @@ async def send_message_to_agent(
 ) -> str:
     """Pure function to send message to specific agent"""
     request = create_message_request(message, client.session_id, configuration)
-    url = f"{client.config.base_url}/a2a/agents/{agent_name}"
+    url = f"{client.config.base_url}/a2a/agents/{quote(agent_name, safe='')}"
 
-    response = await send_http_request(url, request, client.config.timeout)
+    response = await send_http_request(
+        url, request, client.config.timeout, client.config.headers
+    )
 
     if "error" in response:
         error = response["error"]
@@ -201,7 +236,7 @@ async def stream_message_to_agent(
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """Pure function to stream message to specific agent"""
     request = create_streaming_message_request(message, client.session_id, configuration)
-    url = f"{client.config.base_url}/a2a/agents/{agent_name}"
+    url = f"{client.config.base_url}/a2a/agents/{quote(agent_name, safe='')}"
 
     timeout_seconds = client.config.timeout / 1000.0
 
@@ -211,14 +246,22 @@ async def stream_message_to_agent(
                 "POST",
                 url,
                 json=request,
-                headers={"Content-Type": "application/json", "Accept": "text/event-stream"},
+                headers={
+                    "Content-Type": "application/json",
+                    "Accept": "text/event-stream",
+                    **(client.config.headers or {}),
+                },
             ) as response:
                 if not response.is_success:
-                    raise Exception(f"HTTP {response.status_code}: {response.text}")
+                    await response.aread()
+                    logger.debug(f"A2A HTTP error body: {response.text[:500]}")
+                    raise Exception(f"HTTP {response.status_code}")
 
                 buffer = ""
                 async for chunk in response.aiter_text():
                     buffer += chunk
+                    if len(buffer) > MAX_SSE_BUFFER_BYTES:
+                        raise Exception("Stream event exceeded the maximum allowed size")
                     lines = buffer.split("\n")
                     buffer = lines.pop() or ""
 

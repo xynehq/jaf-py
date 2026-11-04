@@ -5,6 +5,7 @@ This module provides functionality to execute multiple sub-agents in parallel gr
 allowing for coordinated parallel execution with configurable grouping and result aggregation.
 """
 
+import logging
 import asyncio
 import json
 from dataclasses import dataclass
@@ -27,6 +28,10 @@ from .agent_tool import create_agent_tool, AgentToolInput
 
 Ctx = TypeVar("Ctx")
 Out = TypeVar("Out")
+
+from ..utils.redact import redact_error_text
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -105,10 +110,11 @@ class ParallelAgentsTool:
             return json.dumps(final_result, indent=2)
 
         except Exception as e:
+            logger.error(f"Parallel agent execution failed: {e}", exc_info=True)
             return json.dumps(
                 {
                     "error": "parallel_execution_failed",
-                    "message": f"Failed to execute parallel agents: {str(e)}",
+                    "message": f"Failed to execute parallel agents: {redact_error_text(str(e))}",
                     "groups_attempted": len(self.config.groups),
                 }
             )
@@ -183,10 +189,11 @@ class ParallelAgentsTool:
                 "agent_count": len(group.agents),
             }
         except Exception as e:
+            logger.error(f"Parallel group {group.name!r} failed: {e}", exc_info=True)
             return {
                 "group_name": group.name,
                 "error": "execution_failed",
-                "message": str(e),
+                "message": redact_error_text(str(e)),
                 "agent_count": len(group.agents),
             }
 
@@ -217,7 +224,10 @@ class ParallelAgentsTool:
             try:
                 return group.custom_aggregator(successful_results)
             except Exception as e:
-                return {"error": "custom_aggregation_failed", "message": str(e)}
+                return {
+                    "error": "custom_aggregation_failed",
+                    "message": f"Aggregation failed: {redact_error_text(str(e))}",
+                }
         else:
             return {"combined_results": successful_results}
 

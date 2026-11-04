@@ -20,6 +20,7 @@ from fastmcp.client.transports import (
     StreamableHttpTransport,
 )
 
+from ..utils.redact import redact_error_text
 from ..core.tool_results import ToolErrorCodes, ToolResult, ToolResultStatus
 from ..core.types import ToolSchema
 
@@ -159,7 +160,8 @@ class FastMCPTool:
             args_dict["flatFilters"] = self._convert_simple_filters_to_flat_filter(
                 args_dict["flatFilters"]
             )
-            logging.info(f"[JAF MCP] Converted flatFilters: {args_dict['flatFilters']}")
+            # Filter values come from users; log only the shape, never the values
+            logging.debug(f"[JAF MCP] Converted flatFilters for {self.tool_name}")
 
         return args_dict
 
@@ -173,9 +175,14 @@ class FastMCPTool:
                 # Apply tool-specific argument transformations
                 args_dict = self._transform_arguments_for_tool(args_dict)
 
-                result = await client.call_tool_mcp(self.tool_name, arguments=args_dict)
+                result = await asyncio.wait_for(
+                    client.call_tool_mcp(self.tool_name, arguments=args_dict),
+                    timeout=self.timeout,  # None means no limit
+                )
 
-                if result.isError:
+                # fastmcp >= 3 renamed isError -> is_error; the old name is deprecated
+                is_error = result.is_error if hasattr(result, "is_error") else result.isError
+                if is_error:
                     from ..core.tool_results import ToolErrorInfo
 
                     error_message = "MCP tool execution failed"
@@ -202,14 +209,15 @@ class FastMCPTool:
                 )
 
         except Exception as e:
+            logging.error(f"MCP tool execution failed: {e}", exc_info=True)  # details stay in logs
             from ..core.tool_results import ToolErrorInfo
 
             return ToolResult(
                 status=ToolResultStatus.ERROR,
                 error=ToolErrorInfo(
                     code=ToolErrorCodes.EXECUTION_FAILED,
-                    message=f"MCP tool execution failed: {e!s}",
-                    details={"error": str(e)},
+                    message=f"MCP tool execution failed: {redact_error_text(str(e))}",
+                    details={"error_type": type(e).__name__},
                 ),
             )
 
@@ -219,8 +227,12 @@ async def create_tools_from_transport(
     client_info: mcp.types.Implementation,
     extra_fields: Optional[Dict[str, Any]] = None,
     default_timeout: Optional[float] = None,
+    raise_on_error: bool = False,
 ) -> List[FastMCPTool]:
-    """Create JAF tools from an MCP transport."""
+    """Create JAF tools from an MCP transport.
+
+    Discovery failures are logged and yield an empty list unless ``raise_on_error`` is True.
+    """
     client = Client(transport, client_info=client_info)
     tools = []
     try:
@@ -285,7 +297,9 @@ async def create_tools_from_transport(
                     FastMCPTool(transport, tool_info, ArgsModel, client_info, default_timeout)
                 )
     except Exception as e:
-        logging.error(f"Failed to create MCP tools: {e}")
+        logging.error(f"Failed to create MCP tools: {e}", exc_info=True)
+        if raise_on_error:
+            raise
     return tools
 
 

@@ -163,7 +163,7 @@ class TestHTTPRequests:
         with pytest.raises(Exception) as exc_info:
             await send_http_request("http://localhost:3000/a2a", {}, 30000)
 
-        assert "HTTP 404: Not Found" in str(exc_info.value)
+        assert "HTTP 404" in str(exc_info.value)
 
     @pytest.mark.asyncio
     @patch("jaf.a2a.client.httpx.AsyncClient")
@@ -191,7 +191,7 @@ class TestHTTPRequests:
             result = await send_a2a_request(client, request)
 
             assert result == {"result": "success"}
-            mock_send.assert_called_once_with("http://localhost:3000/a2a", request, 30000)
+            mock_send.assert_called_once_with("http://localhost:3000/a2a", request, 30000, None)
 
 
 class TestMessageSending:

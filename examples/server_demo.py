@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
 # Import JAF components
+from jaf.utils.safe_math import safe_eval_arithmetic
 from jaf import (
     Agent,
     ConsoleTraceCollector,
@@ -76,7 +77,7 @@ class CalculatorTool:
         try:
             # Remove spaces for evaluation
             expression_for_eval = sanitized.replace(" ", "")
-            result = eval(expression_for_eval)  # Note: In production, use a safe math evaluator
+            result = safe_eval_arithmetic(expression_for_eval)
             return ToolResponse.success(
                 f"{args.expression} = {result}",
                 {

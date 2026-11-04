@@ -37,11 +37,14 @@ Requirements:
 """
 
 import asyncio
+import logging
 import os
 import sys
 from pathlib import Path
 
 import pytest
+
+logger = logging.getLogger(__name__)
 
 # Add the project root to Python path for imports
 project_root = Path(__file__).parent.parent.parent.parent
@@ -69,7 +72,7 @@ def run_all_tests():
             ["--cov=jaf.a2a", "--cov-report=term-missing", "--cov-report=html:htmlcov"]
         )
     except ImportError:
-        print("pytest-cov not available, skipping coverage report")
+        logger.info("pytest-cov not available, skipping coverage report")
 
     # Run tests
     exit_code = pytest.main(pytest_args)
@@ -89,7 +92,7 @@ def run_specific_test(test_name: str):
     test_path = test_dir / test_name
 
     if not test_path.exists():
-        print(f"Test file not found: {test_path}")
+        logger.info(f"Test file not found: {test_path}")
         return 1
 
     pytest_args = [str(test_path), "-v", "--tb=short", "--asyncio-mode=auto"]
@@ -144,6 +147,7 @@ def pytest_collection_modifyitems(config, items):
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     """Run tests when module is executed directly"""
     import sys
 

@@ -6,6 +6,8 @@ supporting multiple providers with environment variable integration and validati
 """
 
 import os
+import logging
+from urllib.parse import urlparse
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Union
 from ..types import AdkModelType, AdkProviderType
@@ -94,7 +96,7 @@ DEFAULT_PROVIDER_CONFIGS: Dict[str, AdkProviderConfig] = {
     "litellm": AdkProviderConfig(
         name="LiteLLM",
         base_url="http://localhost:4000",
-        api_key="anything",
+        api_key=os.getenv("LITELLM_API_KEY"),
         models=[
             AdkModelConfig(
                 name="gpt-4o",
@@ -369,7 +371,14 @@ def validate_adk_llm_config(config: AdkLLMConfig) -> List[str]:
 
     # URL validation
     if config.base_url and not config.base_url.startswith(("http://", "https://")):
-        errors.append(f"Base URL must start with http:// or https://")
+        errors.append("Base URL must start with http:// or https://")
+    elif config.base_url and config.base_url.startswith("http://"):
+        host = urlparse(config.base_url).hostname or ""
+        if host not in ("localhost", "127.0.0.1", "::1"):
+            # The API key and every prompt/response would travel unencrypted
+            logging.getLogger(__name__).warning(
+                "LLM base URL uses plaintext http:// for a non-local host; use https:// outside local development"
+            )
 
     # Timeout validation
     if config.timeout <= 0:
@@ -395,7 +404,7 @@ def debug_adk_llm_config(config: AdkLLMConfig) -> None:
     print("[ADK:CONFIG] LLM Configuration:")
     print(f"  Provider: {config.provider}")
     print(f"  Base URL: {config.base_url}")
-    print(f"  API Key: {'*' * len(config.api_key) if config.api_key else 'None'}")
+    print(f"  API Key: {'<set>' if config.api_key else 'None'}")
     print(f"  Default Model: {config.default_model}")
     print(f"  Timeout: {config.timeout}ms")
     print(f"  Retries: {config.retries}")

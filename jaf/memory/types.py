@@ -5,11 +5,12 @@ This module provides the core data structures and interfaces for persistent conv
 including provider abstractions, configuration models, and error handling.
 """
 
+import ssl as ssl_module
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, Generic, List, Optional, Protocol, TypeVar, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from ..core.types import Message, TraceId, MessageId
 
@@ -230,10 +231,15 @@ class RedisConfig(BaseModel):
     db: int = Field(default=0, ge=0)
     key_prefix: str = Field(default="jaf:memory:")
     ttl: Optional[int] = Field(default=None, ge=1)  # seconds
+    # TLS is the application's choice (a rediss:// URL also enables it)
+    ssl: bool = Field(default=False)
+    ssl_ca_certs: Optional[str] = None  # CA bundle path for verifying the server certificate
 
 
 class PostgresConfig(BaseModel):
     """Configuration for PostgreSQL provider."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     type: str = Field(default="postgres", json_schema_extra={"literal": True})
     connection_string: Optional[str] = None
@@ -242,7 +248,8 @@ class PostgresConfig(BaseModel):
     database: str = Field(default="jaf_memory")
     username: str = Field(default="postgres")
     password: Optional[str] = None
-    ssl: bool = Field(default=False)
+    # True, or an ssl.SSLContext when the app needs its own CA / verification rules
+    ssl: Union[bool, ssl_module.SSLContext] = Field(default=False)
     table_name: str = Field(default="conversations")
     max_connections: int = Field(default=10, ge=1)
 

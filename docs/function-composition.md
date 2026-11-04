@@ -122,6 +122,26 @@ reliable_search = create_function_tool({
 })
 ```
 
+#### Retrying safely: `idempotent_only` (`jaf.core.composition.with_retry`)
+
+`with_retry(tool)` retries **every** exception, up to `max_retries` times. This default is unchanged, so existing apps behave exactly as before.
+
+That is risky for tools with side effects: a `charge_card` call that times out *after* the payment went through would be retried and charge the customer twice. Opt in to the safer behaviour per tool:
+
+```python
+from jaf.core.composition import with_retry
+
+class SearchDocs:
+    idempotent = True          # repeating this call is harmless
+    ...
+
+with_retry(SearchDocs(), idempotent_only=True)   # retried on any error
+with_retry(ChargeCard(), idempotent_only=True)   # retried only if the call never started
+                                                 # (connection refused, DNS failure)
+```
+
+With `idempotent_only=True`, tools without `idempotent = True` are not retried on timeouts or other errors that may have happened mid-operation. `retry_on` still applies on top.
+
 ### Logging and Observability
 
 Add comprehensive logging to any tool:

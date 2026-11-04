@@ -11,6 +11,7 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import List
 
+import logging
 import pytest
 
 from jaf.a2a.memory.cleanup import A2ATaskCleanupConfig, perform_task_cleanup
@@ -20,6 +21,8 @@ from jaf.a2a.memory.types import (
     A2ATaskProvider,
 )
 from jaf.a2a.types import A2AMessage, A2ATask, A2ATaskStatus, A2ATextPart, TaskState
+
+logger = logging.getLogger(__name__)
 
 
 class TaskCleanupTestBase:
@@ -181,7 +184,7 @@ class TestTaskCleanupByAge(TaskCleanupTestBase):
         ]
         assert len(old_completed) == 0, "Old completed tasks should be cleaned up"
 
-        print(f"Age-based cleanup: {cleanup_count} tasks cleaned, {len(remaining_tasks)} remaining")
+        logger.info(f"Age-based cleanup: {cleanup_count} tasks cleaned, {len(remaining_tasks)} remaining")
 
     async def test_cleanup_respects_state_filters(self, cleanup_provider):
         """Test that cleanup only affects specified states"""
@@ -274,7 +277,7 @@ class TestTaskCleanupByAge(TaskCleanupTestBase):
             f"Actual cleanup ({actual_delete_count}) should match dry run prediction ({would_delete_count})"
         )
 
-        print(f"Dry run test: predicted {would_delete_count}, actual {actual_delete_count}")
+        logger.info(f"Dry run test: predicted {would_delete_count}, actual {actual_delete_count}")
 
 
 class TestTaskCleanupByCount(TaskCleanupTestBase):
@@ -583,9 +586,7 @@ class TestCleanupPerformanceAndReliability(TaskCleanupTestBase):
         cleanup_rate = cleanup_count / cleanup_time if cleanup_time > 0 else float("inf")
         assert cleanup_rate > 50, f"Cleanup too slow: {cleanup_rate:.2f} tasks/second"
 
-        print(
-            f"Large dataset cleanup: {cleanup_count} tasks cleaned in {cleanup_time:.2f}s ({cleanup_rate:.2f} tasks/s)"
-        )
+        logger.info(f"Large dataset cleanup: {cleanup_count} tasks cleaned in {cleanup_time:.2f}s ({cleanup_rate:.2f} tasks/s)")
 
     async def test_cleanup_error_recovery(self, cleanup_provider):
         """Test cleanup behavior when encountering errors"""
@@ -626,19 +627,15 @@ class TestCleanupPerformanceAndReliability(TaskCleanupTestBase):
             if cleanup_result.data:
                 # If successful, verify some tasks were cleaned
                 assert cleanup_result.data.total_cleaned > 0
-                print(
-                    f"Error recovery test: {cleanup_result.data.total_cleaned} tasks cleaned successfully"
-                )
+                logger.error(f"Error recovery test: {cleanup_result.data.total_cleaned} tasks cleaned successfully")
             else:
                 # If failed, should have meaningful error
                 assert "cleanup" in str(cleanup_result.error.message).lower()
-                print(
-                    f"Error recovery test: Cleanup failed gracefully with error: {cleanup_result.error.message}"
-                )
+                logger.error(f"Error recovery test: Cleanup failed gracefully with error: {cleanup_result.error.message}")
 
         except Exception as e:
             # Even exceptions should be handled gracefully
-            print(f"Error recovery test: Exception handled: {e}")
+            logger.error(f"Error recovery test: Exception handled: {e}")
 
             # Provider should still be functional after error
             health_result = await cleanup_provider.health_check()
@@ -718,9 +715,7 @@ class TestCleanupPerformanceAndReliability(TaskCleanupTestBase):
         final_result = await cleanup_provider.get_tasks_by_context(context_id)
         assert final_result.data is not None, "Final state should be queryable"
 
-        print(
-            f"Concurrent cleanup test: {cleanup_result.data.total_cleaned} cleaned, {successful_concurrent}/{total_concurrent} concurrent ops succeeded"
-        )
+        logger.info(f"Concurrent cleanup test: {cleanup_result.data.total_cleaned} cleaned, {successful_concurrent}/{total_concurrent} concurrent ops succeeded")
 
 
 class TestCleanupConfigurationValidation(TaskCleanupTestBase):

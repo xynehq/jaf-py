@@ -156,7 +156,7 @@ def generate_run_id() -> RunId:
     import time
     import uuid
 
-    return RunId(f"run_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}")
+    return RunId(f"run_{int(time.time() * 1000)}_{uuid.uuid4().hex[:16]}")
 
 
 def generate_trace_id() -> TraceId:
@@ -164,7 +164,7 @@ def generate_trace_id() -> TraceId:
     import time
     import uuid
 
-    return TraceId(f"trace_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}")
+    return TraceId(f"trace_{int(time.time() * 1000)}_{uuid.uuid4().hex[:16]}")
 
 
 def generate_message_id() -> MessageId:
@@ -172,7 +172,7 @@ def generate_message_id() -> MessageId:
     import time
     import uuid
 
-    return MessageId(f"msg_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}")
+    return MessageId(f"msg_{int(time.time() * 1000)}_{uuid.uuid4().hex[:16]}")
 
 
 # Type variables for generic contexts and outputs
@@ -513,7 +513,7 @@ class AdvancedGuardrailsConfig:
     output_prompt: Optional[str] = None
     require_citations: bool = False
     fast_model: Optional[str] = None
-    fail_safe: Literal["allow", "block"] = "allow"
+    fail_safe: Literal["allow", "block"] = "block"
     execution_mode: Literal["parallel", "sequential"] = "parallel"
     timeout_ms: int = 30000
 
@@ -1179,6 +1179,10 @@ class RunConfig(Generic[Ctx]):
         None  # Default max_tokens for all agents (can be overridden per agent)
     )
     model_override: Optional[str] = None
+    # An approval can be matched to a new tool-call ID by signature (tool name + arguments) only
+    # while it is younger than this many seconds, judged by additional_context["approved_at"]
+    # (epoch seconds). None disables the expiry.
+    approval_signature_ttl_seconds: Optional[float] = 300
     initial_input_guardrails: Optional[List[Guardrail]] = None
     final_output_guardrails: Optional[List[Guardrail]] = None
     on_event: Optional[Callable[[TraceEvent], None]] = None

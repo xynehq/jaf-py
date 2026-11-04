@@ -5,6 +5,7 @@ This module provides convenience functions to easily create model providers
 with proxy configuration.
 """
 
+from urllib.parse import urlsplit, urlunsplit
 from typing import Optional, Dict, Any
 from .proxy import ProxyConfig, get_default_proxy_config
 from ..providers.model import make_litellm_provider
@@ -12,7 +13,7 @@ from ..providers.model import make_litellm_provider
 
 def make_proxy_enabled_litellm_provider(
     base_url: str,
-    api_key: str = "anything",
+    api_key: Optional[str] = None,
     default_timeout: Optional[float] = None,
     proxy_url: Optional[str] = None,
     proxy_username: Optional[str] = None,
@@ -24,7 +25,7 @@ def make_proxy_enabled_litellm_provider(
 
     Args:
         base_url: Base URL for the LiteLLM server
-        api_key: API key (defaults to "anything" for local servers)
+        api_key: API key (defaults to the LITELLM_API_KEY env var)
         default_timeout: Default timeout for model API calls in seconds
         proxy_url: Proxy URL (if not using environment variables)
         proxy_username: Proxy username for authentication
@@ -67,12 +68,21 @@ def get_proxy_info() -> Dict[str, Any]:
     """
     proxy_config = get_default_proxy_config()
 
+    def redact(url: Optional[str]) -> Optional[str]:
+        """Hide any user:password embedded in a proxy URL."""
+        if not url:
+            return url
+        parts = urlsplit(url)
+        if parts.username or parts.password:
+            host = parts.netloc.rsplit("@", 1)[-1]
+            return urlunsplit((parts.scheme, f"***@{host}", parts.path, parts.query, parts.fragment))
+        return url
+
     return {
-        "http_proxy": proxy_config.http_proxy,
-        "https_proxy": proxy_config.https_proxy,
+        "http_proxy": redact(proxy_config.http_proxy),
+        "https_proxy": redact(proxy_config.https_proxy),
         "no_proxy": proxy_config.no_proxy,
         "has_auth": proxy_config.auth is not None,
-        "auth_username": proxy_config.auth.username if proxy_config.auth else None,
         "is_configured": bool(proxy_config.http_proxy or proxy_config.https_proxy),
     }
 

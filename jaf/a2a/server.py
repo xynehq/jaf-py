@@ -4,17 +4,35 @@ Extends JAF server with A2A protocol support using FastAPI
 """
 
 import json
-from typing import Any, Dict, Optional
+from collections import OrderedDict
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 
+import logging
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from .agent import execute_a2a_agent, execute_a2a_agent_with_streaming
 from .agent_card import generate_agent_card
 from .protocol import route_a2a_request, validate_jsonrpc_request
 from .types import A2AAgent
+
+logger = logging.getLogger(__name__)
+
+
+class _BoundedTaskStore(OrderedDict):
+    """Task store that drops the oldest tasks beyond ``max_tasks`` so it cannot grow forever."""
+
+    def __init__(self, max_tasks: int = 1000):
+        super().__init__()
+        self.max_tasks = max_tasks
+
+    def __setitem__(self, key, value):
+        super().__setitem__(key, value)
+        self.move_to_end(key)
+        while len(self) > self.max_tasks:
+            self.popitem(last=False)
 
 
 def create_a2a_server_config(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -26,16 +44,34 @@ def create_a2a_server_config(config: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     agent_card = generate_agent_card(
-        config["agentCard"], config["agents"], f"http://{host}:{config['port']}"
+        config["agentCard"],
+        config["agents"],
+        # Behind TLS termination set "publicUrl" (e.g. https://agents.example.com) so the card is not http://
+        (config.get("publicUrl") or f"http://{host}:{config['port']}").rstrip("/"),
     )
 
     # Override the capabilities in the generated agent card
     updated_agent_card = {**agent_card, "capabilities": capabilities}
 
-    return {**config, "host": host, "capabilities": capabilities, "agentCard": updated_agent_card}
+    # When the server authenticates callers, stop advertising anonymous access in the card
+    if config.get("authenticate") and updated_agent_card.get("security"):
+        updated_agent_card["security"] = [req for req in updated_agent_card["security"] if req]
+
+    # One store for the whole server (not per request), so tasks can be fetched and cancelled later
+    task_storage = config.get("taskStorage")
+    if task_storage is None:
+        task_storage = _BoundedTaskStore(int(config.get("maxStoredTasks", 1000)))
+
+    return {
+        **config,
+        "host": host,
+        "capabilities": capabilities,
+        "agentCard": updated_agent_card,
+        "taskStorage": task_storage,
+    }
 
 
-def create_fastapi_app() -> FastAPI:
+def create_fastapi_app(cors_origins: Optional[List[str]] = None) -> FastAPI:
     """Pure function to create FastAPI app instance"""
     app = FastAPI(
         title="JAF A2A Server",
@@ -45,11 +81,12 @@ def create_fastapi_app() -> FastAPI:
         redoc_url="/redoc",
     )
 
-    # Add CORS middleware
+    # Credentials are only allowed with an explicit origin list, never with a wildcard
+    origins = cors_origins or ["*"]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
+        allow_origins=origins,
+        allow_credentials="*" not in origins,
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -60,6 +97,32 @@ def create_fastapi_app() -> FastAPI:
 def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
     """Pure function to setup A2A routes"""
 
+    # async callable(request) -> truthy caller identity; falsy rejects the request.
+    # Fails closed: without it every agent endpoint returns 401 unless allowUnauthenticated is set.
+    authenticate = config.get("authenticate")
+    allow_unauthenticated = bool(config.get("allowUnauthenticated"))
+    if authenticate is None and allow_unauthenticated:
+        logger.warning(
+            "[JAF:A2A] allowUnauthenticated is set: agent endpoints accept anonymous requests"
+        )
+
+    async def _authenticate(request: Request) -> Tuple[Optional[str], Optional[JSONResponse]]:
+        """Returns (caller_id, None) when allowed, or (None, 401 response) when rejected."""
+        if authenticate is None and allow_unauthenticated:
+            return None, None
+        identity = await authenticate(request) if authenticate is not None else None
+        if not identity:
+            return None, JSONResponse(
+                status_code=401,
+                content={
+                    "jsonrpc": "2.0",
+                    "id": None,
+                    "error": {"code": -32001, "message": "Authentication required"},
+                },
+            )
+        # Tasks are bound to this identity, so authenticate() should return a stable user id
+        return str(identity), None
+
     # Agent Card endpoint (A2A discovery)
     @app.get("/.well-known/agent-card")
     async def get_agent_card():
@@ -69,6 +132,10 @@ def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
     @app.post("/a2a")
     async def handle_a2a_request(request: Request):
         request_id = None
+
+        caller_id, denied = await _authenticate(request)
+        if denied:
+            return denied
 
         try:
             # Parse JSON with proper error handling
@@ -109,6 +176,18 @@ def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
                         },
                     }
 
+                max_batch_size = int(config.get("maxBatchSize", 50))
+                if len(body) > max_batch_size:
+                    return {
+                        "jsonrpc": "2.0",
+                        "id": None,
+                        "error": {
+                            "code": -32600,  # Invalid Request
+                            "message": "Invalid Request",
+                            "data": {"details": f"Batch exceeds {max_batch_size} requests"},
+                        },
+                    }
+
                 # Process batch requests functionally
                 async def process_batch_item(single_request):
                     if not isinstance(single_request, dict):
@@ -122,7 +201,9 @@ def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
                             },
                         }
 
-                    single_result = await handle_a2a_request_internal(config, single_request)
+                    single_result = await handle_a2a_request_internal(
+                        config, single_request, caller_id
+                    )
                     if not hasattr(single_result, "__aiter__"):
                         return single_result
                     else:
@@ -153,7 +234,7 @@ def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
                     },
                 }
 
-            result = await handle_a2a_request_internal(config, body)
+            result = await handle_a2a_request_internal(config, body, caller_id)
 
             # Check if this is a streaming request
             method = body.get("method")
@@ -206,6 +287,10 @@ def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
         async def handle_agent_request(request: Request, agent_name: str = agent_name):
             request_id = None
 
+            caller_id, denied = await _authenticate(request)
+            if denied:
+                return denied
+
             try:
                 # Parse JSON with proper error handling
                 try:
@@ -244,7 +329,7 @@ def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
                         },
                     }
 
-                result = await handle_a2a_request_for_agent(config, body, agent_name)
+                result = await handle_a2a_request_for_agent(config, body, agent_name, caller_id)
 
                 # Check if this is a streaming request
                 method = body.get("method")
@@ -304,7 +389,10 @@ def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
                         ),
                     },
                     {current_agent_name: current_agent},
-                    f"http://{config.get('host', 'localhost')}:{config['port']}",
+                    (
+                        config.get("publicUrl")
+                        or f"http://{config.get('host', 'localhost')}:{config['port']}"
+                    ).rstrip("/"),
                 )
 
                 return agent_card
@@ -343,7 +431,9 @@ def setup_a2a_routes(app: FastAPI, config: Dict[str, Any]) -> None:
         }
 
 
-async def handle_a2a_request_internal(config: Dict[str, Any], request: Dict[str, Any]) -> Any:
+async def handle_a2a_request_internal(
+    config: Dict[str, Any], request: Dict[str, Any], caller_id: Optional[str] = None
+) -> Any:
     """Pure function to handle A2A requests"""
     # Validate JSON-RPC request structure first
     if not validate_jsonrpc_request(request):
@@ -388,11 +478,14 @@ async def handle_a2a_request_internal(config: Dict[str, Any], request: Dict[str,
         }
 
     first_agent = next(iter(agents.values()))
-    return await route_a2a_request_wrapper(config, request, first_agent)
+    return await route_a2a_request_wrapper(config, request, first_agent, caller_id)
 
 
 async def handle_a2a_request_for_agent(
-    config: Dict[str, Any], request: Dict[str, Any], agent_name: str
+    config: Dict[str, Any],
+    request: Dict[str, Any],
+    agent_name: str,
+    caller_id: Optional[str] = None,
 ) -> Any:
     """Pure function to handle agent-specific A2A requests"""
     # Validate JSON-RPC request structure first
@@ -436,17 +529,22 @@ async def handle_a2a_request_for_agent(
             "error": {"code": -32001, "message": f"Agent {agent_name} not found"},
         }
 
-    return await route_a2a_request_wrapper(config, request, agent)
+    return await route_a2a_request_wrapper(config, request, agent, caller_id)
 
 
 async def route_a2a_request_wrapper(
-    config: Dict[str, Any], request: Dict[str, Any], agent: A2AAgent
+    config: Dict[str, Any],
+    request: Dict[str, Any],
+    agent: A2AAgent,
+    caller_id: Optional[str] = None,
 ) -> Any:
     """Wrapper for route_a2a_request to provide required dependencies"""
     try:
         # Get model provider from config
         model_provider = config.get("model_provider")
-        task_storage = {}
+        task_storage = config.get("taskStorage")
+        if task_storage is None:
+            task_storage = config["taskStorage"] = _BoundedTaskStore()
         agent_card = config["agentCard"]
 
         result = route_a2a_request(
@@ -457,6 +555,7 @@ async def route_a2a_request_wrapper(
             agent_card,
             execute_a2a_agent,
             execute_a2a_agent_with_streaming,
+            caller_id,
         )
 
         # Check if result is a coroutine/awaitable
@@ -490,7 +589,7 @@ async def route_a2a_request_wrapper(
 def create_a2a_server(config: Dict[str, Any]) -> Dict[str, Any]:
     """Pure function to create A2A server instance"""
     server_config = create_a2a_server_config(config)
-    app = create_fastapi_app()
+    app = create_fastapi_app(server_config.get("corsOrigins"))
     setup_a2a_routes(app, server_config)
 
     # Create the server instance here to be shared by start/stop
@@ -507,16 +606,16 @@ def create_a2a_server(config: Dict[str, Any]) -> Dict[str, Any]:
         host = server_config.get("host", "localhost")
         port = server_config["port"]
 
-        print(f"🔧 Starting A2A-enabled JAF server on {host}:{port}...")
-        print(f"🚀 A2A Server running on http://{host}:{port}")
-        print(f"🤖 Available agents: {', '.join(server_config['agents'].keys())}")
-        print(f"📋 Agent Card: http://{host}:{port}/.well-known/agent-card")
-        print(f"🔗 A2A Endpoint: http://{host}:{port}/a2a")
-        print(f"🏥 A2A Health: http://{host}:{port}/a2a/health")
-        print(f"⚡ A2A Capabilities: http://{host}:{port}/a2a/capabilities")
+        logger.debug(f"🔧 Starting A2A-enabled JAF server on {host}:{port}...")
+        logger.debug(f"🚀 A2A Server running on http://{host}:{port}")
+        logger.debug(f"🤖 Available agents: {', '.join(server_config['agents'].keys())}")
+        logger.debug(f"📋 Agent Card: http://{host}:{port}/.well-known/agent-card")
+        logger.debug(f"🔗 A2A Endpoint: http://{host}:{port}/a2a")
+        logger.debug(f"🏥 A2A Health: http://{host}:{port}/a2a/health")
+        logger.debug(f"⚡ A2A Capabilities: http://{host}:{port}/a2a/capabilities")
 
         for agent_name in server_config["agents"].keys():
-            print(f"🎯 Agent {agent_name}: http://{host}:{port}/a2a/agents/{agent_name}")
+            logger.debug(f"🎯 Agent {agent_name}: http://{host}:{port}/a2a/agents/{agent_name}")
 
         await server.serve()
 
@@ -524,7 +623,7 @@ def create_a2a_server(config: Dict[str, Any]) -> Dict[str, Any]:
         """Stop the A2A server"""
         if server:
             server.should_exit = True
-            print("🛑 A2A Server stopped")
+            logger.debug("🛑 A2A Server stopped")
 
     def add_agent(name: str, agent: A2AAgent) -> Dict[str, Any]:
         """Pure function to add agent to server"""
@@ -593,9 +692,19 @@ def create_server_config(
     host: str = "localhost",
     version: str = "1.0.0",
     provider: Optional[Dict[str, str]] = None,
+    authenticate: Optional[Callable[[Request], Awaitable[Any]]] = None,
+    allow_unauthenticated: bool = False,
+    cors_origins: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
-    """Utility function to create server configuration"""
+    """Utility function to create server configuration.
+
+    Agent endpoints require ``authenticate`` (async callable taking the request and returning a
+    truthy caller identity). Pass ``allow_unauthenticated=True`` only for local development.
+    """
     return {
+        "authenticate": authenticate,
+        "allowUnauthenticated": allow_unauthenticated,
+        "corsOrigins": cors_origins,
         "agents": agents,
         "agentCard": {
             "name": name,

@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 # Import JAF core
 import jaf
 from jaf.core.types import Message, ContentRole, RunState, Agent, RunConfig
+from jaf.utils.safe_math import safe_eval_arithmetic
 from jaf.core.tool_results import ToolResponse
 
 # Import new features
@@ -125,19 +126,19 @@ class AdvancedCalculatorTool:
             # Support for advanced math functions
             import math
 
-            safe_dict = {
+            functions = {
                 "sin": math.sin,
                 "cos": math.cos,
                 "tan": math.tan,
                 "sqrt": math.sqrt,
                 "log": math.log,
                 "exp": math.exp,
-                "pi": math.pi,
-                "e": math.e,
             }
 
-            # Evaluate with safe dictionary
-            result = eval(args.expression, {"__builtins__": {}}, safe_dict)
+            # Evaluate with an AST walker that only allows arithmetic and the names above
+            result = safe_eval_arithmetic(
+                args.expression, functions=functions, constants={"pi": math.pi, "e": math.e}
+            )
 
             execution_time = (time.time() - start_time) * 1000
 

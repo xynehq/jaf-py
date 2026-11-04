@@ -10,6 +10,7 @@ This follows the functional core, imperative shell pattern where:
 - All side effects are contained here in the imperative shell
 """
 
+import os
 from graphviz import Digraph
 
 from .functional_core import GraphSpec
@@ -52,9 +53,15 @@ def render_graph_spec(
         # Handle output path
         output_path = options.output_path or f"./{graph_name.lower()}.{options.output_format}"
 
-        # Render (side effect)
+        # Never write outside the folder the caller pointed at via ".." segments
+        if ".." in os.path.normpath(output_path).split(os.sep):
+            return GraphResult(success=False, error="Output path must not contain '..'")
+
+        # Render (side effect); strip only a trailing extension, not every occurrence
+        suffix = f".{options.output_format}"
+        render_name = output_path[: -len(suffix)] if output_path.endswith(suffix) else output_path
         graph.render(
-            filename=output_path.replace(f".{options.output_format}", ""),
+            filename=render_name,
             format=options.output_format,
             cleanup=True,
         )

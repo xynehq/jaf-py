@@ -22,7 +22,10 @@ response = await client["ask"]("Hello, how can you help me?")
 agent = create_a2a_agent("MyAgent", "A helpful agent", "You are helpful", tools)
 
 # Start A2A server:
-server_config = create_server_config(agents, "My Server", "Multi-agent server", 3000)
+server_config = create_server_config(
+    agents, "My Server", "Multi-agent server", 3000,
+    authenticate=my_auth,  # async (request) -> caller id; or allow_unauthenticated=True for local dev
+)
 server = await start_a2a_server(server_config)
 """
 

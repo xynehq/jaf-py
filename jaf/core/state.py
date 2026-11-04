@@ -5,6 +5,7 @@ This module provides functions to manage approval state transitions
 and integrate with approval storage systems.
 """
 
+import logging
 from typing import Dict, Any, Optional, List
 from dataclasses import replace
 
@@ -17,6 +18,8 @@ from .types import (
     ContentRole,
     Attachment,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _extract_attachments_from_messages(messages: List[Dict[str, Any]]) -> List[Attachment]:
@@ -39,7 +42,7 @@ def _extract_attachments_from_messages(messages: List[Dict[str, Any]]) -> List[A
                 )
                 attachments.append(attachment)
             except Exception as e:
-                print(f"[JAF:APPROVAL] Failed to process attachment: {e}")
+                logger.warning(f"[JAF:APPROVAL] Failed to process attachment: {e}")
 
     return attachments
 
@@ -78,7 +81,7 @@ def _process_additional_context_images(
                 )
                 attachments.append(attachment)
         except Exception as e:
-            print(f"[JAF:APPROVAL] Failed to process image_context: {e}")
+            logger.warning(f"[JAF:APPROVAL] Failed to process image_context: {e}")
 
     return attachments
 
@@ -149,19 +152,17 @@ async def approve(
         # Store in approval storage if available
         if config and config.approval_storage:
             try:
-                print(
-                    f"[JAF:APPROVAL] Storing approval for tool_call_id {interruption.tool_call.id}: {approval_value}"
-                )
+                logger.debug(f"[JAF:APPROVAL] Storing approval for tool_call_id {interruption.tool_call.id}")
                 result = await config.approval_storage.store_approval(
                     state.run_id, interruption.tool_call.id, approval_value
                 )
                 if not result.success:
-                    print(f"[JAF:APPROVAL] Failed to store approval: {result.error}")
+                    logger.error(f"[JAF:APPROVAL] Failed to store approval: {result.error}")
                     # Continue with in-memory fallback
                 else:
-                    print(f"[JAF:APPROVAL] Successfully stored approval in storage")
+                    logger.debug(f"[JAF:APPROVAL] Successfully stored approval in storage")
             except Exception as e:
-                print(f"[JAF:APPROVAL] Approval storage error: {e}")
+                logger.error(f"[JAF:APPROVAL] Approval storage error: {e}")
                 # Continue with in-memory fallback
 
         # Update in-memory state
@@ -205,19 +206,17 @@ async def reject(
         # Store in approval storage if available
         if config and config.approval_storage:
             try:
-                print(
-                    f"[JAF:APPROVAL] Storing approval for tool_call_id {interruption.tool_call.id}: {approval_value}"
-                )
+                logger.debug(f"[JAF:APPROVAL] Storing approval for tool_call_id {interruption.tool_call.id}")
                 result = await config.approval_storage.store_approval(
                     state.run_id, interruption.tool_call.id, approval_value
                 )
                 if not result.success:
-                    print(f"[JAF:APPROVAL] Failed to store approval: {result.error}")
+                    logger.error(f"[JAF:APPROVAL] Failed to store approval: {result.error}")
                     # Continue with in-memory fallback
                 else:
-                    print(f"[JAF:APPROVAL] Successfully stored approval in storage")
+                    logger.debug(f"[JAF:APPROVAL] Successfully stored approval in storage")
             except Exception as e:
-                print(f"[JAF:APPROVAL] Approval storage error: {e}")
+                logger.error(f"[JAF:APPROVAL] Approval storage error: {e}")
                 # Continue with in-memory fallback
 
         # Update in-memory state
@@ -247,23 +246,21 @@ async def load_approvals_into_state(
         Updated run state with loaded approvals
     """
     if not config or not config.approval_storage:
-        print(
-            f"[JAF:APPROVAL] No approval storage configured, using existing approvals: {state.approvals}"
-        )
+        logger.debug(f"[JAF:APPROVAL] No approval storage configured, using {len(state.approvals)} existing approvals")
         return state
 
     try:
-        print(f"[JAF:APPROVAL] Loading approvals from storage for run_id: {state.run_id}")
+        logger.debug(f"[JAF:APPROVAL] Loading approvals from storage for run_id: {state.run_id}")
         result = await config.approval_storage.get_run_approvals(state.run_id)
         if result.success and result.data:
-            print(f"[JAF:APPROVAL] Loaded {len(result.data)} approvals from storage: {result.data}")
+            logger.debug(f"[JAF:APPROVAL] Loaded {len(result.data)} approvals from storage")
             return replace(state, approvals=result.data)
         else:
             if not result.success:
-                print(f"[JAF:APPROVAL] Failed to load approvals: {result.error}")
+                logger.error(f"[JAF:APPROVAL] Failed to load approvals: {result.error}")
             else:
-                print(f"[JAF:APPROVAL] No approvals found in storage for run_id: {state.run_id}")
+                logger.debug(f"[JAF:APPROVAL] No approvals found in storage for run_id: {state.run_id}")
             return state
     except Exception as e:
-        print(f"[JAF:APPROVAL] Approval loading error: {e}")
+        logger.error(f"[JAF:APPROVAL] Approval loading error: {e}")
         return state

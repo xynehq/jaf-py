@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from .base import AdkSessionProvider, AdkSessionConfig
+from .session_ids import is_acceptable_session_id
 from ..types import AdkSession, AdkMessage, AdkResult, AdkSuccess, AdkFailure
 from ..errors import AdkSessionError, AdkErrorType, AdkErrorSeverity
 
@@ -144,7 +145,7 @@ class AdkRedisSessionProvider(AdkSessionProvider):
             )
         except Exception as e:
             raise AdkSessionError(
-                f"Failed to deserialize session: {e}", error_type=AdkErrorType.INTERNAL, cause=e
+                f"Failed to deserialize session ({type(e).__name__})", error_type=AdkErrorType.INTERNAL, cause=e
             )
 
     async def create_session(
@@ -158,6 +159,13 @@ class AdkRedisSessionProvider(AdkSessionProvider):
         try:
             if session_id is None:
                 session_id = str(uuid.uuid4())
+            elif not is_acceptable_session_id(session_id):
+                return AdkFailure(
+                    AdkSessionError(
+                        "Invalid session id: use a random id of 32-128 URL-safe characters or omit it",
+                        error_type=AdkErrorType.VALIDATION,
+                    )
+                )
 
             now = datetime.now(timezone.utc)
             session = AdkSession(
@@ -176,21 +184,35 @@ class AdkRedisSessionProvider(AdkSessionProvider):
                 user_sessions_key = self._get_user_sessions_key(user_id)
 
                 # Set session data with TTL
-                pipe.setex(session_key, self.config.ttl_seconds, self._serialize_session(session))
+                # nx=True: never overwrite an existing session (guards against ID takeover)
+                pipe.set(
+                    session_key,
+                    self._serialize_session(session),
+                    ex=self.config.ttl_seconds,
+                    nx=True,
+                )
 
                 # Add session ID to user's session set with TTL
                 pipe.sadd(user_sessions_key, session_id)
                 pipe.expire(user_sessions_key, self.config.ttl_seconds)
 
                 # Execute transaction
-                await pipe.execute()
+                results = await pipe.execute()
+
+            if not results or not results[0]:
+                return AdkFailure(
+                    AdkSessionError(
+                        f"Session {session_id} already exists",
+                        error_type=AdkErrorType.VALIDATION,
+                    )
+                )
 
             return AdkSuccess(session)
 
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Failed to create session: {e}", error_type=AdkErrorType.INTERNAL, cause=e
+                    f"Failed to create session ({type(e).__name__})", error_type=AdkErrorType.INTERNAL, cause=e
                 )
             )
 
@@ -215,7 +237,7 @@ class AdkRedisSessionProvider(AdkSessionProvider):
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Failed to get session: {e}",
+                    f"Failed to get session ({type(e).__name__})",
                     session_id=session_id,
                     error_type=AdkErrorType.INTERNAL,
                     cause=e,
@@ -237,7 +259,7 @@ class AdkRedisSessionProvider(AdkSessionProvider):
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Failed to update session: {e}",
+                    f"Failed to update session ({type(e).__name__})",
                     session_id=session.session_id,
                     error_type=AdkErrorType.INTERNAL,
                     cause=e,
@@ -274,7 +296,7 @@ class AdkRedisSessionProvider(AdkSessionProvider):
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Failed to delete session: {e}",
+                    f"Failed to delete session ({type(e).__name__})",
                     session_id=session_id,
                     error_type=AdkErrorType.INTERNAL,
                     cause=e,
@@ -314,7 +336,7 @@ class AdkRedisSessionProvider(AdkSessionProvider):
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Failed to add message: {e}",
+                    f"Failed to add message ({type(e).__name__})",
                     session_id=session_id,
                     error_type=AdkErrorType.INTERNAL,
                     cause=e,
@@ -343,7 +365,7 @@ class AdkRedisSessionProvider(AdkSessionProvider):
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Failed to get messages: {e}",
+                    f"Failed to get messages ({type(e).__name__})",
                     session_id=session_id,
                     error_type=AdkErrorType.INTERNAL,
                     cause=e,
@@ -377,7 +399,7 @@ class AdkRedisSessionProvider(AdkSessionProvider):
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Failed to get user sessions: {e}",
+                    f"Failed to get user sessions ({type(e).__name__})",
                     user_id=user_id,
                     error_type=AdkErrorType.INTERNAL,
                     cause=e,
@@ -394,7 +416,7 @@ class AdkRedisSessionProvider(AdkSessionProvider):
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Failed to cleanup expired sessions: {e}",
+                    f"Failed to cleanup expired sessions ({type(e).__name__})",
                     error_type=AdkErrorType.INTERNAL,
                     cause=e,
                 )
@@ -425,7 +447,7 @@ class AdkRedisSessionProvider(AdkSessionProvider):
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Failed to get stats: {e}", error_type=AdkErrorType.INTERNAL, cause=e
+                    f"Failed to get stats ({type(e).__name__})", error_type=AdkErrorType.INTERNAL, cause=e
                 )
             )
 
@@ -452,7 +474,7 @@ class AdkRedisSessionProvider(AdkSessionProvider):
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Health check failed: {e}", error_type=AdkErrorType.INTERNAL, cause=e
+                    f"Health check failed ({type(e).__name__})", error_type=AdkErrorType.INTERNAL, cause=e
                 )
             )
 
@@ -466,7 +488,7 @@ class AdkRedisSessionProvider(AdkSessionProvider):
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Failed to close connection: {e}", error_type=AdkErrorType.INTERNAL, cause=e
+                    f"Failed to close connection ({type(e).__name__})", error_type=AdkErrorType.INTERNAL, cause=e
                 )
             )
 
@@ -521,7 +543,7 @@ async def create_redis_session_provider(
     except Exception as e:
         return AdkFailure(
             AdkSessionError(
-                f"Failed to create Redis session provider: {e}",
+                f"Failed to create Redis session provider ({type(e).__name__})",
                 error_type=AdkErrorType.INTERNAL,
                 cause=e,
             )

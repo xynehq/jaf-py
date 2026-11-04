@@ -30,6 +30,8 @@ except ImportError:
 
 from .types import TraceEvent, TraceId
 
+logger = logging.getLogger(__name__)
+
 # Global tracer provider
 provider = None
 tracer = None
@@ -62,8 +64,6 @@ def setup_otel_tracing(
 
     # Configure session with proxy if needed
     effective_session = session
-    # Configure session with proxy if needed
-    effective_session = session
     if effective_session is None and requests is not None:
         effective_proxy = proxy or os.environ.get("OTEL_PROXY")
         if effective_proxy:
@@ -72,16 +72,9 @@ def setup_otel_tracing(
                 "http": effective_proxy,
                 "https": effective_proxy,
             }
-            print(f"[OTEL] Configuring proxy: {effective_proxy}")
+            logger.debug("[OTEL] Configuring proxy")  # the URL may embed credentials
     elif effective_session is None and requests is None and (proxy or os.environ.get("OTEL_PROXY")):
-        print(f"[OTEL] Warning: Proxy configuration ignored - 'requests' package not installed")
-        if effective_proxy:
-            effective_session = requests.Session()
-            effective_session.proxies = {
-                "http": effective_proxy,
-                "https": effective_proxy,
-            }
-            print(f"[OTEL] Configuring proxy: {effective_proxy}")
+        logger.warning("[OTEL] Proxy configuration ignored - 'requests' package not installed")
 
     # Create exporter with optional session and timeout
     exporter_kwargs = {"endpoint": collector_url}
@@ -191,8 +184,17 @@ class TraceCollector(Protocol):
 class InMemoryTraceCollector:
     """In-memory trace collector that organizes events by trace ID."""
 
-    def __init__(self):
+    def __init__(
+        self, max_traces: Optional[int] = 1000, max_events_per_trace: Optional[int] = 10000
+    ):
+        """
+        Args:
+            max_traces: Keep at most this many traces (oldest dropped first). None = no limit.
+            max_events_per_trace: Keep at most this many events per trace. None = no limit.
+        """
         self.traces: Dict[TraceId, List[TraceEvent]] = {}
+        self.max_traces = max_traces
+        self.max_events_per_trace = max_events_per_trace
 
     def collect(self, event: TraceEvent) -> None:
         """Collect a trace event."""
@@ -216,8 +218,12 @@ class InMemoryTraceCollector:
 
         if trace_id not in self.traces:
             self.traces[trace_id] = []
+            while self.max_traces is not None and len(self.traces) > self.max_traces:
+                self.traces.pop(next(iter(self.traces)))
 
-        self.traces[trace_id].append(event)
+        events = self.traces[trace_id]
+        if self.max_events_per_trace is None or len(events) < self.max_events_per_trace:
+            events.append(event)
 
     def get_trace(self, trace_id: TraceId) -> List[TraceEvent]:
         """Get all events for a specific trace."""
@@ -238,8 +244,8 @@ class InMemoryTraceCollector:
 class ConsoleTraceCollector:
     """Console trace collector with detailed logging."""
 
-    def __init__(self):
-        self.in_memory = InMemoryTraceCollector()
+    def __init__(self, max_traces: Optional[int] = 1000):
+        self.in_memory = InMemoryTraceCollector(max_traces=max_traces)
         self.run_start_times = {}  # Track start times per run
 
     def collect(self, event: TraceEvent) -> None:
@@ -256,13 +262,13 @@ class ConsoleTraceCollector:
             # Track start time for this run
             if run_id:
                 self.run_start_times[run_id] = time.time()
-            print(f"{prefix} Starting run {run_id} (trace: {trace_id})")
+            logger.debug(f"{prefix} Starting run {run_id} (trace: {trace_id})")
 
         elif event.type == "llm_call_start":
             data = event.data
             model = data.get("model")
             agent_name = data.get("agent_name") or data.get("agentName")
-            print(f"{prefix} Calling {model} for agent {agent_name}")
+            logger.debug(f"{prefix} Calling {model} for agent {agent_name}")
 
         elif event.type == "llm_call_end":
             data = event.data
@@ -281,24 +287,23 @@ class ConsoleTraceCollector:
             else:
                 response_type = "empty response"
 
-            print(f"{prefix} LLM responded with {response_type}")
+            logger.debug(f"{prefix} LLM responded with {response_type}")
 
         elif event.type == "tool_call_start":
             data = event.data
             tool_name = data.get("tool_name") or data.get("toolName")
-            args = data.get("args")
-            print(f"{prefix} Executing tool {tool_name} with args:", args)
+            logger.debug(f"{prefix} Executing tool {tool_name}")
 
         elif event.type == "tool_call_end":
             data = event.data
             tool_name = data.get("tool_name") or data.get("toolName")
-            print(f"{prefix} Tool {tool_name} completed")
+            logger.debug(f"{prefix} Tool {tool_name} completed")
 
         elif event.type == "handoff":
             data = event.data
             from_agent = data.get("from")
             to_agent = data.get("to")
-            print(f"{prefix} Agent handoff: {from_agent} → {to_agent}")
+            logger.debug(f"{prefix} Agent handoff: {from_agent} → {to_agent}")
 
         elif event.type == "run_end":
             data = event.data
@@ -325,7 +330,7 @@ class ConsoleTraceCollector:
 
                 if status == "completed":
                     elapsed_str = f" in {elapsed:.2f}s" if elapsed else ""
-                    print(f"{prefix} Run completed successfully{elapsed_str}")
+                    logger.debug(f"{prefix} Run completed successfully{elapsed_str}")
                 else:
                     error = outcome.error if hasattr(outcome, "error") else None
                     error_type = (
@@ -334,10 +339,10 @@ class ConsoleTraceCollector:
                         else "unknown"
                     )
                     elapsed_str = f" in {elapsed:.2f}s" if elapsed else ""
-                    print(f"{prefix} Run failed with {error_type}{elapsed_str}")
+                    logger.error(f"{prefix} Run failed with {error_type}{elapsed_str}")
             else:
                 elapsed_str = f" in {elapsed:.2f}s" if elapsed else ""
-                print(f"{prefix} Run completed{elapsed_str}")
+                logger.debug(f"{prefix} Run completed{elapsed_str}")
 
     def get_trace(self, trace_id: TraceId) -> List[TraceEvent]:
         """Get all events for a specific trace."""
@@ -355,9 +360,9 @@ class ConsoleTraceCollector:
 class FileTraceCollector:
     """File trace collector that writes events to a file."""
 
-    def __init__(self, file_path: str):
+    def __init__(self, file_path: str, max_traces: Optional[int] = 1000):
         self.file_path = file_path
-        self.in_memory = InMemoryTraceCollector()
+        self.in_memory = InMemoryTraceCollector(max_traces=max_traces)
 
     def collect(self, event: TraceEvent) -> None:
         """Collect event and write to file."""
@@ -375,10 +380,12 @@ class FileTraceCollector:
             if dir_path:
                 os.makedirs(dir_path, exist_ok=True)
 
-            with open(self.file_path, "a", encoding="utf-8") as f:
+            # Owner-only permissions: trace files can contain prompts and tool arguments
+            fd = os.open(self.file_path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
+            with os.fdopen(fd, "a", encoding="utf-8") as f:
                 f.write(json.dumps(log_entry, default=str) + "\n")
         except Exception as error:
-            print(f"Failed to write trace to file: {error}")
+            logger.error(f"Failed to write trace to file: {error}")
 
     def get_trace(self, trace_id: TraceId) -> List[TraceEvent]:
         """Get all events for a specific trace."""
@@ -411,6 +418,7 @@ class LangfuseTraceCollector:
         proxy: Optional[str] = None,
         timeout: Optional[int] = None,
         include_system_prompt: bool = False,
+        max_open_traces: Optional[int] = 1000,
     ):
         """Initialize Langfuse trace collector.
 
@@ -428,22 +436,19 @@ class LangfuseTraceCollector:
                   Falls back to LANGFUSE_PROXY environment variable.
             timeout: Optional timeout in seconds for HTTP requests. Defaults to 10.
             include_system_prompt: Whether to include system prompt in trace metadata. Defaults to False.
+            max_open_traces: How many runs can be in progress at once before the oldest unfinished
+                            run's local handle is dropped (its later events then no longer attach;
+                            data already sent to Langfuse is unaffected). Defaults to 1000;
+                            None means no limit.
         """
         public_key = public_key or os.environ.get("LANGFUSE_PUBLIC_KEY")
         secret_key = secret_key or os.environ.get("LANGFUSE_SECRET_KEY")
         host = host or os.environ.get("LANGFUSE_HOST")
 
-        print(f"[LANGFUSE] Initializing with host: {host}")
-        print(
-            f"[LANGFUSE] Public key: {public_key[:10]}..."
-            if public_key
-            else "[LANGFUSE] No public key set"
-        )
-        print(
-            f"[LANGFUSE] Secret key: {secret_key[:10]}..."
-            if secret_key
-            else "[LANGFUSE] No secret key set"
-        )
+        logger.debug(f"[LANGFUSE] Initializing with host: {host}")
+        # Credentials are never logged, not even a prefix
+        logger.debug(f"[LANGFUSE] Public key set: {bool(public_key)}")
+        logger.debug(f"[LANGFUSE] Secret key set: {bool(secret_key)}")
 
         # Track if we own the client for cleanup
         self._owns_httpx_client = False
@@ -456,23 +461,21 @@ class LangfuseTraceCollector:
             effective_timeout = timeout or int(os.environ.get("LANGFUSE_TIMEOUT", "10"))
 
             if effective_proxy:
-                print(f"[LANGFUSE] Configuring proxy: {effective_proxy}")
+                logger.debug("[LANGFUSE] Configuring proxy")  # the URL may embed credentials
                 try:
                     client = httpx.Client(proxy=effective_proxy, timeout=effective_timeout)
                     self._owns_httpx_client = True
                 except httpx.InvalidURL as e:
-                    logger = logging.getLogger(__name__)
-                    logger.error(f"[LANGFUSE] Invalid proxy URL '{effective_proxy}': {e}")
+                    logger.error(f"[LANGFUSE] Invalid proxy URL: {e}")
                     raise
                 except Exception as e:
-                    logger = logging.getLogger(__name__)
                     logger.error(
-                        f"[LANGFUSE] Failed to create httpx.Client with proxy '{effective_proxy}': {e}"
+                        f"[LANGFUSE] Failed to create httpx.Client with the configured proxy: {e}"
                     )
                     raise
             # If no proxy specified, httpx will still respect HTTP_PROXY/HTTPS_PROXY env vars
         elif proxy:
-            print(f"[LANGFUSE] Warning: proxy parameter ignored because httpx_client is provided")
+            logger.warning(f"[LANGFUSE] Warning: proxy parameter ignored because httpx_client is provided")
 
         self.langfuse = Langfuse(
             public_key=public_key,
@@ -483,13 +486,14 @@ class LangfuseTraceCollector:
         )
         self._httpx_client = client
         self.include_system_prompt = include_system_prompt
+        self.max_open_traces = max_open_traces
 
         # Detect Langfuse version (v2 has trace() method, v3 does not)
         self._is_langfuse_v3 = not hasattr(self.langfuse, "trace")
         if self._is_langfuse_v3:
-            print("[LANGFUSE] Detected Langfuse v3.x - using OpenTelemetry-based API")
+            logger.debug("[LANGFUSE] Detected Langfuse v3.x - using OpenTelemetry-based API")
         else:
-            print("[LANGFUSE] Detected Langfuse v2.x - using legacy API")
+            logger.debug("[LANGFUSE] Detected Langfuse v2.x - using legacy API")
 
         self.active_spans: Dict[str, Any] = {}
         self.trace_spans: Dict[TraceId, Any] = {}
@@ -507,7 +511,7 @@ class LangfuseTraceCollector:
             try:
                 self._httpx_client.close()
             except Exception as e:
-                print(f"[LANGFUSE] Warning: Failed to close httpx client: {e}")
+                logger.warning(f"[LANGFUSE] Warning: Failed to close httpx client: {e}")
 
     def _get_event_data(self, event: TraceEvent, key: str, default: Any = None) -> Any:
         """Extract data from event, handling both dict and dataclass."""
@@ -617,14 +621,14 @@ class LangfuseTraceCollector:
         try:
             trace_id = self._get_trace_id(event)
             if not trace_id:
-                print(f"[LANGFUSE] No trace_id found for event: {event.type}")
+                logger.debug(f"[LANGFUSE] No trace_id found for event: {event.type}")
                 return
 
-            print(f"[LANGFUSE] Processing event: {event.type} for trace: {trace_id}")
+            logger.debug(f"[LANGFUSE] Processing event: {event.type} for trace: {trace_id}")
 
             if event.type == "run_start":
                 # Start a new trace for the entire run
-                print(f"[LANGFUSE] Starting trace for run: {trace_id}")
+                logger.debug(f"[LANGFUSE] Starting trace for run: {trace_id}")
 
                 # Initialize tracking for this trace
                 self.trace_tool_calls[trace_id] = []
@@ -635,55 +639,32 @@ class LangfuseTraceCollector:
                 user_id = None
                 conversation_history = []
 
-                # Debug: Print the event data structure to understand what we're working with
-                if self._get_event_data(event, "context"):
-                    context = self._get_event_data(event, "context")
-                    print(f"[LANGFUSE DEBUG] Context type: {type(context)}")
-                    print(
-                        f"[LANGFUSE DEBUG] Context attributes: {dir(context) if hasattr(context, '__dict__') else 'Not an object'}"
-                    )
-                    if hasattr(context, "__dict__"):
-                        print(f"[LANGFUSE DEBUG] Context dict: {context.__dict__}")
-
                 # Try to extract from context first
                 context = self._get_event_data(event, "context")
                 if context:
                     # Try direct attribute access
                     if hasattr(context, "query"):
                         user_query = context.query
-                        print(f"[LANGFUSE DEBUG] Found user_query from context.query: {user_query}")
 
                     # Try to extract from combined_history
                     if hasattr(context, "combined_history") and context.combined_history:
                         history = context.combined_history
-                        print(
-                            f"[LANGFUSE DEBUG] Found combined_history with {len(history)} messages"
-                        )
                         for i, msg in enumerate(reversed(history)):
-                            print(f"[LANGFUSE DEBUG] History message {i}: {msg}")
                             if isinstance(msg, dict) and msg.get("role") == "user":
                                 user_query = msg.get("content", "")
-                                print(
-                                    f"[LANGFUSE DEBUG] Found user_query from history: {user_query}"
-                                )
                                 break
 
                     # Try to extract user_id from user_info
                     if hasattr(context, "user_info"):
                         user_info = context.user_info
-                        print(f"[LANGFUSE DEBUG] Found user_info: {type(user_info)}")
                         if isinstance(user_info, dict):
                             user_id = user_info.get("email") or user_info.get("username")
-                            print(f"[LANGFUSE DEBUG] Extracted user_id: {user_id}")
                         elif hasattr(user_info, "email"):
                             user_id = user_info.email
-                            print(f"[LANGFUSE DEBUG] Extracted user_id from attr: {user_id}")
 
                 # Extract conversation history and current user query from messages
                 messages = self._get_event_data(event, "messages", [])
                 if messages:
-                    print(f"[LANGFUSE DEBUG] Processing {len(messages)} messages")
-
                     # Find the last user message (current query) and extract conversation history (excluding current)
                     current_user_message_found = False
                     for i in range(len(messages) - 1, -1, -1):
@@ -732,9 +713,6 @@ class LangfuseTraceCollector:
                             }
                         else:
                             # Handle messages that don't have expected structure
-                            print(
-                                f"[LANGFUSE DEBUG] Skipping message with unexpected structure: {type(msg)}"
-                            )
                             continue
 
                         # Clean up None values from msg_data
@@ -744,14 +722,10 @@ class LangfuseTraceCollector:
                         if not current_user_message_found and (role == "user" or role == "user"):
                             user_query = content
                             current_user_message_found = True
-                            print(f"[LANGFUSE DEBUG] Found current user query: {user_query}")
                         elif current_user_message_found:
                             # Add to conversation history (excluding the current user message)
                             # Include ALL message types: assistant, tool, system, function, etc.
                             conversation_history.insert(0, msg_data)
-                            print(
-                                f"[LANGFUSE DEBUG] Added to conversation history: role={role}, content_length={len(str(content))}, has_tool_calls={bool(msg_data.get('tool_calls'))}"
-                            )
 
                 # Extract system prompt from context if enabled
                 system_prompt = None
@@ -760,34 +734,6 @@ class LangfuseTraceCollector:
                         system_prompt = context.get("system_prompt")
                     elif hasattr(context, "system_prompt"):
                         system_prompt = context.system_prompt
-
-                    if system_prompt:
-                        print(
-                            f"[LANGFUSE DEBUG] Extracted system_prompt: {system_prompt[:100] if isinstance(system_prompt, str) else system_prompt}..."
-                        )
-
-                print(
-                    f"[LANGFUSE DEBUG] Final extracted - user_query: {user_query}, user_id: {user_id}"
-                )
-                print(f"[LANGFUSE DEBUG] Conversation history length: {len(conversation_history)}")
-
-                # Debug: Log the roles and types captured in conversation history
-                if conversation_history:
-                    roles_summary = {}
-                    for msg in conversation_history:
-                        role = msg.get("role", "unknown")
-                        roles_summary[role] = roles_summary.get(role, 0) + 1
-                    print(f"[LANGFUSE DEBUG] Conversation history roles breakdown: {roles_summary}")
-
-                    # Log first few messages for verification
-                    for i, msg in enumerate(conversation_history[:3]):
-                        role = msg.get("role", "unknown")
-                        content_preview = str(msg.get("content", ""))[:100]
-                        has_tool_calls = bool(msg.get("tool_calls"))
-                        has_tool_call_id = bool(msg.get("tool_call_id"))
-                        print(
-                            f"[LANGFUSE DEBUG] History msg {i}: role={role}, content='{content_preview}...', tool_calls={has_tool_calls}, tool_call_id={has_tool_call_id}"
-                        )
 
                 # Create comprehensive input data for the trace
                 trace_input = {
@@ -847,19 +793,21 @@ class LangfuseTraceCollector:
                     metadata=metadata,
                 )
                 self.trace_spans[trace_id] = trace
+                # Runs that never reach run_end (crash, cancel) must not pin memory forever
+                while self.max_open_traces is not None and len(self.trace_spans) > self.max_open_traces:
+                    evicted = next(iter(self.trace_spans))
+                    self.trace_spans.pop(evicted, None)
+                    self.trace_tool_calls.pop(evicted, None)
+                    self.trace_tool_results.pop(evicted, None)
                 # Store user_id, user_query, conversation_history, and system_prompt for later use
                 trace._user_id = user_id or self._get_event_data(event, "user_id")
                 trace._user_query = user_query
                 trace._conversation_history = conversation_history
                 if self.include_system_prompt:
                     trace._system_prompt = system_prompt
-                print(
-                    f"[LANGFUSE] Created trace with user query: {user_query[:100] if user_query else 'None'}..."
-                )
-
             elif event.type == "run_end":
                 if trace_id in self.trace_spans:
-                    print(f"[LANGFUSE] Ending trace for run: {trace_id}")
+                    logger.debug(f"[LANGFUSE] Ending trace for run: {trace_id}")
 
                     # Update the trace metadata with final tool calls and results
                     conversation_history = getattr(
@@ -889,9 +837,9 @@ class LangfuseTraceCollector:
                     self.trace_spans[trace_id].update(output=event.data, metadata=final_metadata)
 
                     # Flush to ensure data is sent
-                    print(f"[LANGFUSE] Flushing data to Langfuse...")
+                    logger.debug(f"[LANGFUSE] Flushing data to Langfuse...")
                     self.langfuse.flush()
-                    print(f"[LANGFUSE] Flush completed")
+                    logger.debug(f"[LANGFUSE] Flush completed")
 
                     # Clean up
                     del self.trace_spans[trace_id]
@@ -900,12 +848,12 @@ class LangfuseTraceCollector:
                     if trace_id in self.trace_tool_results:
                         del self.trace_tool_results[trace_id]
                 else:
-                    print(f"[LANGFUSE] No trace found for run_end: {trace_id}")
+                    logger.debug(f"[LANGFUSE] No trace found for run_end: {trace_id}")
 
             elif event.type == "llm_call_start":
                 # Start a generation for LLM calls
                 model = self._get_event_data(event, "model", "unknown")
-                print(f"[LANGFUSE] Starting generation for LLM call with model: {model}")
+                logger.debug(f"[LANGFUSE] Starting generation for LLM call with model: {model}")
 
                 # Get stored user information from the trace
                 trace = self.trace_spans[trace_id]
@@ -934,12 +882,11 @@ class LangfuseTraceCollector:
                 )
                 span_id = self._get_span_id(event)
                 self.active_spans[span_id] = generation
-                print(f"[LANGFUSE] Created generation: {generation}")
 
             elif event.type == "llm_call_end":
                 span_id = self._get_span_id(event)
                 if span_id in self.active_spans:
-                    print(f"[LANGFUSE] Ending generation for LLM call")
+                    logger.debug(f"[LANGFUSE] Ending generation for LLM call")
                     # End the generation
                     generation = self.active_spans[span_id]
 
@@ -951,7 +898,7 @@ class LangfuseTraceCollector:
                     if model == "unknown" and isinstance(choice, dict):
                         model = choice.get("model", "unknown")
 
-                    print(f"[LANGFUSE] Extracted - model: '{model}', usage: {usage}")
+                    logger.debug(f"[LANGFUSE] Extracted - model: '{model}', usage: {usage}")
 
                     # Convert to Langfuse format with detailed cache information
                     langfuse_usage = None
@@ -1001,7 +948,7 @@ class LangfuseTraceCollector:
                             if "audio_tokens" in details and details["audio_tokens"]:
                                 langfuse_usage["output_audio_tokens"] = details["audio_tokens"]
 
-                        print(f"[LANGFUSE] Usage data with cache details: {langfuse_usage}")
+                        logger.debug(f"[LANGFUSE] Usage data with cache details: {langfuse_usage}")
 
                     # Include model information in the generation end - Langfuse will calculate costs automatically
                     # Use compatibility wrapper for ending spans/generations
@@ -1020,9 +967,9 @@ class LangfuseTraceCollector:
 
                     # Clean up the span reference
                     del self.active_spans[span_id]
-                    print(f"[LANGFUSE] Generation ended with cost tracking")
+                    logger.debug(f"[LANGFUSE] Generation ended with cost tracking")
                 else:
-                    print(f"[LANGFUSE] No generation found for llm_call_end: {span_id}")
+                    logger.debug(f"[LANGFUSE] No generation found for llm_call_end: {span_id}")
 
             elif event.type == "tool_call_start":
                 # Start a span for tool calls with detailed input information
@@ -1035,9 +982,9 @@ class LangfuseTraceCollector:
                         event.data["call_id"] = call_id
                     except TypeError:
                         # event.data may be immutable; log and rely on synthetic ID tracking downstream
-                        print(f"[LANGFUSE] Generated synthetic call_id for tool start: {call_id}")
+                        logger.debug(f"[LANGFUSE] Generated synthetic call_id for tool start: {call_id}")
 
-                print(f"[LANGFUSE] Starting span for tool call: {tool_name} ({call_id})")
+                logger.debug(f"[LANGFUSE] Starting span for tool call: {tool_name} ({call_id})")
 
                 # Track this tool call for the trace
                 tool_call_data = {
@@ -1075,9 +1022,6 @@ class LangfuseTraceCollector:
                 )
                 span_id = self._get_span_id(event)
                 self.active_spans[span_id] = span
-                print(
-                    f"[LANGFUSE] Created tool span for {tool_name} with args: {str(tool_args)[:100]}..."
-                )
 
             elif event.type == "tool_call_end":
                 span_id = self._get_span_id(event)
@@ -1086,7 +1030,7 @@ class LangfuseTraceCollector:
                     tool_result = self._get_event_data(event, "result")
                     call_id = self._get_event_data(event, "call_id")
 
-                    print(f"[LANGFUSE] Ending span for tool call: {tool_name} ({call_id})")
+                    logger.debug(f"[LANGFUSE] Ending span for tool call: {tool_name} ({call_id})")
 
                     # Track this tool result for the trace
                     tool_result_data = {
@@ -1139,15 +1083,13 @@ class LangfuseTraceCollector:
 
                     # Clean up the span reference
                     del self.active_spans[span_id]
-                    print(
-                        f"[LANGFUSE] Tool span ended for {tool_name} with result length: {len(str(tool_result)) if tool_result else 0}"
-                    )
+                    logger.debug(f"[LANGFUSE] Tool span ended for {tool_name} with result length: {len(str(tool_result)) if tool_result else 0}")
                 else:
-                    print(f"[LANGFUSE] No tool span found for tool_call_end: {span_id}")
+                    logger.debug(f"[LANGFUSE] No tool span found for tool_call_end: {span_id}")
 
             elif event.type == "handoff":
                 # Create an event for handoffs
-                print(f"[LANGFUSE] Creating event for handoff")
+                logger.debug(f"[LANGFUSE] Creating event for handoff")
                 # Use compatibility layer to create event (works with both v2 and v3)
                 self._create_event(
                     parent_span=self.trace_spans[trace_id],
@@ -1158,7 +1100,7 @@ class LangfuseTraceCollector:
                     },
                     metadata=event.data,
                 )
-                print(f"[LANGFUSE] Handoff event created")
+                logger.debug(f"[LANGFUSE] Handoff event created")
 
             elif event.type == "retry":
                 # Create an event for retry attempts
@@ -1169,9 +1111,7 @@ class LangfuseTraceCollector:
                 delay = self._get_event_data(event, "delay")
                 error_details = self._get_event_data(event, "error_details", {})
 
-                print(
-                    f"[LANGFUSE] Recording retry event: attempt {attempt}/{max_retries} for {operation}, reason: {reason}"
-                )
+                logger.debug(f"[LANGFUSE] Recording retry event: attempt {attempt}/{max_retries} for {operation}, reason: {reason}")
 
                 # Create comprehensive retry event data
                 retry_input = {
@@ -1199,11 +1139,11 @@ class LangfuseTraceCollector:
                         "is_final_retry": attempt >= max_retries,
                     },
                 )
-                print(f"[LANGFUSE] Retry event created for attempt {attempt}/{max_retries}")
+                logger.debug(f"[LANGFUSE] Retry event created for attempt {attempt}/{max_retries}")
 
             else:
                 # Create a generic event for other event types
-                print(f"[LANGFUSE] Creating generic event for: {event.type}")
+                logger.debug(f"[LANGFUSE] Creating generic event for: {event.type}")
                 # Use compatibility layer to create event (works with both v2 and v3)
                 self._create_event(
                     parent_span=self.trace_spans[trace_id],
@@ -1211,11 +1151,11 @@ class LangfuseTraceCollector:
                     input=event.data,
                     metadata={"framework": "jaf", "event_type": event.type},
                 )
-                print(f"[LANGFUSE] Generic event created")
+                logger.debug(f"[LANGFUSE] Generic event created")
 
         except Exception as e:
             # Log error but don't break the application
-            print(f"[LANGFUSE] ERROR: Trace collection failed: {e}")
+            logger.error(f"[LANGFUSE] ERROR: Trace collection failed: {e}")
             import traceback
 
             traceback.print_exc()
@@ -1293,8 +1233,11 @@ def create_composite_trace_collector(
     proxy: Optional[str] = None,
     timeout: Optional[int] = None,
     include_system_prompt: bool = False,
+    max_open_traces: Optional[int] = 1000,
 ) -> TraceCollector:
     """Create a composite trace collector that forwards events to multiple collectors.
+
+    ``max_open_traces`` is passed to the Langfuse collector (see ``LangfuseTraceCollector``).
 
     Args:
         *collectors: Variable length list of trace collectors
@@ -1340,6 +1283,7 @@ def create_composite_trace_collector(
             proxy=proxy,
             timeout=timeout,
             include_system_prompt=include_system_prompt,
+            max_open_traces=max_open_traces,
         )
         collector_list.append(langfuse_collector)
 
@@ -1353,7 +1297,7 @@ def create_composite_trace_collector(
                 try:
                     collector.collect(event)
                 except Exception as e:
-                    print(f"Warning: Trace collector failed: {e}")
+                    logger.warning(f"Warning: Trace collector failed: {e}")
 
         def get_trace(self, trace_id: TraceId) -> List[TraceEvent]:
             """Get trace from first collector."""
@@ -1373,7 +1317,7 @@ def create_composite_trace_collector(
                 try:
                     collector.clear(trace_id)
                 except Exception as e:
-                    print(f"Warning: Failed to clear trace collector: {e}")
+                    logger.warning(f"Warning: Failed to clear trace collector: {e}")
 
         def close(self) -> None:
             """Close all collectors that support cleanup."""
@@ -1382,7 +1326,7 @@ def create_composite_trace_collector(
                     try:
                         collector.close()
                     except Exception as e:
-                        print(f"Warning: Failed to close trace collector: {e}")
+                        logger.warning(f"Warning: Failed to close trace collector: {e}")
 
         def __enter__(self):
             return self
