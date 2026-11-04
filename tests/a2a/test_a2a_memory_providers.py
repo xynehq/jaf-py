@@ -49,7 +49,7 @@ def check_postgres_available():
 
         async def test_connection():
             pg_user = os.getenv("JAF_POSTGRES_USER", "postgres")
-            pg_password = os.getenv("JAF_POSTGRES_PASSWORD", "postgres")
+            pg_password = os.getenv("JAF_POSTGRES_PASSWORD", "")
             pg_db = os.getenv("JAF_POSTGRES_DB", "jaf_test")
 
             try:
@@ -306,7 +306,7 @@ async def test_postgres_provider():
 
         print("📡 Connecting to PostgreSQL...")
         pg_user = os.getenv("JAF_POSTGRES_USER", "postgres")
-        pg_password = os.getenv("JAF_POSTGRES_PASSWORD", "postgres")
+        pg_password = os.getenv("JAF_POSTGRES_PASSWORD", "")
         pg_host = os.getenv("JAF_POSTGRES_HOST", "localhost")
         pg_db = os.getenv("JAF_POSTGRES_DB", "jaf_test")
 

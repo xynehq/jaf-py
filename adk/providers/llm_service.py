@@ -5,6 +5,7 @@ This module provides a production-grade LLM service with real API integration,
 streaming support, multiple providers, and comprehensive error handling.
 """
 
+import os
 import asyncio
 import json
 from dataclasses import dataclass
@@ -133,7 +134,7 @@ class AdkLLMService:
 
             # LiteLLM uses OpenAI-compatible API
             self.client = AsyncOpenAI(
-                api_key=self.config.api_key or "anything",
+                api_key=self.config.api_key or os.getenv("LITELLM_API_KEY") or "not-set",
                 base_url=self.config.base_url or "http://localhost:4000",
                 timeout=self.config.timeout,
             )
@@ -290,7 +291,7 @@ class AdkLLMService:
 
         # Generic error
         return AdkLLMError(
-            f"LLM request failed: {error}",
+            f"LLM request failed ({type(error).__name__})",
             provider=self.config.provider.value,
             error_type=AdkErrorType.INTERNAL,
             cause=error,

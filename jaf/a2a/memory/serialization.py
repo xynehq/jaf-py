@@ -351,8 +351,11 @@ def clone_task(task: A2ATask) -> A2AResult[A2ATask]:
 
 def sanitize_task(task: A2ATask) -> A2AResult[A2ATask]:
     """
-    Pure function to sanitize task data for storage
-    Removes any potentially dangerous or invalid data
+    Pure function to normalize task data for storage.
+
+    Validates the task structure, deep-clones it and normalizes the status timestamp.
+    It does NOT inspect or alter message, artifact or metadata content: that content is
+    untrusted and must be escaped by whatever renders it.
 
     Args:
         task: The A2A task to sanitize

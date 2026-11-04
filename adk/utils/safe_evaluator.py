@@ -10,6 +10,16 @@ import operator
 from typing import Union, Any
 
 
+_MAX_EXPONENT = 1000
+
+
+def _bounded_pow(base: Union[int, float], exponent: Union[int, float]) -> Union[int, float]:
+    """Exponentiation with a capped exponent so inputs like 9**9**9 cannot exhaust CPU/memory."""
+    if abs(exponent) > _MAX_EXPONENT:
+        raise ValueError(f"Exponent too large (max {_MAX_EXPONENT})")
+    return operator.pow(base, exponent)
+
+
 class SafeMathEvaluator:
     """
     Safe mathematical expression evaluator without code injection risk.
@@ -27,7 +37,7 @@ class SafeMathEvaluator:
         ast.Div: operator.truediv,  # /
         ast.FloorDiv: operator.floordiv,  # //
         ast.Mod: operator.mod,  # %
-        ast.Pow: operator.pow,  # **
+        ast.Pow: _bounded_pow,  # ** (bounded)
         ast.USub: operator.neg,  # -x (unary minus)
         ast.UAdd: operator.pos,  # +x (unary plus)
     }

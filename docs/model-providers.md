@@ -492,6 +492,27 @@ class CalculatorTool:
 }
 ```
 
+### Image Inputs (behaviour change)
+
+Earlier versions checked, before sending any request that contained an image, whether the model supports vision. They asked the LiteLLM server and, if it did not answer, compared the model name against a built-in list of seven models. A newer vision model that was not on that list was rejected locally with `Model ... does not support vision capabilities`.
+
+That check has been removed, because such a list is always out of date. Images are now sent to the provider as they are:
+
+- If the model can read images, it just works, including models released after this package.
+- If it cannot, the provider's own error is returned to your application unchanged (for example a LiteLLM or OpenAI `BadRequestError`), instead of the old local `ValueError`.
+
+If your code caught the old `ValueError` message to detect "model has no vision", catch the provider error instead. Decide which models may receive images in your application.
+
+### Azure Responses WebSocket: auth and extra headers
+
+When `websocket=True` is used with the Azure Responses API, the connection now sends these as **handshake headers** rather than inside the JSON message:
+
+- `extra_headers` (the same dictionary LiteLLM sends as HTTP headers on normal calls) are added to the handshake. They never replace the `Authorization` header.
+- `azure_ad_token` is used as `Authorization: Bearer <token>` only when no `api_key` is set. If an `api_key` is present, behaviour is unchanged.
+- `azure_ad_token`, `azure_ad_token_provider` and `extra_headers` are no longer copied into the message body. Before, they were sent there, where Azure ignores them (or rejects the unknown field) and where request-body logging could capture a token.
+
+Calls that do not use the WebSocket path are unaffected; LiteLLM continues to handle these settings itself.
+
 ### Response Format Control
 
 ```python

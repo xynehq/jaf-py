@@ -301,10 +301,8 @@ def check_postgres_available():
         # Try to connect to PostgreSQL
         async def test_connection():
             try:
-                connection_string = os.getenv(
-                    "JAF_POSTGRES_CONNECTION_STRING",
-                    "postgresql://postgres:postgres@localhost:5432/jaf_test",
-                )
+                # No credentials in source: set JAF_POSTGRES_CONNECTION_STRING to run these tests
+                connection_string = os.getenv("JAF_POSTGRES_CONNECTION_STRING", "postgresql://localhost:5432/jaf_test")
                 conn = await asyncpg.connect(dsn=connection_string)
                 await conn.close()
                 return True
@@ -368,8 +366,8 @@ async def test_postgres_provider():
             port=5432,
             database="jaf_memory",
             username="postgres",
-            password="testpass",
-            ssl=False,
+            password=os.getenv("JAF_POSTGRES_PASSWORD", ""),
+            ssl=os.getenv("JAF_POSTGRES_SSL", "false").lower() == "true",
             table_name="test_conversations",
             max_connections=10,
         )

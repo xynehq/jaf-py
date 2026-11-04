@@ -10,6 +10,7 @@ This script tests the complete regeneration system across:
 5. Multiple regeneration scenarios
 """
 
+import os
 import asyncio
 import json
 import sys
@@ -394,7 +395,7 @@ async def test_all_providers(results: TestResults):
                 port=5432,
                 database="jaf_test",
                 username="postgres",
-                password="test",
+                password=os.getenv("JAF_POSTGRES_PASSWORD", ""),
                 table_name="test_conversations",
             )
 

@@ -114,7 +114,8 @@ def create_composite_a2a_task_provider(
 
             # Return combined count if primary succeeded
             if isinstance(primary_result.data, int):
-                total_count = primary_result.data + fallback_count
+                # Tasks mirrored in both stores must not be counted twice
+                total_count = max(primary_result.data, fallback_count)
                 return create_a2a_success(total_count)
 
             return primary_result
@@ -131,7 +132,8 @@ def create_composite_a2a_task_provider(
 
             # Return combined count
             if isinstance(primary_result.data, int):
-                total_count = primary_result.data + fallback_count
+                # Tasks mirrored in both stores must not be counted twice
+                total_count = max(primary_result.data, fallback_count)
                 return create_a2a_success(total_count)
 
             return primary_result
@@ -178,19 +180,25 @@ def create_composite_a2a_task_provider(
 
         async def close(self) -> A2AResult[None]:
             """Close both providers"""
+            first_error: Optional[Exception] = None
+            primary_result = None
+
+            # Always attempt both closes so a failing primary cannot leak the fallback's connections
             try:
-                # Close primary
                 primary_result = await primary.close()
-
-                # Close fallback
-                if fallback:
-                    await fallback.close()
-
-                return primary_result
-
             except Exception as error:
+                first_error = error
+
+            if fallback:
+                try:
+                    await fallback.close()
+                except Exception as error:
+                    first_error = first_error or error
+
+            if first_error is not None:
                 return create_a2a_failure(
-                    create_a2a_task_storage_error("close", "composite", None, error)
+                    create_a2a_task_storage_error("close", "composite", None, first_error)
                 )
+            return primary_result
 
     return CompositeA2ATaskProvider()

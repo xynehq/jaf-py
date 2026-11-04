@@ -103,7 +103,7 @@ Tools:
 def create_model_provider():
     """Create model provider with environment configuration."""
     base_url = os.getenv("LITELLM_URL", "http://localhost:4000")
-    api_key = os.getenv("LITELLM_API_KEY", "sk-demo")
+    api_key = os.getenv("LITELLM_API_KEY")
 
     print(Colors.green(f"🤖 Using LiteLLM: {base_url}"))
     return make_litellm_provider(base_url, api_key)

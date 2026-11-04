@@ -7,7 +7,9 @@ parallel processing, and higher-order tool transformations.
 """
 
 import asyncio
+import hashlib
 import json
+import logging
 from dataclasses import dataclass, field
 from typing import (
     Any,
@@ -27,6 +29,9 @@ from enum import Enum
 
 from .types import Tool, ToolSchema, ToolSource, ToolExecuteFunction
 from .tool_results import ToolResult, ToolResponse
+from ..utils.redact import redact_error_text
+
+logger = logging.getLogger(__name__)
 
 
 T = TypeVar("T")
@@ -115,10 +120,12 @@ class ToolPipeline:
                             current_input = result.data if hasattr(result, "data") else result
 
                     except Exception as e:
+                        logger.error(f"Pipeline failed at step {i + 1} ({tool.schema.name}): {e}", exc_info=True)
+                        # Earlier steps' outputs may be sensitive, so only the step is reported
                         return ToolResponse.error(
                             code="pipeline_error",
-                            message=f"Pipeline failed at step {i + 1} ({tool.schema.name}): {str(e)}",
-                            details={"step": i + 1, "tool": tool.schema.name, "results": results},
+                            message=f"Pipeline failed at step {i + 1} ({tool.schema.name}): {redact_error_text(str(e))}",
+                            details={"step": i + 1, "tool": tool.schema.name},
                         )
 
                 return ToolResponse.success(
@@ -222,7 +229,7 @@ class ParallelToolExecution:
                     execution_time = (__import__("time").time() - start_time) * 1000
                     return {
                         "success": False,
-                        "error": str(e),
+                        "error": redact_error_text(str(e)),
                         "execution_time_ms": execution_time,
                         "tool_name": tool.schema.name,
                     }
@@ -326,13 +333,21 @@ class ConditionalTool:
                         )
 
                 except Exception as e:
+                    logger.error(f"Conditional tool execution failed: {e}", exc_info=True)
                     return ToolResponse.error(
                         code="conditional_error",
-                        message=f"Conditional tool execution failed: {str(e)}",
+                        message=f"Conditional tool execution failed: {redact_error_text(str(e))}",
                         details={"conditional_name": self.conditional.name},
                     )
 
         return ConditionalToolImpl(self)
+
+
+def _call_never_started(error: Exception) -> bool:
+    """True for failures that happen before the request reaches the tool's backend."""
+    import socket
+
+    return isinstance(error, (ConnectionRefusedError, socket.gaierror))
 
 
 class RetryTool:
@@ -346,11 +361,23 @@ class RetryTool:
         max_retries: int = 3,
         backoff_factor: float = 1.0,
         retry_on: Optional[Callable[[Exception], bool]] = None,
+        idempotent_only: bool = False,
     ):
         self.tool = tool
         self.max_retries = max_retries
         self.backoff_factor = backoff_factor
         self.retry_on = retry_on or (lambda e: True)  # Retry on all exceptions by default
+        self.idempotent_only = idempotent_only
+
+    def _may_retry(self, error: Exception) -> bool:
+        """Whether this failure is safe and allowed to be retried."""
+        if self.idempotent_only and not (
+            getattr(self.tool, "idempotent", False) is True or _call_never_started(error)
+        ):
+            # A non-idempotent tool may already have done its work (e.g. a charge that then
+            # timed out), so repeating it could do it twice.
+            return False
+        return self.retry_on(error)
 
     def create_tool(self) -> Tool[Any, Any]:
         """Create a retry-enabled tool."""
@@ -398,7 +425,7 @@ class RetryTool:
                         last_exception = e
 
                         # Check if we should retry this exception
-                        if not self.retry_tool.retry_on(e):
+                        if not self.retry_tool._may_retry(e):
                             break
 
                         # Don't sleep on the last attempt
@@ -420,6 +447,15 @@ class RetryTool:
         return RetryToolImpl(self)
 
 
+def _cache_principal(context: Any) -> str:
+    """Identify the caller (user, then session) from a dict or object context."""
+    for field in ("user_id", "session_id"):
+        value = context.get(field) if isinstance(context, dict) else getattr(context, field, None)
+        if value:
+            return f"{field}={value}"
+    return ""
+
+
 class CachedTool:
     """
     Wraps a tool with caching to avoid redundant executions.
@@ -430,9 +466,13 @@ class CachedTool:
         tool: Tool[Any, Any],
         cache_key_fn: Optional[Callable[[Any], str]] = None,
         ttl_seconds: Optional[float] = None,
+        max_entries: int = 1000,
     ):
         self.tool = tool
-        self.cache_key_fn = cache_key_fn or (lambda args: str(hash(str(args))))
+        self.max_entries = max_entries  # oldest entries are evicted beyond this
+        self.cache_key_fn = cache_key_fn or (
+            lambda args: hashlib.sha256(str(args).encode()).hexdigest()
+        )
         self.ttl_seconds = ttl_seconds
         self.cache: Dict[str, Dict[str, Any]] = {}
 
@@ -453,7 +493,8 @@ class CachedTool:
 
             async def execute(self, args: Any, context: Any) -> Union[str, ToolResult]:
                 """Execute with caching."""
-                cache_key = self.cached_tool.cache_key_fn(args)
+                # Scope entries to the caller so one user's result is never served to another
+                cache_key = f"{_cache_principal(context)}:{self.cached_tool.cache_key_fn(args)}"
                 current_time = __import__("time").time()
 
                 # Check cache
@@ -495,6 +536,8 @@ class CachedTool:
                         "result": result,
                         "timestamp": current_time,
                     }
+                    while len(self.cached_tool.cache) > self.cached_tool.max_entries:
+                        self.cached_tool.cache.pop(next(iter(self.cached_tool.cache)))
 
                     # Return with cache metadata
                     if isinstance(result, str):
@@ -512,9 +555,10 @@ class CachedTool:
                         )
 
                 except Exception as e:
+                    logger.error(f"Cached tool execution failed: {e}", exc_info=True)
                     return ToolResponse.error(
                         code="cached_tool_error",
-                        message=f"Cached tool execution failed: {str(e)}",
+                        message=f"Cached tool execution failed: {redact_error_text(str(e))}",
                         details={"original_tool": self.cached_tool.tool.schema.name},
                     )
 
@@ -551,9 +595,15 @@ def with_retry(
     max_retries: int = 3,
     backoff_factor: float = 1.0,
     retry_on: Optional[Callable[[Exception], bool]] = None,
+    idempotent_only: bool = False,
 ) -> Tool[Any, Any]:
-    """Wrap a tool with retry logic."""
-    return RetryTool(tool, max_retries, backoff_factor, retry_on).create_tool()
+    """Wrap a tool with retry logic.
+
+    By default every exception is retried. With ``idempotent_only=True`` only tools that set
+    ``idempotent = True`` are retried on any error; other tools are retried only when the call
+    never started (connection refused, DNS failure).
+    """
+    return RetryTool(tool, max_retries, backoff_factor, retry_on, idempotent_only).create_tool()
 
 
 def with_cache(

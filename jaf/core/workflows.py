@@ -7,6 +7,7 @@ dynamic workflow adaptation based on runtime conditions.
 """
 
 import asyncio
+import copy
 import time
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any, Callable, Union, AsyncIterator
@@ -198,7 +199,7 @@ class AgentStep(WorkflowStep):
                 status=StepStatus.COMPLETED,
                 output=f"Agent {self.agent.name} processed: {self.message}",
                 execution_time_ms=execution_time,
-                metadata={"agent_name": self.agent.name, "instructions": instructions},
+                metadata={"agent_name": self.agent.name},  # instructions may be sensitive; not echoed
             )
 
         except Exception as e:
@@ -315,18 +316,33 @@ class ParallelStep(WorkflowStep):
         start_time = time.time()
 
         try:
-            # Execute all steps in parallel
-            tasks = [step.execute(context) for step in self.steps]
+            # Each parallel step gets its own copy of the shared state so they cannot trample each other
+            def _isolated() -> WorkflowContext:
+                return WorkflowContext(
+                    workflow_id=context.workflow_id,
+                    user_context=copy.copy(context.user_context),
+                    variables=dict(context.variables),
+                    metadata=dict(context.metadata),
+                )
+
+            tasks = [asyncio.ensure_future(step.execute(_isolated())) for step in self.steps]
 
             if self.wait_for_all:
                 results = await asyncio.gather(*tasks, return_exceptions=True)
             else:
-                # Return as soon as first completes successfully
-                done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-                results = [await task for task in done]
-                # Cancel pending tasks
-                for task in pending:
-                    task.cancel()
+                # Return as soon as one step *succeeds*; a fast failure must not cancel siblings
+                pending = set(tasks)
+                results = []
+                try:
+                    while pending:
+                        done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+                        finished = [t.exception() or t.result() for t in done]
+                        results.extend(finished)
+                        if any(not isinstance(r, Exception) and r.is_success for r in finished):
+                            break
+                finally:
+                    for task in pending:
+                        task.cancel()
 
             execution_time = (time.time() - start_time) * 1000
 
@@ -588,7 +604,7 @@ class Workflow:
 
                 if attempt < step.max_retries:
                     # Wait before retry with exponential backoff
-                    wait_time = 2**attempt
+                    wait_time = min(2**attempt, 60)  # cap so a high max_retries cannot stall the workflow
                     await asyncio.sleep(wait_time)
 
             except asyncio.TimeoutError:

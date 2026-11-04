@@ -175,9 +175,18 @@ class InMemoryApprovalStorage(ApprovalStorage):
                     **(updates.get("additional_context", {})),
                 }
 
+                # The recorded decision is immutable; only additional context may change
+                if any(
+                    key in updates and updates[key] != getattr(existing, key)
+                    for key in ("status", "approved")
+                ):
+                    return ApprovalStorageResult.error_result(
+                        f"Approval decision for tool call {tool_call_id} is immutable"
+                    )
+
                 updated_approval = ApprovalValue(
-                    status=updates.get("status", existing.status),
-                    approved=updates.get("approved", existing.approved),
+                    status=existing.status,
+                    approved=existing.approved,
                     additional_context=merged_context
                     if merged_context
                     else existing.additional_context,
@@ -265,8 +274,8 @@ class InMemoryApprovalStorage(ApprovalStorage):
 
             return ApprovalStorageResult.success_result(health_data)
         except Exception as e:
-            health_data = {"healthy": False, "error": str(e)}
-            return ApprovalStorageResult.success_result(health_data)
+            # An unhealthy store must not look like success to callers that only check the flag
+            return ApprovalStorageResult.error_result(f"Approval storage unhealthy: {type(e).__name__}")
 
     async def close(self) -> ApprovalStorageResult:
         """Close/cleanup the storage."""

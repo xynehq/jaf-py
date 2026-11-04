@@ -308,6 +308,8 @@ class StreamEvent(BaseModel):
     model_config = {"frozen": True}
 
     isTaskComplete: bool
+    # Set by the framework when the run failed; never inferred from the text of the reply
+    isError: bool = False
     content: Optional[Any] = None
     updates: Optional[str] = None
     new_state: Optional[Dict[str, Any]] = Field(None, alias="newState")
@@ -426,6 +428,8 @@ class A2AClientConfig(BaseModel):
 
     base_url: str = Field(alias="baseUrl")
     timeout: Optional[int] = None
+    # Extra headers on every request, e.g. {"Authorization": "Bearer <token>"}
+    headers: Optional[Dict[str, str]] = None
 
 
 class A2AClientState(BaseModel):

@@ -5,6 +5,7 @@ No classes, only pure functions and immutable data
 
 import asyncio
 import json
+import logging
 import time
 import uuid
 from collections.abc import AsyncGenerator
@@ -20,6 +21,8 @@ from .types import (
     StreamEvent,
     ToolContext,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def create_a2a_agent(
@@ -160,18 +163,13 @@ def create_run_config_for_a2a_agent(a2a_agent: A2AAgent, model_provider: Any) ->
     jaf_agent = transform_a2a_agent_to_jaf(a2a_agent)
 
     def event_handler(event: Any) -> None:
-        # Handle different event types properly
-        if hasattr(event, "data"):
-            event_data = event.data
-            event_type = type(event).__name__
-        elif isinstance(event, dict):
-            event_data = event.get("data", "")
+        # Log the event type only; event data carries message content and tool payloads.
+        if isinstance(event, dict):
             event_type = event.get("type", "unknown")
         else:
-            event_data = str(event)
             event_type = type(event).__name__
 
-        print(f"[A2A:{a2a_agent.name}] {event_type}: {event_data}")
+        logger.debug(f"[A2A:{a2a_agent.name}] {event_type}")
 
     return RunConfig(
         agent_registry={a2a_agent.name: jaf_agent},
@@ -271,6 +269,7 @@ async def process_agent_query(
             error_content = getattr(result.outcome, "error", "Unknown error")
             yield StreamEvent(
                 isTaskComplete=True,
+                isError=True,
                 content=f"Error: {json.dumps(error_content) if isinstance(error_content, dict) else str(error_content)}",
                 new_state=final_state.model_dump(),
                 timestamp=datetime.now().isoformat(),
@@ -296,7 +295,7 @@ async def process_agent_query(
         elif "connection" in str(error).lower():
             safe_error = "Connection error - please check connectivity"
         elif "validation" in str(error).lower():
-            safe_error = f"Validation error: {error!s}"
+            safe_error = "Validation error: the request was invalid"
         elif "permission" in str(error).lower() or "unauthorized" in str(error).lower():
             safe_error = "Insufficient permissions for this operation"
         else:
@@ -304,6 +303,7 @@ async def process_agent_query(
 
         yield StreamEvent(
             isTaskComplete=True,
+            isError=True,
             content=f"Error: {safe_error}",
             new_state=new_state.model_dump(),
             timestamp=datetime.now().isoformat(),
@@ -366,7 +366,7 @@ def create_a2a_task(message: Dict[str, Any], context_id: Optional[str] = None) -
 
     return {
         "id": task_id,
-        "contextId": context_id or f"ctx_{int(time.time() * 1000)}",
+        "contextId": context_id or f"ctx_{int(time.time() * 1000)}_{uuid.uuid4().hex[:12]}",
         "status": {"state": "submitted", "timestamp": current_time},
         "history": [message],
         "artifacts": [],
@@ -448,7 +448,7 @@ async def execute_a2a_agent(
 
             if event.isTaskComplete:
                 # Handle final result
-                if isinstance(event.content, str) and event.content.startswith("Error: "):
+                if event.isError and isinstance(event.content, str) and event.content.startswith("Error: "):
                     # Error case
                     error_message = event.content[7:]  # Remove "Error: " prefix
                     updated_task = update_a2a_task_status(
@@ -492,7 +492,7 @@ async def execute_a2a_agent(
         elif "connection" in str(error).lower():
             safe_error = "Connection error - please check connectivity"
         elif "validation" in str(error).lower():
-            safe_error = f"Validation error: {error!s}"
+            safe_error = "Validation error: the request was invalid"
         elif "permission" in str(error).lower() or "unauthorized" in str(error).lower():
             safe_error = "Insufficient permissions for this operation"
         else:
@@ -558,7 +558,7 @@ async def execute_a2a_agent_with_streaming(
                 }
             else:
                 # Handle final result
-                if isinstance(event.content, str) and event.content.startswith("Error: "):
+                if event.isError and isinstance(event.content, str) and event.content.startswith("Error: "):
                     error_message = event.content[7:]
                     yield {
                         "kind": "status-update",
@@ -595,7 +595,8 @@ async def execute_a2a_agent_with_streaming(
                 break
 
     except Exception as error:
-        error_message = str(error)
+        logger.exception(f"[JAF:A2A] Streaming execution failed: {error}")
+        error_message = "Agent execution failed"
         yield {
             "kind": "status-update",
             "taskId": current_task["id"],

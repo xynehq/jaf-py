@@ -117,14 +117,15 @@ async def create_a2a_redis_task_provider(
                         await pipe.hset(task_key, mapping=task_hash)
 
                         # Set TTL if specified
-                        if metadata and metadata.get("expires_at"):
-                            expires_at = metadata["expires_at"]
-                            if isinstance(expires_at, datetime):
-                                ttl_seconds = int((expires_at - datetime.now()).total_seconds())
-                                if ttl_seconds > 0:
-                                    await pipe.expire(task_key, ttl_seconds)
-                        elif config.default_ttl:
-                            await pipe.expire(task_key, config.default_ttl)
+                        ttl_seconds = None
+                        expires_at = metadata.get("expires_at") if metadata else None
+                        if isinstance(expires_at, datetime):
+                            ttl_seconds = int((expires_at - datetime.now()).total_seconds())
+                        # A missing or invalid expires_at must not leave the task without any expiry
+                        if ttl_seconds is None and config.default_ttl:
+                            ttl_seconds = config.default_ttl
+                        if ttl_seconds is not None and ttl_seconds > 0:
+                            await pipe.expire(task_key, ttl_seconds)
 
                         # Add to indices
                         await pipe.sadd(context_index_key, task.id)
@@ -316,7 +317,7 @@ async def create_a2a_redis_task_provider(
                     else:
                         # Get all task keys if no context or state is provided
                         pattern = f"{key_prefix}task:*"
-                        keys = await redis_client.keys(pattern)
+                        keys = [key async for key in redis_client.scan_iter(match=pattern, count=500)]
                         task_ids = [key.replace(f"{key_prefix}task:", "") for key in keys]
 
                     # Convert bytes to strings if needed
@@ -579,7 +580,7 @@ async def create_a2a_redis_task_provider(
                     )
 
                 except Exception as error:
-                    return create_a2a_success({"healthy": False, "error": str(error)})
+                    return create_a2a_success({"healthy": False, "error": type(error).__name__})
 
             async def close(self) -> A2AResult[None]:
                 """Close/cleanup the provider"""

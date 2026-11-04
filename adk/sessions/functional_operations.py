@@ -6,7 +6,7 @@ logic from side effects to follow functional programming principles.
 """
 
 from typing import Any, Dict, List, Optional, Callable, Awaitable
-from datetime import datetime
+from datetime import datetime, timezone
 from ..types import AdkMessage, AdkResult, AdkSuccess, AdkFailure
 from ..types.immutable_session import ImmutableAdkSession, create_immutable_session
 from ..errors import AdkSessionError
@@ -177,7 +177,10 @@ def has_recent_activity(minutes: int) -> SessionPredicate:
     """
 
     def predicate(session: ImmutableAdkSession) -> bool:
-        time_diff = datetime.now() - session.updated_at
+        updated_at = session.updated_at
+        if updated_at.tzinfo is None:  # stored naive timestamps are treated as UTC
+            updated_at = updated_at.replace(tzinfo=timezone.utc)
+        time_diff = datetime.now(timezone.utc) - updated_at
         return time_diff.total_seconds() < (minutes * 60)
 
     return predicate

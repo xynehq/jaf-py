@@ -6,7 +6,7 @@ for the JAF HTTP server implementation.
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, Generic, List, Literal, Optional, TypeVar, Union
+from typing import Any, Awaitable, Callable, Dict, Generic, List, Literal, Optional, TypeVar, Union
 import base64
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -21,6 +21,7 @@ from ..core.types import (
     RegenerationRequest,
 )
 from ..memory.types import MemoryProvider
+from ..utils.attachments import MAX_ATTACHMENT_SIZE
 
 Ctx = TypeVar("Ctx")
 
@@ -49,6 +50,9 @@ class HttpAttachment(BaseModel):
     def validate_base64_data(cls, v: Optional[str]) -> Optional[str]:
         """Validate that data is proper base64 encoded."""
         if v is not None:
+            # Check the encoded length first so an oversized body is rejected before decoding
+            if len(v) > MAX_ATTACHMENT_SIZE * 4 // 3 + 4:
+                raise ValueError("Attachment data exceeds the maximum allowed size")
             try:
                 # Try to decode the base64 data to verify it's valid
                 decoded = base64.b64decode(v)
@@ -319,6 +323,12 @@ class ServerConfig(Generic[Ctx]):
     port: int = 3000
     cors: Union[bool, Dict[str, Any]] = True
     default_memory_provider: Optional[MemoryProvider] = None
+    # Resolves the caller's user id from a request (None = unauthenticated).
+    # Required for the /conversations endpoints unless allow_unauthenticated_memory_access is set.
+    authenticate: Optional[Callable[[Any], Awaitable[Optional[str]]]] = None
+    allow_unauthenticated_memory_access: bool = False
+    # Keep client-sent "system" messages on /chat as-is (default: downgraded to "user")
+    allow_client_system_messages: bool = False
 
 
 # Approval response types

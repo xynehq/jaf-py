@@ -80,7 +80,7 @@ class ListFilesTool:
                 target_dir = (Path(context.working_directory) / args.directory).resolve()
 
             # Security check - ensure we stay within sandbox
-            if not str(target_dir).startswith(str(DEMO_DIR)):
+            if not target_dir.is_relative_to(Path(DEMO_DIR).resolve()):
                 return f"Error: Access denied. Directory outside of sandbox: {target_dir}"
 
             if not target_dir.exists():
@@ -123,7 +123,7 @@ class ReadFileTool:
             target_path = (Path(context.working_directory) / args.filepath).resolve()
 
             # Security check - ensure we stay within sandbox
-            if not str(target_path).startswith(str(DEMO_DIR)):
+            if not target_path.resolve().is_relative_to(Path(DEMO_DIR).resolve()):
                 return f"Error: Access denied. File outside of sandbox: {target_path}"
 
             if not target_path.exists():
@@ -156,7 +156,7 @@ class DeleteFileTool:
             target_path = (Path(context.working_directory) / args.filepath).resolve()
 
             # Security check - ensure we stay within sandbox
-            if not str(target_path).startswith(str(DEMO_DIR)):
+            if not target_path.resolve().is_relative_to(Path(DEMO_DIR).resolve()):
                 return f"Error: Access denied. File outside of sandbox: {target_path}"
 
             if not target_path.exists():
@@ -199,7 +199,7 @@ class EditFileTool:
             target_path = (Path(context.working_directory) / args.filepath).resolve()
 
             # Security check - ensure we stay within sandbox
-            if not str(target_path).startswith(str(DEMO_DIR)):
+            if not target_path.resolve().is_relative_to(Path(DEMO_DIR).resolve()):
                 return f"Error: Access denied. File outside of sandbox: {target_path}"
 
             backup_path = ""

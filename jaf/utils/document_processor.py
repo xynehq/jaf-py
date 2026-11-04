@@ -9,8 +9,11 @@ import asyncio
 import base64
 import csv
 import io
+import ipaddress
 import json
+import socket
 import zipfile
+from urllib.parse import urlparse
 from typing import Dict, Any, Optional, List
 
 try:
@@ -98,6 +101,26 @@ class ProcessedDocument(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
 
 
+async def _ensure_public_url(url: str) -> None:
+    """Reject non-HTTP(S) URLs and hosts that resolve to private, loopback or link-local addresses."""
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        raise DocumentProcessingError("Only http(s) URLs with a host are allowed")
+
+    try:
+        infos = await asyncio.get_running_loop().getaddrinfo(
+            parsed.hostname, parsed.port or (443 if parsed.scheme == "https" else 80),
+            type=socket.SOCK_STREAM,
+        )
+    except socket.gaierror as e:
+        raise NetworkError(f"Failed to resolve URL host: {e}", cause=e)
+
+    for info in infos:
+        address = ipaddress.ip_address(info[4][0])
+        if not address.is_global:
+            raise DocumentProcessingError("URL resolves to a non-public address")
+
+
 async def _fetch_url_content(url: str) -> tuple[bytes, Optional[str]]:
     """
     Fetch content from URL and return as bytes with content type.
@@ -117,8 +140,11 @@ async def _fetch_url_content(url: str) -> tuple[bytes, Optional[str]]:
             "URL fetching not available. Install with: pip install 'jaf-py[attachments]'"
         )
 
+    await _ensure_public_url(url)
+
     try:
-        async with httpx.AsyncClient(timeout=FETCH_TIMEOUT) as client:
+        # Redirects stay disabled so a public URL cannot bounce the request to an internal host
+        async with httpx.AsyncClient(timeout=FETCH_TIMEOUT, follow_redirects=False) as client:
             # First check content length with a HEAD request if possible
             try:
                 head_response = await client.head(
@@ -194,6 +220,9 @@ async def extract_document_content(attachment: Attachment) -> ProcessedDocument:
         content_bytes, detected_mime_type = await _fetch_url_content(attachment.url)
         mime_type = attachment.mime_type or detected_mime_type
     elif attachment.data:
+        # Reject oversized payloads before decoding them into memory
+        if len(attachment.data) > MAX_DOCUMENT_SIZE * 4 // 3 + 4:
+            raise DocumentProcessingError("Document data exceeds maximum allowed size")
         content_bytes = base64.b64decode(attachment.data)
         mime_type = attachment.mime_type
     else:

@@ -6,11 +6,14 @@ error handling, and metadata tracking.
 """
 
 import json
+import logging
 import time
 import traceback
 from collections.abc import Awaitable
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Generic, List, Literal, Optional, TypeVar, Union
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 TArgs = TypeVar("TArgs")
@@ -239,7 +242,7 @@ def with_error_handling(
         start_time = time.time() * 1000  # Convert to milliseconds like TypeScript Date.now()
 
         try:
-            print(f"[TOOL:{tool_name}] Starting execution with args:", args)
+            logger.debug("[TOOL:%s] Starting execution", tool_name)
 
             # Handle both sync and async executors
             result = executor(args, context)
@@ -247,7 +250,7 @@ def with_error_handling(
                 result = await result
 
             execution_time = int(time.time() * 1000 - start_time)
-            print(f"[TOOL:{tool_name}] Completed successfully in {execution_time}ms")
+            logger.debug("[TOOL:%s] Completed successfully in %dms", tool_name, execution_time)
 
             return ToolResponse.success(
                 result, {"executionTimeMs": execution_time, "toolName": tool_name}
@@ -255,13 +258,17 @@ def with_error_handling(
 
         except Exception as error:
             execution_time = int(time.time() * 1000 - start_time)
-            print(f"[TOOL:{tool_name}] Failed after {execution_time}ms:", error)
+            logger.debug(
+                "[TOOL:%s] Failed after %dms: %s", tool_name, execution_time, type(error).__name__
+            )
 
             if isinstance(error, Exception):
+                # The stack trace stays in the logs; tool results reach the model and the end user
+                logger.debug("[TOOL:%s] Traceback:\n%s", tool_name, traceback.format_exc())
                 return ToolResponse.error(
                     ToolErrorCodes.EXECUTION_FAILED,
                     str(error),
-                    {"stack": traceback.format_exc()},
+                    None,
                     {"executionTimeMs": execution_time, "toolName": tool_name},
                 )
 

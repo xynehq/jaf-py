@@ -16,12 +16,15 @@ The server will start on http://localhost:3000 with the following endpoints:
 """
 
 import asyncio
+import logging
 from typing import Any, Dict
 
 from pydantic import BaseModel, Field
 
 from jaf.a2a.agent import create_a2a_agent, create_a2a_tool
 from jaf.a2a.server import create_a2a_server, create_server_config
+
+logger = logging.getLogger(__name__)
 
 # Import A2A functionality
 
@@ -308,18 +311,19 @@ def create_example_agents():
 
 async def main():
     """Main function to start the A2A server"""
-    print("🚀 Starting A2A Server Example...")
+    logger.info("🚀 Starting A2A Server Example...")
 
     # Create example agents
     agents = create_example_agents()
-    print(f"📦 Created {len(agents)} agents: {', '.join(agents.keys())}")
+    logger.info(f"📦 Created {len(agents)} agents: {', '.join(agents.keys())}")
 
     # Create A2A server
     try:
-        print("\n🌟 Starting A2A-enabled JAF server...")
+        logger.info("\n🌟 Starting A2A-enabled JAF server...")
 
         # Create server configuration
         server_config = create_server_config(
+            allow_unauthenticated=True,  # local test/demo only
             agents=agents,
             name="JAF A2A Example Server",
             description="Multi-agent server showcasing A2A protocol capabilities",
@@ -330,28 +334,28 @@ async def main():
         # Add mock model provider
         server_config["model_provider"] = MockModelProvider()
 
-        print("🔧 Server configuration created")
-        print("🏠 Host: localhost:3000")
-        print(f"🤖 Agents: {len(agents)}")
+        logger.info("🔧 Server configuration created")
+        logger.info("🏠 Host: localhost:3000")
+        logger.info(f"🤖 Agents: {len(agents)}")
 
         # Create and start the server
         server = create_a2a_server(server_config)
         await server["start"]()
 
-        print("\n✅ Server started successfully!")
-        print("\n📋 Available endpoints:")
-        print("   🔍 Agent Card: http://localhost:3000/.well-known/agent-card")
-        print("   🔗 A2A Endpoint: http://localhost:3000/a2a")
-        print("   🏥 Health Check: http://localhost:3000/a2a/health")
-        print("   ⚡ Capabilities: http://localhost:3000/a2a/capabilities")
-        print("   📖 API Docs: http://localhost:3000/docs")
+        logger.info("\n✅ Server started successfully!")
+        logger.info("\n📋 Available endpoints:")
+        logger.info("   🔍 Agent Card: http://localhost:3000/.well-known/agent-card")
+        logger.info("   🔗 A2A Endpoint: http://localhost:3000/a2a")
+        logger.info("   🏥 Health Check: http://localhost:3000/a2a/health")
+        logger.info("   ⚡ Capabilities: http://localhost:3000/a2a/capabilities")
+        logger.info("   📖 API Docs: http://localhost:3000/docs")
 
-        print("\n🎯 Agent-specific endpoints:")
+        logger.info("\n🎯 Agent-specific endpoints:")
         for agent_name in agents.keys():
-            print(f"   📱 {agent_name}: http://localhost:3000/a2a/agents/{agent_name}")
+            logger.info(f"   📱 {agent_name}: http://localhost:3000/a2a/agents/{agent_name}")
 
-        print("\n📝 Example A2A requests you can try:")
-        print("""
+        logger.info("\n📝 Example A2A requests you can try:")
+        logger.info("""
     # Send message to math agent:
     curl -X POST http://localhost:3000/a2a/agents/MathTutor \\
       -H "Content-Type: application/json" \\
@@ -389,22 +393,23 @@ async def main():
       }'
         """)
 
-        print("\n🔄 Server is running... Press Ctrl+C to stop")
+        logger.info("\n🔄 Server is running... Press Ctrl+C to stop")
 
         # Keep server running
         try:
             while True:
                 await asyncio.sleep(1)
         except KeyboardInterrupt:
-            print("\n🛑 Received shutdown signal...")
+            logger.info("\n🛑 Received shutdown signal...")
             await server["stop"](server)
-            print("✅ Server stopped gracefully")
+            logger.info("✅ Server stopped gracefully")
 
     except Exception as error:
-        print(f"❌ Failed to start server: {error}")
+        logger.error(f"❌ Failed to start server: {error}")
         raise
 
 
 if __name__ == "__main__":
     # Run the server
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     asyncio.run(main())

@@ -7,6 +7,7 @@ authorization, and access control in production environments.
 
 import hashlib
 import hmac
+import threading
 import time
 from typing import Dict, List, Optional, Any, Protocol
 from dataclasses import dataclass
@@ -130,15 +131,24 @@ class AdkSecurityValidator:
         Returns:
             ValidationResult indicating if request is valid
         """
-        # Check API key authentication
         api_key = headers.get(self.config.api_key_header)
+        session_token = headers.get(self.config.session_token_header)
+
+        # Fail closed: with an authenticator configured, anonymous requests are rejected
+        if self.authenticator and not api_key and not session_token:
+            return ValidationResult(
+                is_valid=False,
+                error_message="Authentication required",
+                security_level=SecurityLevel.HIGH,
+            )
+
+        # Check API key authentication
         if api_key and self.authenticator:
             auth_result = await self.authenticator.authenticate(api_key)
             if not auth_result.is_valid:
                 return auth_result
 
         # Check session token
-        session_token = headers.get(self.config.session_token_header)
         if session_token and self.authenticator:
             session_result = await self.authenticator.validate_session(session_token)
             if not session_result.is_valid:
@@ -150,13 +160,21 @@ class AdkSecurityValidator:
             if not authz_result.is_valid:
                 return authz_result
 
-        # Check rate limits
-        if user_id and self.rate_limiter:
+        # Check rate limits; anonymous callers share a bucket keyed by their credential (hashed)
+        if self.rate_limiter:
+            credential = api_key or session_token
+            identifier = user_id or (
+                hashlib.sha256(credential.encode()).hexdigest()[:16] if credential else "anonymous"
+            )
             rate_result = await self.rate_limiter.check_rate_limit(
-                user_id, self.config.rate_limit_window_seconds, self.config.max_requests_per_window
+                identifier,
+                self.config.rate_limit_window_seconds,
+                self.config.max_requests_per_window,
             )
             if not rate_result.is_valid:
                 return rate_result
+            # Count this request, otherwise the limit can never be reached
+            await self.rate_limiter.increment_request_count(identifier)
 
         return ValidationResult(is_valid=True)
 
@@ -238,7 +256,7 @@ def validate_api_key(api_key: str, expected_key: str) -> ValidationResult:
 
 
 def validate_session_token(
-    token: str, secret: str, max_age_seconds: int = 86400
+    token: str, secret: str, user_id: str, max_age_seconds: int = 86400
 ) -> ValidationResult:
     """
     Validate a session token with expiration.
@@ -246,6 +264,7 @@ def validate_session_token(
     Args:
         token: Session token to validate
         secret: Secret key for HMAC
+        user_id: User the token must have been issued to (see generate_secure_token)
         max_age_seconds: Maximum token age in seconds
 
     Returns:
@@ -280,9 +299,9 @@ def validate_session_token(
                 security_level=SecurityLevel.MEDIUM,
             )
 
-        # Verify HMAC
+        # Verify HMAC over user_id and timestamp so a token only works for its own user
         expected_hmac = hmac.new(
-            secret.encode(), timestamp_str.encode(), hashlib.sha256
+            secret.encode(), f"{user_id}.{timestamp_str}".encode(), hashlib.sha256
         ).hexdigest()
 
         if not hmac.compare_digest(provided_hmac, expected_hmac):
@@ -320,7 +339,26 @@ def check_rate_limits(
     Returns:
         ValidationResult
     """
+    with _RATE_LIMIT_LOCK:
+        return _check_rate_limits_locked(identifier, request_counts, window_seconds, max_requests)
+
+
+_RATE_LIMIT_LOCK = threading.Lock()
+MAX_TRACKED_IDENTIFIERS = 10000
+
+
+def _check_rate_limits_locked(
+    identifier: str, request_counts: Dict[str, List[float]], window_seconds: int, max_requests: int
+) -> ValidationResult:
     current_time = time.time()
+
+    # Keep the tracking dict bounded: drop identifiers with no activity inside the window
+    if identifier not in request_counts and len(request_counts) >= MAX_TRACKED_IDENTIFIERS:
+        stale_before = current_time - window_seconds
+        for key in [k for k, v in request_counts.items() if not v or v[-1] <= stale_before]:
+            del request_counts[key]
+        while len(request_counts) >= MAX_TRACKED_IDENTIFIERS:
+            del request_counts[next(iter(request_counts))]
 
     # Get existing request timestamps for this identifier
     if identifier not in request_counts:
@@ -378,13 +416,20 @@ def generate_secure_token(user_id: str, secret: str) -> str:
     return f"{timestamp}.{signature}"
 
 
-def hash_password(password: str, salt: Optional[str] = None) -> Dict[str, str]:
+PBKDF2_ITERATIONS = 600_000  # OWASP 2023 recommendation for PBKDF2-HMAC-SHA256
+LEGACY_PBKDF2_ITERATIONS = 100_000  # hashes created by earlier versions
+
+
+def hash_password(
+    password: str, salt: Optional[str] = None, iterations: int = PBKDF2_ITERATIONS
+) -> Dict[str, str]:
     """
     Hash a password with salt using secure methods.
 
     Args:
         password: Password to hash
         salt: Optional salt (generated if not provided)
+        iterations: PBKDF2 iteration count (default follows current OWASP guidance)
 
     Returns:
         Dictionary with hash and salt
@@ -401,7 +446,7 @@ def hash_password(password: str, salt: Optional[str] = None) -> Dict[str, str]:
         "sha256",
         password.encode("utf-8"),
         salt.encode("utf-8"),
-        100000,  # 100,000 iterations
+        iterations,
     ).hex()
 
     return {"hash": password_hash, "salt": salt}
@@ -419,8 +464,12 @@ def verify_password(password: str, stored_hash: str, salt: str) -> bool:
     Returns:
         True if password matches
     """
-    computed_hash = hash_password(password, salt)["hash"]
-    return hmac.compare_digest(computed_hash, stored_hash)
+    # Hashes created before the iteration count was raised must still verify
+    for iterations in (PBKDF2_ITERATIONS, LEGACY_PBKDF2_ITERATIONS):
+        computed_hash = hash_password(password, salt, iterations)["hash"]
+        if hmac.compare_digest(computed_hash, stored_hash):
+            return True
+    return False
 
 
 def validate_ip_address(

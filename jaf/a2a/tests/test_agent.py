@@ -457,6 +457,7 @@ class TestAgentExecution:
         async def mock_process_query_error(agent, query, state, provider):
             yield StreamEvent(
                 isTaskComplete=True,
+                isError=True,
                 content="Error: Something went wrong",
                 new_state={},
                 timestamp=datetime.now().isoformat(),

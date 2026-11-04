@@ -6,12 +6,14 @@ automatic schema creation, transactions, connection pooling, and JSONB storage.
 """
 
 import json
+import re
 import uuid
 from datetime import datetime, timezone
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from .base import AdkSessionProvider, AdkSessionConfig
+from .session_ids import is_acceptable_session_id
 from ..types import AdkSession, AdkMessage, AdkResult, AdkSuccess, AdkFailure
 from ..errors import AdkSessionError, AdkErrorType, AdkErrorSeverity
 
@@ -50,6 +52,8 @@ class AdkPostgresSessionConfig(AdkSessionConfig):
     table_name: str = "adk_sessions"
     auto_create_schema: bool = True
     command_timeout: float = 60.0
+    # TLS: True, "require"/"verify-full" etc., or an ssl.SSLContext. None keeps asyncpg's default.
+    ssl: Any = None
 
 
 class AdkPostgresSessionProvider(AdkSessionProvider):
@@ -70,6 +74,14 @@ class AdkPostgresSessionProvider(AdkSessionProvider):
         super().__init__(config)
         self.config: AdkPostgresSessionConfig = config
         self.connection_pool = connection_pool
+
+        # Table names cannot be bound as query parameters, so they must be strictly validated
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,62}", config.table_name):
+            raise AdkSessionError(
+                f"Invalid PostgreSQL table name: {config.table_name!r}",
+                error_type=AdkErrorType.VALIDATION,
+                severity=AdkErrorSeverity.CRITICAL,
+            )
 
         if not POSTGRES_AVAILABLE:
             raise AdkSessionError(
@@ -162,6 +174,13 @@ class AdkPostgresSessionProvider(AdkSessionProvider):
         try:
             if session_id is None:
                 session_id = str(uuid.uuid4())
+            elif not is_acceptable_session_id(session_id):
+                return AdkFailure(
+                    AdkSessionError(
+                        "Invalid session id: use a random id of 32-128 URL-safe characters or omit it",
+                        error_type=AdkErrorType.VALIDATION,
+                    )
+                )
 
             now = datetime.now(timezone.utc)
             expires_at = self._calculate_expiry()
@@ -225,7 +244,7 @@ class AdkPostgresSessionProvider(AdkSessionProvider):
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Failed to create session: {e}", error_type=AdkErrorType.INTERNAL, cause=e
+                    f"Failed to create session ({type(e).__name__})", error_type=AdkErrorType.INTERNAL, cause=e
                 )
             )
 
@@ -283,7 +302,7 @@ class AdkPostgresSessionProvider(AdkSessionProvider):
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Failed to get session: {e}",
+                    f"Failed to get session ({type(e).__name__})",
                     session_id=session_id,
                     error_type=AdkErrorType.INTERNAL,
                     cause=e,
@@ -328,7 +347,7 @@ class AdkPostgresSessionProvider(AdkSessionProvider):
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Failed to update session: {e}",
+                    f"Failed to update session ({type(e).__name__})",
                     session_id=session.session_id,
                     error_type=AdkErrorType.INTERNAL,
                     cause=e,
@@ -354,7 +373,7 @@ class AdkPostgresSessionProvider(AdkSessionProvider):
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Failed to delete session: {e}",
+                    f"Failed to delete session ({type(e).__name__})",
                     session_id=session_id,
                     error_type=AdkErrorType.INTERNAL,
                     cause=e,
@@ -365,6 +384,31 @@ class AdkPostgresSessionProvider(AdkSessionProvider):
         self, session_id: str, message: AdkMessage
     ) -> AdkResult[AdkSession, AdkSessionError]:
         """Add message to session."""
+        try:
+            # Serialize the read-modify-write per session (across processes) so concurrent
+            # appends cannot overwrite each other. The lock lives on its own connection.
+            async with self.connection_pool.acquire() as lock_connection:
+                await lock_connection.execute("SELECT pg_advisory_lock(hashtext($1))", session_id)
+                try:
+                    return await self._add_message_locked(session_id, message)
+                finally:
+                    await lock_connection.execute(
+                        "SELECT pg_advisory_unlock(hashtext($1))", session_id
+                    )
+
+        except Exception as e:
+            return AdkFailure(
+                AdkSessionError(
+                    f"Failed to add message ({type(e).__name__})",
+                    session_id=session_id,
+                    error_type=AdkErrorType.INTERNAL,
+                    cause=e,
+                )
+            )
+
+    async def _add_message_locked(
+        self, session_id: str, message: AdkMessage
+    ) -> AdkResult[AdkSession, AdkSessionError]:
         try:
             # Get current session
             session_result = await self.get_session(session_id)
@@ -392,7 +436,7 @@ class AdkPostgresSessionProvider(AdkSessionProvider):
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Failed to add message: {e}",
+                    f"Failed to add message ({type(e).__name__})",
                     session_id=session_id,
                     error_type=AdkErrorType.INTERNAL,
                     cause=e,
@@ -421,7 +465,7 @@ class AdkPostgresSessionProvider(AdkSessionProvider):
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Failed to get messages: {e}",
+                    f"Failed to get messages ({type(e).__name__})",
                     session_id=session_id,
                     error_type=AdkErrorType.INTERNAL,
                     cause=e,
@@ -479,7 +523,7 @@ class AdkPostgresSessionProvider(AdkSessionProvider):
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Failed to get user sessions: {e}",
+                    f"Failed to get user sessions ({type(e).__name__})",
                     user_id=user_id,
                     error_type=AdkErrorType.INTERNAL,
                     cause=e,
@@ -505,7 +549,7 @@ class AdkPostgresSessionProvider(AdkSessionProvider):
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Failed to cleanup expired sessions: {e}",
+                    f"Failed to cleanup expired sessions ({type(e).__name__})",
                     error_type=AdkErrorType.INTERNAL,
                     cause=e,
                 )
@@ -550,7 +594,7 @@ class AdkPostgresSessionProvider(AdkSessionProvider):
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Failed to get stats: {e}", error_type=AdkErrorType.INTERNAL, cause=e
+                    f"Failed to get stats ({type(e).__name__})", error_type=AdkErrorType.INTERNAL, cause=e
                 )
             )
 
@@ -587,7 +631,7 @@ class AdkPostgresSessionProvider(AdkSessionProvider):
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Health check failed: {e}", error_type=AdkErrorType.INTERNAL, cause=e
+                    f"Health check failed ({type(e).__name__})", error_type=AdkErrorType.INTERNAL, cause=e
                 )
             )
 
@@ -601,7 +645,7 @@ class AdkPostgresSessionProvider(AdkSessionProvider):
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Failed to close connection pool: {e}",
+                    f"Failed to close connection pool ({type(e).__name__})",
                     error_type=AdkErrorType.INTERNAL,
                     cause=e,
                 )
@@ -637,6 +681,7 @@ async def create_postgres_session_provider(
                 min_size=config.pool_min_size,
                 max_size=config.pool_max_size,
                 command_timeout=config.command_timeout,
+                ssl=config.ssl,
             )
         else:
             connection_pool = await asyncpg.create_pool(
@@ -648,6 +693,7 @@ async def create_postgres_session_provider(
                 min_size=config.pool_min_size,
                 max_size=config.pool_max_size,
                 command_timeout=config.command_timeout,
+                ssl=config.ssl,
             )
 
         # Test connection
@@ -660,7 +706,7 @@ async def create_postgres_session_provider(
     except Exception as e:
         return AdkFailure(
             AdkSessionError(
-                f"Failed to create PostgreSQL session provider: {e}",
+                f"Failed to create PostgreSQL session provider ({type(e).__name__})",
                 error_type=AdkErrorType.INTERNAL,
                 cause=e,
             )

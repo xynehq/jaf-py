@@ -77,7 +77,7 @@ class JAFErrorHandler:
             return f"Agent not found: {error.agent_name}"
 
         else:
-            return f"Unknown error: {json.dumps(error.__dict__, default=str)}"
+            return f"Unknown error: {type(error).__name__}"
 
     @staticmethod
     def is_retryable(error: JAFError) -> bool:

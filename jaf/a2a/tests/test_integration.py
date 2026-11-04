@@ -137,6 +137,7 @@ class TestA2ASystemIntegration:
         agents = create_test_agents()
 
         server_config = create_server_config(
+            allow_unauthenticated=True,  # local test/demo only
             agents=agents,
             name="Test A2A Server",
             description="Integration test server",
@@ -155,6 +156,7 @@ class TestA2ASystemIntegration:
         agents = create_test_agents()
 
         server_config = create_server_config(
+            allow_unauthenticated=True,  # local test/demo only
             agents=agents, name="Test Server", description="Test description", port=3003
         )
 
@@ -224,6 +226,7 @@ class TestA2AProtocolIntegration:
         agents = create_test_agents()
 
         server_config = create_server_config(
+            allow_unauthenticated=True,  # local test/demo only
             agents=agents,
             name="Integration Test Server",
             description="Test server for integration",
@@ -257,6 +260,7 @@ class TestA2AProtocolIntegration:
         agents = create_test_agents()
 
         server_config = create_server_config(
+            allow_unauthenticated=True,  # local test/demo only
             agents=agents,
             name="Card Test Server",
             description="Server for testing agent cards",
@@ -297,6 +301,7 @@ class TestA2AProtocolIntegration:
         agents = create_test_agents()
 
         server_config = create_server_config(
+            allow_unauthenticated=True,  # local test/demo only
             agents=agents,
             name="Registry Test",
             description="Test agent registry operations",
@@ -475,6 +480,7 @@ class TestA2AComprehensive:
 
         # Create server configuration
         server_config = create_server_config(
+            allow_unauthenticated=True,  # local test/demo only
             agents=agents,
             name="Comprehensive Test Server",
             description="Full system test server",

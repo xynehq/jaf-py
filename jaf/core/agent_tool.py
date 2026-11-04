@@ -7,6 +7,7 @@ by other agents, enabling hierarchical agent orchestration patterns.
 
 import asyncio
 import json
+import logging
 import inspect
 import contextvars
 from typing import Any, Callable, Dict, List, Optional, Union, Awaitable, TypeVar, get_type_hints
@@ -332,10 +333,11 @@ def create_agent_tool(
                     ensure_ascii=False,
                 )
         except Exception as e:
+            logging.getLogger(__name__).exception(f"Agent tool '{agent.name}' failed")
             return json.dumps(
                 {
                     "error": "agent_tool_error",
-                    "message": f"Error executing agent {agent.name}: {str(e)}",
+                    "message": f"Error executing agent {agent.name}: {type(e).__name__}",
                 },
                 ensure_ascii=False,
             )

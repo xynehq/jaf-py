@@ -34,10 +34,13 @@ Examples:
 """
 
 import argparse
+import logging
 import os
 import sys
 from pathlib import Path
 from typing import List
+
+logger = logging.getLogger(__name__)
 
 
 def setup_environment():
@@ -73,13 +76,13 @@ def check_dependencies():
             missing_optional.append(package)
 
     if missing_required:
-        print(f"❌ Missing required packages: {', '.join(missing_required)}")
-        print("Install with: pip install " + " ".join(missing_required))
+        logger.error(f"❌ Missing required packages: {', '.join(missing_required)}")
+        logger.info("%s", "Install with: pip install " + " ".join(missing_required))
         return False
 
     if missing_optional:
-        print(f"⚠️  Optional packages not available: {', '.join(missing_optional)}")
-        print("Install with: pip install " + " ".join(missing_optional))
+        logger.warning(f"⚠️  Optional packages not available: {', '.join(missing_optional)}")
+        logger.info("%s", "Install with: pip install " + " ".join(missing_optional))
 
     return True
 
@@ -123,7 +126,7 @@ def build_pytest_args(mode: str, args: argparse.Namespace) -> List[str]:
 
             pytest_args.extend(["-n", "auto"])
         except ImportError:
-            print("⚠️  pytest-xdist not available, running sequentially")
+            logger.warning("⚠️  pytest-xdist not available, running sequentially")
 
     # Coverage options
     if args.coverage:
@@ -138,7 +141,7 @@ def build_pytest_args(mode: str, args: argparse.Namespace) -> List[str]:
             if args.xml:
                 pytest_args.append("--cov-report=xml")
         except ImportError:
-            print("⚠️  pytest-cov not available, skipping coverage")
+            logger.warning("⚠️  pytest-cov not available, skipping coverage")
 
     # HTML report
     if args.html and not args.coverage:
@@ -147,14 +150,14 @@ def build_pytest_args(mode: str, args: argparse.Namespace) -> List[str]:
 
             pytest_args.extend(["--html=test_report.html", "--self-contained-html"])
         except ImportError:
-            print("⚠️  pytest-html not available, skipping HTML report")
+            logger.warning("⚠️  pytest-html not available, skipping HTML report")
 
     return pytest_args
 
 
 def run_tests(mode: str, args: argparse.Namespace) -> int:
     """Run tests with specified mode and arguments"""
-    print(f"🚀 Running A2A tests in '{mode}' mode...")
+    logger.info(f"🚀 Running A2A tests in '{mode}' mode...")
 
     # Setup environment
     setup_environment()
@@ -166,8 +169,8 @@ def run_tests(mode: str, args: argparse.Namespace) -> int:
     # Build pytest arguments
     pytest_args = build_pytest_args(mode, args)
 
-    print(f"📋 Test command: pytest {' '.join(pytest_args)}")
-    print("-" * 60)
+    logger.info(f"📋 Test command: pytest {' '.join(pytest_args)}")
+    logger.info("%s", "-" * 60)
 
     # Import and run pytest
     try:
@@ -175,24 +178,24 @@ def run_tests(mode: str, args: argparse.Namespace) -> int:
 
         exit_code = pytest.main(pytest_args)
     except ImportError:
-        print("❌ pytest not available")
+        logger.error("❌ pytest not available")
         return 1
     except Exception as e:
-        print(f"❌ Test execution failed: {e}")
+        logger.error(f"❌ Test execution failed: {e}")
         return 1
 
     # Report results
-    print("-" * 60)
+    logger.info("%s", "-" * 60)
     if exit_code == 0:
-        print("✅ All tests passed!")
+        logger.info("✅ All tests passed!")
     else:
-        print(f"❌ Tests failed with exit code {exit_code}")
+        logger.error(f"❌ Tests failed with exit code {exit_code}")
 
     # Coverage report location
     if args.coverage and args.html:
         coverage_path = Path("htmlcov/index.html")
         if coverage_path.exists():
-            print(f"📊 Coverage report: {coverage_path.absolute()}")
+            logger.info(f"📊 Coverage report: {coverage_path.absolute()}")
 
     return exit_code
 
@@ -236,4 +239,5 @@ def main():
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     main()

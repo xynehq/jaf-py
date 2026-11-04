@@ -311,6 +311,10 @@ def sanitize_file_path(path: str) -> str:
     if not path:
         raise ValueError("Empty path not allowed")
 
+    # Absolute paths (POSIX or Windows drive) would escape any intended base directory
+    if path.startswith(("/", "\\")) or re.match(r"^[A-Za-z]:", path):
+        raise ValueError("Absolute paths are not allowed")
+
     # Check for path traversal patterns
     dangerous_patterns = ["..", "\\", "//", "%2e%2e", "\\x2e\\x2e"]
 

@@ -106,7 +106,10 @@ class ProxyConfig:
             # Wildcard match (e.g., *.example.com)
             if no_proxy_host.startswith("*"):
                 suffix = no_proxy_host[1:]
-                if host.endswith(suffix):
+                # Match on a domain-label boundary so "*example.com" does not cover "evilexample.com"
+                if host == suffix.lstrip(".") or (
+                    host.endswith(suffix) and (suffix.startswith(".") or host[-len(suffix) - 1 : -len(suffix)] == ".")
+                ):
                     return True
 
             # Domain suffix match

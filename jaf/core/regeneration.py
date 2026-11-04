@@ -5,6 +5,7 @@ This module implements conversation regeneration where a specific message can be
 regenerated, removing all subsequent messages and creating a new conversation path.
 """
 
+import logging
 import time
 from dataclasses import replace
 from typing import Any, TypeVar, Optional
@@ -28,6 +29,8 @@ from .types import (
 )
 from .engine import run as engine_run
 from ..memory.types import Success, Failure
+
+logger = logging.getLogger(__name__)
 
 Ctx = TypeVar("Ctx")
 Out = TypeVar("Out")
@@ -160,7 +163,7 @@ async def regenerate_conversation(
             ),
             outcome=ErrorOutcome(
                 error=ModelBehaviorError(
-                    detail=f"Failed to load conversation: {conversation_result.error}"
+                    detail="Failed to load conversation"
                 )
             ),
         )
@@ -252,7 +255,7 @@ async def regenerate_conversation(
     regen_type = determine_regeneration_type(
         original_messages, regenerate_index, regeneration_request.context or {}
     )
-    print(f"[JAF:REGENERATION] Detected regeneration type: {regen_type}")
+    logger.debug(f"[JAF:REGENERATION] Detected regeneration type: {regen_type}")
 
     if regen_type == "pure":
         # For pure regeneration, find the user message that started this conversation turn
@@ -265,12 +268,10 @@ async def regenerate_conversation(
         if user_message_index is not None:
             # Truncate AFTER the user message (keeps user message, removes tool calls/outputs)
             truncated_messages = original_messages[: user_message_index + 1]
-            print(
-                f"[JAF:REGENERATION] Pure regeneration: truncated to user message at index {user_message_index}"
-            )
+            logger.debug(f"[JAF:REGENERATION] Pure regeneration: truncated to user message at index {user_message_index}")
         else:
             truncated_messages = original_messages[:regenerate_index]
-            print(f"[JAF:REGENERATION] Pure regeneration fallback: no user message found")
+            logger.debug(f"[JAF:REGENERATION] Pure regeneration fallback: no user message found")
     else:
         # Edit regeneration: truncate at the specified point and add replacement query
         truncated_messages = original_messages[:regenerate_index]
@@ -289,20 +290,14 @@ async def regenerate_conversation(
                 attachments=replacement_attachments or None,
             )
             truncated_messages.append(replacement_user_message)
-            print(
-                f"[JAF:REGENERATION] Edit regeneration: replaced user query with: {regeneration_request.context.get('replace_user_message')}"
-                + (
-                    f" ({len(replacement_attachments)} attachment(s))"
-                    if replacement_attachments
-                    else ""
-                )
+            logger.debug(
+                f"[JAF:REGENERATION] Edit regeneration: replaced user query "
+                f"({len(replacement_attachments or [])} attachment(s))"
             )
 
-    print(f"[JAF:REGENERATION] Truncated conversation to {len(truncated_messages)} messages")
+    logger.debug(f"[JAF:REGENERATION] Truncated conversation to {len(truncated_messages)} messages")
 
-    print(
-        f"[JAF:REGENERATION] About to store {len(truncated_messages)} truncated messages to memory"
-    )
+    logger.debug(f"[JAF:REGENERATION] About to store {len(truncated_messages)} truncated messages to memory")
 
     def serialize_metadata(metadata):
         import json
@@ -321,7 +316,7 @@ async def regenerate_conversation(
             json_str = json.dumps(metadata, default=json_serializer)
             return json.loads(json_str)
         except Exception as e:
-            print(f"[JAF:REGENERATION] Warning: Metadata serialization failed: {e}")
+            logger.warning(f"[JAF:REGENERATION] Warning: Metadata serialization failed: {e}")
             return {
                 "regeneration_truncated": True,
                 "regeneration_point": str(regeneration_request.message_id),
@@ -357,9 +352,9 @@ async def regenerate_conversation(
         regeneration_request.conversation_id, truncated_messages, metadata
     )
 
-    print(f"[JAF:REGENERATION] Store result type: {type(store_result)}")
+    logger.debug(f"[JAF:REGENERATION] Store result type: {type(store_result)}")
     if isinstance(store_result, Failure):
-        print(f"[JAF:REGENERATION] Store failed with error: {store_result.error}")
+        logger.error(f"[JAF:REGENERATION] Store failed with error: {store_result.error}")
         return RunResult(
             final_state=RunState(
                 run_id=generate_run_id(),
@@ -377,12 +372,12 @@ async def regenerate_conversation(
             ),
             outcome=ErrorOutcome(
                 error=ModelBehaviorError(
-                    detail=f"Failed to store truncated conversation: {store_result.error}"
+                    detail="Failed to store truncated conversation"
                 )
             ),
         )
     else:
-        print(f"[JAF:REGENERATION] Store successful, proceeding to engine execution")
+        logger.debug(f"[JAF:REGENERATION] Store successful, proceeding to engine execution")
 
     # Create regeneration context for later use
     regeneration_context = RegenerationContext(
@@ -403,7 +398,7 @@ async def regenerate_conversation(
     )
 
     final_context = context
-    print(f"[JAF:REGENERATION] Using provided context: {type(context).__name__}")
+    logger.debug(f"[JAF:REGENERATION] Using provided context: {type(context).__name__}")
 
     # Create initial state for regeneration with truncated conversation
     initial_state = RunState(
@@ -416,13 +411,9 @@ async def regenerate_conversation(
         approvals={},  # Reset approvals for regeneration
     )
 
-    print(
-        f"[JAF:REGENERATION] Starting regeneration from message {regeneration_request.message_id}"
-    )
-    print(
-        f"[JAF:REGENERATION] Original messages: {len(original_messages)}, Truncated to: {len(truncated_messages)}"
-    )
-    print(f"[JAF:REGENERATION] Regeneration context: {regeneration_context}")
+    logger.debug(f"[JAF:REGENERATION] Starting regeneration from message {regeneration_request.message_id}")
+    logger.debug(f"[JAF:REGENERATION] Original messages: {len(original_messages)}, Truncated to: {len(truncated_messages)}")
+    logger.debug(f"[JAF:REGENERATION] Regeneration id: {regeneration_context.regeneration_id}")
 
     # Create a modified config for regeneration that ensures memory storage
     regeneration_config = replace(
@@ -434,40 +425,55 @@ async def regenerate_conversation(
     )
 
     # Execute the regeneration through the normal engine flow
-    print(f"[JAF:REGENERATION] About to execute engine with {len(truncated_messages)} messages")
-    print(
-        f"[JAF:REGENERATION] Final message: {truncated_messages[-1] if truncated_messages else 'None'}"
-    )
+    logger.debug(f"[JAF:REGENERATION] About to execute engine with {len(truncated_messages)} messages")
+    logger.debug(f"[JAF:REGENERATION] Final message role: {truncated_messages[-1].role if truncated_messages else 'None'}")
 
-    result = await engine_run(initial_state, regeneration_config)
+    async def restore_original_history(reason: str) -> None:
+        """The history was truncated before the run; put it back if the run did not succeed."""
+        if not (config.memory and config.memory.provider):
+            return
+        restore = await config.memory.provider.store_messages(
+            regeneration_request.conversation_id,
+            original_messages,
+            {"regeneration_rolled_back": reason},
+        )
+        if isinstance(restore, Failure):
+            logger.error(f"[JAF:REGENERATION] Could not restore original history: {restore.error}")
+        else:
+            logger.warning(f"[JAF:REGENERATION] Restored original history after: {reason}")
 
-    print(f"[JAF:REGENERATION] Regeneration completed with status: {result.outcome.status}")
+    try:
+        result = await engine_run(initial_state, regeneration_config)
+    except Exception:
+        await restore_original_history("run raised an exception")
+        raise
+
+    if result.outcome.status == "error":
+        await restore_original_history("run failed")
+
+    logger.debug(f"[JAF:REGENERATION] Regeneration completed with status: {result.outcome.status}")
     if hasattr(result, "final_state") and hasattr(result.final_state, "messages"):
-        print(f"[JAF:REGENERATION] Final state has {len(result.final_state.messages)} messages")
+        logger.debug(f"[JAF:REGENERATION] Final state has {len(result.final_state.messages)} messages")
         assistant_msgs = [
             m for m in result.final_state.messages if m.role in ["assistant", "ASSISTANT"]
         ]
-        print(f"[JAF:REGENERATION] Found {len(assistant_msgs)} assistant messages in result")
+        logger.debug(f"[JAF:REGENERATION] Found {len(assistant_msgs)} assistant messages in result")
 
     # After successful regeneration, mark the regeneration point and preserve metadata
     if result.outcome.status == "completed" and config.memory and config.memory.provider:
         try:
-            print(f"[JAF:REGENERATION] Marking regeneration point after successful regeneration")
+            logger.debug(f"[JAF:REGENERATION] Marking regeneration point after successful regeneration")
 
             # Get the current conversation to preserve regeneration metadata
             current_conv_result = await config.memory.provider.get_conversation(
                 regeneration_request.conversation_id
             )
-            print(
-                f"[JAF:REGENERATION] Retrieved conversation for preservation: {hasattr(current_conv_result, 'data') and current_conv_result.data is not None}"
-            )
+            logger.debug(f"[JAF:REGENERATION] Retrieved conversation for preservation: {hasattr(current_conv_result, 'data') and current_conv_result.data is not None}")
 
             if hasattr(current_conv_result, "data") and current_conv_result.data:
                 current_metadata = current_conv_result.data.metadata
                 regeneration_points = current_metadata.get("regeneration_points", [])
-                print(
-                    f"[JAF:REGENERATION] Found {len(regeneration_points)} regeneration points in metadata before marking"
-                )
+                logger.debug(f"[JAF:REGENERATION] Found {len(regeneration_points)} regeneration points in metadata before marking")
 
                 # Mark the regeneration point by calling the provider method directly
                 mark_result = await config.memory.provider.mark_regeneration_point(
@@ -482,11 +488,9 @@ async def regenerate_conversation(
                 )
 
                 if isinstance(mark_result, Failure):
-                    print(
-                        f"[JAF:REGENERATION] Warning: Failed to mark regeneration point: {mark_result.error}"
-                    )
+                    logger.error(f"[JAF:REGENERATION] Warning: Failed to mark regeneration point: {mark_result.error}")
                 else:
-                    print(f"[JAF:REGENERATION] Successfully marked regeneration point")
+                    logger.debug(f"[JAF:REGENERATION] Successfully marked regeneration point")
 
                 # Get the updated conversation with the new regeneration point
                 updated_conv_result = await config.memory.provider.get_conversation(
@@ -495,9 +499,7 @@ async def regenerate_conversation(
                 if hasattr(updated_conv_result, "data") and updated_conv_result.data:
                     updated_metadata = updated_conv_result.data.metadata
                     updated_regeneration_points = updated_metadata.get("regeneration_points", [])
-                    print(
-                        f"[JAF:REGENERATION] Found {len(updated_regeneration_points)} regeneration points after marking"
-                    )
+                    logger.debug(f"[JAF:REGENERATION] Found {len(updated_regeneration_points)} regeneration points after marking")
 
                     # Ensure final metadata includes the regeneration points
                     final_metadata = {
@@ -517,17 +519,15 @@ async def regenerate_conversation(
                         result.final_state.messages,
                         final_metadata,
                     )
-                    print(
-                        f"[JAF:REGENERATION] Final preservation completed with {len(updated_regeneration_points)} regeneration points"
-                    )
+                    logger.debug(f"[JAF:REGENERATION] Final preservation completed with {len(updated_regeneration_points)} regeneration points")
             else:
-                print(f"[JAF:REGENERATION] No conversation data found for preservation")
+                logger.debug(f"[JAF:REGENERATION] No conversation data found for preservation")
 
         except Exception as e:
-            print(f"[JAF:REGENERATION] Warning: Failed to preserve regeneration points: {e}")
-            import traceback
-
-            traceback.print_exc()
+            logger.warning(
+                f"[JAF:REGENERATION] Warning: Failed to preserve regeneration points: {e}",
+                exc_info=True,
+            )
 
     return result
 
@@ -551,14 +551,12 @@ async def get_regeneration_points(conversation_id: str, config: RunConfig[Ctx]) 
         if hasattr(conversation_result, "data") and conversation_result.data:
             metadata = conversation_result.data.metadata
             regeneration_points = metadata.get("regeneration_points", [])
-            print(
-                f"[JAF:REGENERATION] Retrieved {len(regeneration_points)} regeneration points for {conversation_id}"
-            )
+            logger.debug(f"[JAF:REGENERATION] Retrieved {len(regeneration_points)} regeneration points for {conversation_id}")
             return regeneration_points
         else:
-            print(f"[JAF:REGENERATION] No conversation data found for {conversation_id}")
+            logger.debug(f"[JAF:REGENERATION] No conversation data found for {conversation_id}")
             return []
     except Exception as e:
-        print(f"[JAF:REGENERATION] Failed to get regeneration points: {e}")
+        logger.warning(f"[JAF:REGENERATION] Failed to get regeneration points: {e}")
 
     return []

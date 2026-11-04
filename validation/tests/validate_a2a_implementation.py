@@ -174,6 +174,7 @@ def test_server_configuration():
 
         # Create server configuration
         config = create_server_config(
+            allow_unauthenticated=True,  # local dev only; use authenticate=... in production
             agents={"ServerTestAgent": agent},
             name="Validation Test Server",
             description="Server for A2A implementation validation",

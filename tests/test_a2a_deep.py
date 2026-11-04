@@ -61,6 +61,7 @@ async def test_a2a_deep_handoff():
 
     # 2. Create Server
     server_config = create_server_config(
+        allow_unauthenticated=True,  # local dev only; use authenticate=... in production
         agents={"MathAgent": math_agent, "TriageAgent": triage_agent},
         name="Test A2A Server",
         description="A server for deep A2A testing",

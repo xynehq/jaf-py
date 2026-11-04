@@ -34,7 +34,7 @@ def create_server_config():
     # Set up model provider (requires LiteLLM proxy running on localhost:4000)
     model_provider = make_litellm_provider(
         base_url=os.getenv("LITELLM_URL", "http://localhost:4000"),
-        api_key=os.getenv("LITELLM_API_KEY", "your-api-key-here"),  # Replace with actual API key
+        api_key=os.getenv("LITELLM_API_KEY"),
     )
 
     # Set up tracing

@@ -6,6 +6,7 @@ comprehensive error handling and security checks.
 """
 
 import base64
+import mimetypes
 import re
 from typing import Union, Optional, List
 from urllib.parse import urlparse
@@ -34,7 +35,7 @@ ALLOWED_IMAGE_MIME_TYPES = [
     "image/gif",
     "image/webp",
     "image/bmp",
-    "image/svg+xml",
+    # SVG is deliberately excluded: it is an XML format that can carry scripts
 ]
 
 ALLOWED_DOCUMENT_MIME_TYPES = [
@@ -49,6 +50,9 @@ ALLOWED_DOCUMENT_MIME_TYPES = [
 
 def _validate_base64(data: str) -> bool:
     """Validate base64 string format."""
+    # Check the encoded length before decoding so huge payloads are never expanded in memory
+    if len(data) > MAX_ATTACHMENT_SIZE * 4 // 3 + 4:
+        return False
     try:
         # Basic base64 pattern check
         base64_pattern = re.compile(r"^[A-Za-z0-9+/]*={0,2}$")
@@ -116,8 +120,54 @@ def _validate_filename(name: Optional[str]) -> None:
         )
 
 
+_MAGIC_NUMBERS = [
+    (b"\x89PNG\r\n\x1a\n", "image/png"),
+    (b"\xff\xd8\xff", "image/jpeg"),
+    (b"GIF87a", "image/gif"),
+    (b"GIF89a", "image/gif"),
+    (b"BM", "image/bmp"),
+    (b"%PDF-", "application/pdf"),
+]
+
+
+def _infer_mime_type(
+    data: Union[bytes, str, None], url: Optional[str], name: Optional[str]
+) -> Optional[str]:
+    """Best-effort MIME type from content bytes, a data: URL, or a file name/URL extension."""
+    head: Optional[bytes] = None
+    if isinstance(data, (bytes, bytearray)):
+        head = bytes(data[:16])
+    elif isinstance(data, str) and data:
+        try:
+            chunk = data[:24]
+            head = base64.b64decode(chunk + "=" * (-len(chunk) % 4))
+        except Exception:
+            head = None
+    if head:
+        for magic, mime in _MAGIC_NUMBERS:
+            if head.startswith(magic):
+                return mime
+        if head[:4] == b"RIFF" and head[8:12] == b"WEBP":
+            return "image/webp"
+
+    if url and url.startswith("data:"):
+        match = re.match(r"data:([^;,]+)", url)
+        return match.group(1) if match else None
+
+    for candidate in (name, urlparse(url).path if url else None):
+        if candidate:
+            guessed, _ = mimetypes.guess_type(candidate)
+            if guessed:
+                return guessed
+    return None
+
+
 def _validate_mime_type(mime_type: Optional[str], allowed_types: List[str], kind: str) -> None:
-    """Validate MIME type against allowed types."""
+    """Validate MIME type against allowed types; a missing type is rejected, not skipped."""
+    if not mime_type or not mime_type.strip():
+        raise AttachmentValidationError(
+            f"A MIME type is required for {kind} attachments and could not be inferred"
+        )
     if mime_type:
         # Normalize the input mime_type
         normalized_mime_type = mime_type.lower().strip()
@@ -162,6 +212,11 @@ def _validate_url(url: Optional[str]) -> None:
                 raise AttachmentValidationError(
                     "Invalid data URL format: must match mediatype[;charset][;base64],data pattern"
                 )
+
+            # Only the attachment types we accept elsewhere; text/html and friends can run script
+            media_type = data_content.split(",", 1)[0].split(";", 1)[0].strip().lower()
+            if media_type not in {m.lower() for m in ALLOWED_IMAGE_MIME_TYPES + ALLOWED_DOCUMENT_MIME_TYPES}:
+                raise AttachmentValidationError(f"data URL media type '{media_type}' is not allowed")
 
     except ValueError as e:
         raise AttachmentValidationError(f"Invalid URL: {e}")
@@ -208,7 +263,9 @@ def make_image_attachment(
     # Validate inputs
     _validate_filename(name)
     _validate_url(url)
-    _validate_mime_type(mime_type, ALLOWED_IMAGE_MIME_TYPES, "image")
+    mime_type = mime_type or _infer_mime_type(data, url, name)
+    if mime_type or data or url:  # with no content at all, the "url or data" error below is clearer
+        _validate_mime_type(mime_type, ALLOWED_IMAGE_MIME_TYPES, "image")
 
     # Process data to base64 first, so we can validate size for both bytes and string inputs
     base64_data = _process_base64_data(data)
@@ -297,7 +354,9 @@ def make_document_attachment(
         AttachmentValidationError: If validation fails
     """
     # Additional validation for documents
-    _validate_mime_type(mime_type, ALLOWED_DOCUMENT_MIME_TYPES, "document")
+    mime_type = mime_type or _infer_mime_type(data, url, name)
+    if mime_type or data or url:
+        _validate_mime_type(mime_type, ALLOWED_DOCUMENT_MIME_TYPES, "document")
 
     attachment = make_file_attachment(
         data=data, url=url, mime_type=mime_type, name=name, format=format
@@ -354,16 +413,19 @@ def validate_attachment(attachment: Attachment) -> None:
                 )
 
         # Validate MIME type based on attachment kind
+        mime_type = attachment.mime_type or _infer_mime_type(
+            attachment.data, attachment.url, attachment.name
+        )
         if attachment.kind == "image":
             try:
-                _validate_mime_type(attachment.mime_type, ALLOWED_IMAGE_MIME_TYPES, "image")
+                _validate_mime_type(mime_type, ALLOWED_IMAGE_MIME_TYPES, "image")
             except AttachmentValidationError as e:
                 raise AttachmentValidationError(
                     f"Image MIME type validation failed: {e}", field="mime_type"
                 ) from e
         elif attachment.kind == "document":
             try:
-                _validate_mime_type(attachment.mime_type, ALLOWED_DOCUMENT_MIME_TYPES, "document")
+                _validate_mime_type(mime_type, ALLOWED_DOCUMENT_MIME_TYPES, "document")
             except AttachmentValidationError as e:
                 raise AttachmentValidationError(
                     f"Document MIME type validation failed: {e}", field="mime_type"

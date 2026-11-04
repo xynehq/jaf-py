@@ -19,6 +19,7 @@ Options:
 import argparse
 import asyncio
 import json
+import logging
 import sys
 import time
 from dataclasses import dataclass, field
@@ -30,6 +31,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from jaf.a2a.memory.providers.in_memory import create_a2a_in_memory_task_provider
 from jaf.a2a.memory.types import A2AInMemoryTaskConfig
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -98,19 +101,17 @@ class ComprehensiveTestRunner:
             if provider in available_providers:
                 valid_providers.append(provider)
             else:
-                print(f"Warning: Unknown provider '{provider}', skipping")
+                logger.warning(f"Warning: Unknown provider '{provider}', skipping")
 
         return valid_providers or ["memory"]
 
     async def run_all_tests(self) -> ValidationReport:
         """Run the complete test suite"""
-        print("🧪 A2A Memory System Comprehensive Validation")
-        print("=" * 60)
-        print(f"Testing providers: {', '.join(self.providers)}")
-        print(
-            f"Options: coverage={self.args.coverage}, performance={self.args.performance}, stress={self.args.stress}"
-        )
-        print()
+        logger.info("🧪 A2A Memory System Comprehensive Validation")
+        logger.info("%s", "=" * 60)
+        logger.info(f"Testing providers: {', '.join(self.providers)}")
+        logger.info(f"Options: coverage={self.args.coverage}, performance={self.args.performance}, stress={self.args.stress}")
+        logger.info("")
 
         start_time = time.perf_counter()
 
@@ -145,8 +146,8 @@ class ComprehensiveTestRunner:
 
     async def _run_phase_1_tests(self):
         """Run Phase 1: Foundational serialization tests"""
-        print("📋 Phase 1: Foundational Serialization Tests")
-        print("-" * 50)
+        logger.info("📋 Phase 1: Foundational Serialization Tests")
+        logger.info("%s", "-" * 50)
 
         for provider in self.providers:
             suite_result = TestSuiteResult(suite_name="Serialization Tests", provider=provider)
@@ -164,15 +165,15 @@ class ComprehensiveTestRunner:
 
             except Exception as e:
                 suite_result.errors += 1
-                print(f"❌ Phase 1 failed for {provider}: {e}")
+                logger.error(f"❌ Phase 1 failed for {provider}: {e}")
 
             self.report.suite_results.append(suite_result)
             self._print_suite_summary(suite_result)
 
     async def _run_phase_2_tests(self):
         """Run Phase 2: Lifecycle integration tests"""
-        print("\n🔄 Phase 2: Lifecycle Integration Tests")
-        print("-" * 50)
+        logger.info("\n🔄 Phase 2: Lifecycle Integration Tests")
+        logger.info("%s", "-" * 50)
 
         for provider in self.providers:
             suite_result = TestSuiteResult(suite_name="Lifecycle Tests", provider=provider)
@@ -190,15 +191,15 @@ class ComprehensiveTestRunner:
 
             except Exception as e:
                 suite_result.errors += 1
-                print(f"❌ Phase 2 failed for {provider}: {e}")
+                logger.error(f"❌ Phase 2 failed for {provider}: {e}")
 
             self.report.suite_results.append(suite_result)
             self._print_suite_summary(suite_result)
 
     async def _run_phase_3_tests(self):
         """Run Phase 3: Stress and concurrency tests"""
-        print("\n⚡ Phase 3: Stress & Concurrency Tests")
-        print("-" * 50)
+        logger.info("\n⚡ Phase 3: Stress & Concurrency Tests")
+        logger.info("%s", "-" * 50)
 
         for provider in self.providers:
             # Stress tests
@@ -216,7 +217,7 @@ class ComprehensiveTestRunner:
 
             except Exception as e:
                 stress_suite.errors += 1
-                print(f"❌ Stress tests failed for {provider}: {e}")
+                logger.error(f"❌ Stress tests failed for {provider}: {e}")
 
             self.report.suite_results.append(stress_suite)
             self._print_suite_summary(stress_suite)
@@ -236,7 +237,7 @@ class ComprehensiveTestRunner:
 
             except Exception as e:
                 cleanup_suite.errors += 1
-                print(f"❌ Cleanup tests failed for {provider}: {e}")
+                logger.error(f"❌ Cleanup tests failed for {provider}: {e}")
 
             self.report.suite_results.append(cleanup_suite)
             self._print_suite_summary(cleanup_suite)
@@ -263,7 +264,7 @@ class ComprehensiveTestRunner:
             # Add provider-specific markers if needed
             cmd.extend(["-m", f"not skip_{provider}"])
 
-        print(f"  Running {test_file} for {provider}...")
+        logger.info(f"  Running {test_file} for {provider}...")
 
         try:
             # Execute pytest
@@ -385,21 +386,19 @@ class ComprehensiveTestRunner:
 
         status_icon = "✅" if failed == 0 and errors == 0 else "❌"
 
-        print(f"  {status_icon} {suite_result.provider} - {suite_result.suite_name}")
-        print(
-            f"    Total: {total}, Passed: {passed}, Failed: {failed}, Skipped: {skipped}, Errors: {errors}"
-        )
-        print(f"    Duration: {duration:.2f}s")
+        logger.info(f"  {status_icon} {suite_result.provider} - {suite_result.suite_name}")
+        logger.error(f"    Total: {total}, Passed: {passed}, Failed: {failed}, Skipped: {skipped}, Errors: {errors}")
+        logger.info(f"    Duration: {duration:.2f}s")
 
         if failed > 0 or errors > 0:
             for result in suite_result.results:
                 if result.status in ["FAILED", "ERROR"]:
-                    print(f"    ❌ {result.test_name}: {result.error_message or 'No details'}")
+                    logger.error(f"    ❌ {result.test_name}: {result.error_message or 'No details'}")
 
     async def _run_coverage_analysis(self):
         """Run code coverage analysis"""
-        print("\n📊 Code Coverage Analysis")
-        print("-" * 50)
+        logger.info("\n📊 Code Coverage Analysis")
+        logger.info("%s", "-" * 50)
 
         try:
             # Run pytest with coverage
@@ -437,25 +436,25 @@ class ComprehensiveTestRunner:
                 coverage_percent = self.report.coverage_report["coverage_percent"]
 
                 if coverage_percent >= 95:
-                    print(f"✅ Excellent coverage: {coverage_percent:.1f}%")
+                    logger.info(f"✅ Excellent coverage: {coverage_percent:.1f}%")
                 elif coverage_percent >= 85:
-                    print(f"⚠️ Good coverage: {coverage_percent:.1f}%")
+                    logger.warning(f"⚠️ Good coverage: {coverage_percent:.1f}%")
                 else:
-                    print(f"❌ Low coverage: {coverage_percent:.1f}%")
+                    logger.error(f"❌ Low coverage: {coverage_percent:.1f}%")
                     self.report.critical_issues.append(
                         f"Code coverage below 85%: {coverage_percent:.1f}%"
                     )
 
             except FileNotFoundError:
-                print("❌ Coverage report not generated")
+                logger.error("❌ Coverage report not generated")
 
         except Exception as e:
-            print(f"❌ Coverage analysis failed: {e}")
+            logger.error(f"❌ Coverage analysis failed: {e}")
 
     async def _run_performance_benchmarks(self):
         """Run performance benchmarks"""
-        print("\n⚡ Performance Benchmarks")
-        print("-" * 50)
+        logger.info("\n⚡ Performance Benchmarks")
+        logger.info("%s", "-" * 50)
 
         try:
             # Create a simple benchmark provider
@@ -495,12 +494,8 @@ class ComprehensiveTestRunner:
             }
 
             metrics = self.report.performance_metrics
-            print(
-                f"✅ Store: {metrics['store_ops_per_sec']:.2f} ops/sec ({metrics['avg_store_time_ms']:.2f}ms avg)"
-            )
-            print(
-                f"✅ Get: {metrics['get_ops_per_sec']:.2f} ops/sec ({metrics['avg_get_time_ms']:.2f}ms avg)"
-            )
+            logger.info(f"✅ Store: {metrics['store_ops_per_sec']:.2f} ops/sec ({metrics['avg_store_time_ms']:.2f}ms avg)")
+            logger.info(f"✅ Get: {metrics['get_ops_per_sec']:.2f} ops/sec ({metrics['avg_get_time_ms']:.2f}ms avg)")
 
             # Performance thresholds
             if metrics["store_ops_per_sec"] < 100:
@@ -514,7 +509,7 @@ class ComprehensiveTestRunner:
                 )
 
         except Exception as e:
-            print(f"❌ Performance benchmarks failed: {e}")
+            logger.error(f"❌ Performance benchmarks failed: {e}")
 
     def _analyze_results(self):
         """Analyze all test results and generate recommendations"""
@@ -573,8 +568,8 @@ class ComprehensiveTestRunner:
 
     async def _generate_validation_report(self):
         """Generate comprehensive validation report"""
-        print("\n📋 Generating Validation Report")
-        print("-" * 50)
+        logger.info("\n📋 Generating Validation Report")
+        logger.info("%s", "-" * 50)
 
         report_path = Path("a2a_memory_validation_report.json")
 
@@ -616,12 +611,12 @@ class ComprehensiveTestRunner:
         with open(report_path, "w") as f:
             json.dump(report_dict, f, indent=2)
 
-        print(f"✅ Validation report saved to: {report_path}")
+        logger.info(f"✅ Validation report saved to: {report_path}")
 
         # Generate markdown summary
         md_path = Path("a2a_memory_validation_summary.md")
         await self._generate_markdown_summary(md_path)
-        print(f"✅ Summary report saved to: {md_path}")
+        logger.info(f"✅ Summary report saved to: {md_path}")
 
     async def _generate_markdown_summary(self, md_path: Path):
         """Generate markdown summary report"""
@@ -675,9 +670,9 @@ class ComprehensiveTestRunner:
 
     def print_final_summary(self):
         """Print final validation summary"""
-        print("\n" + "=" * 60)
-        print("🏁 A2A MEMORY SYSTEM VALIDATION COMPLETE")
-        print("=" * 60)
+        logger.info("%s", "\n" + "=" * 60)
+        logger.info("🏁 A2A MEMORY SYSTEM VALIDATION COMPLETE")
+        logger.info("%s", "=" * 60)
 
         total_tests = sum(suite.total_tests for suite in self.report.suite_results)
         total_passed = sum(suite.passed for suite in self.report.suite_results)
@@ -686,37 +681,35 @@ class ComprehensiveTestRunner:
 
         success_rate = (total_passed / total_tests * 100) if total_tests > 0 else 0
 
-        print("📊 RESULTS SUMMARY:")
-        print(f"   Total Tests: {total_tests}")
-        print(f"   Passed: {total_passed}")
-        print(f"   Failed: {total_failed}")
-        print(f"   Errors: {total_errors}")
-        print(f"   Success Rate: {success_rate:.1f}%")
-        print(f"   Duration: {self.report.total_duration_ms / 1000:.2f} seconds")
+        logger.info("📊 RESULTS SUMMARY:")
+        logger.info(f"   Total Tests: {total_tests}")
+        logger.info(f"   Passed: {total_passed}")
+        logger.warning(f"   Failed: {total_failed}")
+        logger.error(f"   Errors: {total_errors}")
+        logger.info(f"   Success Rate: {success_rate:.1f}%")
+        logger.info(f"   Duration: {self.report.total_duration_ms / 1000:.2f} seconds")
 
         if self.report.coverage_report:
             coverage = self.report.coverage_report["coverage_percent"]
-            print(f"   Code Coverage: {coverage:.1f}%")
+            logger.info(f"   Code Coverage: {coverage:.1f}%")
 
         if self.report.performance_metrics:
             metrics = self.report.performance_metrics
-            print(
-                f"   Performance: Store {metrics['store_ops_per_sec']:.0f} ops/s, Get {metrics['get_ops_per_sec']:.0f} ops/s"
-            )
+            logger.info(f"   Performance: Store {metrics['store_ops_per_sec']:.0f} ops/s, Get {metrics['get_ops_per_sec']:.0f} ops/s")
 
-        print(f"\n🎯 FINAL VERDICT: {self.report.final_verdict}")
+        logger.info(f"\n🎯 FINAL VERDICT: {self.report.final_verdict}")
 
         if self.report.critical_issues:
-            print(f"\n🚨 CRITICAL ISSUES ({len(self.report.critical_issues)}):")
+            logger.warning(f"\n🚨 CRITICAL ISSUES ({len(self.report.critical_issues)}):")
             for issue in self.report.critical_issues:
-                print(f"   ❌ {issue}")
+                logger.error(f"   ❌ {issue}")
 
         if self.report.recommendations:
-            print(f"\n💡 RECOMMENDATIONS ({len(self.report.recommendations)}):")
+            logger.info(f"\n💡 RECOMMENDATIONS ({len(self.report.recommendations)}):")
             for rec in self.report.recommendations:
-                print(f"   • {rec}")
+                logger.info(f"   • {rec}")
 
-        print("\n" + "=" * 60)
+        logger.info("%s", "\n" + "=" * 60)
 
 
 async def main():
@@ -748,12 +741,13 @@ async def main():
             sys.exit(0)  # Success
 
     except KeyboardInterrupt:
-        print("\n❌ Test run interrupted by user")
+        logger.error("\n❌ Test run interrupted by user")
         sys.exit(2)
     except Exception as e:
-        print(f"\n❌ Test run failed with exception: {e}")
+        logger.error(f"\n❌ Test run failed with exception: {e}")
         sys.exit(3)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     asyncio.run(main())

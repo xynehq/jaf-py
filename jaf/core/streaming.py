@@ -6,7 +6,9 @@ enabling progressive output delivery and improved user experience.
 """
 
 import asyncio
+import dataclasses
 import json
+import logging
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -27,6 +29,8 @@ from .types import (
     ErrorOutcome,
     ModelBehaviorError,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class StreamingEventType(str, Enum):
@@ -296,53 +300,52 @@ async def run_streaming(
                 # Queue full - drop event silently for performance
                 pass
 
-    streaming_config = RunConfig(
-        agent_registry=config.agent_registry,
-        model_provider=config.model_provider,
-        max_turns=config.max_turns,
-        model_override=config.model_override,
-        initial_input_guardrails=config.initial_input_guardrails,
-        final_output_guardrails=config.final_output_guardrails,
-        on_event=event_handler,
-        memory=config.memory,
-        conversation_id=config.conversation_id,
-        prefer_streaming=config.prefer_streaming,
-    )
+    # Copy every setting from the caller's config; only the event handler is swapped.
+    # (Listing fields by hand silently dropped any setting that was not listed.)
+    streaming_config = dataclasses.replace(config, on_event=event_handler)
 
     from .engine import run
 
     run_task = asyncio.create_task(run(initial_state, streaming_config))
 
-    while not run_task.done() or not event_queue.empty():
-        if event_queue.empty():
-            await event_available.wait()
-            event_available.clear()
-            continue
-        try:
-            event = event_queue.get_nowait()
-            yield event
-            if event.type == StreamingEventType.ERROR:
-                if not run_task.done():
-                    run_task.cancel()
-                return
-        except asyncio.QueueEmpty:
-            continue
-        except asyncio.CancelledError:
-            if not run_task.done():
-                run_task.cancel()
-            raise
-
     try:
-        result = await run_task
-    except Exception as e:
-        error = ModelBehaviorError(detail=str(e))
-        yield StreamingEvent(
-            type=StreamingEventType.ERROR,
-            data=error,
-            run_id=initial_state.run_id,
-            trace_id=initial_state.trace_id,
-        )
-        return
+        while True:
+            # Hand every queued event to the consumer first
+            while not event_queue.empty():
+                event = event_queue.get_nowait()
+                yield event
+                if event.type == StreamingEventType.ERROR:
+                    return
+
+            if run_task.done():
+                break
+
+            # Wait for a new event OR the run finishing, so neither wake-up can be missed
+            event_available.clear()
+            if not event_queue.empty():
+                continue  # an event arrived between the drain and the clear
+            waiter = asyncio.ensure_future(event_available.wait())
+            try:
+                await asyncio.wait({run_task, waiter}, return_when=asyncio.FIRST_COMPLETED)
+            finally:
+                waiter.cancel()
+
+        try:
+            result = await run_task
+        except Exception as e:
+            logger.exception(f"[JAF:STREAMING] Run failed: {e}")
+            error = ModelBehaviorError(detail="The run failed")
+            yield StreamingEvent(
+                type=StreamingEventType.ERROR,
+                data=error,
+                run_id=initial_state.run_id,
+                trace_id=initial_state.trace_id,
+            )
+            return
+    finally:
+        # Consumer disconnected, errored out, or the stream was cancelled: stop the background run
+        if not run_task.done():
+            run_task.cancel()
 
     if result.outcome.status == "completed":
         final_content = str(result.outcome.output) if result.outcome.output else ""
@@ -390,9 +393,14 @@ async def run_streaming(
             trace_id=initial_state.trace_id,
         )
     else:
+        error = result.outcome.error
+        if isinstance(error, ModelBehaviorError):
+            # The detail is raw exception text; keep it in the logs, not in the client stream
+            logger.error(f"[JAF:STREAMING] Run ended with an error: {error.detail}")
+            error = ModelBehaviorError(detail="The run failed")
         yield StreamingEvent(
             type=StreamingEventType.ERROR,
-            data=result.outcome.error,
+            data=error,
             run_id=initial_state.run_id,
             trace_id=initial_state.trace_id,
         )

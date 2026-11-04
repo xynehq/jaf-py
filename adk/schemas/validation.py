@@ -54,9 +54,10 @@ def validate_schema(data: Any, schema: JsonSchema) -> ValidationResult:
     # Type-specific validation
     if schema_type == "string" and isinstance(data, str):
         return validate_string(data, schema)
-    elif schema_type == "number" and isinstance(data, (int, float)):
+    # bool is a subclass of int in Python, but True/False are not numbers in a schema
+    elif schema_type == "number" and isinstance(data, (int, float)) and not isinstance(data, bool):
         return validate_number(data, schema)
-    elif schema_type == "integer" and isinstance(data, (int, float)):
+    elif schema_type == "integer" and isinstance(data, (int, float)) and not isinstance(data, bool):
         return validate_number(data, schema)
     elif schema_type == "array" and isinstance(data, list):
         return validate_array(data, schema)
@@ -140,6 +141,10 @@ def validate_number(data: Union[int, float], schema: JsonSchema) -> ValidationRe
         ValidationResult with validation status and errors
     """
     errors: List[str] = []
+
+    # NaN and infinity compare False against every bound, so they would slip through the range checks
+    if isinstance(data, float) and not math.isfinite(data):
+        return ValidationResult(success=False, errors=["Number must be finite"])
 
     # Type validation (integer check)
     if schema.get("type") == "integer" and not isinstance(data, int) and not data.is_integer():
@@ -329,6 +334,9 @@ def _validate_string_format(data: str, format_name: str) -> Optional[str]:
             result = urlparse(data)
             if not all([result.scheme, result.netloc]):
                 return "Invalid URL format"
+            # javascript:, file:, gopher: and similar must not pass as a "URL"
+            if result.scheme.lower() not in ("http", "https", "ftp", "ftps"):
+                return "URL scheme not allowed"
         except Exception:
             return "Invalid URL format"
 

@@ -5,15 +5,19 @@ This module provides guardrails and validation functions to ensure
 safe and reliable agent behavior.
 """
 
+import contextvars
 import json
+import logging
 import re
 import time
 from dataclasses import dataclass, field
-from typing import Any, List, Optional
+from typing import Any, Callable, Dict, Hashable, List, Optional
 
 from pydantic import BaseModel, ValidationError
 
 from ..core.types import Guardrail, InvalidValidationResult, ValidationResult, ValidValidationResult
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -75,7 +79,8 @@ def create_content_filter_guardrail(
 
     Args:
         blocked_patterns: Regex patterns that should be blocked
-        allowed_patterns: Regex patterns that override blocks (allowlist)
+        allowed_patterns: Regex patterns whose matches are exempt from blocking. Only the
+            matched text is exempt, not the whole message.
         case_sensitive: Whether pattern matching is case sensitive
         config: Optional guardrail configuration
 
@@ -95,17 +100,18 @@ def create_content_filter_guardrail(
         if not config.enabled:
             return ValidValidationResult()
 
-        # Check blocked patterns
-        for pattern in compiled_blocked:
-            if pattern.search(text):
-                # Check if allowed patterns override the block
-                is_allowed = any(allowed.search(text) for allowed in compiled_allowed)
+        # Spans of text the allowlist vouches for
+        allowed_spans = [m.span() for allowed in compiled_allowed for m in allowed.finditer(text)]
 
-                if not is_allowed:
-                    message = (
-                        config.custom_message or f"Content blocked by pattern: {pattern.pattern}"
-                    )
-                    return InvalidValidationResult(error_message=message)
+        for pattern in compiled_blocked:
+            for match in pattern.finditer(text):
+                start, end = match.span()
+                # A blocked match is excused only if an allowed match fully covers it;
+                # an allowed phrase elsewhere in the text must not hide a real hit.
+                if any(a_start <= start and end <= a_end for a_start, a_end in allowed_spans):
+                    continue
+                message = config.custom_message or f"Content blocked by pattern: {pattern.pattern}"
+                return InvalidValidationResult(error_message=message)
 
         return ValidValidationResult()
 
@@ -163,10 +169,20 @@ class RateLimitState:
     max_calls: int = 10
 
 
+# Who the current request belongs to. Guardrails only receive the message text, so the app
+# (the JAF server does this for authenticated /chat calls) sets this for per-user rate limits.
+rate_limit_key: contextvars.ContextVar[Optional[Hashable]] = contextvars.ContextVar(
+    "jaf_rate_limit_key", default=None
+)
+
+MAX_RATE_LIMIT_KEYS = 10000  # bounds memory when many distinct keys show up
+
+
 def create_rate_limit_guardrail(
     max_calls: int = 10,
     window_size: float = 60.0,  # seconds
     config: Optional[GuardrailConfig] = None,
+    key_fn: Optional[Callable[[Any], Optional[Hashable]]] = None,
 ) -> Guardrail:
     """
     Create a guardrail that implements rate limiting.
@@ -175,18 +191,31 @@ def create_rate_limit_guardrail(
         max_calls: Maximum number of calls allowed in the window
         window_size: Time window in seconds
         config: Optional guardrail configuration
+        key_fn: Optional function choosing whose quota a call counts against, given the guardrail
+            input. When omitted, the ``rate_limit_key`` context variable is used. With neither,
+            all calls share one counter (the previous behaviour).
 
     Returns:
         Guardrail function
     """
     config = config or GuardrailConfig()
-    state = RateLimitState(window_size=window_size, max_calls=max_calls)
+    states: Dict[Optional[Hashable], RateLimitState] = {}
 
     def rate_limit_guardrail(data: Any) -> ValidationResult:
         if not config.enabled:
             return ValidValidationResult()
 
         current_time = time.time()
+
+        key = key_fn(data) if key_fn else rate_limit_key.get()
+        state = states.get(key)
+        if state is None:
+            if len(states) >= MAX_RATE_LIMIT_KEYS:
+                # Forget keys with no recent calls; if none are idle, drop the oldest
+                idle = [k for k, st in states.items() if not st.calls or st.calls[-1] <= current_time - window_size]
+                for k in idle or [next(iter(states))]:
+                    states.pop(k, None)
+            state = states[key] = RateLimitState(window_size=window_size, max_calls=max_calls)
 
         # Remove old calls outside the window
         cutoff_time = current_time - state.window_size
@@ -249,9 +278,8 @@ def combine_guardrails(
                     return result
 
             except Exception as e:
-                error_result = InvalidValidationResult(
-                    error_message=f"Guardrail execution error: {e!s}"
-                )
+                logger.error(f"Guardrail execution error: {e}", exc_info=True)
+                error_result = InvalidValidationResult(error_message="Guardrail execution error")
 
                 if require_all:
                     return error_result
@@ -280,8 +308,10 @@ def create_safe_text_guardrail(config: Optional[GuardrailConfig] = None) -> Guar
             create_length_guardrail(max_length=10000, min_length=1),
             create_content_filter_guardrail(
                 [
-                    r"<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>",  # Script tags
-                    r"javascript:",  # JavaScript URLs
+                    r"<\s*script",  # Script tags (open tag is enough; closing can be omitted)
+                    r"<\s*(?:iframe|object|embed|svg)\b",  # Active embedded content
+                    r"\bon(?:error|load|click|mouse\w+|key\w+|focus|blur|change|submit|input|toggle|animation\w+)\s*=",  # Inline event handlers
+                    r"javascript\s*:",  # JavaScript URLs
                     r"data:.*base64",  # Base64 data URLs
                 ],
                 case_sensitive=False,

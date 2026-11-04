@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 from collections import defaultdict
 
 from .base import AdkSessionProvider, AdkSessionConfig
+from .session_ids import is_acceptable_session_id
 from ..types import AdkSession, AdkMessage, AdkResult, AdkSuccess, AdkFailure
 from ..errors import AdkSessionError, AdkErrorType
 
@@ -80,6 +81,13 @@ class AdkInMemorySessionProvider(AdkSessionProvider):
             async with self._lock:
                 if session_id is None:
                     session_id = str(uuid.uuid4())
+                elif not is_acceptable_session_id(session_id):
+                    return AdkFailure(
+                        AdkSessionError(
+                            "Invalid session id: use a random id of 32-128 URL-safe characters or omit it",
+                            error_type=AdkErrorType.VALIDATION,
+                        )
+                    )
 
                 # Check if session already exists
                 if session_id in self.sessions:
@@ -119,7 +127,7 @@ class AdkInMemorySessionProvider(AdkSessionProvider):
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Failed to create session: {e}", error_type=AdkErrorType.INTERNAL, cause=e
+                    f"Failed to create session ({type(e).__name__})", error_type=AdkErrorType.INTERNAL, cause=e
                 )
             )
 
@@ -150,7 +158,7 @@ class AdkInMemorySessionProvider(AdkSessionProvider):
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Failed to get session: {e}",
+                    f"Failed to get session ({type(e).__name__})",
                     session_id=session_id,
                     error_type=AdkErrorType.INTERNAL,
                     cause=e,
@@ -170,6 +178,17 @@ class AdkInMemorySessionProvider(AdkSessionProvider):
                         )
                     )
 
+                stored = self.sessions[session.session_id]
+                # The owner and app of a session can never be changed through an update
+                if stored.user_id != session.user_id or stored.app_name != session.app_name:
+                    return AdkFailure(
+                        AdkSessionError(
+                            "Session owner cannot be changed",
+                            session_id=session.session_id,
+                            error_type=AdkErrorType.VALIDATION,
+                        )
+                    )
+
                 session.updated_at = datetime.now(timezone.utc)
                 self.sessions[session.session_id] = session
                 self._update_expiry(session.session_id)
@@ -179,7 +198,7 @@ class AdkInMemorySessionProvider(AdkSessionProvider):
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Failed to update session: {e}",
+                    f"Failed to update session ({type(e).__name__})",
                     session_id=session.session_id,
                     error_type=AdkErrorType.INTERNAL,
                     cause=e,
@@ -204,7 +223,7 @@ class AdkInMemorySessionProvider(AdkSessionProvider):
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Failed to delete session: {e}",
+                    f"Failed to delete session ({type(e).__name__})",
                     session_id=session_id,
                     error_type=AdkErrorType.INTERNAL,
                     cause=e,
@@ -241,7 +260,7 @@ class AdkInMemorySessionProvider(AdkSessionProvider):
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Failed to add message: {e}",
+                    f"Failed to add message ({type(e).__name__})",
                     session_id=session_id,
                     error_type=AdkErrorType.INTERNAL,
                     cause=e,
@@ -270,7 +289,7 @@ class AdkInMemorySessionProvider(AdkSessionProvider):
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Failed to get messages: {e}",
+                    f"Failed to get messages ({type(e).__name__})",
                     session_id=session_id,
                     error_type=AdkErrorType.INTERNAL,
                     cause=e,
@@ -303,7 +322,7 @@ class AdkInMemorySessionProvider(AdkSessionProvider):
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Failed to get user sessions: {e}",
+                    f"Failed to get user sessions ({type(e).__name__})",
                     user_id=user_id,
                     error_type=AdkErrorType.INTERNAL,
                     cause=e,
@@ -336,7 +355,7 @@ class AdkInMemorySessionProvider(AdkSessionProvider):
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Failed to cleanup expired sessions: {e}",
+                    f"Failed to cleanup expired sessions ({type(e).__name__})",
                     error_type=AdkErrorType.INTERNAL,
                     cause=e,
                 )
@@ -363,7 +382,7 @@ class AdkInMemorySessionProvider(AdkSessionProvider):
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Failed to get stats: {e}", error_type=AdkErrorType.INTERNAL, cause=e
+                    f"Failed to get stats ({type(e).__name__})", error_type=AdkErrorType.INTERNAL, cause=e
                 )
             )
 
@@ -384,7 +403,7 @@ class AdkInMemorySessionProvider(AdkSessionProvider):
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Health check failed: {e}", error_type=AdkErrorType.INTERNAL, cause=e
+                    f"Health check failed ({type(e).__name__})", error_type=AdkErrorType.INTERNAL, cause=e
                 )
             )
 
@@ -410,7 +429,7 @@ class AdkInMemorySessionProvider(AdkSessionProvider):
         except Exception as e:
             return AdkFailure(
                 AdkSessionError(
-                    f"Failed to close provider: {e}", error_type=AdkErrorType.INTERNAL, cause=e
+                    f"Failed to close provider ({type(e).__name__})", error_type=AdkErrorType.INTERNAL, cause=e
                 )
             )
 

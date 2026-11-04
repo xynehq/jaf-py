@@ -5,13 +5,17 @@ This module provides a complete A2A client implementation without relative impor
 
 import asyncio
 import json
+import logging
 import time
 import uuid
 from collections.abc import AsyncGenerator
 from typing import Any, Dict, Optional
+from urllib.parse import quote
 
 import httpx
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
 
 
 # Standalone types for the client
@@ -22,6 +26,7 @@ class StandaloneA2AClientConfig(BaseModel):
 
     base_url: str = Field(alias="baseUrl")
     timeout: Optional[int] = None
+    headers: Optional[Dict[str, str]] = None
 
 
 class StandaloneA2AClientState(BaseModel):
@@ -44,8 +49,9 @@ def create_standalone_a2a_client(
         config=StandaloneA2AClientConfig(
             baseUrl=base_url.rstrip("/"),  # Remove trailing slash
             timeout=config.get("timeout", 30000),
+            headers=config.get("headers"),
         ),
-        sessionId=f"client_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}",
+        sessionId=f"client_{int(time.time() * 1000)}_{uuid.uuid4().hex}",
     )
 
 
@@ -92,7 +98,10 @@ def create_standalone_streaming_message_request(
 
 
 async def send_standalone_http_request(
-    url: str, body: Dict[str, Any], timeout: int = 30000
+    url: str,
+    body: Dict[str, Any],
+    timeout: int = 30000,
+    headers: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     """Pure function to send HTTP request"""
     timeout_seconds = timeout / 1000.0
@@ -102,7 +111,11 @@ async def send_standalone_http_request(
             response = await client.post(
                 url,
                 json=body,
-                headers={"Content-Type": "application/json", "Accept": "application/json"},
+                headers={
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    **(headers or {}),
+                },
             )
 
             if not response.is_success:
@@ -119,7 +132,9 @@ async def send_standalone_a2a_request(
 ) -> Dict[str, Any]:
     """Pure function to send A2A request"""
     url = f"{client.config.base_url}/a2a"
-    return await send_standalone_http_request(url, request, client.config.timeout)
+    return await send_standalone_http_request(
+        url, request, client.config.timeout, client.config.headers
+    )
 
 
 async def send_standalone_message(
@@ -151,7 +166,11 @@ async def stream_standalone_message(
                 "POST",
                 url,
                 json=request,
-                headers={"Content-Type": "application/json", "Accept": "text/event-stream"},
+                headers={
+                    "Content-Type": "application/json",
+                    "Accept": "text/event-stream",
+                    **(client.config.headers or {}),
+                },
             ) as response:
                 if not response.is_success:
                     raise Exception(f"HTTP {response.status_code}: {response.text}")
@@ -171,7 +190,7 @@ async def stream_standalone_message(
                                     if "result" in event:
                                         yield event["result"]
                                 except json.JSONDecodeError:
-                                    print(f"Failed to parse SSE data: {data}")
+                                    logger.warning(f"Failed to parse SSE data: {data}")
                                     continue
 
         except httpx.TimeoutException:
@@ -183,7 +202,9 @@ async def get_standalone_agent_card(client: StandaloneA2AClientState) -> Dict[st
     url = f"{client.config.base_url}/.well-known/agent-card"
 
     async with httpx.AsyncClient(timeout=client.config.timeout / 1000.0) as http_client:
-        response = await http_client.get(url, headers={"Accept": "application/json"})
+        response = await http_client.get(
+            url, headers={"Accept": "application/json", **(client.config.headers or {})}
+        )
 
         if not response.is_success:
             raise Exception(f"Failed to get agent card: HTTP {response.status_code}")
@@ -199,9 +220,11 @@ async def send_standalone_message_to_agent(
 ) -> str:
     """Pure function to send message to specific agent"""
     request = create_standalone_message_request(message, client.session_id, configuration)
-    url = f"{client.config.base_url}/a2a/agents/{agent_name}"
+    url = f"{client.config.base_url}/a2a/agents/{quote(agent_name, safe='')}"
 
-    response = await send_standalone_http_request(url, request, client.config.timeout)
+    response = await send_standalone_http_request(
+        url, request, client.config.timeout, client.config.headers
+    )
 
     if "error" in response:
         error = response["error"]
@@ -292,22 +315,20 @@ async def main_example():
         # Connect to A2A server
         connection = await connect_to_standalone_a2a_agent("http://localhost:3000")
 
-        print("Connected to A2A server!")
-        print(
-            f"Available agents: {[skill['name'] for skill in connection['agent_card']['skills']]}"
-        )
+        logger.debug("Connected to A2A server!")
+        logger.debug(f"Available agents: {[skill['name'] for skill in connection['agent_card']['skills']]}")
 
         # Send a message
         response = await connection["ask"]("Hello, how can you help me?")
-        print(f"Response: {response}")
+        logger.debug(f"Response: {response}")
 
         # Send message to specific agent
         if "ask_agent" in connection:
             math_response = await connection["ask_agent"]("MathTutor", "What is 5 + 3?")
-            print(f"Math response: {math_response}")
+            logger.debug(f"Math response: {math_response}")
 
     except Exception as e:
-        print(f"Error: {e}")
+        logger.error(f"Error: {e}")
 
 
 if __name__ == "__main__":

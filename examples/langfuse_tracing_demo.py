@@ -14,8 +14,9 @@ from jaf.providers.model import make_litellm_provider
 # Set the LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY to enable Langfuse tracing
 # Get these from your Langfuse project settings -> API Keys
 # For local Langfuse instance, visit http://localhost:3000 and get your API keys
-os.environ["LANGFUSE_PUBLIC_KEY"] = os.getenv("LANGFUSE_PUBLIC_KEY", "pk-lf-your-public-key-here")
-os.environ["LANGFUSE_SECRET_KEY"] = os.getenv("LANGFUSE_SECRET_KEY", "sk-lf-your-secret-key-here")
+for _key_name in ("LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"):
+    if not os.getenv(_key_name):
+        raise SystemExit(f"{_key_name} must be set (create keys at http://localhost:3000)")
 os.environ["LANGFUSE_HOST"] = "http://localhost:3000"  # For local Langfuse v2 server
 
 
