@@ -2486,7 +2486,7 @@ wheels = [
 
 [[package]]
 name = "jaf-py"
-version = "2.6.22"
+version = "2.7.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
