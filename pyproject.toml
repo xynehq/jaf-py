@@ -41,25 +41,27 @@ dependencies = [
     "httpx-sse>=0.4.0",
     "google-generativeai>=0.3.0",
     "google-auth>=2.20.0",
-    "python-dotenv>=1.0.0",
+    "python-dotenv>=1.2.2",
     "psutil>=5.9.0",
-    "fastmcp>=0.1.0",
-    "opentelemetry-api>=1.22.0",
-    "opentelemetry-sdk>=1.22.0",
-    "opentelemetry-exporter-otlp>=1.22.0",
+    "fastmcp>=3.2.0",
+    "opentelemetry-api>=1.45.1",
+    "opentelemetry-sdk>=1.45.1",
+    "opentelemetry-exporter-otlp>=1.45.1",
     "langfuse<3.0.0",
-    "litellm>=1.76.3"
+    # Floor clears the known LiteLLM advisories (1.95.1+). 1.107.0 was a malicious release
+    # (Oct 2026) and 1.82.7/1.82.8 were malicious (Mar 2026); exclude them even if a mirror still serves them.
+    "litellm>=1.95.1,!=1.107.0,!=1.82.7,!=1.82.8",
 ]
 
 [project.optional-dependencies]
 tracing = [
-    "opentelemetry-api>=1.22.0",
-    "opentelemetry-sdk>=1.22.0",
-    "opentelemetry-exporter-otlp>=1.22.0",
+    "opentelemetry-api>=1.45.1",
+    "opentelemetry-sdk>=1.45.1",
+    "opentelemetry-exporter-otlp>=1.45.1",
     "langfuse<3.0.0",
 ]
 attachments = [
-    "PyPDF2>=3.0.0",
+    "pypdf>=6.21.0",
     "python-docx>=1.1.0",
     "openpyxl>=3.1.0",
     "pillow>=11.0.0",
@@ -68,7 +70,7 @@ attachments = [
     "aiofiles>=23.0.0",
 ]
 dev = [
-    "pytest>=7.0.0",
+    "pytest>=9.0.3",
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.0.0",
     "respx>=0.20.0",

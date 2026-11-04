@@ -35,11 +35,16 @@ from ..core.types import Attachment
 
 # Optional imports with graceful fallbacks
 try:
-    import PyPDF2
+    import pypdf as _pdf_lib
 
     HAS_PDF = True
 except ImportError:
-    HAS_PDF = False
+    try:  # PyPDF2 is abandoned (known advisory); only used if pypdf is not installed
+        import PyPDF2 as _pdf_lib
+
+        HAS_PDF = True
+    except ImportError:
+        HAS_PDF = False
 
 try:
     from docx import Document
@@ -262,7 +267,7 @@ async def _extract_pdf_content(content_bytes: bytes) -> ProcessedDocument:
     try:
         # Run PDF processing in thread pool to avoid blocking
         def _process_pdf() -> ProcessedDocument:
-            reader = PyPDF2.PdfReader(io.BytesIO(content_bytes))
+            reader = _pdf_lib.PdfReader(io.BytesIO(content_bytes))
             text_parts = []
 
             for page in reader.pages:
@@ -556,7 +561,7 @@ def get_missing_dependencies() -> List[str]:
     missing = []
 
     if not HAS_PDF:
-        missing.append("PyPDF2 (for PDF processing)")
+        missing.append("pypdf (for PDF processing)")
     if not HAS_DOCX:
         missing.append("python-docx (for Word document processing)")
     if not HAS_EXCEL:

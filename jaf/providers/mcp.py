@@ -180,7 +180,9 @@ class FastMCPTool:
                     timeout=self.timeout,  # None means no limit
                 )
 
-                if result.isError:
+                # fastmcp >= 3 renamed isError -> is_error; the old name is deprecated
+                is_error = result.is_error if hasattr(result, "is_error") else result.isError
+                if is_error:
                     from ..core.tool_results import ToolErrorInfo
 
                     error_message = "MCP tool execution failed"
